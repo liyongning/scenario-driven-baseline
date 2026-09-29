@@ -6,6 +6,10 @@
 
 新业务按示例组织 integration、FLOW、Fixture 和 reporter 绑定；场景事实来自有效 Spec，测试只消费公开包入口并保留实际证据。工具门禁的反例使用受控临时仓库，不把替身结果冒充 SDK 运行证据。
 
+integration 用例置于 `tests/example/`，跨阶段流程使用独立的 `FLOW-*.spec.ts` 并在同一次运行中从公共入口执行到底。每个 owner 的 `tests/fixtures/<owner-id>/manifest.json` 记录 Spec 路径与摘要，case 数据独立成 JSON；用 `defineCase` 的 checkpoint 和 flow 绑定运行证据。小程序用例置于 `tests/weapp/example/`，通过宿主 runner 调用 SDK 公共入口。
+
+`host/weapp/example-runner.ts` 只装配生产 SDK 并暴露 `runExampleCase`，`tests/weapp/example/` 通过现有 automator driver 调用它；网络记录必须来自 Shadow 观察到的真实小程序 `wx.request`。
+
 ## 当前业务：支付
 
 

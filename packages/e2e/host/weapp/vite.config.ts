@@ -14,3 +14,17 @@ export default defineConfig({
     },
   },
 });
+
+export const exampleConfig = defineConfig({
+  build: {
+    target: 'es2020',
+    outDir: fileURLToPath(new URL('./.generated', import.meta.url)),
+    emptyOutDir: false,
+    minify: false,
+    lib: {
+      entry: fileURLToPath(new URL('./example-runner.ts', import.meta.url)),
+      formats: ['cjs'],
+      fileName: () => 'example-runner.js',
+    },
+  },
+});
