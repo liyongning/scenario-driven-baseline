@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readSpecInventory } from './lib/spec-inventory.ts';
+import { readEffectiveSpecs } from './lib/spec-sources.ts';
+import { loadScenarioConfig } from './lib/scenario-config.ts';
 import { buildContractInventory } from './lib/contract-inventory.ts';
 import { buildVerificationFingerprints } from './lib/fingerprints.ts';
 
@@ -278,11 +280,8 @@ export async function runScenariosCli(
     const result = evaluateCoverage(input);
     return { output: result, exitCode: Math.min(1, result.issues.length) };
   }
-  const specPaths = [
-    resolve(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md'),
-    resolve(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md'),
-  ];
-  const specs = await readSpecInventory(specPaths);
+  const effective = await readEffectiveSpecs(root);
+  const specs = await readSpecInventory(effective.documents, await loadScenarioConfig(root));
   const contracts = await buildContractInventory(root);
   const fingerprints = buildVerificationFingerprints(root);
   const reportArguments = argv.flatMap((value, index) => value === '--report' && argv[index + 1] ? [resolve(root, argv[index + 1]!)] : []);
@@ -310,7 +309,7 @@ export async function runScenariosCli(
     contractFields: contracts.discoveries,
     contracts: contracts.obligations,
     summaries: coverage.summaries,
-    issues: [...specs.issues, ...contracts.issues, ...loaded.issues, ...coverage.issues],
+    issues: [...effective.issues, ...specs.issues, ...contracts.issues, ...loaded.issues, ...coverage.issues],
     digests: fingerprints,
   };
   return { output, exitCode: Math.min(1, output.issues.length) };

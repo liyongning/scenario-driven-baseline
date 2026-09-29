@@ -1,0 +1,6 @@
+{
+  "$schema": "./scenario-gate.config.schema.json",
+  "scenarioIdPatterns": ["^TC-PAYSDK-[A-Z0-9-]+$", "^SCN-SCENARIO-GATE-[0-9]{3}$", "^SCN-TEMPLATE-EXAMPLE-[0-9]{3}$"],
+  "flowIdPatterns": ["^FLOW-PAYSDK-[0-9]{3}$", "^FLOW-TEMPLATE-EXAMPLE-[0-9]{3}$"],
+  "ownerIdPattern": "^(?:TC|FLOW|SCN)-[A-Z0-9-]+$"
+}

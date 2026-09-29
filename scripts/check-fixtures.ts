@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
+import { loadScenarioConfig } from './lib/scenario-config.ts';
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
 type Manifest = Readonly<{
@@ -19,6 +20,8 @@ export async function checkFixtures(options: Readonly<{ fixtureRoot: string; rep
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
   const issues: string[] = [];
+  const config = await loadScenarioConfig(options.repositoryRoot);
+  const ownerPattern = new RegExp(config.ownerIdPattern);
   const entries = await readdir(options.fixtureRoot, { withFileTypes: true });
   let manifests = 0;
   for (const entry of entries.filter(item => item.isDirectory())) {
@@ -27,6 +30,7 @@ export async function checkFixtures(options: Readonly<{ fixtureRoot: string; rep
     try { manifestText = await readFile(join(directory, 'manifest.json'), 'utf8'); }
     catch { issues.push(`${entry.name}: manifest.json missing`); continue; }
     manifests += 1;
+    if (!ownerPattern.test(entry.name)) issues.push(`${entry.name}: ownerId does not match configured format`);
     let manifest: Manifest;
     try { manifest = JSON.parse(manifestText) as Manifest; }
     catch { issues.push(`${entry.name}: manifest JSON invalid`); continue; }

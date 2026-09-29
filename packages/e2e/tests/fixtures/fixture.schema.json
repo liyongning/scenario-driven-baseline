@@ -5,7 +5,7 @@
   "required": ["formatVersion", "ownerId", "sources", "cases", "sha256"],
   "properties": {
     "formatVersion": { "const": 1 },
-    "ownerId": { "type": "string", "pattern": "^(TC|FLOW)-PAYSDK-" },
+    "ownerId": { "type": "string", "pattern": "^[A-Z][A-Z0-9-]*$", "description": "ownerId 的基础形态；项目允许的具体格式由 scenario-gate.config.json 校验。" },
     "sources": { "type": "object", "minProperties": 1 },
     "cases": {
       "type": "object",

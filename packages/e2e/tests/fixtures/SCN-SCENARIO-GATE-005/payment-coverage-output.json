@@ -1,0 +1,45 @@
+{
+  "required": 0,
+  "executed": 0,
+  "passed": 0,
+  "summaries": {
+    "allSpec": {
+      "required": 0,
+      "executed": 0,
+      "passed": 0
+    },
+    "paymentBehavior": {
+      "required": 0,
+      "executed": 0,
+      "passed": 0
+    },
+    "byKind": {
+      "behavior": {
+        "required": 0,
+        "executed": 0,
+        "passed": 0
+      },
+      "module": {
+        "required": 0,
+        "executed": 0,
+        "passed": 0
+      },
+      "engineering": {
+        "required": 0,
+        "executed": 0,
+        "passed": 0
+      }
+    },
+    "protocol": {
+      "required": 0,
+      "executed": 0,
+      "passed": 0
+    },
+    "flows": {
+      "required": 58,
+      "executed": 0,
+      "passed": 0
+    }
+  },
+  "issues": []
+}

@@ -14,7 +14,7 @@ export type CaseBinding = Readonly<{
 
 export function validateCaseBinding(binding: CaseBinding): string[] {
   const issues: string[] = [];
-  if (!/^(?:TC|FLOW)-PAYSDK-[A-Z0-9-]+$/.test(binding.ownerId)) issues.push('ownerId is invalid');
+  if (!/^[A-Z][A-Z0-9-]*$/.test(binding.ownerId)) issues.push('ownerId is invalid');
   if (!binding.caseId) issues.push('caseId must not be empty');
   if (!binding.fixtureCase) issues.push('fixtureCase must not be empty');
   if (binding.covers.length === 0) issues.push('covers must contain at least one concrete case binding');

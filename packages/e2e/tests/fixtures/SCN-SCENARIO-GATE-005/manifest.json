@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-SCENARIO-GATE-005",
+  "sources": {
+    "spec": "openspec/changes/template-example/specs/scenario-gate/spec.md",
+    "authority": "scenario gate payment baseline"
+  },
+  "cases": {
+    "inventory": "payment-inventory.json",
+    "input": "payment-coverage-input.json",
+    "output": "payment-coverage-output.json"
+  },
+  "sha256": {
+    "payment-inventory.json": "5b32f7a9c499c3e220ab554549c5d64718de75286c00c115cd8d0494bfd30500",
+    "payment-coverage-input.json": "5e402d41d6cb4b1e0e96b94073d1145a53623df77f25cc7cb15d0108605fc6d7",
+    "payment-coverage-output.json": "fdafdb6993c811049e5f4504c279acb1ede1c5f6fbf9e2419c9fe123e832f673"
+  }
+}

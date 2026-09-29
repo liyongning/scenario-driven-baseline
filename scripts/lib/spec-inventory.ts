@@ -3,6 +3,8 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { unified } from 'unified';
+import { loadScenarioConfig, matchesAny, type ScenarioConfig } from './scenario-config.ts';
+import type { SpecSource } from './spec-sources.ts';
 
 export type VerificationMetadata = Readonly<{
   formatVersion: 2;
@@ -25,13 +27,15 @@ export type FlowInventoryItem = Readonly<{
   notes: string;
 }>;
 
+type InventoryInput = string | SpecSource;
+
 export function nodeText(node: unknown): string {
   if (!node || typeof node !== 'object') return '';
   const typed = node as { value?: string; children?: unknown[] };
   return typed.value ?? typed.children?.map(nodeText).join('') ?? '';
 }
 
-export async function readSpecInventory(specPaths: ReadonlyArray<string>) {
+export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>, config?: ScenarioConfig) {
   const schema = JSON.parse(await readFile(new URL('../verification.schema.json', import.meta.url), 'utf8')) as object;
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
@@ -39,16 +43,23 @@ export async function readSpecInventory(specPaths: ReadonlyArray<string>) {
   const flows: FlowInventoryItem[] = [];
   const issues: string[] = [];
 
-  for (const source of specPaths) {
-    const tree = unified().use(remarkParse).use(remarkGfm).parse(await readFile(source, 'utf8'));
+  const effectiveConfig = config ?? { scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'], flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'], ownerIdPattern: '^(?:TC|FLOW)-[A-Z0-9-]+$' };
+  for (const sourceInput of specPaths) {
+    const source = typeof sourceInput === 'string' ? sourceInput : sourceInput.path;
+    const content = typeof sourceInput === 'string' ? await readFile(source, 'utf8') : sourceInput.content;
+    const tree = unified().use(remarkParse).use(remarkGfm).parse(content);
     const children = tree.children;
+    let inRequirement = false;
     for (let index = 0; index < children.length; index += 1) {
       const node = children[index] as { type: string; depth?: number; lang?: string; meta?: string; value?: string; children?: unknown[] };
       const heading = nodeText(node);
+      if (node.type === 'heading' && node.depth! <= 3) inRequirement = false;
+      if (node.type === 'heading' && node.depth === 3 && /^Requirement:\s+/.test(heading)) inRequirement = true;
       const scenarioMatch = node.type === 'heading' && node.depth === 4
-        ? /^Scenario:\s+(TC-PAYSDK-[A-Z]+-\d{3})\s+(.+)$/.exec(heading)
+        ? /^Scenario:\s+(\S+)\s+(.+)$/.exec(heading)
         : null;
       if (scenarioMatch) {
+        if (!matchesAny(scenarioMatch[1]!, effectiveConfig.scenarioIdPatterns)) issues.push(`${source}: Scenario ID ${scenarioMatch[1]} does not match configured formats`);
         let verification: VerificationMetadata | undefined;
         for (let cursor = index + 1; cursor < children.length; cursor += 1) {
           const candidate = children[cursor] as typeof node;
@@ -79,12 +90,21 @@ export async function readSpecInventory(specPaths: ReadonlyArray<string>) {
         const rows = (node as unknown as { children: Array<{ children: unknown[] }> }).children;
         const header = rows[0]?.children.map(nodeText);
         if (header?.[0] !== 'FLOW ID') continue;
+        if (config && !inRequirement) {
+          issues.push(`${source}: FLOW table is outside a Requirement and would be lost during archive`);
+          continue;
+        }
         for (const row of rows.slice(1)) {
           const cells = row.children.map(nodeText);
-          if (!/^FLOW-PAYSDK-\d{3}$/.test(cells[0]!)) {
+          if (cells.length !== 6) {
+            issues.push(`${source}: FLOW row has ${cells.length} columns, expected 6`);
+            continue;
+          }
+          if (!matchesAny(cells[0]!, effectiveConfig.flowIdPatterns)) {
             issues.push(`${source}: invalid FLOW ID ${cells[0]}`);
             continue;
           }
+          if (!cells[0] || !cells[2] || !cells[3] || !cells[4]) { issues.push(`${source}: FLOW row has an empty required column`); continue; }
           flows.push({
             id: cells[0]!,
             relatedScenarios: cells[1]!.split('、').filter(Boolean),

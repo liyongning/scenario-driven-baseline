@@ -42,6 +42,8 @@ describe('verification fingerprints', () => {
     writeFileSync(join(root, 'packages/e2e/tests/fixtures/base.json'), '{}');
     writeFileSync(join(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md'), 'sdk spec');
     writeFileSync(join(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md'), 'contract spec');
+    mkdirSync(join(root, 'openspec/specs/payment-sdk'), { recursive: true });
+    writeFileSync(join(root, 'openspec/specs/payment-sdk/spec.md'), 'active spec');
     writeFileSync(join(root, 'proto-gen.lock'), 'idl');
 
     const fingerprints = buildVerificationFingerprints(root);

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "relatedScenarios", "stages", "cases", "requiredIn", "notes"],
+  "properties": {
+    "id": { "type": "string", "description": "FLOW 的稳定唯一标识。" },
+    "relatedScenarios": { "type": "array", "items": { "type": "string", "description": "关联 Scenario 的稳定标识。" }, "description": "该流程覆盖的 Scenario 引用列表。" },
+    "stages": { "type": "string", "minLength": 1, "description": "同一连续运行中必须完成的阶段，用箭头分隔。" },
+    "cases": { "type": "array", "items": { "type": "string", "minLength": 1, "description": "流程必须运行的 case key。" }, "description": "流程 case key 列表。" },
+    "requiredIn": { "type": "array", "items": { "enum": ["integration", "weapp"], "description": "流程必须运行的测试项目。" }, "description": "流程所需运行环境。" },
+    "notes": { "type": "string", "description": "输入、证据和边界说明。" }
+  }
+}

@@ -52,8 +52,8 @@ export function buildVerificationFingerprints(repositoryRoot: string): Verificat
     ),
   ];
   const specPaths = [
-    resolve(repositoryRoot, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md'),
-    resolve(repositoryRoot, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md'),
+    ...collectFiles(resolve(repositoryRoot, 'openspec/specs'), path => path.endsWith('.md')),
+    ...collectFiles(resolve(repositoryRoot, 'openspec/changes'), path => path.endsWith('.md') && !path.split('/').includes('archive')),
   ];
   const fixturePaths = collectFiles(resolve(repositoryRoot, 'packages/e2e/tests/fixtures'), path => path.endsWith('.json'));
   return {

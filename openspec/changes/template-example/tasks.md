@@ -33,7 +33,7 @@
 
 **Tracking rule:** One independently implementable and reviewable task maps to one unindented top-level checkbox. RED, GREEN, verification, and review steps are indented plain bullets, not additional tracked checkboxes.
 
-- [ ] 1. 门禁从有效 Spec 构建清单：来源发现、ID 配置与 FLOW 登记
+- [x] 1. 门禁从有效 Spec 构建清单：来源发现、ID 配置与 FLOW 登记
 
   **Files**
   - Create `packages/e2e/tests/fixtures/SCN-SCENARIO-GATE-005/`（manifest.json、payment-inventory.json、payment-coverage-input.json、payment-coverage-output.json）：改造前用现有门禁生成的支付基线，`current` 指纹在输入中固定。

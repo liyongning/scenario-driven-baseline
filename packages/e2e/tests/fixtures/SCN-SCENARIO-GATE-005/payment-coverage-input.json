@@ -1,0 +1,2954 @@
+{
+  "current": {
+    "runId": "baseline",
+    "sourceDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "specDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "idlDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "fixtureDigest": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "scenarios": [
+    {
+      "id": "TC-PAYSDK-CONTRACT-001",
+      "cases": [
+        {
+          "key": "public-client",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "public-assembly",
+            "substitute-evidence-boundary"
+          ]
+        },
+        {
+          "key": "headless-core-with-fake-ports",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "headless-core-evidence"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-002",
+      "cases": [
+        {
+          "key": "existing-trade-pay",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "existing-trade-only",
+            "prepare-response-validation",
+            "no-client-order-or-signing"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-003",
+      "cases": [
+        {
+          "key": "success-hint-paying",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "server-state-authoritative",
+            "no-paid-or-entitlement-inference"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-004",
+      "cases": [
+        {
+          "key": "expired-but-paying",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "expiry-not-terminal",
+            "continue-with-budget",
+            "later-paid-accepted"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-005",
+      "cases": [
+        {
+          "key": "empty-token",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "empty-token-no-http",
+            "prepare-interruption-once",
+            "explicit-pay-recovery"
+          ]
+        },
+        {
+          "key": "prepare-unauthorized",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "unauthorized-preserved",
+            "prepare-interruption-once",
+            "explicit-pay-recovery"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-006",
+      "cases": [
+        {
+          "key": "query-auth",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "query-auth-result",
+            "context-preserved",
+            "query-only-recovery"
+          ]
+        },
+        {
+          "key": "independent-query-auth",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "independent-query-recovery",
+            "query-only-recovery"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-007",
+      "cases": [
+        {
+          "key": "observe-after-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "observe-recovery-only",
+            "old-run-isolated",
+            "historical-signal-not-inferred"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-025",
+      "cases": [
+        {
+          "key": "prepare-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "host-stop",
+            "once"
+          ]
+        },
+        {
+          "key": "observe-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "host-stop",
+            "once"
+          ]
+        },
+        {
+          "key": "deadline-before-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "timeout",
+            "once"
+          ]
+        },
+        {
+          "key": "stop-before-deadline",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "host-stop",
+            "once"
+          ]
+        },
+        {
+          "key": "query-deadline",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "timeout",
+            "once"
+          ]
+        },
+        {
+          "key": "query-timeout-continue",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "retry",
+            "once"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-026",
+      "cases": [
+        {
+          "key": "known-unavailable-then-paid",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "known-retry",
+            "public-shape"
+          ]
+        },
+        {
+          "key": "unknown-retryable-ends",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "unclassified-stops",
+            "public-shape"
+          ]
+        },
+        {
+          "key": "other-method-error-ends",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "unclassified-stops",
+            "public-shape"
+          ]
+        },
+        {
+          "key": "prepare-no-replay",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "no-replay",
+            "public-shape"
+          ]
+        },
+        {
+          "key": "query-public-projection",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "no-replay",
+            "public-shape"
+          ]
+        },
+        {
+          "key": "public-declarations",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "declarations-public-shape"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-008",
+      "cases": [
+        {
+          "key": "paid-without-entitlement",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "paid-without-entitlement",
+            "fulfillment-owned-by-consumer"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-009",
+      "cases": [
+        {
+          "key": "unsupported-h5-method",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "unsupported-before-effects",
+            "no-payment-side-effects"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-010",
+      "cases": [
+        {
+          "key": "duplicate-active-pay",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "busy-on-active-trade",
+            "single-prepare-invoke"
+          ]
+        },
+        {
+          "key": "repay-after-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "stop-releases-local-record",
+            "old-callback-isolated"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-011",
+      "cases": [
+        {
+          "key": "sdk-network-request",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "sdk-owned-network",
+            "request-contract"
+          ]
+        },
+        {
+          "key": "protocol-root-load-create",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "protocol-root-source",
+            "lazy-platform-access"
+          ]
+        },
+        {
+          "key": "weapp-real-wx-request",
+          "kind": "behavior",
+          "requiredIn": [
+            "weapp"
+          ],
+          "checks": [
+            "request-contract",
+            "real-weapp-path"
+          ]
+        },
+        {
+          "key": "sdk-network-dependency-boundary",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "protocol-root-source",
+            "sdk-export-boundary"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-012",
+      "cases": [
+        {
+          "key": "token-rotates-between-queries",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "fresh-token-each-request",
+            "no-token-cache-or-body"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-016",
+      "cases": [
+        {
+          "key": "provider-throws",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "provider-throw",
+            "no-fake-unauthorized"
+          ]
+        },
+        {
+          "key": "provider-hangs",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "provider-timeout",
+            "no-fake-unauthorized",
+            "late-provider-isolated"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-013",
+      "cases": [
+        {
+          "key": "prepare-identity-not-found",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "distinct-error-classification",
+            "no-login-or-binding",
+            "prepare-phase-context",
+            "explicit-reprepare"
+          ]
+        },
+        {
+          "key": "prepare-session-expired",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "distinct-error-classification",
+            "no-login-or-binding",
+            "prepare-phase-context",
+            "explicit-reprepare"
+          ]
+        },
+        {
+          "key": "prepare-unavailable",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "distinct-error-classification",
+            "no-login-or-binding"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-014",
+      "cases": [
+        {
+          "key": "channel-mismatch",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "correlation-and-channel-validation",
+            "no-channel-fallback"
+          ]
+        },
+        {
+          "key": "trade-reference-mismatch",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "correlation-and-channel-validation",
+            "no-channel-fallback"
+          ]
+        },
+        {
+          "key": "empty-payment-no",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "correlation-and-channel-validation",
+            "no-channel-fallback"
+          ]
+        },
+        {
+          "key": "missing-wechat-virtual-oneof",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "oneof-validation",
+            "no-channel-fallback"
+          ]
+        },
+        {
+          "key": "multiple-pay-param-branches",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "oneof-validation",
+            "no-channel-fallback"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-018",
+      "cases": [
+        {
+          "key": "request-field-mapping",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "public-field-mapping",
+            "server-identity-boundary"
+          ]
+        },
+        {
+          "key": "request-id-sequential",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "request-id-contract"
+          ]
+        },
+        {
+          "key": "request-id-same-millisecond",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "request-id-contract"
+          ]
+        },
+        {
+          "key": "request-id-multiple-clients",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "request-id-contract"
+          ]
+        },
+        {
+          "key": "client-platform-ios",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-platform-owned"
+          ]
+        },
+        {
+          "key": "client-platform-android",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-platform-owned"
+          ]
+        },
+        {
+          "key": "client-platform-ohos",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-platform-owned"
+          ]
+        },
+        {
+          "key": "client-platform-ohos-pc",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-platform-owned"
+          ]
+        },
+        {
+          "key": "client-platform-unknown",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-platform-owned"
+          ]
+        },
+        {
+          "key": "client-platform-exception",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-platform-owned"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-024",
+      "cases": [
+        {
+          "key": "all-errors",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "catalog-parity",
+            "source-alignment"
+          ]
+        },
+        {
+          "key": "wrong-code",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "drift-rejected"
+          ]
+        },
+        {
+          "key": "wrong-description",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "drift-rejected"
+          ]
+        },
+        {
+          "key": "missing-error",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "drift-rejected"
+          ]
+        },
+        {
+          "key": "source-mismatch",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "drift-rejected"
+          ]
+        },
+        {
+          "key": "metadata-only-sync",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "source-alignment",
+            "compatible-refresh"
+          ]
+        },
+        {
+          "key": "payment-projection-mismatch",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "projection-drift"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-015",
+      "cases": [
+        {
+          "key": "test-gateway-development-lane",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "explicit-gateway-and-lane",
+            "no-environment-rewrite",
+            "evidence-boundary"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-017",
+      "cases": [
+        {
+          "key": "http-200-business-error",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "status-code-authority",
+            "no-replay-or-channel-cancel"
+          ]
+        },
+        {
+          "key": "success-error-conflict-with-nonzero-status",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "status-code-authority",
+            "inconsistent-details-diagnostic"
+          ]
+        },
+        {
+          "key": "success-error-conflict-with-zero-status",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "status-code-authority",
+            "inconsistent-details-diagnostic"
+          ]
+        },
+        {
+          "key": "missing-base-resp",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "null-base-resp",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "non-object-root",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "undecodable-content",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "missing-status-code",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "null-status-code",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "invalid-status-code",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "lossy-status-code",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-2xx-envelope"
+          ]
+        },
+        {
+          "key": "http-401",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "non-2xx-order",
+            "no-replay-or-channel-cancel"
+          ]
+        },
+        {
+          "key": "non-2xx-with-business-code",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "status-code-authority",
+            "non-2xx-order",
+            "no-replay-or-channel-cancel"
+          ]
+        },
+        {
+          "key": "non-2xx-without-business-code",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "non-2xx-order",
+            "no-replay-or-channel-cancel"
+          ]
+        },
+        {
+          "key": "network-failure",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "transport-failure",
+            "no-replay-or-channel-cancel"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-019",
+      "cases": [
+        {
+          "key": "default-policy",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "defaults"
+          ]
+        },
+        {
+          "key": "fieldwise-overrides",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "fieldwise-merge"
+          ]
+        },
+        {
+          "key": "per-call-override-isolation",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "override-isolation"
+          ]
+        },
+        {
+          "key": "invalid-policy-zero",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-before-send"
+          ]
+        },
+        {
+          "key": "invalid-policy-negative",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-before-send"
+          ]
+        },
+        {
+          "key": "invalid-policy-nan",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-before-send"
+          ]
+        },
+        {
+          "key": "invalid-policy-infinity",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-before-send"
+          ]
+        },
+        {
+          "key": "channel-wait-budget",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "channel-wait-excluded"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-020",
+      "cases": [
+        {
+          "key": "with-listener",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "public-event-shape",
+            "outcome-separate",
+            "confirming-order"
+          ]
+        },
+        {
+          "key": "no-listener",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "callback-optionality",
+            "outcome-separate"
+          ]
+        },
+        {
+          "key": "observe-listener",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "public-event-shape",
+            "no-extra-phases",
+            "confirming-order"
+          ]
+        },
+        {
+          "key": "independent-query",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "query-no-notifications"
+          ]
+        },
+        {
+          "key": "no-extra-phase-values",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "public-event-shape",
+            "no-extra-phases"
+          ]
+        },
+        {
+          "key": "public-phase-type-surface",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-type-surface"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-021",
+      "cases": [
+        {
+          "key": "source-and-dual-declarations",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "source-comment-structure",
+            "dual-declaration-structure"
+          ]
+        },
+        {
+          "key": "missing-comment-rejected",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "source-comment-structure",
+            "dual-declaration-structure"
+          ]
+        },
+        {
+          "key": "semantic-review-evidence",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "semantic-review-record"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-022",
+      "cases": [
+        {
+          "key": "omitted",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "valid-runtime-inputs"
+          ]
+        },
+        {
+          "key": "explicit-undefined",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "valid-runtime-inputs"
+          ]
+        },
+        {
+          "key": "sandbox",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "valid-runtime-inputs"
+          ]
+        },
+        {
+          "key": "prod",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "valid-runtime-inputs"
+          ]
+        },
+        {
+          "key": "null",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "number-zero",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "number-one",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "number-two",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "empty-string",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "unspecified-name",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "protocol-enum-name",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "unknown-value",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-runtime-before-effects"
+          ]
+        },
+        {
+          "key": "typescript-input-surface",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "public-type-scope"
+          ]
+        },
+        {
+          "key": "dual-declaration-xpay-docs",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "declaration-docs"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CONTRACT-023",
+      "cases": [
+        {
+          "key": "omitted",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "create-presence-and-enum",
+            "independent-wire-oracle"
+          ]
+        },
+        {
+          "key": "sandbox",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "create-presence-and-enum",
+            "independent-wire-oracle"
+          ]
+        },
+        {
+          "key": "prod",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "create-presence-and-enum",
+            "independent-wire-oracle"
+          ]
+        },
+        {
+          "key": "query-no-env",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "query-absence",
+            "independent-wire-oracle"
+          ]
+        },
+        {
+          "key": "observe-no-env",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "observe-absence",
+            "independent-wire-oracle"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-001",
+      "cases": [
+        {
+          "key": "runtime-assembly",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "production-runtime-assembly"
+          ]
+        },
+        {
+          "key": "headless-core-import-and-run",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "headless-internal-core"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-002",
+      "cases": [
+        {
+          "key": "alternate-method-internal-adapter",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "internal-extension"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-003",
+      "cases": [
+        {
+          "key": "signed-original",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "sign-data-unchanged"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-004",
+      "cases": [
+        {
+          "key": "missing-required-param",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        },
+        {
+          "key": "missing-mode",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        },
+        {
+          "key": "missing-pay-sig",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        },
+        {
+          "key": "missing-signature",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        },
+        {
+          "key": "invalid-oneof",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        },
+        {
+          "key": "multiple-oneof",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        },
+        {
+          "key": "channel-mismatch",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "invalid-params-rejected",
+            "no-channel-or-resign"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-005",
+      "cases": [
+        {
+          "key": "long-channel-wait",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "channel-wait-unbounded",
+            "query-after-callback",
+            "wait-not-failure"
+          ]
+        },
+        {
+          "key": "expired-during-channel-wait",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "channel-wait-unbounded",
+            "query-after-callback",
+            "wait-not-failure"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-024",
+      "cases": [
+        {
+          "key": "default-message-mapping",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "default-message-table-complete"
+          ]
+        },
+        {
+          "key": "adapter-failure-mapping",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "explicit-failure-code-preserved",
+            "unmapped-numeric-is-explicit-failure",
+            "documented-unknown-unchanged",
+            "invalid-codes-remain-unknown",
+            "special-codes-unchanged"
+          ]
+        },
+        {
+          "key": "core-invoke-failure-classification",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "thrown-invocation-no-code-classification",
+            "no-confirming-or-query-on-explicit-failure"
+          ]
+        },
+        {
+          "key": "launch-failed-documented",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "explicit-failure-code-preserved",
+            "no-confirming-or-query-on-explicit-failure"
+          ]
+        },
+        {
+          "key": "launch-failed-unmapped",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "explicit-failure-code-preserved",
+            "no-confirming-or-query-on-explicit-failure",
+            "unmapped-numeric-is-explicit-failure"
+          ]
+        },
+        {
+          "key": "channel-session-expired-message",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "special-codes-unchanged",
+            "no-confirming-or-query-on-explicit-failure"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-006",
+      "cases": [
+        {
+          "key": "slow-query",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "no-overlap",
+            "single-timeout-result"
+          ]
+        },
+        {
+          "key": "late-query-after-timeout",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "single-timeout-result",
+            "late-result-isolated"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-007",
+      "cases": [
+        {
+          "key": "duplicate-pay",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "single-invocation",
+            "one-outcome-per-run"
+          ]
+        },
+        {
+          "key": "duplicate-channel-callback",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "single-invocation",
+            "one-outcome-per-run",
+            "server-idempotency-boundary"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-008",
+      "cases": [
+        {
+          "key": "invalid-param-log",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "diagnostic-allowlist",
+            "sensitive-data-absent"
+          ]
+        },
+        {
+          "key": "network-failure-log",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "diagnostic-allowlist",
+            "sensitive-data-absent"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-009",
+      "cases": [
+        {
+          "key": "fake-channel-report",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "evidence-boundary",
+            "no-live-claim"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-010",
+      "cases": [
+        {
+          "key": "protocol-root-factory",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "protocol-root-factory",
+            "lazy-platform-access",
+            "package-boundary"
+          ]
+        },
+        {
+          "key": "weapp-production-network",
+          "kind": "behavior",
+          "requiredIn": [
+            "weapp"
+          ],
+          "checks": [
+            "protocol-root-factory",
+            "real-weapp-network"
+          ]
+        },
+        {
+          "key": "replace-internal-network-port",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "network-port-isolation"
+          ]
+        },
+        {
+          "key": "replace-internal-channel-port",
+          "kind": "module",
+          "requiredIn": [
+            "sdk-unit"
+          ],
+          "checks": [
+            "channel-port-isolation"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-011",
+      "cases": [
+        {
+          "key": "prepare-unauthorized",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "single-prepare",
+            "no-implicit-recovery",
+            "prepare-interrupted",
+            "explicit-retry"
+          ]
+        },
+        {
+          "key": "prepare-retryable-error",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "single-prepare",
+            "no-implicit-recovery"
+          ]
+        },
+        {
+          "key": "prepare-network-interruption",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "single-prepare",
+            "no-implicit-recovery"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-012",
+      "cases": [
+        {
+          "key": "provider-partial-budget",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "remaining-budget"
+          ]
+        },
+        {
+          "key": "provider-exhausts-budget",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "no-send-after-exhaustion"
+          ]
+        },
+        {
+          "key": "late-provider-result",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "no-send-after-exhaustion",
+            "late-provider-isolated"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-013",
+      "cases": [
+        {
+          "key": "native-stop-late-callback",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "stop-once-and-clean",
+            "new-pay-is-new-run",
+            "old-callback-isolated"
+          ]
+        },
+        {
+          "key": "no-callback-no-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "active-until-explicit-stop"
+          ]
+        },
+        {
+          "key": "stop-before-invoke",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "stop-once-and-clean",
+            "preinvoke-stop"
+          ]
+        },
+        {
+          "key": "stop-callback-race",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "stop-once-and-clean",
+            "preinvoke-stop",
+            "old-callback-isolated"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-014",
+      "cases": [
+        {
+          "key": "sdk-esm-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "dual-module-consumption",
+            "production-package-clean"
+          ]
+        },
+        {
+          "key": "sdk-commonjs-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "dual-module-consumption",
+            "production-package-clean"
+          ]
+        },
+        {
+          "key": "sdk-types-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "dual-module-consumption"
+          ]
+        },
+        {
+          "key": "protocol-network-esm-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "protocol-network-export"
+          ]
+        },
+        {
+          "key": "protocol-network-commonjs-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "protocol-network-export"
+          ]
+        },
+        {
+          "key": "protocol-network-types-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "protocol-network-export"
+          ]
+        },
+        {
+          "key": "sdk-does-not-reexport-network",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "sdk-export-boundary"
+          ]
+        },
+        {
+          "key": "sdk-only-consumer",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "dependency-release-contract"
+          ]
+        },
+        {
+          "key": "package-boundaries",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "production-package-clean",
+            "source-and-graph-current"
+          ]
+        },
+        {
+          "key": "concurrent-clients",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "client-isolation"
+          ]
+        },
+        {
+          "key": "weapp-production-runtime",
+          "kind": "behavior",
+          "requiredIn": [
+            "weapp"
+          ],
+          "checks": [
+            "weapp-runtime-evidence"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-015",
+      "cases": [
+        {
+          "key": "missing-scenario-case",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "fact-derived-inventory",
+            "missing-binding-rejected",
+            "scope-cannot-shrink"
+          ]
+        },
+        {
+          "key": "missing-idl-field-case",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "fact-derived-inventory",
+            "missing-binding-rejected",
+            "scope-cannot-shrink"
+          ]
+        },
+        {
+          "key": "owner-id-without-checkpoint",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "missing-binding-rejected"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-016",
+      "cases": [
+        {
+          "key": "skipped-required-case",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "execution-validity",
+            "all-required-subitems"
+          ]
+        },
+        {
+          "key": "assertion-not-executed",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "execution-validity",
+            "all-required-subitems"
+          ]
+        },
+        {
+          "key": "missing-required-environment",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "execution-validity",
+            "all-required-subitems"
+          ]
+        },
+        {
+          "key": "stale-source-report",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "execution-validity"
+          ]
+        },
+        {
+          "key": "failed-assertion-at-full-coverage",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "execution-validity",
+            "pass-separate-from-coverage"
+          ]
+        },
+        {
+          "key": "missing-flow",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "flow-continuity"
+          ]
+        },
+        {
+          "key": "spliced-flow-evidence",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "flow-continuity"
+          ]
+        },
+        {
+          "key": "unit-cannot-cover-behavior",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "verification-kind-enforced"
+          ]
+        },
+        {
+          "key": "mixed-scenario-module-missing",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "all-kinds-required"
+          ]
+        },
+        {
+          "key": "missing-verification-metadata",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "metadata-stays-in-denominator"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-017",
+      "cases": [
+        {
+          "key": "missing-agent-entry",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates"
+          ]
+        },
+        {
+          "key": "reverse-dependency",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates",
+            "boundary-enforcement"
+          ]
+        },
+        {
+          "key": "shadow-in-production",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates",
+            "boundary-enforcement"
+          ]
+        },
+        {
+          "key": "scenario-directory-escape",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates",
+            "boundary-enforcement"
+          ]
+        },
+        {
+          "key": "lint-violation",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates"
+          ]
+        },
+        {
+          "key": "type-violation",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates"
+          ]
+        },
+        {
+          "key": "untested-handwritten-file",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "machine-gates",
+            "boundary-enforcement"
+          ]
+        },
+        {
+          "key": "restored-valid-input",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "rules-restorable"
+          ]
+        },
+        {
+          "key": "gate-reduction-review-evidence",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "review-record"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-018",
+      "cases": [
+        {
+          "key": "success-hint",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-order",
+            "phase-branching",
+            "phase-dedup-and-optionality"
+          ]
+        },
+        {
+          "key": "channel-unknown",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-order",
+            "phase-branching",
+            "phase-dedup-and-optionality"
+          ]
+        },
+        {
+          "key": "channel-cancelled",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-branching"
+          ]
+        },
+        {
+          "key": "launch-failed",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-branching"
+          ]
+        },
+        {
+          "key": "channel-session-expired",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-branching"
+          ]
+        },
+        {
+          "key": "prepare-failed",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-branching"
+          ]
+        },
+        {
+          "key": "preinvoke-validation-failed",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "phase-branching"
+          ]
+        },
+        {
+          "key": "observe-only",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "observe-phases"
+          ]
+        },
+        {
+          "key": "first-query-paid",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "terminal-notification-order",
+            "phase-dedup-and-optionality"
+          ]
+        },
+        {
+          "key": "first-query-closed",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "terminal-notification-order",
+            "phase-dedup-and-optionality"
+          ]
+        },
+        {
+          "key": "no-listener",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "phase-dedup-and-optionality"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-019",
+      "cases": [
+        {
+          "key": "handler-throw",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "observer-errors-isolated",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "handler-promise-reject",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "observer-errors-isolated",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "handler-thenable-reject",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "observer-errors-isolated",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "late-handler-reject",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "observer-errors-isolated",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "stop-inside-channel-invoking",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "stop-inside-notification",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "stop-after-notification",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "stop-after-notification-before-platform",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "stop-after-platform",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "stop-after-platform",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "stop-before-query",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "stop-before-query",
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "reentrant-pay",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "old-callback-after-new-attempt",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "attempt-isolation"
+          ]
+        },
+        {
+          "key": "no-callback-host-stop",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "no-callback-needs-host-stop",
+            "attempt-isolation"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-020",
+      "cases": [
+        {
+          "key": "successive-selection",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "per-run-selection"
+          ]
+        },
+        {
+          "key": "request-snapshot",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "request-snapshot"
+          ]
+        },
+        {
+          "key": "prepare-auth-retry-selection",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "pay-recovery-selection",
+            "channel-signature-unchanged"
+          ]
+        },
+        {
+          "key": "channel-session-retry-selection",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "pay-recovery-selection",
+            "channel-signature-unchanged"
+          ]
+        },
+        {
+          "key": "query-recovery-no-env",
+          "kind": "behavior",
+          "requiredIn": [
+            "integration",
+            "weapp"
+          ],
+          "checks": [
+            "query-recovery-absence"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-021",
+      "cases": [
+        {
+          "key": "config-source",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "config-allowlist"
+          ]
+        },
+        {
+          "key": "token-save-replace-clear",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "token-lifecycle",
+            "fresh-token"
+          ]
+        },
+        {
+          "key": "storage-failure",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "token-lifecycle",
+            "fresh-token"
+          ]
+        },
+        {
+          "key": "create-pay-recovery",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "host-sequencing"
+          ]
+        },
+        {
+          "key": "redacted-record",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "safe-evidence"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-022",
+      "cases": [
+        {
+          "key": "isolated-live-build",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "live-build-boundary"
+          ]
+        },
+        {
+          "key": "missing-create-contract",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "contract-readiness"
+          ]
+        },
+        {
+          "key": "live-evidence-validation",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "live-evidence-gate",
+            "business-independent"
+          ]
+        }
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "TC-PAYSDK-CORE-023",
+      "cases": [
+        {
+          "key": "defaults-and-editing",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "editable-defaults"
+          ]
+        },
+        {
+          "key": "numeric-and-item-boundaries",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "editable-defaults"
+          ]
+        },
+        {
+          "key": "draft-and-retry",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "draft-idempotency",
+            "create-lifetime"
+          ]
+        },
+        {
+          "key": "wire-success",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "create-wire",
+            "create-result",
+            "create-lifetime"
+          ]
+        },
+        {
+          "key": "auth-parameter-conflict",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "create-wire",
+            "create-result"
+          ]
+        },
+        {
+          "key": "invalid-envelope-and-no-replay",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "create-result",
+            "create-lifetime"
+          ]
+        },
+        {
+          "key": "timeout-unload-and-late",
+          "kind": "module",
+          "requiredIn": [
+            "test-tools-unit"
+          ],
+          "checks": [
+            "create-lifetime",
+            "draft-idempotency"
+          ]
+        },
+        {
+          "key": "generated-create-boundary",
+          "kind": "engineering",
+          "requiredIn": [
+            "integration"
+          ],
+          "checks": [
+            "create-scope",
+            "create-wire"
+          ]
+        }
+      ],
+      "blockedBy": []
+    }
+  ],
+  "contracts": [],
+  "flows": [
+    {
+      "id": "FLOW-PAYSDK-001",
+      "cases": [
+        "normal",
+        "long-channel-wait"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "createPaymentClient",
+        "pay",
+        "CreateTradePay",
+        "渠道",
+        "QueryTrade(PAYING",
+        "PAID)",
+        "一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-002",
+      "cases": [
+        "cancelled",
+        "launch-failed"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "pay",
+        "准备成功",
+        "渠道明确取消/明确调起失败",
+        "对应结果；无自动 QueryTrade、重新准备或再次调起"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-003",
+      "cases": [
+        "missing-required-param",
+        "channel-mismatch"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "pay",
+        "准备响应",
+        "参数/关联校验失败",
+        "协议错误；渠道未调用、无查询，不在前端修补签名"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-004",
+      "cases": [
+        "slow-query",
+        "expired-but-paying"
+      ],
+      "requiredIn": [
+        "integration"
+      ],
+      "requiredStages": [
+        "pay",
+        "准备",
+        "渠道 unknown",
+        "查询仍 PAYING",
+        "查询预算耗尽",
+        "timed_out；查询不重叠，迟到响应不二次交付，交易到期不合成 CLOSED"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-005",
+      "cases": [
+        "token-rotates-between-queries"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "pay",
+        "准备",
+        "渠道 success_hint",
+        "第一次查单 PAYING",
+        "宿主 getter 数据更新",
+        "后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-006",
+      "cases": [
+        "prepare-auth",
+        "query-auth",
+        "channel-session",
+        "channel-session-different-payment",
+        "native-stop-late-callback"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "身份失效",
+        "原调用一次交付中断结果",
+        "宿主恢复",
+        "按阶段显式再次调用；另覆盖宿主停止后的旧回调隔离。具体调用顺序和次数见下表"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-007",
+      "cases": [
+        "first-paid",
+        "first-closed",
+        "observe-only",
+        "stop-before-invoke",
+        "stop-after-notification",
+        "stop-after-platform",
+        "stop-before-query",
+        "handler-throw",
+        "handler-reject",
+        "reentrant-pay",
+        "no-listener"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "公共 pay/observe",
+        "本次阶段通知",
+        "外部渠道/HTTP",
+        "一次最终结果；验证通知前后副作用、数据关联、回调异常与停止重入"
+      ]
+    },
+    {
+      "id": "FLOW-PAYSDK-008",
+      "cases": [
+        "omitted",
+        "sandbox",
+        "prod",
+        "successive-selection",
+        "request-snapshot"
+      ],
+      "requiredIn": [
+        "integration",
+        "weapp"
+      ],
+      "requiredStages": [
+        "公共 pay",
+        "CreateTradePay 的原始请求",
+        "本次参数/渠道",
+        "QueryTrade",
+        "一次结果；检查三态、presence、逐次隔离和签名不变"
+      ]
+    }
+  ],
+  "bindings": [],
+  "reports": [],
+  "sourceIssues": []
+}

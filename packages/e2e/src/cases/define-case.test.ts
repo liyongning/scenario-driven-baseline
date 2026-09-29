@@ -21,4 +21,8 @@ describe('validateCaseBinding', () => {
     expect(validateCaseBinding({ ...valid, flowId: 'FLOW-PAYSDK-008' })).toContain('flowId and flowCase must be provided together');
     expect(validateCaseBinding({ ...valid, flowCase: 'normal' })).toContain('flowId and flowCase must be provided together');
   });
+
+  it('accepts generic uppercase owner IDs for non-payment scenarios', () => {
+    expect(validateCaseBinding({ ...valid, ownerId: 'SCN-TEMPLATE-EXAMPLE-001' })).toEqual([]);
+  });
 });
