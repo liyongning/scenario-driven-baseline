@@ -49,9 +49,66 @@ test('SCN-TEMPLATE-EXAMPLE-003 create-error-mapping', { meta: { paymentCase: {
     const result = await client.query({ id: 'trade-1', externalRef: 'ref-1' }, context);
     const status = 'http' in error ? error.http?.status : undefined;
     expect(result.ok ? undefined : 'cancelled' in result ? 'cancelled' : result.error.category).toBe(error.code === 'CANCELLED' ? 'cancelled' : error.code === 'TIMEOUT' ? 'timeout' : error.code === 'NETWORK_ERROR' ? 'network' : error.code === 'EMPTY_ACCESS_TOKEN' ? 'unauthorized' : error.code === 'HOST_CONTEXT_ERROR' ? 'host' : status === 401 ? 'unauthorized' : status !== undefined ? 'server' : 'protocol');
+    if (status === 500) expect(result).toMatchObject({ ok: false, error: { category: 'server', message: expect.stringContaining('HTTP 500') } });
+    if (status === 500 && !result.ok && 'error' in result) expect(result.error).not.toHaveProperty('serverCode');
   }
   const businessWire = { baseResp: { statusCode: '10100801003070', error: { bizCode: '10100801003070', retryable: true } } };
   const business = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { data: QueryTradeResponse.fromJSON(businessWire), wire: businessWire, http: { status: 200, headers: {}, body: businessWire } } }) as never } });
   await expect(business.query({ id: 'trade-1', externalRef: 'ref-1' }, context)).resolves.toMatchObject({ ok: false, error: { category: 'server', serverCode: '10100801003070' }, retryable: true });
   await annotate(testContext, before, ['error-category', 'server-code-preserved']);
+});
+
+test('adapter rejects malformed int64 fields as protocol errors', async () => {
+  const malformed = { baseResp: { statusCode: 'not-an-int64' } };
+  const client = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { data: { baseResp: { statusCode: 0n } }, wire: malformed, http: { status: 200, headers: {}, body: malformed } } }) as never } });
+  await expect(client.query({ id: 'trade-1', externalRef: 'ref-1' }, context)).resolves.toMatchObject({ ok: false, error: { category: 'protocol' } });
+});
+
+test('adapter validates create response identity and status before exposing a reference', async () => {
+  for (const [wire, status, category] of [
+    [{ baseResp: { statusCode: '0' } }, 200, 'protocol'],
+    [{ tradeNo: 'other', baseResp: { statusCode: '0' } }, 200, 'protocol'],
+    [{ tradeNo: 'trade-1', base_resp: { status_code: 0 } }, 401, 'unauthorized'],
+    [{ tradeNo: 'trade-1', baseResp: { statusCode: '0' } }, 503, 'server'],
+    [{ tradeNo: 'trade-1', baseResp: { statusCode: '10100801003070' } }, 200, 'server'],
+  ] as const) {
+    const code = 'baseResp' in wire ? wire.baseResp.statusCode : wire.base_resp.status_code;
+    const client = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { data: CreateTradeResponse.fromJSON({ tradeNo: 'trade-1', baseResp: { statusCode: code } }), wire, http: { status, headers: {}, body: wire } } }) as never } });
+    await expect(client.create({ ownerId: '9', externalRef: 'ref', units: 1 }, context)).resolves.toMatchObject({ ok: false, error: { category } });
+  }
+});
+
+test('adapter rejects missing and inconsistent query trade identity', async () => {
+  for (const wire of [
+    { baseResp: { statusCode: '0' } },
+    { baseResp: { statusCode: '0' }, trade: { tradeNo: 'other', status: TradeStatus.TRADE_STATUS_PAID } },
+    { baseResp: { statusCode: '0' }, trade: { status: TradeStatus.TRADE_STATUS_PAID } },
+  ]) {
+    const client = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { data: QueryTradeResponse.fromJSON(wire), wire, http: { status: 200, headers: {}, body: wire } } }) as never } });
+    await expect(client.query({ id: 'trade-1', externalRef: 'ref' }, context)).resolves.toMatchObject({ ok: false, error: { category: 'protocol' } });
+  }
+});
+
+test('adapter handles undecodable and absent status fields without assuming success', async () => {
+  const cases = [
+    { wire: null, data: QueryTradeResponse.fromJSON({ baseResp: { statusCode: '0' } }) },
+    { wire: { baseResp: { statusCode: 0.5 } }, data: QueryTradeResponse.fromJSON({ baseResp: { statusCode: '0' } }) },
+    { wire: { baseResp: { statusCode: '0' } }, data: QueryTradeResponse.fromJSON({}) },
+  ];
+  for (const value of cases) {
+    const client = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { ...value, http: { status: 200, headers: {}, body: value.wire } } }) as never } });
+    await expect(client.query({ id: 'trade-1', externalRef: 'ref' }, context)).resolves.toMatchObject({ ok: false, error: { category: 'protocol' } });
+  }
+  const codec = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: false, error: { code: 'CODEC_ERROR', http: { status: 200, headers: {}, body: null } } }) as never } });
+  await expect(codec.query({ id: 'trade-1', externalRef: 'ref' }, context)).resolves.toMatchObject({ ok: false, error: { category: 'protocol' } });
+  for (const [statusCode, category] of [['10100801003020', 'unauthorized'], ['99999999999999', 'server']] as const) {
+    const wire = { baseResp: { statusCode } };
+    const client = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { data: QueryTradeResponse.fromJSON(wire), wire, http: { status: 200, headers: {}, body: wire } } }) as never } });
+    await expect(client.query({ id: 'trade-1', externalRef: 'ref' }, context)).resolves.toMatchObject({ ok: false, error: { category, serverCode: statusCode } });
+  }
+  const bigIntWire = { baseResp: { statusCode: 0n }, trade: { tradeNo: 'trade-1', status: TradeStatus.TRADE_STATUS_PAID } };
+  const bigInt = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: true, value: { data: QueryTradeResponse.fromJSON({ baseResp: { statusCode: '0' }, trade: { tradeNo: 'trade-1', status: TradeStatus.TRADE_STATUS_PAID } }), wire: bigIntWire, http: { status: 200, headers: {}, body: bigIntWire } } }) as never } });
+  await expect(bigInt.query({ id: 'trade-1', externalRef: 'ref' }, context)).resolves.toMatchObject({ ok: true, value: { state: 'completed' } });
+  const failedCreate = createExampleTradeBackend({ catalog, protocol: { request: async () => ({ ok: false, error: { code: 'NETWORK_ERROR' } }) as never } });
+  await expect(failedCreate.create({ ownerId: '9', externalRef: 'ref', units: 1 }, context)).resolves.toMatchObject({ ok: false, error: { category: 'network' } });
 });

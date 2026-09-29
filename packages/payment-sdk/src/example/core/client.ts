@@ -26,9 +26,14 @@ function mergePolicy(base: Policy, override?: ExamplePolicyOverrides): Policy {
     windowMs: override?.windowMs ?? base.windowMs,
   };
 }
+function validPolicy(value: ExamplePolicyOverrides | undefined): boolean {
+  if (value === undefined) return true;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  return [value.requestTimeoutMs, value.intervalMs, value.windowMs].every(item => item === undefined || typeof item === 'number' && Number.isFinite(item) && item > 0);
+}
 function validInput(input: ExampleCreateInput): boolean {
   if (input === null || typeof input !== 'object') return false;
-  if (!/^[1-9]\d*$/.test(input.ownerId) || BigInt(input.ownerId) > 9223372036854775807n) return false;
+  if (typeof input.ownerId !== 'string' || !/^[1-9]\d*$/.test(input.ownerId) || BigInt(input.ownerId) > 9223372036854775807n) return false;
   return typeof input.externalRef === 'string' && input.externalRef.length >= 1 && input.externalRef.length <= 64
     && Number.isInteger(input.units) && input.units >= 1 && input.units <= 999;
 }
@@ -87,7 +92,7 @@ export function createExampleCore(options: Readonly<{ backend: ExampleBackend; r
       return { ok: true, reference: result.value.reference };
     },
     async observe(reference: ExampleResourceRef, runOptions?: ExampleRunOptions): Promise<ExampleOutcome> {
-      if (!validReference(reference)) return { end: 'failed', lastState: 'unknown', error: exampleError('invalid_input') };
+      if (!validReference(reference) || !validPolicy(runOptions?.policy)) return { end: 'failed', lastState: 'unknown', error: exampleError('invalid_input') };
       const runPolicy = mergePolicy(policy, runOptions?.policy);
       const parent = runOptions?.cancellation;
       if (parent?.isStopped()) return { end: 'cancelled', lastState: 'unknown' };
@@ -101,8 +106,7 @@ export function createExampleCore(options: Readonly<{ backend: ExampleBackend; r
         if ('timeout' in result) {
           if (options.runtime.nowMs() >= deadlineAtMs) return { end: 'window_elapsed', lastState };
         } else if (!result.ok) {
-          if ('cancelled' in result && result.cancelled) return { end: 'cancelled', lastState };
-        if (!('error' in result) || result.retryable !== true) return { end: 'failed', lastState, error: 'error' in result ? result.error : exampleError('network') };
+          if (!('error' in result) || result.retryable !== true) return { end: 'failed', lastState, error: 'error' in result ? result.error : exampleError('network') };
         } else {
           lastState = result.value.state;
           if (lastState === 'completed') return { end: 'completed', lastState };

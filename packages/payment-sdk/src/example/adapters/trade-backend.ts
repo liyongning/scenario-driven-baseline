@@ -19,7 +19,7 @@ function field(value: Record<string, unknown>, camel: string, snake: string): un
 function int64(value: unknown): bigint | undefined {
   if (typeof value === 'bigint') return value;
   if (typeof value === 'number' && Number.isSafeInteger(value)) return BigInt(value);
-  if (typeof value === 'string' && /^-?\d+$/.test(value)) { try { return BigInt(value); } catch { return undefined; } }
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) return BigInt(value);
   return undefined;
 }
 function communication(error: CommunicationError): ExampleBackendResult<never> {
@@ -31,7 +31,7 @@ function communication(error: CommunicationError): ExampleBackendResult<never> {
     case 'CANCELLED': return { ok: false, cancelled: true };
     case 'CODEC_ERROR':
       if (error.http?.status === 401) return { ok: false, error: exampleError('unauthorized') };
-      if (error.http && (error.http.status < 200 || error.http.status >= 300)) return { ok: false, error: exampleError('server', { serverCode: String(error.http.status) }) };
+      if (error.http && (error.http.status < 200 || error.http.status >= 300)) return { ok: false, error: { category: 'server', message: `服务端处理失败 (HTTP ${error.http.status})` } };
       return { ok: false, error: exampleError('protocol') };
   }
 }
@@ -53,7 +53,7 @@ function baseStatus<T extends { baseResp?: { statusCode: bigint } | undefined }>
   if (rawCode === undefined || dataCode === undefined || rawCode !== dataCode) return { ok: false, error: exampleError('protocol') };
   if (value.http.status === 401) return { ok: false, error: exampleError('unauthorized') };
   if (dataCode !== 0n) return business(dataCode, operation);
-  if (value.http.status < 200 || value.http.status >= 300) return { ok: false, error: exampleError('server', { serverCode: String(value.http.status) }) };
+  if (value.http.status < 200 || value.http.status >= 300) return { ok: false, error: { category: 'server', message: `服务端处理失败 (HTTP ${value.http.status})` } };
   return { ok: true, value };
 }
 function mapStatus(status: TradeStatus): 'pending' | 'completed' | 'closed' | 'unknown' {
@@ -87,7 +87,7 @@ export function createExampleTradeBackend(options: ExampleTradeBackendOptions): 
       if (!normalized.ok) return normalized;
       const response = normalized.value.data as CreateTradeResponse;
       const wire = object(normalized.value.wire);
-      if (!response.tradeNo || wire && field(wire, 'tradeNo', 'trade_no') !== response.tradeNo) return { ok: false, error: exampleError('protocol') };
+      if (!response.tradeNo || field(wire!, 'tradeNo', 'trade_no') !== response.tradeNo) return { ok: false, error: exampleError('protocol') };
       return { ok: true, value: { reference: { id: response.tradeNo, externalRef: input.externalRef } } satisfies ExampleCreated };
     },
     async query(reference, context) {

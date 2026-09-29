@@ -19,6 +19,7 @@ test('SCN-TEMPLATE-EXAMPLE-001 factory-validation', { meta: { paymentCase: {
   expect(() => createExampleClient({ ...valid(), catalog: { ...valid().catalog, unitValue: 0n } })).toThrow(ExampleConfigurationError);
   expect(() => createExampleClient({ ...valid(), policy: { windowMs: 0 } })).toThrow(ExampleConfigurationError);
   expect(() => createExampleClient({ ...valid(), requestContext: { productId: 1 as never } })).toThrow(ExampleConfigurationError);
+  expect(() => createExampleClient({ ...valid(), policy: { requestTimeoutMs: 10, intervalMs: 20, windowMs: 30 }, requestContext: { productId: 'p', lane: 'l', appVersion: 'v' } })).not.toThrow();
   await annotate(context, before);
 });
 
@@ -31,5 +32,19 @@ describe('example factory', () => {
     undefined, null, [], { ...valid(), runtime: 'node' }, { ...valid(), getAccessToken: 1 },
     { ...valid(), catalog: null }, { ...valid(), catalog: { ...valid().catalog, kind: '' } },
     { ...valid(), catalog: { ...valid().catalog, unitValue: 1 } }, { ...valid(), policy: null },
+    { ...valid(), policy: [] }, { ...valid(), policy: { requestTimeoutMs: 0 } },
+    { ...valid(), policy: { intervalMs: Number.POSITIVE_INFINITY } },
+    { ...valid(), requestContext: null }, { ...valid(), requestContext: [] },
+    { ...valid(), requestContext: { lane: 1 } }, { ...valid(), requestContext: { appVersion: 1 } },
+    { ...valid(), catalog: [] }, { ...valid(), catalog: { ...valid().catalog, itemId: '' } },
+    { ...valid(), catalog: { ...valid().catalog, itemName: '' } },
   ])('rejects malformed configuration %#', value => expect(() => createExampleClient(value as ExampleClientOptions)).toThrow(ExampleConfigurationError));
+  test('accepts partial policy and request context without reading token', () => {
+    for (const policy of [{ requestTimeoutMs: 1 }, { intervalMs: 1 }, { windowMs: 1 }]) {
+      expect(() => createExampleClient({ ...valid(), policy })).not.toThrow();
+    }
+    for (const requestContext of [{ productId: 'p' }, { lane: 'l' }, { appVersion: 'v' }]) {
+      expect(() => createExampleClient({ ...valid(), requestContext })).not.toThrow();
+    }
+  });
 });
