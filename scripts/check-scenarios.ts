@@ -101,7 +101,13 @@ export async function runScenarioPrechecks(
   if (issues.length > 0) return { issues };
 
   const effective = await readEffectiveSpecs(root);
-  const config = await loadScenarioConfig(root);
+  let config;
+  try {
+    config = await loadScenarioConfig(root);
+  } catch (error) {
+    issues.push(`precheck: ${String(error)}`);
+    return { issues };
+  }
   const configIssues = validateScenarioConfig(config);
   if (configIssues.length > 0) issues.push(...configIssues.map(issue => `precheck: ${issue}`));
   const inventory = await readSpecInventory(effective.documents, config);
@@ -113,7 +119,7 @@ export async function runScenarioPrechecks(
   const verificationIssues: string[] = [];
   const otherIssues: string[] = [];
   for (const issue of [...effective.issues, ...inventory.issues]) {
-    if (/Scenario ID|duplicate Scenario ID|duplicate FLOW ID|invalid FLOW ID/.test(issue)) idIssues.push(issue);
+    if (/Scenario ID|Scenario heading|duplicate Scenario ID|duplicate FLOW ID|invalid FLOW ID/.test(issue)) idIssues.push(issue);
     else if (/FLOW (?:table|row)|invalid FLOW row/.test(issue)) flowIssues.push(issue);
     else if (/verification/.test(issue)) verificationIssues.push(issue);
     else otherIssues.push(issue);

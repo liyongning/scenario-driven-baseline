@@ -209,6 +209,15 @@ describe('evaluateCoverage', () => {
     expect(complete).toMatchObject({ exitCode: 1, output: { mode: 'complete', issues: expect.any(Array) } });
   });
 
+  it('blocks malformed project config before building inventory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'scenario-precheck-config-'));
+    await mkdir(join(root, 'openspec/specs'), { recursive: true });
+    await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({ scenarioIdPatterns: ['^SCN-'], flowIdPatterns: ['^FLOW-'], ownerIdPattern: '^[A-Z]+$', extra: true }));
+    const result = await runScenarioPrechecks(root, () => ({ status: 0 }));
+    expect(result.issues).toEqual(expect.arrayContaining([expect.stringContaining('does not match schema')]));
+    expect(result.inventory).toBeUndefined();
+  });
+
   it('runs OpenSpec prechecks before report loading and keeps --input pure', async () => {
     const root = await mkdtemp(join(tmpdir(), 'payment-precheck-'));
     try {
@@ -226,6 +235,41 @@ describe('evaluateCoverage', () => {
       const result = await runScenariosCli(['node', 'script', '--input', input], root, {}, () => { throw new Error('must not invoke openspec'); });
       expect(result.output.issues).toEqual(expect.any(Array));
       expect(calls).toEqual(['openspec']);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('classifies malformed effective Spec facts before reading reports', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'scenario-precheck-facts-'));
+    try {
+      await mkdir(join(root, 'openspec/specs/example'), { recursive: true });
+      await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({ scenarioIdPatterns: ['^SCN-OK$'], flowIdPatterns: ['^FLOW-OK$'], ownerIdPattern: '[' }));
+      await writeFile(join(root, 'openspec/specs/example/spec.md'), `### Requirement: TEST flow
+
+#### Scenario: BAD-ID Invalid
+
+| FLOW ID | Related | Stages | Cases | Environments | Notes |
+| --- | --- | --- | --- | --- | --- |
+| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | invalid |
+
+#### Scenario: SCN-OK Missing checkpoint
+
+\`\`\`json verification
+{"formatVersion":2,"checkpoints":{"one":"declared"},"cases":[{"key":"normal","kind":"behavior","requiredIn":["integration"],"checks":["other"]}],"blockedBy":[]}
+\`\`\`
+`);
+      const successfulCommand = () => ({ status: 0 });
+      const result = await runScenarioPrechecks(root, successfulCommand);
+      expect(result.issues).toEqual(expect.arrayContaining([
+        expect.stringContaining('ownerIdPattern is invalid'),
+        expect.stringContaining('Scenario ID BAD-ID does not match'),
+        expect.stringContaining('invalid FLOW row FLOW-OK'),
+        expect.stringContaining('verification metadata missing'),
+        expect.stringContaining('unknown checkpoint other'),
+      ]));
+      expect((await runScenariosCli(['node', 'script', '--inventory'], root, {}, successfulCommand)).output).toMatchObject({ mode: 'inventory', issues: expect.any(Array) });
+      expect((await runScenariosCli([], root, {}, successfulCommand)).output).toMatchObject({ mode: 'complete', issues: expect.any(Array) });
+      const thrown = await runScenarioPrechecks(root, () => { throw new Error('CLI unavailable'); });
+      expect(thrown.issues[0]).toContain('openspec CLI cannot be invoked');
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 

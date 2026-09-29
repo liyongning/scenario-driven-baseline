@@ -4,6 +4,7 @@
   "additionalProperties": false,
   "required": ["scenarioIdPatterns", "flowIdPatterns", "ownerIdPattern"],
   "properties": {
+    "$schema": { "type": "string", "description": "用于编辑器识别本配置 schema 的可选路径。" },
     "scenarioIdPatterns": { "type": "array", "minItems": 1, "items": { "type": "string", "description": "Scenario ID 必须匹配的正则表达式。" }, "description": "允许的 Scenario ID 格式列表。" },
     "flowIdPatterns": { "type": "array", "minItems": 1, "items": { "type": "string", "description": "FLOW ID 必须匹配的正则表达式。" }, "description": "允许的 FLOW ID 格式列表。" },
     "ownerIdPattern": { "type": "string", "description": "Fixture 和测试绑定 ownerId 必须匹配的正则表达式。" }
