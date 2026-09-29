@@ -74,11 +74,13 @@
 }
 ```
 
-新模块 `scripts/lib/scenario-config.ts` 负责读取这份配置，`spec-inventory`、`check-fixtures` 和 `check-scenarios` 共用。`fixture.schema.json` 中 ownerId 的 pattern 放宽为非空，格式改由 `check-fixtures` 按配置校验。`define-case.ts` 属于 E2E 运行时，不读取根配置，只校验 ownerId 非空且为大写 ID 形态；绑定是否合规交给门禁对账判断。这样 E2E 源码不会反向依赖 `scripts`。
+新模块 `scripts/lib/scenario-config.ts` 负责读取这份配置，`spec-inventory`、`check-fixtures` 和 `check-scenarios` 共用。场景报告器（`packages/e2e/src/reporters/scenario-reporter.ts`）只收集执行事实，不读取 ID 配置、不做格式判断；测试绑定中的 ID 由 `check-scenarios` 对账时与清单比对，引用未登记的 Scenario 或 FLOW 即报错。`fixture.schema.json` 中 ownerId 的 pattern 放宽为非空，格式改由 `check-fixtures` 按配置校验。`define-case.ts` 属于 E2E 运行时，不读取根配置，只校验 ownerId 非空且为大写 ID 形态；绑定是否合规交给门禁对账判断。这样 E2E 源码不会反向依赖 `scripts`。
 
 `check-scenarios` 的执行顺序固定如下，任一步有问题就输出全部已发现的问题，并在读取报告之前非零退出：
 
-1. **OpenSpec 前置（GATE-01）**：`openspec/specs` 必须是目录；执行 `openspec --version` 必须退出码为 0。CLI 通过可注入的执行函数调用，单测中可以替换，integration 中通过修改 `PATH` 构造"CLI 不可调用"的情况。
+1. **OpenSpec 前置（GATE-01）**：`openspec/specs` 必须是目录；执行 `openspec --version` 必须退出码为 0。CLI 通过可注入的执行函数调用。`check:fast` 不得依赖本机安装的 `openspec`：单测直接替换执行函数；integration 中所有经过真实门禁 CLI 的用例（包括恢复通过、支付基线、各类反例），都在临时目录放一个受控的 stub 可执行文件 `openspec`（只响应 `--version` 并返回 0），并把该目录放在 `PATH` 最前面；"CLI 不可调用"的反例则使用不含 `openspec` 的受控 `PATH`。只有面向真实仓库的 `pnpm check:scenarios`（属于 `pnpm check`）需要使用方自行安装的 CLI。
+
+**`--input` 模式不执行前置检查**：`--input` 只对调用方给出的 `CoverageInput` 做纯计算，现在也不读取任何 Spec（`scripts/check-scenarios.ts:273-277`），因此不执行 OpenSpec、ID、FLOW 位置、verification 块这四类前置检查；对账中的未知引用检查（含新增的未登记 FLOW 引用）照常执行。这样现有的支付门禁用例（`packages/e2e/tests/tooling/helpers.ts:33-39` 以 `--input` 调用真实门禁 CLI，TC-PAYSDK-CORE-015/016/017）不需要修改，在没有 `openspec` 的环境中也能通过。单测覆盖"`--input` 模式下即使 CLI 不可用也完成对账"。
 2. **场景 ID（GATE-02）**：每个 `#### Scenario:` 标题必须以符合某个 `scenarioIdPatterns` 的 ID 开头，FLOW ID 同理；在有效 Spec 内全局唯一，MODIFIED 替换的情况除外。不合规的 Scenario 以"标题原文"作为占位 ID 留在清单中，计入缺口。
 3. **FLOW 表位置与行格式（GATE-03）**：表头第一列为 `FLOW ID` 的表格必须位于某个 Requirement 正文中，每一行按 `scripts/flow.schema.json` 校验。
 4. **verification 元数据（GATE-05）**：每个 Scenario 下恰好一个 `json verification` 块，通过 `scripts/verification.schema.json` 校验，且 checks 只引用已声明的 checkpoint。kind 与运行环境的匹配已由 schema 的 `allOf` 约束。
@@ -130,7 +132,12 @@
 
 ### Decision: 支付基线等价验证
 
-为了证明 GATE-04 要求的"支付对账结果不变"，在改造前先用现有门禁生成一份基线：在 `--inventory` 模式下对一组固定的报告输入运行，把支付 Scenario ID 集合、每个场景的 case 义务、FLOW 集合和 summaries 保存为 `packages/e2e/tests/fixtures/SCN-SCENARIO-GATE-005/payment-baseline.json`。改造后的 integration 用例用同一份输入重新运行，要求支付部分与基线逐项相等。示例场景只增加条目，不影响支付部分。基线 Fixture 由 manifest 记录摘要，受 `check:fixtures` 管理。
+GATE-04 的"支付对账结果不变"只比较**支付子集**，即 ID 符合支付格式（`TC-PAYSDK-*`、`FLOW-PAYSDK-*`）的 Scenario 与 FLOW。现有 summaries 是对清单中全部场景的合计（`scripts/check-scenarios.ts:246-265`），加入示例和门禁场景后必然变化；运行报告的新鲜度又依赖 `sourceDigest`（覆盖 `scripts/`）和 `specDigest`，改造本身就会让旧报告过期。所以比较分成两部分，都不依赖实时报告：
+
+1. **清单与义务等价**：改造前用现有门禁在 `--inventory` 模式下导出支付子集的 Scenario ID 集合、每个 case 的 `key/kind/requiredIn/checks`、FLOW 的 `id/cases/requiredIn/stages`，保存为 `packages/e2e/tests/fixtures/SCN-SCENARIO-GATE-005/payment-inventory.json`。改造后，新门禁从有效 Spec 构建清单、过滤出支付子集，要求与该文件逐项相等。
+2. **对账逻辑等价**：改造前构造一份固定的 `CoverageInput`（`--input` 模式），其中 `current` 指纹固定写死，场景、FLOW、绑定和报告都取自支付子集的一次真实运行记录；保存该输入及现有 `evaluateCoverage` 对它的输出（summaries 与 issues）为 `payment-coverage-input.json`、`payment-coverage-output.json`。改造后，用新门禁对同一份输入运行 `--input` 模式，要求输出相等。因为 `current` 指纹是固定的，结果不受源码和 Spec 摘要变化影响。
+
+两份基线文件由 manifest 记录摘要，受 `check:fixtures` 管理。各任务的共同完成条件只要求这两项等价成立，不比较实时报告中的执行数或通过数；实时 `pnpm check:scenarios` 中支付场景的执行状态，取决于该次是否同时运行了 integration 与 weapp，只在 Task 6 的全量 `pnpm check` 中作为完整门禁验收。
 
 ### Decision: 示例在 SDK 中的结构与公共契约
 
@@ -176,7 +183,7 @@ type ExampleCreateInput = Readonly<{ ownerId: string; externalRef: string; units
 type ExampleResourceRef = Readonly<{ id: string; externalRef: string }>;
 type ExampleState = 'pending' | 'completed' | 'closed' | 'unknown';
 type ExampleError = Readonly<{
-  category: 'invalid_input' | 'unauthorized' | 'network' | 'timeout' | 'server' | 'protocol';
+  category: 'invalid_input' | 'unauthorized' | 'host' | 'network' | 'timeout' | 'server' | 'protocol';
   message: string;
   serverCode?: string;        // 十进制字符串
   serverDescription?: string; // 错误码目录中已知时附带
@@ -211,14 +218,28 @@ interface ExampleClient {
 | `ownerId` | `userId`（`BigInt`） |
 | `catalog.itemId` / `itemName` | `items[0].skuId` / `skuName` |
 | `units` | `items[0].quantity` |
-| `catalog.unitValue × units` | `items[0].unitPrice = unitValue`；`payAmount = originalAmount = unitValue × units`；`discountAmount = 0` |
+| `catalog.unitValue × units` | 条目级：`items[0].unitPrice = unitValue`，`items[0].discountAmount = 0`，`items[0].payAmount = unitValue × units`（IDL 要求 `= unit_price × quantity − discount_amount`，`trade.ts:270`）。整单级：`originalAmount = unitValue × units`，`discountAmount = 0`，`payAmount = unitValue × units`（IDL 要求分别等于各条目对应字段之和，`trade.ts:309-316`）。`create-mapping` module 用例逐一断言这六个金额字段 |
 | 固定值 | `goodsType = GoodsType.GOODS_TYPE_VIRTUAL`（generated `pay/v1`）；`items[0].skuSnapshot` 不填（IDL 中为可选字段） |
 | `CreateTradeResponse.tradeNo` | `reference.id` |
-| 查询 | `QueryTradeRequest{ tradeNo: id, bizType: kind, bizTradeNo: externalRef, syncChannel: false }` |
+| 查询 | `QueryTradeRequest{ tradeNo: id, syncChannel: false }`。IDL 规定 `tradeNo` 与 `(bizType, bizTradeNo)` 二选一（`trade.ts:411`），示例只按 `tradeNo` 查询，与支付 backend 一致；`externalRef` 只用于本地关联，不进入查询请求 |
 | `trade.status` | CREATED、PAYING → `pending`；PAID → `completed`；CLOSED → `closed`；其余 → `unknown` |
 | `trade.tradeNo` 与请求不一致 | `protocol` 错误 |
 
-**错误映射**：协议包的通信错误中，`TIMEOUT` 映射为 `timeout`，`NETWORK_ERROR` 为 `network`，`EMPTY_ACCESS_TOKEN` 为 `unauthorized`，`CODEC_ERROR` 为 `protocol`，HTTP 401 为 `unauthorized`；`CANCELLED` 在内部以 `cancelled: true` 传递，与支付 backend 的做法一致。BaseResp 非零时统一归入 `server`，只有错误码目录中属于 Unauthorized 的几个码归入 `unauthorized`。错误码按原始 bigint 比较，不从文案推断。
+**错误映射**：协议包的每种通信结果都有唯一对应，覆盖 `CommunicationError.code` 全部取值（`packages/payment-protocol/src/transport/errors.ts:3-4`）：
+
+| 协议结果 | 示例类别 | 观察中可重查 |
+| --- | --- | --- |
+| `TIMEOUT` | `timeout` | 是 |
+| `NETWORK_ERROR` | `network` | 是 |
+| `EMPTY_ACCESS_TOKEN` | `unauthorized` | 否 |
+| `HOST_CONTEXT_ERROR`（宿主 `getAccessToken` 抛错或返回非字符串） | `host` | 否 |
+| `CODEC_ERROR` 且带 HTTP 401 | `unauthorized` | 否 |
+| `CODEC_ERROR` 且带其他非 2xx HTTP 状态 | `server`（不带 `serverCode`，message 注明 HTTP 状态） | 否 |
+| `CODEC_ERROR` 且 HTTP 为 2xx 或无 HTTP 上下文 | `protocol` | 否 |
+| `CANCELLED` | 内部以 `cancelled: true` 传递，不对外暴露类别 | — |
+| BaseResp 非零 | `server`，带十进制 `serverCode`；错误码目录中的 Unauthorized 码归入 `unauthorized` | 仅目录中 `QueryTrade` 的 Unavailable 码可重查 |
+
+HTTP 非 2xx 的判定方式与支付 backend 相同（`backend.ts:73-78`）。错误码按原始 bigint 比较，不从文案推断。
 
 **可重查**：观察期间，只有 `timeout`、`network`，以及目录中 `QueryTrade` 的 Unavailable 码可以重查，其余错误直接以 `failed` 结束。示例核心只根据端口返回的 `retryable` 标记做判断，不认识任何错误码数值。
 
@@ -252,7 +273,8 @@ interface ExampleClient {
 ### Decision: E2E 的布局与绑定
 
 - **integration 用例**：`packages/e2e/tests/example/SCN-TEMPLATE-EXAMPLE-0xx.spec.ts`；FLOW 用例为 `packages/e2e/tests/example/FLOW-TEMPLATE-EXAMPLE-001.spec.ts`。
-- **weapp 执行**：`packages/e2e/host/weapp/example-runner.ts`，由现有 weapp driver 调用；weapp 用例在 `packages/e2e/tests/example/weapp/`。
+- **weapp 执行**：新增 `packages/e2e/host/weapp/example-runner.ts`。weapp driver 只能调用注册在 `getApp()` 上的函数（`src/drivers/weapp.ts:19-24`），所以要对共享的测试宿主文件做**只增不改**的扩展：`host/weapp/vite.config.ts` 在现有 `protocol-runner` 之外增加 `example-runner` 构建入口；`host/weapp/app.js` 增加注册 `runExampleCase`，现有三个支付函数保持不变。`example-runner.ts` 与 `app.js` 的新增分支由现有的 `packages/e2e/src/drivers/weapp-host.test.ts`（`test-tools-unit`）扩展覆盖；`app.js` 在 100% 覆盖范围内。
+- **weapp 用例**：放在 `packages/e2e/tests/weapp/example/`。现有 weapp 项目的 include 是 `packages/e2e/tests/weapp/**`，已能收录；而 integration 项目的 include 只新增 `packages/e2e/tests/example/**`，两者不重叠，示例 weapp 用例不会被 integration 项目误跑。
 - **Fixture**：`packages/e2e/tests/fixtures/<ownerId>/`，与支付共用同一个根目录，靠 ID 命名空间区分。原因是 `check-fixtures` 要求平铺的 ownerId 目录。
 - **module 用例**：写在 `src/example/**` 旁边的 `*.test.ts` 中，绑定格式与支付的 module 用例相同，属于 `sdk-unit`；Shadow 路由的用例属于 `protocol-unit`；门禁工具的用例属于 `test-tools-unit`。
 - 修改 `packages/e2e` 下各 vitest 配置的 include，纳入 `tests/example/**`。`check-architecture` 的目录白名单不需要改。
@@ -262,13 +284,21 @@ interface ExampleClient {
 - **页面注册**：`app.live.json` 增加页面 `pages/live/example/index`，控制逻辑放在 `host/weapp/live/example-controller.ts`，调用生产 SDK 的 `createExampleClient`。
 - **配置**：`.env.live` 白名单增加非敏感键 `LIVE_EXAMPLE_KIND`、`LIVE_EXAMPLE_ITEM_ID`、`LIVE_EXAMPLE_ITEM_NAME`、`LIVE_EXAMPLE_UNIT_VALUE`；`ownerId` 复用已有的 uid 预填键，页面上可以修改。Token 沿用 Storage 与 getter 机制。
 - **证据**：`evidence.schema.json` 增加记录 `LIVE-TEMPLATE-EXAMPLE-001`（kind 为 `live-example-record`），内容包括资源引用、一次最终结果和请求路径列表。`check-evidence` 校验记录结构，并拒绝请求路径中包含 `/api/base/trade/pay` 的记录。
-- **构建检查**：`live:build` 和 `live:check` 的离线检查扩展到示例页面，覆盖白名单注入、无 Token、无支付调用。
+- **构建检查**：`host/weapp/vite.live.config.ts` 当前只有一个固定入口（`pages/live/index.js`），`src/live/build.ts` 的 `liveOutputFiles`/`liveSourceFiles` 也是固定列表；两者都以只增不改的方式加入示例页面。`live:build` 和 `live:check` 的离线检查随之扩展到示例页面，覆盖白名单注入、无 Token、无支付调用；支付 Live 页面的构建结果不变。
 
 页面作为样板交付，本 Change 不做真实运行。使用方有真实服务和测试 Token 时，可以按现有 Live 流程运行并取证。
 
 ### Decision: 包与发布
 
-`check-package` 的期望导出列表增加 `createExampleClient` 与 `ExampleConfigurationError`，并在 ESM、CJS 两种导入和类型声明中分别验证。发布入口与版本不变，本 Change 不上传任何包。
+`scripts/check-package.ts` **保持不变**。它目前只打包并检查产物清单、测试路径与协议依赖版本（`scripts/check-package.ts:20-29`），没有导出列表，也不做 ESM/CJS/类型导入检查；支付门禁用例 `TC-PAYSDK-CORE-017` 以 `--input` 调用它并要求现有输入完全通过（`TC-PAYSDK-CORE-017.spec.ts:38-53,107,125`），因此不向其输入或检查逻辑加入示例相关内容。
+
+示例的包消费只由新增的 integration 用例 `packages/e2e/tests/example/SCN-TEMPLATE-EXAMPLE-001.package.spec.ts`（case `package-consumer`）证明，写法参照支付的 `TC-PAYSDK-CORE-014.spec.ts`，但不复用它的 Fixture 或辅助代码：
+
+1. 在临时目录用 `pnpm --filter <包> pack` 打出协议包与 SDK 包的 tarball；
+2. 分别建立 ESM 消费工程（`type: module`，`import { createExampleClient, ExampleConfigurationError } from '@daqian/payment-sdk'`）和 CommonJS 消费工程（`require`），以 `file:` 依赖安装 tarball，运行后断言两个导出存在，且以非法配置调用 `createExampleClient` 会抛出 `ExampleConfigurationError`；
+3. 各放一个 `.ts` / `.cts` 消费文件，用 `tsc --noEmit` 校验示例公共类型可从 `dist/index.d.ts`、`dist/index.d.cts` 解析。
+
+这一用例单独进入 integration 报告，与 `check:package` 的现有职责互不影响。发布入口与版本不变，本 Change 不上传任何包。
 
 ### Decision: 任务顺序与"可运行"判定
 
@@ -289,5 +319,5 @@ interface ExampleClient {
 - **归档后示例 Fixture 的来源路径失效**：Fixture manifest 的 `sources.spec` 记录所依据 Spec 的路径和摘要。Change 进行中，示例 Fixture 指向 `openspec/changes/template-example/specs/...`；归档时这个目录会被移到 `archive/<日期>-template-example/`，`check:fixtures` 会因为路径不存在而失败。支付的 51 个 manifest 就是在归档提交中重新指向归档路径的。缓解：归档本 Change 时，在同一个提交里把示例 manifest 的 `sources.spec.path` 改为归档路径（摘要不变，因为内容没变），并运行 `pnpm check:fixtures` 确认。
 - **AGENTS 两部分结构可能被后续修改混淆**：有人把通用规则写进支付小节，删除支付时会被一起删掉。缓解：两部分的标题固定，支付小节注明整节删除；Plan Review 与任务验收按上面的载体清单核对。
 - **FLOW 的"关联 Scenario"列暂不校验**：在删除支付之前，这一列可能写错而不被发现。缓解：登记为已知缺口，删除支付后在 `flow.schema.json` 与门禁中收紧。
-- **前置检查依赖本机 CLI**：没有安装 `openspec` 的环境中，完整门禁会失败。这是有意为之，符合规则 1；`check:fast` 不包含场景门禁，不受影响。
+- **前置检查依赖本机 CLI**：没有安装 `openspec` 的环境中，`pnpm check` 中的场景门禁会失败。这是有意为之，符合规则 1。`check:fast` 中的 integration 门禁用例使用受控 stub，不依赖本机 CLI。
 - **示例与支付代码有相似之处**：观察循环与支付核心的实现思路相似但各自独立，属于有意的重复，这样删除支付时不会牵连示例。

@@ -23,7 +23,7 @@
 ### 1. 场景门禁通用化（首个任务，示例的前置）
 
 - 场景清单来源改为 `openspec/specs/**/spec.md` 加 active change 下的 `specs/**/spec.md`，按 OpenSpec 生命周期合并增、改、删；不再写死归档路径。
-- Scenario/FLOW 的 ID 格式改为项目配置项，允许同时登记多个格式。默认格式沿用 Change Skill 与本仓库 schema 模板已规定的 `SCN-<CAPABILITY>-<NUMBER>`，FLOW 使用对应的 `FLOW-<CAPABILITY>-<NUMBER>`；过渡期内支付的 `TC-PAYSDK-*`、`FLOW-PAYSDK-*` 与之并存。Fixture 检查、场景报告器等使用同一份配置。
+- Scenario/FLOW 的 ID 格式改为项目配置项，允许同时登记多个格式。默认格式沿用 Change Skill 与本仓库 schema 模板已规定的 `SCN-<CAPABILITY>-<NUMBER>`，FLOW 使用对应的 `FLOW-<CAPABILITY>-<NUMBER>`；过渡期内支付的 `TC-PAYSDK-*`、`FLOW-PAYSDK-*` 与之并存。Spec 清单与 Fixture 检查使用同一份配置；场景报告器只收集执行事实，测试绑定中的 ID 由门禁对账时与清单比对。
 - 支付的 8 条 FLOW 登记在已归档 Change 的 delta spec 中，写在 Requirement 之外的独立章节里。OpenSpec 归档时以 Requirement 为单位合并，这一节因此没有进入 `openspec/specs/payment-sdk/spec.md`（已用模拟归档复现）。本 Change 通过 MODIFIED SDK-14 把这张表原样放进 SDK-14 正文：SDK-14 的原文和场景逐字不变，只做数据搬移。已模拟归档本 Change 确认：8 条 FLOW 会保留在主 Spec 中，24 个场景内容不变。
 - 门禁在对账前增加四条前置检查，任一不满足直接失败：
   1. 整套架构由 OpenSpec 驱动：仓库存在 OpenSpec Spec 目录，且 `openspec` CLI 可调用。
@@ -33,7 +33,7 @@
 - 第 2、3、4 条规则各有一份格式 schema，作为该格式的唯一权威定义，每个字段都用 `description` 写中文说明：场景 ID 配置 `scenario-gate.config.schema.json`（新增）、验证元数据 `scripts/verification.schema.json`（补字段说明，`blockedBy` 从支付专用的 `SDK-P-` 格式放宽为通用的依赖引用）、FLOW 行 `scripts/flow.schema.json`（新增，门禁把 FLOW 表每一行解析成对象后校验）。字段含义此前只写在已归档的支付 Design 中，且已与现状不一致，今后不再作为依据。
 - FLOW 表"关联 Scenario"一列暂定为说明性内容，门禁不校验；支付表使用的是简写，强制完整 ID 会破坏支付基线。登记为已知缺口，删除支付后收紧。
 - 根 AGENTS.md 增加上述四条硬规则的说明：每条给出一句规则、对应 schema 路径和一个最小示例，不重复列字段表。Spec 中的 `scenario-gate` 只定义门禁按这些 schema 校验与阻断的行为，不另写格式定义。工作流 schema、CLI 安装方式和 ID 前缀属于使用方选择，模板不强制。
-- 验收要求：改造后现有支付场景的对账结果不变；四条前置检查各有违规反例。
+- 验收要求：改造后支付子集的清单、case 义务，以及对固定对账输入的输出与改造前一致；四条前置检查各有违规反例。
 
 - AGENTS.md 结构调整：根目录和三个包的 AGENTS.md 都拆成两部分——"模板通用规则"（本 Change 新增或改写，长期有效）和"当前业务：支付"（原有支付条款与写死到归档 Change 的必读链接原样移入，删除支付时整节移除）。根"必读"改为通用入口：有效 Spec 在 `openspec/specs/`，进行中的 Change 用 `openspec list` 查看。
 - 根 AGENTS.md 增加"场景门禁与归档"说明：门禁读取哪些 Spec、ID 格式在哪里配置、归档时必须做的事（FLOW 表写在 Requirement 里；Fixture manifest 的 Spec 路径改指向归档目录）。
@@ -55,7 +55,7 @@
 | D 测试体系 | `SCN-TEMPLATE-EXAMPLE-*` 场景（含 behavior、module、engineering 三类 case）、登记在 Requirement 正文中的 FLOW、版本化 Fixture，并纳入场景门禁与 100% 覆盖率 |
 | E Shadow | Shadow 新增 `CreateTrade` 路由，编排状态推进，至少一个故障注入；Node integration 与 weapp（真实 `wx.request`）各有运行证据 |
 | E Live | Live 控制台新增示例页面（创建后查询观察，不发起支付），作为样板交付；构建和证据门禁可离线验证。本 Change 不做真实运行 |
-| F 交付发布 | `check:package` 覆盖示例导出的 ESM/CJS/类型消费；发布入口仅做预检，不实际上传 |
+| F 交付发布 | 独立的包消费用例打包并以 ESM、CJS、类型声明三种方式消费示例导出；`check:package` 与支付门禁保持不变，示例产物照常经过它的现有检查；发布入口仅做预检，不实际上传 |
 | G 规划约束 | 本 Change 本身按 OpenSpec 工作流推进，示例场景由通用化后的门禁对账 |
 
 ### 非目标

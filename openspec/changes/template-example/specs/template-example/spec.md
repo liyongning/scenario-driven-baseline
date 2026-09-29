@@ -29,7 +29,7 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
 
 ### Requirement: EX-02 创建资源
 
-`create(input)` MUST 在外部动作之前校验输入。输入只包含中立字段：`ownerId`（资源所有者标识）、`externalRef`（宿主侧引用，用于识别重复提交）、`units`（正整数数量）。校验通过后，示例适配器 SHALL 把输入映射为 generated `CreateTradeRequest`，映射规则由 Design 固定；请求经协议包实例执行器发送，由执行器负责公共 Header/BaseReq 与编解码。成功时返回中立的资源引用。失败时返回示例错误，错误类别为 `invalid_input`、`unauthorized`、`network`、`timeout`、`server`、`protocol`（响应无法解码，或与请求不一致）。`server` 错误 SHALL 保留十进制字符串形式的服务端错误码，并在协议包错误码目录能识别该码时附带其描述。示例不自动重试创建请求。
+`create(input)` MUST 在外部动作之前校验输入。输入只包含中立字段：`ownerId`（资源所有者标识）、`externalRef`（宿主侧引用，用于识别重复提交）、`units`（正整数数量）。校验通过后，示例适配器 SHALL 把输入映射为 generated `CreateTradeRequest`，映射规则由 Design 固定；请求经协议包实例执行器发送，由执行器负责公共 Header/BaseReq 与编解码。成功时返回中立的资源引用。失败时返回示例错误，错误类别为 `invalid_input`、`unauthorized`、`network`、`timeout`、`server`、`protocol`（响应无法解码，或与请求不一致）、`host`（宿主提供的 `getAccessToken` 抛错或返回非字符串）。非 401 的 HTTP 错误归入 `server`，不带服务端错误码。`server` 错误 SHALL 保留十进制字符串形式的服务端错误码，并在协议包错误码目录能识别该码时附带其描述。示例不自动重试创建请求。
 
 #### Scenario: SCN-TEMPLATE-EXAMPLE-002 创建成功返回资源引用
 - **WHEN** 宿主以合法输入调用 `create`，服务端返回成功
@@ -52,7 +52,7 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
 ```
 
 #### Scenario: SCN-TEMPLATE-EXAMPLE-003 创建失败的归类
-- **WHEN** 输入不合法；或服务端返回非零业务码；或网络失败、请求超时、鉴权失败
+- **WHEN** 输入不合法；或服务端返回非零业务码；或网络失败、请求超时、鉴权失败、宿主 Token getter 异常、非 401 的 HTTP 错误
 - **THEN** 输入不合法时不发出请求，返回 `invalid_input`；其余情况各归入对应类别，只返回一次结果且不重试；`server` 错误保留十进制字符串错误码，对错误码目录中已知的码附带描述。
 
 ```json verification
@@ -60,7 +60,7 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
   "formatVersion": 2,
   "checkpoints": {
     "input-before-request": "输入不合法时不发请求，返回 invalid_input",
-    "error-category": "业务码、网络、超时、鉴权分别归入 server、network、timeout、unauthorized",
+    "error-category": "业务码、网络、超时、鉴权、宿主上下文异常、非 401 HTTP 错误分别归入 server、network、timeout、unauthorized、host、server",
     "server-code-preserved": "server 错误保留十进制字符串错误码，已知码附带目录中的描述",
     "no-auto-retry": "创建失败不自动重试，只返回一次结果"
   },

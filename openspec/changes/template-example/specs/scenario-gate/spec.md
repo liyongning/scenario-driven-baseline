@@ -2,7 +2,7 @@
 
 ### Requirement: GATE-01 OpenSpec 驱动前置检查
 
-场景门禁 MUST 在构建清单和对账之前，确认本仓库由 OpenSpec 驱动：仓库根存在 `openspec/specs` 目录，且 `openspec` CLI 可以调用。任一条件不满足时，门禁 SHALL 输出缺失项并非零退出，不得继续产生覆盖结论。模板不规定工作流 schema、CLI 的安装方式或版本；根 AGENTS.md SHALL 把这一前置条件写成硬规则。
+场景门禁 MUST 在构建清单和对账之前，确认本仓库由 OpenSpec 驱动：仓库根存在 `openspec/specs` 目录，且 `openspec` CLI 可以调用。任一条件不满足时，门禁 SHALL 输出缺失项并非零退出，不得继续产生覆盖结论。模板不规定工作流 schema、CLI 的安装方式或版本；根 AGENTS.md SHALL 把这一前置条件写成硬规则。门禁的 `--input` 模式只对调用方提供的对账数据做纯计算，不读取 Spec，因此 SHALL NOT 执行本条及 GATE-02、GATE-03、GATE-05 的前置检查；GATE-03 中"绑定引用未登记的 Scenario 或 FLOW 即失败"的对账检查在 `--input` 模式下仍然适用。
 
 #### Scenario: SCN-SCENARIO-GATE-001 缺少 OpenSpec 时前置检查失败
 - **WHEN** 仓库缺少 `openspec/specs` 目录，或 `openspec` CLI 无法调用
@@ -15,10 +15,11 @@
     "precheck-before-coverage": "前置检查先于清单构建和报告读取，失败时不输出覆盖结论",
     "missing-specs-dir": "缺少 openspec/specs 目录时非零退出并指明该项",
     "missing-cli": "openspec CLI 无法调用时非零退出并指明该项",
-    "restored-passes": "恢复后前置检查通过，继续后续对账"
+    "restored-passes": "恢复后前置检查通过，继续后续对账",
+    "input-mode-pure": "--input 模式不执行 OpenSpec 与 Spec 前置检查，缺少 CLI 时仍按输入数据完成对账"
   },
   "cases": [
-    {"key": "precheck-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["precheck-before-coverage", "missing-specs-dir", "missing-cli", "restored-passes"]},
+    {"key": "precheck-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["precheck-before-coverage", "missing-specs-dir", "missing-cli", "restored-passes", "input-mode-pure"]},
     {"key": "missing-specs-dir-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["precheck-before-coverage", "missing-specs-dir", "restored-passes"]},
     {"key": "missing-openspec-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["precheck-before-coverage", "missing-cli", "restored-passes"]}
   ],
@@ -120,19 +121,19 @@
 
 ### Requirement: GATE-04 可配置的 ID 格式与迁移不变性
 
-Scenario 与 FLOW 的 ID 格式 MUST 来自一份项目级配置，允许同时登记多个格式。Spec 清单、Fixture 检查和场景报告器 SHALL 使用同一份配置。门禁通用化 SHALL NOT 改变支付场景已登记的清单、case 义务和对账结论：用改造前后的门禁处理同一份运行报告，支付 TC 与 FLOW 的集合及 summaries 必须一致。
+Scenario 与 FLOW 的 ID 格式 MUST 来自一份项目级配置，允许同时登记多个格式。Spec 清单与 Fixture 检查 SHALL 使用同一份配置；场景报告器只收集执行事实，不做 ID 格式判断，测试绑定中的 ID 由门禁对账时与清单比对。门禁通用化 SHALL NOT 改变支付场景的登记与对账逻辑：只比较支付子集（ID 符合支付格式的 Scenario 与 FLOW），改造后的清单与 case 义务必须与改造前导出的基线逐项一致；对同一份固定了 `current` 指纹的对账输入，改造前后输出的 summaries 与问题列表必须一致。比较不依赖实时运行报告的执行数或通过数。
 
 #### Scenario: SCN-SCENARIO-GATE-005 多格式并存且支付对账结果不变
-- **WHEN** 配置同时登记支付格式（`TC-PAYSDK-*`、`FLOW-PAYSDK-*`）和通用格式（`SCN-<CAPABILITY>-<NNN>`、`FLOW-<CAPABILITY>-<NNN>`），并用同一份运行报告执行门禁
-- **THEN** 两类场景都进入清单；支付的 Scenario/FLOW 集合、case 义务和 summaries 与改造前基线一致；从配置中移除某个格式后，使用该格式的 Scenario 按 GATE-02 报错，不会被跳过。
+- **WHEN** 配置同时登记支付格式（`TC-PAYSDK-*`、`FLOW-PAYSDK-*`）和通用格式（`SCN-<CAPABILITY>-<NNN>`、`FLOW-<CAPABILITY>-<NNN>`），并分别与改造前导出的支付清单基线、以及固定的对账输入进行比较
+- **THEN** 两类场景都进入清单；支付子集的 Scenario/FLOW 集合与 case 义务与改造前基线一致；对固定的对账输入，改造前后的 summaries 与问题列表一致；从配置中移除某个格式后，使用该格式的 Scenario 按 GATE-02 报错，不会被跳过。
 
 ```json verification
 {
   "formatVersion": 2,
   "checkpoints": {
-    "single-config": "清单、Fixture 检查和报告器读取同一份 ID 格式配置",
+    "single-config": "清单与 Fixture 检查读取同一份 ID 格式配置；报告器不做格式判断，绑定 ID 由门禁对账比对",
     "multi-pattern": "多个格式并存时各自进入清单",
-    "payment-baseline-unchanged": "对同一份报告，支付 TC/FLOW 集合、义务和 summaries 与改造前基线一致",
+    "payment-baseline-unchanged": "支付子集的清单与义务与基线逐项一致；对固定 current 指纹的对账输入，改造前后 summaries 与问题列表一致",
     "removed-pattern-reported": "移除某个格式后，使用该格式的 Scenario 按 GATE-02 报错"
   },
   "cases": [
