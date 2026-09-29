@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-007",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "observe-after-stop": "observe-after-stop.json"
+  },
+  "sha256": {
+    "observe-after-stop.json": "413769dc3f5ff0a2320d5ab8384e9a301edf5820a53853874926b64eaaf822ef"
+  }
+}

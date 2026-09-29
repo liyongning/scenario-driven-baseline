@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CORE-016",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md",
+      "sha256": "092bdea3ff40b1a517a1a83b766bd3406bdf24a078f7cb7d6400faa480ed6399"
+    }
+  },
+  "cases": {
+    "skipped-required-case": "skipped-required-case.json",
+    "assertion-not-executed": "assertion-not-executed.json",
+    "missing-required-environment": "missing-required-environment.json",
+    "stale-source-report": "stale-source-report.json",
+    "failed-assertion-at-full-coverage": "failed-assertion-at-full-coverage.json",
+    "missing-flow": "missing-flow.json",
+    "spliced-flow-evidence": "spliced-flow-evidence.json",
+    "unit-cannot-cover-behavior": "unit-cannot-cover-behavior.json",
+    "mixed-scenario-module-missing": "mixed-scenario-module-missing.json",
+    "missing-verification-metadata": "missing-verification-metadata.json"
+  },
+  "sha256": {
+    "skipped-required-case.json": "e14362ed5dd8bec6abd355421ff9488b2c73fbcbd9077b9cf15380bbc12eecaf",
+    "assertion-not-executed.json": "3fca05b41984a1267e4a573d91abb6e012857f9d6a005d533114b8db98d7efa9",
+    "missing-required-environment.json": "f86cdc4348cdec748135df3518dc4fc825f3d43917785dbb491aa23c70c164ea",
+    "stale-source-report.json": "2bf46360775026c2d8a1f16d8305e68e4236893dc16b258c856e14a2bae75beb",
+    "failed-assertion-at-full-coverage.json": "468fa6bdb9336e92470b0e280ee3cd0af615a9a874a286e1845c7b80769c6a0c",
+    "missing-flow.json": "320114f270e9d8439a8d6f4c706a7ac9bbcd2d9752128073eac5447e233323e0",
+    "spliced-flow-evidence.json": "368423125d734c8dc936af190d62b8200e2f616a140a004c4df698195a341d94",
+    "unit-cannot-cover-behavior.json": "c94434000261bd15974cb2b450c3329ccdcb977e024ca97e36d1993b2e19eb09",
+    "mixed-scenario-module-missing.json": "0b51c75fd2a3905dc59e2743931f8276856eab414e5a7576ce3476869170f26e",
+    "missing-verification-metadata.json": "7deb892b43ec4b30cb340278699baa707aee567dde72135011678640ed68626b"
+  }
+}

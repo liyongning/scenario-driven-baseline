@@ -1,0 +1,121 @@
+关于支付 SDK 三项契约问题的回复
+
+一、基线更新：你们核对的 285f1be 已过期
+
+pay_params 已从 string 改成结构化 oneof，正是 P02 提的诉求。请按新基线对齐：
+
+- idl：ae12898
+- infra-trade：36b636c
+- infra-pay：f5b03ba
+
+新结构（infra/pay/v1/pay.proto）：
+
+message WechatVirtualPayParams {
+  string sign_data = 1;
+  string pay_sig   = 2;
+  string signature = 3;
+  string mode      = 4;  // 固定 "short_series_goods"
+}
+message PayParams {
+  oneof params {
+    WechatJsapiPayParams   wechat_jsapi   = 1;
+    WechatNativePayParams  wechat_native  = 2;
+    WechatVirtualPayParams wechat_virtual = 3;
+  }
+}
+
+CreateTradePayResponse.pay_params 类型改为 infra.pay.v1.PayParams，字段号仍是 4。没有外层字符串了，你们文档里"外层字符串编码方式"这个问题相应消失。
+
+二、P02
+
+mode 的位置：文档和微信示例都没错。 我读了 wechatvirtual/sign.go:30，signData 模板里含 "mode":"short_series_goods"，同时 payParams 顶层也有一个 mode，两者同值。所以 §9.11.3 把它列在 signData 内容里是准确的，微信示例顶层有它也是准确的，只是文档没说"两处都有"。
+
+sign_data 保持 string 是刻意的——它是签名原文，做成嵌套 message 会被 protojson 重排键序和转义，签名当场失效。和你们说的"透传签名原文、不重序列化"一致。
+
+实测响应样例（用 protojson + EmitUnpopulated，即 grpc-gateway v2 默认 marshaler 的等价配置实跑，不是推导）：
+
+{"tradeNo":"T1…","paymentNo":"P1…","channel":"CHANNEL_WECHAT_VIRTUAL",
+ "payParams":{"wechatVirtual":{
+   "signData":"{\"offerId\":\"1450000000\",…,\"mode\":\"short_series_goods\"}",
+   "paySig":"…","signature":"…","mode":"short_series_goods"}},
+ "expireTime":"1757232000000",
+ "baseResp":{"requestId":"…","success":true,"serverTimeMs":"…","statusCode":"0"}}
+
+四个会咬人的点，建议直接写进 fixture：
+
+1. 所有 int64 序列化成字符串：expireTime / serverTimeMs / statusCode 都带引号，按 number 解析会出错
+2. 失败时 payParams 是 null，且 tradeNo:""、channel:"CHANNEL_UNSPECIFIED" 仍会输出——不能用"字段是否存在"判断成功
+3. oneof 只输出命中的那一支，不会有 "wechatNative":null
+4. channel 是枚举名字符串
+
+判错优先级：status_code 是唯一权威，0 即成功。error 和 status_msg 在 base.proto 里标了 conditional_presence（条件是 status_code≠0），success 是冗余显式字段。遇到 success=true 但 status_code≠0，以 status_code 为准并当异常上报。
+
+业务错误一律 HTTP 200（handler 一律把错误装进 BaseResp、不返回 gRPC error）。网关自己拦下的请求不经过 handler，HTTP 状态码我没核实，先别依赖。
+
+CreateTradePay 错误码全集（实跑 DescribeErrorCode 得到）：
+
+┌────────────────┬─────────────────────────────────────────────┐
+│  status_code   │                    含义                     │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002020 │ 未登录 / Token 失效                         │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002030 │ 交易不存在或不属于当前用户                  │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002040 │ Conflict：已支付 / 过期 / 换通道 / 换 appid │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002010 │ 参数错                                      │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002070 │ 可退避重试                                  │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002080 │ 通道未开放                                  │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002090 │ 通道合规拒绝                                │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002100 │ session_key 过期，重新 login                │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002110 │ 渠道确定性拒绝                              │
+├────────────────┼─────────────────────────────────────────────┤
+│ 10100801002120 │ 该 appid 下未绑微信，引导授权               │
+└────────────────┴─────────────────────────────────────────────┘
+
+你们 P01 问的三件事各有独立码，不用靠文案区分。
+
+三、P04
+
+幂等键是 trade_no + channel + app_id 三维，不是两维。 payment_domain_service.go:215-245 的决策表：
+
+┌─────────────────────┬────────────────────────┐
+│      锁内读到       │          结果          │
+├─────────────────────┼────────────────────────┤
+│ 任何一行 SUCCESS    │ Conflict（优先于一切） │
+├─────────────────────┼────────────────────────┤
+│ 在途行 channel 不同 │ Conflict               │
+├─────────────────────┼────────────────────────┤
+│ 在途行 appid 不同   │ Conflict               │
+├─────────────────────┼────────────────────────┤
+│ 在途行 PREPAID      │ 复用                   │
+├─────────────────────┼────────────────────────┤
+│ 在途行 CREATED      │ 续用                   │
+├─────────────────────┼────────────────────────┤
+│ 无在途行            │ 新建                   │
+└─────────────────────┴────────────────────────┘
+
+判重只看 CREATED/PREPAID/SUCCESS，FAILED/CLOSED 不参与，所以失败过的会走新建。
+
+你们那个场景：同 trade_no + channel + app_id 且有有效 PREPAID 时，复用同一 payment_no，signData/paySig 原样复用（渠道 outTradeNo 不变），signature 用当次 session_key 重新代签。所以恢复会话后再请求拿到的是新会话的有效参数，不是过期参数，payment_no 和 outTradeNo 都不换，不涉及渠道订单号复用约束。
+
+一个能帮你们砍掉大量分支的事实：wechat_virtual 没有渠道预下单动作，米大师是在用户调 wx.requestVirtualPayment 那一刻才真正下单。CreateTradePay 阶段只建本地 payment 行 + 本地签名，渠道侧零副作用。你们 P01 场景 B 担心的"是否已生成渠道订单"，首期这个通道下答案恒为否。
+
+并发由 Redis 锁 + 锁内 FOR UPDATE 前置互斥，收敛点是派生 payment_no 撞唯一键，锁失效也不会在渠道多开一张单。
+
+四、P01
+
+这项确实有缺口，完整矩阵目前不存在（§9.11.3 那张表描述的是 UI 呈现，不是副作用与恢复路径）。能确定的部分：
+
+- 场景 A：Token 在网关就失效，请求没到 trade 服务，零副作用。恢复后用同一 trade_no 重调即可，无需额外接口。
+- 场景 B：首期虚拟支付通道下渠道副作用恒为零，可能留下的只有本地 payment 行，会被下次同键请求复用或续用。SDK 保留 trade_no 就够。
+- 场景 C 前半（拉起时会话失效）：重新 wx.login() → 调 GetOpenIDByCode 刷新服务端 session_key → 用同一三元组再次 CreateTradePay → 复用 payment、重签 signature。不需要新 payment_no。
+- 场景 C 后半（渠道动作已发生、查询时 Token 失效）：恢复后必须先 QueryTrade，不要直接重调 CreateTradePay。若已支付成功，重调只会拿到 Conflict 且多一次无谓往返。
+- 场景 D：QueryTrade 是唯一事实来源，服务端不依赖前端计时，expire_time 是服务端判据。
+
+一个安全相关行为：trade.user_id ≠ 登录用户时返回 NotFound（…2030），与"交易不存在"同码不区分，这是防枚举的刻意设计。含义是恢复后若换了账号，原交易表现为"查不到"而非"无权限"——SDK 无法靠错误码区分这两种情况。

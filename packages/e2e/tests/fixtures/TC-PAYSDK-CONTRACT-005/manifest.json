@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-005",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "empty-token": "empty-token.json"
+  },
+  "sha256": {
+    "empty-token.json": "ad4e2bd0791c491cf8890690dbaa22bee5fcf389885301f2bf479c6120d33a4b"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "body": {
+    "baseResp": {
+      "error": {
+        "bizCode": "20200002001010",
+        "bizCodeName": "BIZ_GATEWAY_INVALID_PARAMETER",
+        "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+        "source": "infra-gateway"
+      },
+      "statusCode": "20200002001010",
+      "statusMsg": "fixture error",
+      "success": false
+    }
+  },
+  "status": 200
+}

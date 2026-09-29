@@ -1,0 +1,24 @@
+gateway-tests.log sha256=f1f96bfc5932c5aef73429fa5c3c20ddaa20036f8e729d5fd307e8e65c70a648
+=== RUN   TestInfraGateway_TradePayRequiresTokenAndInjectsUserID
+--- PASS: TestInfraGateway_TradePayRequiresTokenAndInjectsUserID (0.00s)
+=== RUN   TestInfraGateway_TradeQueryRouted
+--- PASS: TestInfraGateway_TradeQueryRouted (0.00s)
+=== RUN   TestGatewayMarshalerKeepsLowerCamelCaseJSON
+--- PASS: TestGatewayMarshalerKeepsLowerCamelCaseJSON (0.00s)
+PASS
+ok  	gitlab.daqian369.com/esm/narnia/infra-gateway/internal/infra/gateway	0.653s
+idl-contract-tests.log sha256=4be86433bdf6ffe2cb8c391df40922134a4d7f2acc1dd7265bc1f092e60927e8
+=== RUN   TestPayParamsJSONShapeIsTheFrontendContract
+=== RUN   TestPayParamsJSONShapeIsTheFrontendContract/wechat_jsapi
+=== RUN   TestPayParamsJSONShapeIsTheFrontendContract/wechat_native
+=== RUN   TestPayParamsJSONShapeIsTheFrontendContract/wechat_virtual
+=== RUN   TestPayParamsJSONShapeIsTheFrontendContract/infra.pay.v1.PrepayResponse
+=== RUN   TestPayParamsJSONShapeIsTheFrontendContract/infra.trade.v1.CreateTradePayResponse
+--- PASS: TestPayParamsJSONShapeIsTheFrontendContract (0.00s)
+    --- PASS: TestPayParamsJSONShapeIsTheFrontendContract/wechat_jsapi (0.00s)
+    --- PASS: TestPayParamsJSONShapeIsTheFrontendContract/wechat_native (0.00s)
+    --- PASS: TestPayParamsJSONShapeIsTheFrontendContract/wechat_virtual (0.00s)
+    --- PASS: TestPayParamsJSONShapeIsTheFrontendContract/infra.pay.v1.PrepayResponse (0.00s)
+    --- PASS: TestPayParamsJSONShapeIsTheFrontendContract/infra.trade.v1.CreateTradePayResponse (0.00s)
+PASS
+ok  	gitlab.daqian369.com/esm/narnia/idl	0.804s

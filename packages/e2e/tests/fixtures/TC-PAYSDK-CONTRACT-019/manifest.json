@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-019",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "default-policy": "default-policy.json",
+    "fieldwise-overrides": "fieldwise-overrides.json",
+    "per-call-override-isolation": "per-call-override-isolation.json",
+    "invalid-policy-zero": "invalid-policy-zero.json",
+    "invalid-policy-negative": "invalid-policy-negative.json",
+    "invalid-policy-nan": "invalid-policy-nan.json",
+    "invalid-policy-infinity": "invalid-policy-infinity.json",
+    "channel-wait-budget": "channel-wait-budget.json"
+  },
+  "sha256": {
+    "default-policy.json": "6f7e38a51f0266ce04fca1b9627681e90e46812e14f3afcc28119b99149b4397",
+    "fieldwise-overrides.json": "dac7474491897a095aa386ba5f33ec3c3f9530d46bd77ea74934fe116e138a21",
+    "per-call-override-isolation.json": "a508e6b77c1bc82e8aad34237a272671678dd89fe3f4b7f2701496554e666aeb",
+    "invalid-policy-zero.json": "1f50e42e7a866b311db096de3a7ed3b1873135f95f05eb879c4c496162d1593a",
+    "invalid-policy-negative.json": "e59e9e6e1b2a32cf1a32ee7a817b89f4d3db40446324a868b3ddc9b140528c69",
+    "invalid-policy-nan.json": "00e32eefee2e0510305a1aca5d2871ee3e8a145119441da08566b2ac845f48c6",
+    "invalid-policy-infinity.json": "88e27d108809066e77b41d1d26ba71d445e60a0e006dfe4050c7bd57ebc6ddc2",
+    "channel-wait-budget.json": "fe5f1a543ba67062eda606a8f5602ed2345d1f6ce4224f4b7d7b0910e2bd91c0"
+  }
+}

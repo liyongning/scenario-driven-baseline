@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CORE-005",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "expired-during-channel-wait": "expired-during-channel-wait.json",
+    "long-channel-wait": "long-channel-wait.json"
+  },
+  "sha256": {
+    "expired-during-channel-wait.json": "767f0ef79a902c19decc76e72fe0a4f48ac1e516c3033994a6f7e6b2fa044450",
+    "long-channel-wait.json": "5ab740798be200879d9743e152837aa9b73ff7fcc3b9776b955eb23fd787108b"
+  }
+}

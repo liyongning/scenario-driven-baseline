@@ -1,0 +1,14 @@
+{
+  "sent_at": "2026-09-07T04:43:19.434293+00:00",
+  "recipient_name": "张阳阳",
+  "recipient_open_id": "ou_3476411ed2d8b0f730b3ac0e8429733d",
+  "sender_identity": "user",
+  "message_file": "payment-backend-collaboration-20260907.md",
+  "message_sha256": "5e4f1f00ccb2ad56950dc1720501cc7d36528706176daeda2bb8133b42593add",
+  "idempotency_key": "pay-sdk-todos-20260907-7a53cd4f",
+  "result": {
+    "chat_id": "oc_6dfd72ba35dc7f5c7c3913c65b4cede2",
+    "create_time": "2026-09-07 12:43:19",
+    "message_id": "om_x100b66d040bff8a0b2c9dad23ddbd7d"
+  }
+}

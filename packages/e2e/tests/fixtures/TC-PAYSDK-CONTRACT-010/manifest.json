@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-010",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "duplicate-active-pay": "duplicate-active-pay.json"
+  },
+  "sha256": {
+    "duplicate-active-pay.json": "1f044514894f55e481d340ecde2322c4c57c2472f22f48dd6fdd3d42a57f4ab4"
+  }
+}

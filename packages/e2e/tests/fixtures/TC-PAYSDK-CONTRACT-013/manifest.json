@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-013",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "prepare-identity-not-found": "prepare-identity-not-found.json",
+    "prepare-session-expired": "prepare-session-expired.json",
+    "prepare-unavailable": "prepare-unavailable.json"
+  },
+  "sha256": {
+    "prepare-identity-not-found.json": "750f031c5582bd8fb539fc4196ec574f5fefdd56f8f4d63bd0cddfa74fdf0b5c",
+    "prepare-session-expired.json": "d0ad2d1f7df4487bc665b6281598f381e14460c36242dac3b6cb5ec1cd8ec200",
+    "prepare-unavailable.json": "c76e62cf13ae33833f2d83297afc9a50939793e2b40b53b7e8b702d7c6aabe9b"
+  }
+}

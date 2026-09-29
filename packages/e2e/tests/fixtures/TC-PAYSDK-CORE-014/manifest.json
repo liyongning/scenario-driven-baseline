@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CORE-014",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md",
+    "packageSource": "real pnpm pack tarballs"
+  },
+  "cases": {
+    "sdk-esm-consumer": "package.json",
+    "sdk-commonjs-consumer": "package.json",
+    "sdk-types-consumer": "package.json",
+    "protocol-network-esm-consumer": "package.json",
+    "protocol-network-commonjs-consumer": "package.json",
+    "protocol-network-types-consumer": "package.json",
+    "sdk-does-not-reexport-network": "package.json",
+    "sdk-only-consumer": "package.json",
+    "package-boundaries": "package.json",
+    "concurrent-clients": "package.json"
+  },
+  "sha256": {
+    "package.json": "741f01a89ff875f6bd346afcd9954d0e697410f6e92c60e2f6957b92a67ae0fe"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-018",
+  "sources": {
+    "spec": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+    "authority": "scenario verification metadata and natural-language behavior"
+  },
+  "cases": {
+    "request-id-same-millisecond": "request-id-same-millisecond.json",
+    "request-id-multiple-clients": "request-id-multiple-clients.json",
+    "client-platform-ios": "client-platform-ios.json",
+    "client-platform-android": "client-platform-android.json",
+    "client-platform-ohos": "client-platform-ohos.json",
+    "client-platform-ohos-pc": "client-platform-ohos-pc.json",
+    "client-platform-unknown": "client-platform-unknown.json",
+    "client-platform-exception": "client-platform-exception.json"
+  },
+  "sha256": {
+    "request-id-same-millisecond.json": "80a0a3c9778d418ad5a75888e1777c914a10b05f9ceea3a09f2cad8a65670e53",
+    "request-id-multiple-clients.json": "4325058122eed41790c86577fb0ede1c7c6f5f5b2ef4777cfbd601fb714d990a",
+    "client-platform-ios.json": "2ce5b3bf0538186f7cc223061d52d9a6e2474fb2a6cd3a8d65145a633c076005",
+    "client-platform-android.json": "e8a09b55ce2b598202c9e5121d013d9bf38f0a3b711cb55003f874c7c0b80f9b",
+    "client-platform-ohos.json": "1011f1a69fd8e5352c59f36af6252b6e7f5b945de2fd2894bca2eed2a27c87c4",
+    "client-platform-ohos-pc.json": "c891cd9d6782113624e18c1b552125666e28ad8cf5d24eea9cb7775df6c63b11",
+    "client-platform-unknown.json": "c52c89c0c34680cd12758f386b7dcf2b53cd9c00c7297619f878aa481269fde9",
+    "client-platform-exception.json": "ab9599f8f690f28ac4f32982e974378db07f297fa61aed7d73ba469d5c56748c"
+  }
+}

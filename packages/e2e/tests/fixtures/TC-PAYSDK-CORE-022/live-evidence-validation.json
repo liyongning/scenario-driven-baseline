@@ -1,0 +1,4 @@
+{
+  "kind": "controlled-tool-input",
+  "purpose": "reject incomplete evidence and Shadow evidence presented as Live"
+}

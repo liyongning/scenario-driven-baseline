@@ -1,0 +1,38 @@
+[
+  {
+    "enum": "infra.pay.v1.XpayEnv",
+    "field": "infra.trade.v1.CreateTradePayRequest.xpay_env",
+    "hasPresence": true,
+    "number": 7,
+    "optional": true,
+    "rules": {
+      "definedOnly": true,
+      "notIn": [
+        0
+      ]
+    },
+    "values": {
+      "XPAY_ENV_PROD": 2,
+      "XPAY_ENV_SANDBOX": 1,
+      "XPAY_ENV_UNSPECIFIED": 0
+    }
+  },
+  {
+    "enum": "infra.pay.v1.XpayEnv",
+    "field": "infra.pay.v1.PrepayRequest.xpay_env",
+    "hasPresence": true,
+    "number": 15,
+    "optional": true,
+    "rules": {
+      "definedOnly": true,
+      "notIn": [
+        0
+      ]
+    },
+    "values": {
+      "XPAY_ENV_PROD": 2,
+      "XPAY_ENV_SANDBOX": 1,
+      "XPAY_ENV_UNSPECIFIED": 0
+    }
+  }
+]

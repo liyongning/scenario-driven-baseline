@@ -1,0 +1,89 @@
+lockVersion: 2
+tool:
+    version: 0.1.2
+    projectionVersion: 4
+sources:
+    payment-idl:
+        requestedBranch: feat/esm-v1.4
+        resolvedBranch: feat/esm-v1.4
+        fallbackUsed: false
+        resolvedCommit: 80707134aff4149d6195b197409b1a58f91a01f4
+        consumerId: infra-payment-sdk
+        producerInputDigest: sha256:bf5169a7f46c4ee8c55c342204a95aceafe965ea0c79507e90e0476528e679d0
+        contractDigest: sha256:e02742de5a03dc18e0d87f8fce53f9d5c26f3b3645e6367c57c495b68302802b
+        projection:
+            digest: sha256:c6657d80f08371ca1b50350507538846e3281e67eeff7d138ab95ff72de85fc6
+            roots:
+                - kind: proto_file
+                  id: idl/infra/trade/v1/trade.proto
+                  closureDigest: sha256:be8818fa3ebd272c7859d7bac3a6b8efce8f1c710c2d8244f2257d101f6e372b
+            files:
+                - path: buf/validate/validate.proto
+                  descriptorDigest: sha256:4f14a1d7b3ac4886a92d2a9c4b4245a00ce6c96cc90cdd72256a0c1d8c8cbf00
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: google/api/annotations.proto
+                  descriptorDigest: sha256:cebe98ba318628edec814380cd0949cf10927021772c8d1c38775d6e6b041096
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: google/api/http.proto
+                  descriptorDigest: sha256:806978e165c75251abaf6a0737deb579620d8efb2a787f7df6379f53a0291ded
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: google/protobuf/descriptor.proto
+                  descriptorDigest: sha256:292b0766184a1e06e786ae9470681a85e74b7bf54ba146bbc46ac2f94aa108d6
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: google/protobuf/duration.proto
+                  descriptorDigest: sha256:c954fa1ceac5f6862d362e085a49363cbae0a96d1ddcd28a16df520ae0384892
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: google/protobuf/field_mask.proto
+                  descriptorDigest: sha256:3463b6b229ee6b04e086e854115fde49d9f2b74b1899a2e6cab8d653f4f44689
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: google/protobuf/timestamp.proto
+                  descriptorDigest: sha256:69a984bb459decc5fa61f27d4b867f03ba640ff3d8834cb2546ce3de47e99d62
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: idl/base.proto
+                  descriptorDigest: sha256:8e0e89a5bd7d21c358cfa8dbcf4f21776818205cba18e32eb47e1cc7bc06fc85
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: idl/common/annotations/presence.proto
+                  descriptorDigest: sha256:b38e7e5b32834009e1b31c51d84f007d731d51977bb4d901469f83a364dae31e
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: idl/common/v1/enums.proto
+                  descriptorDigest: sha256:fca90ca43f3c58d73fed0f0917c30a086da912e548c2e80f919a8cd5024285d6
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: idl/infra/pay/v1/pay.proto
+                  descriptorDigest: sha256:7e4e88b80cdaa2cc27c8f1354989ba593b5deb25984285d3bb3fc5227b8e5b9c
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+                - path: idl/infra/trade/v1/trade.proto
+                  descriptorDigest: sha256:aa52580f13a8548784c318650bdb6057f510d7ed144e48ef7caac8f272b273f1
+                  selectedBy:
+                    - kind: proto_file
+                      id: idl/infra/trade/v1/trade.proto
+        outputs:
+            payment-ts:
+                path: packages/payment-protocol/src/generated
+                generator: ts-client
+                generatorVersion: 6
+                profile: generated-idl2-compatible/v1
+                profileDigest: sha256:fd20d068a2a5480bdbeb6d6e1802a0c5ac7a94b25b9c043f90f20ab514521246
+                configDigest: sha256:0cfb0044040d0d15a3faae863a04a96bdaf1c09bb4492a2b51339f9431996622
+                treeDigest: sha256:fe03782ff04128bc4538cdd3f5d156d5daae536aa60315d75927a43cc449f8ad

@@ -1,0 +1,68 @@
+<view class="page">
+  <view class="warning">Live 会连接真实服务端并可能产生真实扣款。服务环境：{{serverEnv}}</view>
+  <view class="section-title">鉴权信息</view>
+  <view class="field-label">Access Token</view>
+  <input id="live-token-input" password maxlength="-1" value="{{tokenInput}}" bindinput="onTokenInput" placeholder="粘贴 Access Token" />
+  <button id="live-save-token" bindtap="onSaveToken" disabled="{{busy}}">保存或替换 Token</button>
+  <button id="live-clear-token" bindtap="onClearToken" disabled="{{busy}}">清除 Token</button>
+  <view>Token：{{tokenStatus}}</view>
+  <view>user_id 与 Token 必须属于同一测试账号；user_id 仅发送到创建交易单请求体。</view>
+  <view class="field-label">user_id</view>
+  <input id="live-user-id" value="{{draft.userId}}" bindinput="onUserIdInput" disabled="{{busy || draftLocked}}" placeholder="填写 user_id" />
+
+  <view class="section-title">创建交易单参数</view>
+  <view class="field-label">bizType</view>
+  <input id="live-biz-type" value="{{draft.bizType}}" data-field="bizType" bindinput="onDraftField" disabled="{{busy || draftLocked}}" placeholder="bizType" />
+  <view class="field-label">bizTradeNo</view>
+  <input id="live-biz-trade-no" value="{{draft.bizTradeNo}}" data-field="bizTradeNo" bindinput="onDraftField" disabled="{{busy || draftLocked}}" placeholder="bizTradeNo" />
+  <view class="field-label">goodsType</view>
+  <picker id="live-goods-type" mode="selector" range="{{goodsTypeOptions}}" value="{{goodsTypeIndex}}" bindchange="onGoodsTypeChange" disabled="{{busy || draftLocked}}">
+    <view>商品类型：{{draft.goodsType}}</view>
+  </picker>
+  <block wx:for="{{draft.items}}" wx:key="bizOrderNo">
+    <view class="item">
+      <view class="item-title">商品 {{index + 1}}</view>
+      <view class="field-label">bizOrderNo</view>
+      <input value="{{item.bizOrderNo}}" data-index="{{index}}" data-field="bizOrderNo" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="bizOrderNo" />
+      <view class="field-label">skuId</view>
+      <input value="{{item.skuId}}" data-index="{{index}}" data-field="skuId" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="skuId" />
+      <view class="field-label">skuName</view>
+      <input value="{{item.skuName}}" data-index="{{index}}" data-field="skuName" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="skuName" />
+      <view class="field-label">wechatVirtualProductId</view>
+      <input value="{{item.skuSnapshot.wechatVirtualProductId}}" data-index="{{index}}" data-field="wechatVirtualProductId" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="微信虚拟商品道具 ID" />
+      <view class="field-label">bizSnapshot（JSON）</view>
+      <input value="{{item.skuSnapshot.bizSnapshot}}" maxlength="2048" data-index="{{index}}" data-field="bizSnapshot" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="业务商品快照 JSON" />
+      <view class="field-label">quantity</view>
+      <input value="{{item.quantity}}" data-index="{{index}}" data-field="quantity" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="quantity" />
+      <view class="field-label">unitPrice（分）</view>
+      <input value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="unitPrice（分）" />
+      <view class="field-label">discountAmount（分）</view>
+      <input value="{{item.discountAmount}}" data-index="{{index}}" data-field="discountAmount" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="行优惠（分）" />
+      <view class="field-label">payAmount（分）</view>
+      <input value="{{item.payAmount}}" data-index="{{index}}" data-field="payAmount" bindinput="onItemField" disabled="{{busy || draftLocked}}" placeholder="行应付（分）" />
+      <button data-index="{{index}}" bindtap="onRemoveItem" disabled="{{busy || draftLocked}}">删除商品</button>
+    </view>
+  </block>
+  <button id="live-add-item" bindtap="onAddItem" disabled="{{busy || draftLocked}}">增加商品</button>
+  <view class="field-label">originalAmount（分）</view>
+  <input value="{{draft.originalAmount}}" data-field="originalAmount" bindinput="onDraftField" disabled="{{busy || draftLocked}}" placeholder="原价合计（分）" />
+  <view class="field-label">discountAmount（分）</view>
+  <input value="{{draft.discountAmount}}" data-field="discountAmount" bindinput="onDraftField" disabled="{{busy || draftLocked}}" placeholder="优惠合计（分）" />
+  <view class="field-label">payAmount（分）</view>
+  <input value="{{draft.payAmount}}" data-field="payAmount" bindinput="onDraftField" disabled="{{busy || draftLocked}}" placeholder="应付合计（分）" />
+  <button id="live-new-draft" bindtap="onNewDraft" disabled="{{busy}}">新建测试草稿</button>
+
+  <view class="section-title">支付环境</view>
+  <radio-group id="live-xpay-env" bindchange="onSelectEnv">
+    <label><radio value="omitted" checked="{{selectedEnv === 'omitted'}}" disabled="{{busy || envLocked}}" />省略</label>
+    <label><radio value="sandbox" checked="{{selectedEnv === 'sandbox'}}" disabled="{{busy || envLocked}}" />sandbox</label>
+    <label><radio value="prod" checked="{{selectedEnv === 'prod'}}" disabled="{{busy || envLocked}}" />prod</label>
+  </radio-group>
+  <button id="live-create-trade" bindtap="onCreateTrade" disabled="{{busy || draftLocked || tokenStatus !== 'configured'}}">创建测试交易</button>
+  <button id="live-pay" bindtap="onPay" disabled="{{busy || !hasTrade || tokenStatus !== 'configured'}}">发起真实支付</button>
+  <button id="live-query" bindtap="onQuery" disabled="{{busy || !hasTrade || tokenStatus !== 'configured'}}">查询当前交易</button>
+  <view id="live-message">{{message}}</view>
+  <button id="live-export" bindtap="onExport">复制脱敏记录</button>
+  <button id="live-clear-evidence" bindtap="onClearEvidence">清除记录</button>
+  <text user-select="true">{{eventText}}</text>
+</view>

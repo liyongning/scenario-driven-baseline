@@ -1,0 +1,243 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CONTRACT-023",
+  "sources": {
+    "kind": "fixed-go-source",
+    "idlCommit": "5539be8f09323709fa65f6568efe22896ec35d24",
+    "paymentSemanticCommit": "4e5cb22659fd4f4c36d06ae81256dc1c43e691d9",
+    "spec": {
+      "path": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
+      "sha256": "559d810dbe638328171cebaabf413900a3b02486a6135ec271529e4c6acd2bed"
+    },
+    "idlFiles": {
+      "error_code.go": "10b5ec750907b4f851c926014b3952c916d154b47144f1e932c7b5ead3fc4afc",
+      "error_contract.go": "fdb5cb8a9b70aabeedac7863a19f993e2274dabca7a30d25aad6aacf53289de7",
+      "base.proto": "6e961593edd9ddbfd9efbf283d73423b8e358e2128d6058d615774e5b406481a",
+      "infra/pay/v1/pay.proto": "a87a6f36f443df3f5fcd0c014d36f6e9abf330f5bb95f4efb01c9e8851fa3930",
+      "infra/trade/v1/trade.proto": "d781b7c397fd39c179b501608ae15d9a07f1a0567db1aecc2d76a23a6aea255e",
+      "gen/go/base/base.pb.go": "fdea943ce61907229f4e72ef5b8f33be1229821c33a7d6ab1bde9ef39d11c301",
+      "gen/go/infra/pay/v1/pay.pb.go": "00aad4cabbbec67396e4b750b5811701e2333252113b0172667d3b62aaf3c5ab",
+      "gen/go/infra/trade/v1/trade.pb.go": "f30ac5f22c6e105668fc3304f5a39187bbc72341ab44d5e6f3324f85c6f57ca1",
+      "go.mod": "0ff6d9b304c8709ea12386c7be3807153a97d93eb134b411405d4a7dadcefb94",
+      "go.sum": "6d52d1792b70fa4f784158a952075f288977c1d763e5cd37bbcab762acdce696",
+      "trade_pay_contract_test.go": "550492ecd8bfcc49bfd4d00a7b6ef8143e1db60b738ca45fe648e67d97696ce2"
+    },
+    "gateway": {
+      "repository": "git@gitlab.daqian369.com:esm/narnia/infra-gateway.git",
+      "commit": "a7619530784c4042fa109218764b9ad2335cd1de",
+      "marshaler": "grpc-gateway v2.29.0 runtime.NewServeMux default; EmitUnpopulated=true; UseProtoNames=false",
+      "files": {
+        "internal/infra/gateway/http.go": "ee460dbacdb132ae2b27936343a7c9f8e19024df4e36c77b563bd98162087554"
+      }
+    },
+    "commonSdk": {
+      "commit": "4dcc8e8b401b04be06218d590d25bb185964bf13",
+      "marshaler": "JSONProtoField: protojson.MarshalOptions{UseProtoNames:false, EmitUnpopulated:false}; baseResp envelope",
+      "files": {
+        "httputil/protojson.go": "d0799e9bf9ef980d7019e4e0c3c0c334d8f4f1fda17760a32ab509c482e06bce"
+      }
+    },
+    "serverReferences": {
+      "trade": "36b636c02afb0a31447b52f83fea922120e08666",
+      "pay": "f5b03ba5d4010d213cdfe779e7d331319997d409",
+      "meaning": "historical recovery references; fixtures are Go message structures, not server execution or channel evidence"
+    },
+    "extraction": {
+      "command": "sh packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/reproduce.sh <idl-git-repository> packages/e2e/tests/fixtures",
+      "goVersion": "go1.26.3 darwin/arm64",
+      "program": "TC-PAYSDK-CONTRACT-024/extract.go",
+      "programSha256": "5d3a14b7792219636c43ffb06e03aa430ed8c958f138d2c60561d787a49393fe",
+      "limitations": "Synthetic non-payable strings; no live token or channel signature. Historical gateway serialization does not prove xpay_env deployment compatibility.",
+      "inputFilesSha256": {
+        "extract.go": "5d3a14b7792219636c43ffb06e03aa430ed8c958f138d2c60561d787a49393fe",
+        "reproduce.sh": "ca5a1420c8767e9bdc6cd9df7dfa25e88dd56a70743f2ebb9c3ca12c9aa128c1",
+        "defensive-fixtures.py": "04be3e7b802ef8653d00c696c5c2bfeeaaa8725691680ed70c49d55931e5258c",
+        "refresh-manifests.py": "5a8dd6c53db452428db2b0e29e3a65b1cabd3fc286d8e6ae177e29c737d85c08"
+      }
+    },
+    "generatedCompatibility": {
+      "lockVersion": 2,
+      "tool": {
+        "version": "0.1.2",
+        "projectionVersion": 4
+      },
+      "sourceId": "payment-idl",
+      "outputId": "payment-ts",
+      "source": {
+        "requestedBranch": "feat/esm-v1.4",
+        "resolvedBranch": "feat/esm-v1.4",
+        "fallbackUsed": false,
+        "consumerId": "infra-payment-sdk",
+        "contractDigest": "sha256:e02742de5a03dc18e0d87f8fce53f9d5c26f3b3645e6367c57c495b68302802b",
+        "projection": {
+          "digest": "sha256:63a9a84eac9cd1a64b521cf8f948e69926aa083babd913c35b3e8c0666515513",
+          "roots": [
+            {
+              "kind": "proto_file",
+              "id": "idl/infra/trade/v1/trade.proto",
+              "closureDigest": "sha256:640dd14d72658c9df3283399f9492ef6ac9b1d6cd05c994970a68937587271ef"
+            }
+          ],
+          "files": [
+            {
+              "path": "buf/validate/validate.proto",
+              "descriptorDigest": "sha256:4f14a1d7b3ac4886a92d2a9c4b4245a00ce6c96cc90cdd72256a0c1d8c8cbf00",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "google/api/annotations.proto",
+              "descriptorDigest": "sha256:cebe98ba318628edec814380cd0949cf10927021772c8d1c38775d6e6b041096",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "google/api/http.proto",
+              "descriptorDigest": "sha256:806978e165c75251abaf6a0737deb579620d8efb2a787f7df6379f53a0291ded",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "google/protobuf/descriptor.proto",
+              "descriptorDigest": "sha256:292b0766184a1e06e786ae9470681a85e74b7bf54ba146bbc46ac2f94aa108d6",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "google/protobuf/duration.proto",
+              "descriptorDigest": "sha256:c954fa1ceac5f6862d362e085a49363cbae0a96d1ddcd28a16df520ae0384892",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "google/protobuf/field_mask.proto",
+              "descriptorDigest": "sha256:3463b6b229ee6b04e086e854115fde49d9f2b74b1899a2e6cab8d653f4f44689",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "google/protobuf/timestamp.proto",
+              "descriptorDigest": "sha256:69a984bb459decc5fa61f27d4b867f03ba640ff3d8834cb2546ce3de47e99d62",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "idl/base.proto",
+              "descriptorDigest": "sha256:8e0e89a5bd7d21c358cfa8dbcf4f21776818205cba18e32eb47e1cc7bc06fc85",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "idl/common/annotations/presence.proto",
+              "descriptorDigest": "sha256:b38e7e5b32834009e1b31c51d84f007d731d51977bb4d901469f83a364dae31e",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "idl/common/v1/enums.proto",
+              "descriptorDigest": "sha256:fca90ca43f3c58d73fed0f0917c30a086da912e548c2e80f919a8cd5024285d6",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "idl/infra/pay/v1/pay.proto",
+              "descriptorDigest": "sha256:4781e513587b1b4fa234802bad575c34e6de1c6c405f019c9e32ce4409658304",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            },
+            {
+              "path": "idl/infra/trade/v1/trade.proto",
+              "descriptorDigest": "sha256:b84e5db64e636ff38fe8bd9f028f0a58a62405c1a72e8ab5dd51851a653bd5e9",
+              "selectedBy": [
+                {
+                  "kind": "proto_file",
+                  "id": "idl/infra/trade/v1/trade.proto"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "output": {
+        "path": "packages/payment-protocol/src/generated",
+        "generator": "ts-client",
+        "generatorVersion": 6,
+        "profile": "generated-idl2-compatible/v1",
+        "profileDigest": "sha256:fd20d068a2a5480bdbeb6d6e1802a0c5ac7a94b25b9c043f90f20ab514521246",
+        "configDigest": "sha256:0cfb0044040d0d15a3faae863a04a96bdaf1c09bb4492a2b51339f9431996622",
+        "treeDigest": "sha256:651772b53c3e38ea2a5e4cd234b793977ba462843af08eb692ca1c002ceafc65"
+      }
+    }
+  },
+  "cases": {
+    "omitted": "omitted.json",
+    "prod": "prod.json",
+    "query-no-env": "query-no-env.json",
+    "sandbox": "sandbox.json",
+    "observe-no-env": "observe-no-env.json",
+    "task8-protocol-matrix": "task8-protocol-matrix.json"
+  },
+  "sha256": {
+    "descriptor.json": "38eee70be1ae74a385d6c69af388bc62d72467587097e3f6fea132c1eb6b42a6",
+    "omitted.json": "b29cf4b2e31f41e3bd475ac570dea203e9eaea4ecfdbceb5a4318a59b5dfbfd2",
+    "prod.json": "b14a4d05acfbfa840b878f19ff211483f7aafa7e7f2a0d5e585684fce0126be4",
+    "query-no-env.json": "4f812fb739627a0a380dc24a92efe47fac779563edbbf0b13cd210baa4a676b0",
+    "sandbox.json": "3b1da94d109de32220e70bc5b454d63880a09178f165e4f47cc9de2da6bb5360",
+    "observe-no-env.json": "61baefda5db6d7d6169fca89ea297131c1c2f64eb240a23512ccbfcac8a2a162",
+    "task8-protocol-matrix.json": "b78570bf32cb5c2ceb003723a0d4bebdb479d33a85674faa585d67a8696cb04f"
+  },
+  "defensiveMutations": {},
+  "maintenance": {
+    "change": "Separate generated provenance from fixed Go facts; no Go extraction rerun",
+    "baseline": "TC-PAYSDK-CONTRACT-024/provenance/before.lock",
+    "baselineSha256": "ecb8b02b9d7c85602e40a1207b8dfed3eef6b52a27456c7546717bf0aef8d716",
+    "refreshScriptSha256": "db00d3fdf0e4555496714cdc977f23417f254f4103a17c687b3f0b03ff3a7002"
+  },
+  "supportingFiles": {
+    "descriptor": "descriptor.json"
+  }
+}

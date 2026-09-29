@@ -1,0 +1,138 @@
+[
+  {
+    "name": "ErrGatewayProxyInvalidParameter",
+    "statusCode": "20200002001010",
+    "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+    "bizCodeName": "BIZ_GATEWAY_INVALID_PARAMETER",
+    "source": "infra-gateway",
+    "retryable": false
+  },
+  {
+    "name": "ErrGatewayProxyNotFound",
+    "statusCode": "20200002001030",
+    "canonicalCode": "CANONICAL_ERROR_CODE_NOT_FOUND",
+    "bizCodeName": "BIZ_GATEWAY_NOT_FOUND",
+    "source": "infra-gateway",
+    "retryable": false
+  },
+  {
+    "name": "ErrGatewayProxyUnauthorized",
+    "statusCode": "20200002001020",
+    "canonicalCode": "CANONICAL_ERROR_CODE_UNAUTHORIZED",
+    "bizCodeName": "BIZ_GATEWAY_UNAUTHORIZED",
+    "source": "infra-gateway",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayChannelPolicyInvalidParameter",
+    "statusCode": "10100801002090",
+    "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+    "bizCodeName": "BIZ_INFRA_TRADE_CHANNEL_POLICY_INVALID_PARAMETER",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayChannelRejectedInvalidParameter",
+    "statusCode": "10100801002110",
+    "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+    "bizCodeName": "BIZ_INFRA_TRADE_CHANNEL_REJECTED_INVALID_PARAMETER",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayChannelUnavailable",
+    "statusCode": "10100801002080",
+    "canonicalCode": "CANONICAL_ERROR_CODE_UNAVAILABLE",
+    "bizCodeName": "BIZ_INFRA_TRADE_CHANNEL_UNAVAILABLE",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayConflict",
+    "statusCode": "10100801002040",
+    "canonicalCode": "CANONICAL_ERROR_CODE_CONFLICT",
+    "bizCodeName": "BIZ_INFRA_TRADE_CONFLICT",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayInvalidParameter",
+    "statusCode": "10100801002010",
+    "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+    "bizCodeName": "BIZ_INFRA_TRADE_INVALID_PARAMETER",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayNotFound",
+    "statusCode": "10100801002030",
+    "canonicalCode": "CANONICAL_ERROR_CODE_NOT_FOUND",
+    "bizCodeName": "BIZ_INFRA_TRADE_NOT_FOUND",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePaySessionExpiredInvalidParameter",
+    "statusCode": "10100801002100",
+    "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+    "bizCodeName": "BIZ_INFRA_TRADE_SESSION_EXPIRED_INVALID_PARAMETER",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayUnauthorized",
+    "statusCode": "10100801002020",
+    "canonicalCode": "CANONICAL_ERROR_CODE_UNAUTHORIZED",
+    "bizCodeName": "BIZ_INFRA_TRADE_UNAUTHORIZED",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayUnavailable",
+    "statusCode": "10100801002070",
+    "canonicalCode": "CANONICAL_ERROR_CODE_UNAVAILABLE",
+    "bizCodeName": "BIZ_INFRA_TRADE_UNAVAILABLE",
+    "source": "infra-trade",
+    "retryable": true
+  },
+  {
+    "name": "ErrInfraTradeCreateTradePayWxIdentityNotFound",
+    "statusCode": "10100801002120",
+    "canonicalCode": "CANONICAL_ERROR_CODE_NOT_FOUND",
+    "bizCodeName": "BIZ_INFRA_TRADE_WX_IDENTITY_NOT_FOUND",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeQueryTradeInvalidParameter",
+    "statusCode": "10100801003010",
+    "canonicalCode": "CANONICAL_ERROR_CODE_INVALID_PARAMETER",
+    "bizCodeName": "BIZ_INFRA_TRADE_INVALID_PARAMETER",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeQueryTradeNotFound",
+    "statusCode": "10100801003030",
+    "canonicalCode": "CANONICAL_ERROR_CODE_NOT_FOUND",
+    "bizCodeName": "BIZ_INFRA_TRADE_NOT_FOUND",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeQueryTradeUnauthorized",
+    "statusCode": "10100801003020",
+    "canonicalCode": "CANONICAL_ERROR_CODE_UNAUTHORIZED",
+    "bizCodeName": "BIZ_INFRA_TRADE_UNAUTHORIZED",
+    "source": "infra-trade",
+    "retryable": false
+  },
+  {
+    "name": "ErrInfraTradeQueryTradeUnavailable",
+    "statusCode": "10100801003070",
+    "canonicalCode": "CANONICAL_ERROR_CODE_UNAVAILABLE",
+    "bizCodeName": "BIZ_INFRA_TRADE_UNAVAILABLE",
+    "source": "infra-trade",
+    "retryable": true
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "body": {
+    "baseResp": {
+      "error": {
+        "bizCode": "10100801003070",
+        "bizCodeName": "BIZ_INFRA_TRADE_UNAVAILABLE",
+        "canonicalCode": "CANONICAL_ERROR_CODE_UNAVAILABLE",
+        "details": {},
+        "message": "",
+        "retryable": true,
+        "source": "infra-trade"
+      },
+      "serverTimeMs": "0",
+      "statusCode": "10100801003070",
+      "statusMsg": "fixture error",
+      "success": false
+    },
+    "trade": null
+  },
+  "status": 200
+}

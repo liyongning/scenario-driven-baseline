@@ -1,0 +1,8 @@
+{
+  "appid": "replace-with-authorized-live-appid",
+  "compileType": "miniprogram",
+  "libVersion": "3.10.3",
+  "miniprogramRoot": "./",
+  "projectname": "payment-sdk-live-host",
+  "setting": { "es6": true, "minified": false, "urlCheck": true }
+}

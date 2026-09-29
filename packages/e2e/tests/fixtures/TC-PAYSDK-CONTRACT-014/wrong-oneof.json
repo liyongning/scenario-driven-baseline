@@ -1,0 +1,17 @@
+{
+  "body": {
+    "baseResp": {
+      "serverTimeMs": "0",
+      "statusCode": "0",
+      "success": true
+    },
+    "channel": "CHANNEL_WECHAT_VIRTUAL",
+    "expireTime": "1800000000000",
+    "payParams": {
+      "wechatJsapi": {}
+    },
+    "paymentNo": "payment-fixture-001",
+    "tradeNo": "trade-fixture-001"
+  },
+  "status": 200
+}

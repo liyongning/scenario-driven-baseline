@@ -1,0 +1,13 @@
+node_modules/
+.pnpm-store/
+.DS_Store
+
+.worktrees/
+
+dist/
+artifacts/
+.proto-gen/
+packages/e2e/host/weapp/.generated/
+.env.live
+packages/e2e/host/weapp/project.live.config.json
+packages/e2e/host/weapp/.generated-live/

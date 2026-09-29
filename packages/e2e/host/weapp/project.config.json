@@ -1,0 +1,13 @@
+{
+  "appid": "wxb66752ad35fc386f",
+  "compileType": "miniprogram",
+  "libVersion": "3.10.3",
+  "miniprogramRoot": "./",
+  "projectname": "payment-sdk-test-host",
+  "setting": {
+    "es6": true,
+    "minified": false,
+    "urlCheck": false,
+    "minifyWXML": true
+  }
+}

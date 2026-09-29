@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CORE-022",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md",
+      "sha256": "092bdea3ff40b1a517a1a83b766bd3406bdf24a078f7cb7d6400faa480ed6399"
+    }
+  },
+  "cases": {
+    "isolated-live-build": "isolated-live-build.json",
+    "missing-create-contract": "missing-create-contract.json",
+    "live-evidence-validation": "live-evidence-validation.json"
+  },
+  "sha256": {
+    "isolated-live-build.json": "96252c1b2a0df925c2090d50593ec130edfa7d96583b2022c6a4a5a65975d83f",
+    "missing-create-contract.json": "7eda0b9844ea0af15fa4bbc729faeea12a28be750d907a05344ed7a63ebcebac",
+    "live-evidence-validation.json": "9e66cc88cb770e1464c4460c0d1436a6adaf7736fbfb6124d15c58cd7b77e36c"
+  }
+}

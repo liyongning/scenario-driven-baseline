@@ -1,0 +1,1 @@
+{"formatVersion":1,"ownerId":"TC-PAYSDK-CORE-009","sources":{"spec":"openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md","authority":"scenario verification metadata"},"cases":{"fake-channel-report":"fake-channel-report.json"},"sha256":{"fake-channel-report.json":"5fd56842a2bbd31f4f5ab53294928cc31cd2491136668b3e882857fad7d0f437"}}

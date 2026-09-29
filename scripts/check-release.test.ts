@@ -1,0 +1,116 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  checkReleaseRecord,
+  parseReleaseInput,
+  readReleaseWorkspaceFacts,
+  releaseRegistry,
+  runReleaseCli,
+  type ReleaseInput,
+  type ReleaseWorkspaceFacts,
+} from './check-release.ts';
+
+const roots: string[] = [];
+afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+
+const record = (overrides: Partial<ReleaseInput> = {}): ReleaseInput => ({
+  targetProject: 245,
+  registry: releaseRegistry,
+  execution: 'local',
+  tag: 'payment-sdk-v0.1.0-alpha.1',
+  sourceRevision: 'a'.repeat(40),
+  sdk: { name: '@daqian/payment-sdk', version: '0.1.0-alpha.1', changed: true },
+  protocol: { name: '@daqian/payment-protocol', version: '0.1.0', changed: false },
+  ...overrides,
+});
+
+const facts = (overrides: Partial<ReleaseWorkspaceFacts> = {}): ReleaseWorkspaceFacts => ({
+  sdk: { name: '@daqian/payment-sdk', version: '0.1.0-alpha.1', protocolDependency: 'workspace:*' },
+  protocol: { name: '@daqian/payment-protocol', version: '0.1.0' },
+  ...overrides,
+});
+
+function workspace() {
+  const root = mkdtempSync(join(tmpdir(), 'payment-release-check-'));
+  roots.push(root);
+  mkdirSync(join(root, 'packages/payment-sdk'), { recursive: true });
+  mkdirSync(join(root, 'packages/payment-protocol'), { recursive: true });
+  writeFileSync(join(root, 'packages/payment-sdk/package.json'), JSON.stringify({
+    name: '@daqian/payment-sdk',
+    version: '0.1.0-alpha.1',
+    dependencies: { '@daqian/payment-protocol': 'workspace:*' },
+  }));
+  writeFileSync(join(root, 'packages/payment-protocol/package.json'), JSON.stringify({
+    name: '@daqian/payment-protocol',
+    version: '0.1.0',
+  }));
+  return root;
+}
+
+describe('formal release record checker', () => {
+  it('accepts only the version-oriented record and rejects tarball, digest and step fields', () => {
+    expect(parseReleaseInput(record())).toEqual(record());
+    expect(() => parseReleaseInput({ ...record(), unexpected: true })).toThrow(/unexpected field/);
+    expect(() => parseReleaseInput({ ...record(), sdk: { ...record().sdk, tarball: 'sdk.tgz' } })).toThrow(/unexpected field tarball/);
+    expect(() => parseReleaseInput({ ...record(), protocol: { ...record().protocol, digest: 'sha256:deadbeef' } })).toThrow(/unexpected field digest/);
+    expect(() => parseReleaseInput({ ...record(), steps: [] })).toThrow(/unexpected field steps/);
+  });
+
+  it.each([
+    ['non-object record', null],
+    ['wrong project', { ...record(), targetProject: 1 }],
+    ['wrong registry', { ...record(), registry: 'https://wrong.invalid/' }],
+    ['invalid execution', { ...record(), execution: 'runner' }],
+    ['empty tag', { ...record(), tag: '' }],
+    ['wrong SDK name', { ...record(), sdk: { ...record().sdk, name: '@daqian/other' } }],
+    ['wrong protocol name', { ...record(), protocol: { ...record().protocol, name: '@daqian/other' } }],
+    ['invalid SDK version', { ...record(), sdk: { ...record().sdk, version: 'latest' } }],
+    ['invalid protocol version', { ...record(), protocol: { ...record().protocol, version: '*' } }],
+    ['invalid changed flag', { ...record(), sdk: { ...record().sdk, changed: 'yes' } }],
+  ] as const)('rejects %s while parsing untrusted JSON', (_label, value) => {
+    expect(() => parseReleaseInput(value)).toThrow();
+  });
+
+  it('validates the SDK tag, source revision, version-change relationship and workspace identities', () => {
+    expect(checkReleaseRecord(record(), facts())).toEqual([]);
+    expect(checkReleaseRecord(record({ execution: 'ci' }), facts())).toEqual([]);
+    expect(checkReleaseRecord(record({ tag: 'payment-sdk-v9.9.9', sourceRevision: 'short' }), facts()).join('\n')).toMatch(/tag|full commit SHA/);
+    expect(checkReleaseRecord(record({ sdk: { ...record().sdk, changed: false }, protocol: { ...record().protocol, changed: true } }), facts()).join('\n')).toMatch(/formal SDK release|protocol delivery/);
+    expect(checkReleaseRecord(record(), facts({ sdk: { ...facts().sdk, version: '9.9.9', protocolDependency: '0.1.0' }, protocol: { ...facts().protocol, version: '9.9.9' } })).join('\n')).toMatch(/SDK package identity|protocol package identity|workspace:\*/);
+  });
+
+  it('reports defensive validation issues even for programmatically malformed typed input', () => {
+    const malformed = {
+      ...record(),
+      targetProject: 1,
+      registry: 'https://wrong.invalid/',
+      tag: 'wrong',
+      sourceRevision: 'short',
+      sdk: { ...record().sdk, version: 'latest' },
+      protocol: { ...record().protocol, version: '*' },
+    } as unknown as ReleaseInput;
+    expect(checkReleaseRecord(malformed).join('\n')).toMatch(/project 245|registry|invalid package version|tag|full commit SHA/);
+  });
+
+  it('reads package identities and workspace dependency without packing', async () => {
+    const root = workspace();
+    expect(await readReleaseWorkspaceFacts(root)).toEqual(facts());
+    writeFileSync(join(root, 'packages/payment-sdk/package.json'), JSON.stringify({
+      name: '@daqian/payment-sdk',
+      version: '0.1.0-alpha.1',
+    }));
+    expect((await readReleaseWorkspaceFacts(root)).sdk.protocolDependency).toBe('');
+  });
+
+  it('runs the CLI with only a release record and current workspace manifests', async () => {
+    const root = workspace();
+    expect(await runReleaseCli([], root)).toEqual({ issues: ['--input is required'], exitCode: 1 });
+    writeFileSync(join(root, 'release.json'), JSON.stringify(record()));
+    expect(await runReleaseCli(['--input', 'release.json'], root)).toEqual({ issues: [], exitCode: 0 });
+    writeFileSync(join(root, 'invalid.json'), JSON.stringify({ ...record(), sdk: { ...record().sdk, version: '9.9.9' }, tag: 'payment-sdk-v9.9.9' }));
+    expect((await runReleaseCli(['--input', 'invalid.json'], root)).issues).toContain('SDK package identity does not match the current workspace');
+    expect((await runReleaseCli(['--input', 'missing.json'], root)).issues.join('\n')).toContain('could not be read');
+  });
+});

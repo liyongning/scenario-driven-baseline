@@ -1,0 +1,28 @@
+{
+  "request": {
+    "baseReq": {
+      "productId": "fixture-product",
+      "requestId": "pay-fixture-1"
+    },
+    "tradeNo": "trade-fixture-001"
+  },
+  "response": {
+    "baseResp": {
+      "serverTimeMs": "0",
+      "statusCode": "0",
+      "success": true
+    },
+    "trade": {
+      "channel": "CHANNEL_UNSPECIFIED",
+      "discountAmount": "0",
+      "expireTime": "1800000000000",
+      "orders": [],
+      "originalAmount": "0",
+      "paidTime": "0",
+      "payAmount": "0",
+      "status": "TRADE_STATUS_PAYING",
+      "tradeNo": "trade-fixture-001",
+      "userId": "0"
+    }
+  }
+}

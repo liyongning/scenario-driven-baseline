@@ -1,0 +1,16 @@
+{
+  "body": {
+    "baseResp": {
+      "error": {
+        "bizCode": "20200002001030",
+        "bizCodeName": "BIZ_GATEWAY_NOT_FOUND",
+        "canonicalCode": "CANONICAL_ERROR_CODE_NOT_FOUND",
+        "source": "infra-gateway"
+      },
+      "statusCode": "20200002001030",
+      "statusMsg": "fixture error",
+      "success": false
+    }
+  },
+  "status": 200
+}

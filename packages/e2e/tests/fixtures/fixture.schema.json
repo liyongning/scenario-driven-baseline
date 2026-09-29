@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daqian.example/payment-fixture.schema.json",
+  "type": "object",
+  "required": ["formatVersion", "ownerId", "sources", "cases", "sha256"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "ownerId": { "type": "string", "pattern": "^(TC|FLOW)-PAYSDK-" },
+    "sources": { "type": "object", "minProperties": 1 },
+    "cases": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "pattern": "^[^/]+\\.json$" }
+    },
+    "sha256": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    }
+  },
+  "additionalProperties": true
+}

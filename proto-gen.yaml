@@ -1,0 +1,14 @@
+# Initialized by project ProtoGen 0.1.2; SDK payment Consumer.
+apiVersion: proto-gen/v2
+kind: Consumer
+sources:
+  - id: payment-idl
+    git:
+      url: git@gitlab.daqian369.com:esm/narnia/idl.git
+      defaultBranch: feat/esm-v1.4
+    consumerId: infra-payment-sdk
+    outputs:
+      - id: payment-ts
+        generator: ts-client
+        profile: generated-idl2-compatible/v1
+        path: packages/payment-protocol/src/generated

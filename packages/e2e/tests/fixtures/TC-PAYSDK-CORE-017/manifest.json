@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "ownerId": "TC-PAYSDK-CORE-017",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md",
+      "sha256": "092bdea3ff40b1a517a1a83b766bd3406bdf24a078f7cb7d6400faa480ed6399"
+    }
+  },
+  "cases": {
+    "missing-agent-entry": "missing-agent-entry.json",
+    "reverse-dependency": "reverse-dependency.json",
+    "shadow-in-production": "shadow-in-production.json",
+    "scenario-directory-escape": "scenario-directory-escape.json",
+    "lint-violation": "lint-violation.json",
+    "type-violation": "type-violation.json",
+    "untested-handwritten-file": "untested-handwritten-file.json",
+    "restored-valid-input": "restored-valid-input.json",
+    "gate-reduction-review-evidence": "gate-reduction-review-evidence.json",
+    "repository-enforcement-evidence": "repository-enforcement-evidence.json"
+  },
+  "sha256": {
+    "missing-agent-entry.json": "cfce4c39eda7023f0f4a33f1c12434ca5d285e7acfa346979a6a1dbcd9672f52",
+    "reverse-dependency.json": "4c56e1697ddbfd2ea0a8f7184a91d35129261e372a6dec2cb9f8159e9aef4457",
+    "shadow-in-production.json": "ed1d37269637bec6ba38869c5a778f30b8b0aefb2b0ea05204ba1a85ca8b7523",
+    "scenario-directory-escape.json": "c68cbf801b4fce09b9ad02923025c3e351d79ea939b8518251cb39b89a645b3a",
+    "lint-violation.json": "d4e0e7945ddc73bd3cacd13828730770e3c82533f713bb64785603aa6e8089ac",
+    "type-violation.json": "d2013f9e29832b1ec8cc5d4096bbd5d5559d9ad21ec8d0da19fc7abf6ffc5770",
+    "untested-handwritten-file.json": "310f8f1625aa1b655d3eee0b12750c5fa71266b0065c972bbb3299c8bda87009",
+    "restored-valid-input.json": "193eba7d1111bd87833cc1b0c783b9b39e3b03754cd765eefd9ccd418002906c",
+    "gate-reduction-review-evidence.json": "272c2372ffbec384e22a87d4b7b346407693082cd3a0f4e7030449aaffa511db",
+    "repository-enforcement-evidence.json": "e9326ef7da66124fc25398e97bae0016185558399f09aaadf363373a887d3648"
+  }
+}

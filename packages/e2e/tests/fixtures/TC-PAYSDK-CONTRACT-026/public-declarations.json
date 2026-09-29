@@ -1,0 +1,1 @@
+{"forbidden":["BackendResult","query_unavailable"],"required":["PaymentError","PaymentOutcome","PortResult"]}

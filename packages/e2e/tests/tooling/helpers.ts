@@ -1,0 +1,43 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import type { CoverageInput } from '../../../../scripts/check-scenarios.ts';
+
+export type DeepMutable<T> = T extends ReadonlyArray<infer Item>
+  ? DeepMutable<Item>[]
+  : T extends object ? { -readonly [Key in keyof T]: DeepMutable<T[Key]> } : T;
+export type MutableCoverageInput = DeepMutable<CoverageInput>;
+
+export const current = { runId: 'tooling-run', sourceDigest: 'source', specDigest: 'spec', idlDigest: 'idl', fixtureDigest: 'fixture' } as const;
+
+export function baseCoverage(): CoverageInput {
+  return {
+    current,
+    scenarios: [{ id: 'TC-PAYSDK-TEST-001', cases: [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['result'] }] }],
+    contracts: [],
+    flows: [{ id: 'FLOW-PAYSDK-001', cases: ['normal'], requiredIn: ['integration'], requiredStages: ['prepare', 'invoke', 'query', 'result'] }],
+    bindings: [{
+      ownerId: 'FLOW-PAYSDK-001', caseId: 'normal', fixtureCase: 'normal', environment: 'integration',
+      covers: [{ id: 'TC-PAYSDK-TEST-001', caseKey: 'normal', checks: ['result'] }],
+      flowId: 'FLOW-PAYSDK-001', flowCase: 'normal',
+    }],
+    reports: [{
+      ...current, project: 'integration', file: 'normal.spec.ts', fullName: 'FLOW-PAYSDK-001 normal', caseId: 'normal',
+      status: 'passed', assertions: 1, checkpoints: ['result'],
+      flow: { id: 'FLOW-PAYSDK-001', caseKey: 'normal', continuityId: 'run-one', stages: ['prepare', 'invoke', 'query', 'result'] },
+    }],
+  };
+}
+
+export function runScenarioCli(input: CoverageInput) {
+  const directory = mkdtempSync(`${tmpdir()}/payment-scenario-cli-`);
+  const inputPath = resolve(directory, 'input.json');
+  writeFileSync(inputPath, JSON.stringify(input));
+  try {
+    const result = spawnSync(resolve('node_modules/.bin/tsx'), ['scripts/check-scenarios.ts', '--input', inputPath], { cwd: process.cwd(), encoding: 'utf8' });
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+}

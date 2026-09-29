@@ -1,0 +1,228 @@
+{
+  "sourceDigest": "cf70d0b814f25d16ef1d837cd2a8636fa03a6b149d1450ef34bee7fbd602140a",
+  "entries": [
+    {
+      "term": "confirmed",
+      "conclusion": "仅表示服务端查询得到 PAID 或 CLOSED，不等于渠道提示或权益到账。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 43,
+          "contains": "'confirmed'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 39,
+          "contains": "'confirmed'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 39,
+          "contains": "'confirmed'"
+        }
+      ]
+    },
+    {
+      "term": "PAID",
+      "conclusion": "服务端查询确认已支付，业务权益是否到账仍由业务接口确认。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 23,
+          "contains": "'PAID'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 302,
+          "contains": "'PAID'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 302,
+          "contains": "'PAID'"
+        }
+      ]
+    },
+    {
+      "term": "CLOSED",
+      "conclusion": "服务端查询确认已关闭，不由本地计时合成。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 25,
+          "contains": "'CLOSED'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 304,
+          "contains": "'CLOSED'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 304,
+          "contains": "'CLOSED'"
+        }
+      ]
+    },
+    {
+      "term": "confirming",
+      "conclusion": "只表示进入服务端结果确认并先于首次查询，不表示已支付或权益到账。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 71,
+          "contains": "'confirming'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 207,
+          "contains": "'confirming'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 207,
+          "contains": "'confirming'"
+        }
+      ]
+    },
+    {
+      "term": "unknown callback",
+      "conclusion": "渠道未知回调只形成 unknown 信号，随后按契约查询服务端事实。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/adapters/channels/wechat-miniapp-virtual.ts",
+          "line": 67,
+          "contains": "code === -5"
+        }
+      ]
+    },
+    {
+      "term": "no callback",
+      "conclusion": "渠道没有回调时不查询、不启动确认预算，也不自动结束。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/core/client.ts",
+          "line": 191,
+          "contains": "无回调不查询"
+        }
+      ]
+    },
+    {
+      "term": "cancelled",
+      "conclusion": "渠道明确取消不同于宿主停止，直接以 channel_cancelled 结束。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 35,
+          "contains": "'cancelled'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 13,
+          "contains": "'cancelled'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 13,
+          "contains": "'cancelled'"
+        }
+      ]
+    },
+    {
+      "term": "stopped",
+      "conclusion": "宿主停止只结束 SDK 本地等待，不撤销支付或关单。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 61,
+          "contains": "'stopped'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 57,
+          "contains": "'stopped'"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 57,
+          "contains": "'stopped'"
+        }
+      ]
+    },
+    {
+      "term": "interruptedPhase",
+      "conclusion": "身份或会话中断位置只指明恢复入口，不是阶段通知。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 222,
+          "contains": "interruptedPhase?:"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 189,
+          "contains": "interruptedPhase?:"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 189,
+          "contains": "interruptedPhase?:"
+        }
+      ]
+    },
+    {
+      "term": "onPhase",
+      "conclusion": "阶段通知不等待返回，异常不改变主流程，最终结果仍由 Promise 交付。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/contracts.ts",
+          "line": 198,
+          "contains": "onPhase?:"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.ts",
+          "line": 268,
+          "contains": "onPhase?:"
+        },
+        {
+          "path": "packages/payment-sdk/dist/index.d.cts",
+          "line": 268,
+          "contains": "onPhase?:"
+        }
+      ]
+    },
+    {
+      "term": "backend mapping",
+      "conclusion": "后端适配器将生成枚举映射为公开交易状态。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/adapters/payment-infra/backend.ts",
+          "line": 95,
+          "contains": "function tradeState"
+        }
+      ]
+    },
+    {
+      "term": "core stop branch",
+      "conclusion": "核心在宿主停止后以 stopped 结算并阻止后续外部动作。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/core/client.ts",
+          "line": 97,
+          "contains": "finish('stopped')"
+        }
+      ]
+    },
+    {
+      "term": "channel stop branch",
+      "conclusion": "渠道适配器将调用边界停止投影为内部 stopped 结果。",
+      "locations": [
+        {
+          "path": "packages/payment-sdk/src/adapters/channels/wechat-miniapp-virtual.ts",
+          "line": 105,
+          "contains": "settle(stopped())"
+        }
+      ]
+    }
+  ]
+}

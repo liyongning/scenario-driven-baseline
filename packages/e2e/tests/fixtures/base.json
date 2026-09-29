@@ -1,0 +1,15 @@
+{
+  "request": {
+    "headers": {
+      "Authorization": "Bearer fixture-token",
+      "X-Product-ID": "fixture-product",
+      "request_id": "pay-fixture-1"
+    },
+    "body": {
+      "baseReq": {
+        "productId": "fixture-product",
+        "requestId": "pay-fixture-1"
+      }
+    }
+  }
+}
