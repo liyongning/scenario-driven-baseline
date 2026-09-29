@@ -107,6 +107,29 @@ ${block}
     expect(inventory.scenarios[0]?.verification).toBeUndefined();
   });
 
+  it('keeps malformed Scenario headings in the inventory and reports them', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'payment-spec-malformed-scenario-'));
+    const path = join(root, 'spec.md');
+    await writeFile(path, '#### Scenario:\n\nA malformed scenario\n');
+    const inventory = await readSpecInventory([path]);
+    expect(inventory.scenarios).toHaveLength(1);
+    expect(inventory.issues).toEqual(expect.arrayContaining([expect.stringContaining('Scenario heading Scenario: is malformed')]));
+  });
+
+  it('enforces configured IDs, FLOW placement, required cells, and allowed environments', async () => {
+    const config = { scenarioIdPatterns: ['^SCN-OK$'], flowIdPatterns: ['^FLOW-OK$'], ownerIdPattern: '^SCN-OK$' };
+    const header = '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
+    const source = { path: 'controlled-spec', kind: 'main' as const, content: `${header}| FLOW-OK | SCN-OK | create → observe | normal | integration | outside |\n\n### Requirement: TEST flow\n\n#### Scenario: BAD-ID Invalid\n\n${block}\n\n${header}| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | wrong environment |\n| FLOW-OK | SCN-OK | | normal | integration | missing stage |\n| FLOW-OK | SCN-OK | create → observe | normal | integration |\n` };
+    const inventory = await readSpecInventory([source], config);
+    expect(inventory.issues).toEqual(expect.arrayContaining([
+      expect.stringContaining('FLOW table is outside a Requirement'),
+      expect.stringContaining('Scenario ID BAD-ID does not match'),
+      expect.stringContaining('invalid FLOW row FLOW-OK'),
+      expect.stringContaining('FLOW row has an empty required column'),
+      expect.stringContaining('FLOW row has 5 columns, expected 6'),
+    ]));
+  });
+
   it('reads the reviewed v2 denominator without reducing any category', async () => {
     const inventory = await readSpecInventory([
       new URL('../../openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md', import.meta.url).pathname,

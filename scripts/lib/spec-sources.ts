@@ -27,7 +27,7 @@ function requirements(content: string, source: SpecSource): Requirement[] {
   return starts.map((start, index) => {
     const end = starts[index + 1] ?? lines.length;
     const heading = lines[start]!.replace(/^### Requirement:\s+/, '').trim();
-    const id = heading.split(/\s+/, 1)[0] ?? heading;
+    const id = heading.split(/\s+/, 1)[0]!;
     return { id, title: heading, body: lines.slice(start, end).join('\n').trimEnd(), source };
   });
 }
@@ -44,22 +44,50 @@ export async function readEffectiveSpecs(repositoryRoot: string): Promise<Effect
   const mainPaths = await filesUnder(resolve(repositoryRoot, 'openspec/specs'));
   const changeRoots = await readdir(resolve(repositoryRoot, 'openspec/changes'), { withFileTypes: true }).catch(() => []);
   const main = await Promise.all(mainPaths.map(async path => ({ path, content: await readFile(path, 'utf8'), kind: 'main' as const })));
-  const byId = new Map<string, Requirement>();
-  for (const source of main) for (const requirement of requirements(source.content, source)) byId.set(requirement.id, requirement);
   const issues: string[] = [];
+  const byId = new Map<string, Requirement>();
+  for (const source of main) for (const requirement of requirements(source.content, source)) {
+    if (byId.has(requirement.id)) issues.push(`${source.path}: duplicate main Requirement ${requirement.id}`);
+    else byId.set(requirement.id, requirement);
+  }
+  const activeTouches = new Map<string, string>();
   for (const change of changeRoots.filter(entry => entry.isDirectory() && entry.name !== 'archive').sort((a, b) => a.name.localeCompare(b.name))) {
     const specPaths = await filesUnder(resolve(repositoryRoot, 'openspec/changes', change.name, 'specs'));
     for (const path of specPaths) {
       const source: SpecSource = { path, content: await readFile(path, 'utf8'), kind: 'change', change: change.name };
-      for (const requirement of requirements(deltaSection(source.content, 'ADDED'), source)) byId.set(requirement.id, requirement);
-      for (const requirement of requirements(deltaSection(source.content, 'MODIFIED'), source)) byId.set(requirement.id, requirement);
-      for (const requirement of requirements(deltaSection(source.content, 'REMOVED'), source)) byId.delete(requirement.id);
+      const touch = (id: string) => {
+        const previous = activeTouches.get(id);
+        if (previous && previous !== change.name) issues.push(`active changes ${previous} and ${change.name} both touch Requirement ${id}`);
+        else activeTouches.set(id, change.name);
+      };
+      for (const requirement of requirements(deltaSection(source.content, 'ADDED'), source)) {
+        touch(requirement.id);
+        if (byId.has(requirement.id)) issues.push(`${source.path}: ADDED Requirement ${requirement.id} already exists`);
+        else byId.set(requirement.id, requirement);
+      }
+      for (const requirement of requirements(deltaSection(source.content, 'MODIFIED'), source)) {
+        touch(requirement.id);
+        if (!byId.has(requirement.id)) issues.push(`${source.path}: MODIFIED Requirement ${requirement.id} does not exist`);
+        else byId.set(requirement.id, requirement);
+      }
+      for (const requirement of requirements(deltaSection(source.content, 'REMOVED'), source)) {
+        touch(requirement.id);
+        if (!byId.has(requirement.id)) issues.push(`${source.path}: REMOVED Requirement ${requirement.id} does not exist`);
+        else byId.delete(requirement.id);
+      }
       const renamed = deltaSection(source.content, 'RENAMED');
       for (const line of renamed.split(/\r?\n/)) {
         const match = /(?:FROM|from)\s*[:：]\s*([^\s]+).*?(?:TO|to)\s*[:：]\s*([^\s]+)/.exec(line);
         if (!match) continue;
+        touch(match[1]!);
+        touch(match[2]!);
         const previous = byId.get(match[1]!);
-        if (previous) byId.set(match[2]!, { ...previous, id: match[2]!, title: previous.title.replace(match[1]!, match[2]!) });
+        if (!previous) issues.push(`${source.path}: RENAMED Requirement ${match[1]} does not exist`);
+        else if (byId.has(match[2]!)) issues.push(`${source.path}: RENAMED target Requirement ${match[2]} already exists`);
+        else {
+          byId.delete(match[1]!);
+          byId.set(match[2]!, { ...previous, id: match[2]!, title: previous.title.replace(match[1]!, match[2]!) });
+        }
       }
     }
   }

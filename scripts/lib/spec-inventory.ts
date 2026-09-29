@@ -57,11 +57,13 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
       const heading = nodeText(node);
       if (node.type === 'heading' && node.depth! <= 3) inRequirement = false;
       if (node.type === 'heading' && node.depth === 3 && /^Requirement:\s+/.test(heading)) inRequirement = true;
-      const scenarioMatch = node.type === 'heading' && node.depth === 4
-        ? /^Scenario:\s+(\S+)\s+(.+)$/.exec(heading)
-        : null;
-      if (scenarioMatch) {
-        if (!matchesAny(scenarioMatch[1]!, effectiveConfig.scenarioIdPatterns)) issues.push(`${source}: Scenario ID ${scenarioMatch[1]} does not match configured formats`);
+      const scenarioHeading = node.type === 'heading' && node.depth === 4 && /^Scenario:/.test(heading) ? heading : null;
+      const scenarioMatch = scenarioHeading ? /^Scenario:\s+(\S+)\s+(.+)$/.exec(heading) : null;
+      if (scenarioHeading) {
+        const scenarioId = scenarioMatch?.[1] ?? scenarioHeading;
+        const scenarioTitle = scenarioMatch?.[2] ?? (scenarioHeading.replace(/^Scenario:\s*/, '').trim() || scenarioHeading);
+        if (!scenarioMatch) issues.push(`${source}: Scenario heading ${scenarioHeading} is malformed; expected an ID and title`);
+        else if (!matchesAny(scenarioId, effectiveConfig.scenarioIdPatterns)) issues.push(`${source}: Scenario ID ${scenarioId} does not match configured formats`);
         let verification: VerificationMetadata | undefined;
         let verificationBlocks = 0;
         for (let cursor = index + 1; cursor < children.length; cursor += 1) {
@@ -71,28 +73,28 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
             verificationBlocks += 1;
             try {
               const parsed: unknown = JSON.parse(candidate.value!);
-              if (!validate(parsed)) issues.push(`${scenarioMatch[1]}: invalid verification metadata: ${ajv.errorsText(validate.errors)}`);
+              if (!validate(parsed)) issues.push(`${scenarioId}: invalid verification metadata: ${ajv.errorsText(validate.errors)}`);
               else {
                 verification = parsed as VerificationMetadata;
                 const keys = verification.cases.map(item => item.key);
-                if (new Set(keys).size !== keys.length) issues.push(`${scenarioMatch[1]}: duplicate verification case key`);
+                if (new Set(keys).size !== keys.length) issues.push(`${scenarioId}: duplicate verification case key`);
                 for (const item of verification.cases) {
                   for (const check of item.checks) {
-                    if (!Object.prototype.hasOwnProperty.call(verification.checkpoints, check)) issues.push(`${scenarioMatch[1]}/${item.key}: unknown checkpoint ${check}`);
+                    if (!Object.prototype.hasOwnProperty.call(verification.checkpoints, check)) issues.push(`${scenarioId}/${item.key}: unknown checkpoint ${check}`);
                   }
                 }
               }
             } catch (error) {
-              issues.push(`${scenarioMatch[1]}: verification JSON cannot be parsed: ${String(error)}`);
+              issues.push(`${scenarioId}: verification JSON cannot be parsed: ${String(error)}`);
             }
           }
         }
         if (verificationBlocks > 1) {
-          issues.push(`${scenarioMatch[1]}: multiple verification metadata blocks (expected exactly one)`);
+          issues.push(`${scenarioId}: multiple verification metadata blocks (expected exactly one)`);
           verification = undefined;
         }
-        if (!verification && verificationBlocks <= 1) issues.push(`${scenarioMatch[1]}: verification metadata missing`);
-        scenarios.push({ id: scenarioMatch[1]!, title: scenarioMatch[2]!, source, ...(verification ? { verification } : {}) });
+        if (!verification && verificationBlocks <= 1) issues.push(`${scenarioId}: verification metadata missing`);
+        scenarios.push({ id: scenarioId, title: scenarioTitle, source, ...(verification ? { verification } : {}) });
       }
       if (node.type === 'table') {
         const rows = (node as unknown as { children: Array<{ children: unknown[] }> }).children;
