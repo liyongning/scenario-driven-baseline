@@ -1,5 +1,13 @@
 # packages/payment-sdk/AGENTS.md
 
+## 模板通用规则
+
+### 按示例扩展新业务
+
+新业务沿用 `src/example/` 的分层：工厂负责配置校验，核心只编排端口，端口定义边界，适配器负责外部协议映射。只有适配器接触 generated；业务之间互不导入，可共用的只有 `runtime/` 与协议包公开入口。依赖规则和平台全局限制以项目级配置为准，模块单测就近维护并绑定 verification case。
+
+## 当前业务：支付
+
 
 必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [能力 Spec](../../openspec/specs/payment-sdk/spec.md), [公共契约](../../openspec/specs/payment-sdk-contract/spec.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
 [根 AGENTS](../../AGENTS.md)

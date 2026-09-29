@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
+import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 
 type Manifest = { name: string; private?: boolean; exports?: Record<string, unknown>; dependencies?: Record<string, string>; scripts?: Record<string, string> };
 const packageNames = ['payment-sdk', 'payment-protocol', 'e2e'];
@@ -42,6 +43,7 @@ export function checkArchitecture(root: string, dependencyExitCode: number): str
       if (entry.isDirectory() && !allowedDirectories[name]!.includes(entry.name)) errors.push(`unexpected directory packages/${name}/${entry.name}`);
     }
   }
+  errors.push(...checkSchemaDocumentation(root));
   return errors;
 }
 

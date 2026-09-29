@@ -1,5 +1,26 @@
 # infra-payment-sdk Agent 入口
 
+## 模板通用规则
+
+### 必读
+
+- [有效能力 Spec](openspec/specs/)
+- 使用 `openspec list` 查看当前 Change；生命周期状态以当前物理仓库为根。
+- [仓库与跨仓库参考](README.md)
+
+### OpenSpec 硬规则
+
+1. 所有规划、状态与归档必须使用当前仓库的 OpenSpec 根和 `openspec-workflow`；不要把另一个仓库的路径当作事实。
+2. 每个 Scenario/FLOW ID 必须匹配项目配置；格式唯一权威是 [scenario-gate.config.schema.json](scenario-gate.config.schema.json)，最小示例为 `{"scenarioIdPatterns":["^SCN-[A-Z]+-\\d+$"]}`。本条格式约定沿用 Change Skill。
+3. 每个 Scenario 必须带一个 `json verification` 元数据块；字段唯一权威是 [scripts/verification.schema.json](scripts/verification.schema.json)，最小示例为 `{"formatVersion":2,"checkpoints":{"result":"结果"},"cases":[{"key":"normal","kind":"behavior","requiredIn":["integration"],"checks":["result"]}],"blockedBy":[]}`。这是项目扩展规则。
+4. Requirement 内登记的 FLOW 行必须符合 [scripts/flow.schema.json](scripts/flow.schema.json)，最小示例为 `{"id":"FLOW-EXAMPLE-001","relatedScenarios":[],"stages":"create → observe","cases":["normal"],"requiredIn":["integration"],"notes":""}`。这是项目扩展规则。
+
+### 场景门禁与归档
+
+门禁读取 `openspec/specs/**`，再合并未归档 active Change 的 Spec delta；`archive/` 只保存历史。Scenario/FLOW 的格式来自 `scenario-gate.config.json`，每个 Scenario 只能有一个 verification 块，FLOW 表必须位于 Requirement 正文。归档或同步前运行完整场景门禁，确认清单、绑定、报告和来源摘要仍一致，并把验收索引保存到 `artifacts/<run-id>/tasks/`。
+
+## 当前业务：支付
+
 主工作区现已包含 Task 1–7 的 SDK 实现、正式 0.1.0 发布记录及 2026-09-22 Change 归档；这些内容此前在隔离 Apply 工作区完成。Task 8 的既有 Shadow 验证已取证，Live/业务验收仍按独立边界跟踪。后文 2026-09-09 的评审条款是历史记录，不覆盖本轮新增输入。历史实施事实保留，不能把验收边界误判为尚未开发。
 
 ## 必读

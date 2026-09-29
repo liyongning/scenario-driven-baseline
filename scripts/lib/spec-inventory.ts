@@ -3,7 +3,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { unified } from 'unified';
-import { loadScenarioConfig, matchesAny, type ScenarioConfig } from './scenario-config.ts';
+import { matchesAny, type ScenarioConfig } from './scenario-config.ts';
 import type { SpecSource } from './spec-sources.ts';
 
 export type VerificationMetadata = Readonly<{
@@ -37,8 +37,10 @@ export function nodeText(node: unknown): string {
 
 export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>, config?: ScenarioConfig) {
   const schema = JSON.parse(await readFile(new URL('../verification.schema.json', import.meta.url), 'utf8')) as object;
+  const flowSchema = JSON.parse(await readFile(new URL('../flow.schema.json', import.meta.url), 'utf8')) as object;
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
+  const validateFlow = ajv.compile(flowSchema);
   const scenarios: ScenarioInventoryItem[] = [];
   const flows: FlowInventoryItem[] = [];
   const issues: string[] = [];
@@ -61,10 +63,12 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
       if (scenarioMatch) {
         if (!matchesAny(scenarioMatch[1]!, effectiveConfig.scenarioIdPatterns)) issues.push(`${source}: Scenario ID ${scenarioMatch[1]} does not match configured formats`);
         let verification: VerificationMetadata | undefined;
+        let verificationBlocks = 0;
         for (let cursor = index + 1; cursor < children.length; cursor += 1) {
           const candidate = children[cursor] as typeof node;
           if (candidate.type === 'heading' && candidate.depth! <= 4) break;
           if (candidate.type === 'code' && candidate.lang === 'json' && candidate.meta === 'verification') {
+            verificationBlocks += 1;
             try {
               const parsed: unknown = JSON.parse(candidate.value!);
               if (!validate(parsed)) issues.push(`${scenarioMatch[1]}: invalid verification metadata: ${ajv.errorsText(validate.errors)}`);
@@ -83,7 +87,11 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
             }
           }
         }
-        if (!verification) issues.push(`${scenarioMatch[1]}: verification metadata missing`);
+        if (verificationBlocks > 1) {
+          issues.push(`${scenarioMatch[1]}: multiple verification metadata blocks (expected exactly one)`);
+          verification = undefined;
+        }
+        if (!verification && verificationBlocks <= 1) issues.push(`${scenarioMatch[1]}: verification metadata missing`);
         scenarios.push({ id: scenarioMatch[1]!, title: scenarioMatch[2]!, source, ...(verification ? { verification } : {}) });
       }
       if (node.type === 'table') {
@@ -105,14 +113,19 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
             continue;
           }
           if (!cells[0] || !cells[2] || !cells[3] || !cells[4]) { issues.push(`${source}: FLOW row has an empty required column`); continue; }
-          flows.push({
+          const flow = {
             id: cells[0]!,
             relatedScenarios: cells[1]!.split('、').filter(Boolean),
             stages: cells[2]!,
             cases: cells[3]!.split('、').filter(Boolean),
             requiredIn: cells[4]!.split('、').filter(Boolean),
             notes: cells[5]!,
-          });
+          };
+          if (!validateFlow(flow)) {
+            issues.push(`${source}: invalid FLOW row ${cells[0]}: ${ajv.errorsText(validateFlow.errors)}`);
+            continue;
+          }
+          flows.push(flow);
         }
       }
     }

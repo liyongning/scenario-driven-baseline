@@ -4,49 +4,54 @@
   "type": "object",
   "required": ["formatVersion", "checkpoints", "cases", "blockedBy"],
   "properties": {
-    "formatVersion": { "const": 2 },
+    "formatVersion": { "const": 2, "description": "验证元数据格式版本，当前必须为 2。" },
     "checkpoints": {
+      "description": "本场景可被 case 引用的检查点名称与说明映射。",
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-      "additionalProperties": { "type": "string", "minLength": 1 }
+      "propertyNames": { "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "检查点名称必须使用小写字母、数字和连字符。" },
+      "additionalProperties": { "type": "string", "minLength": 1, "description": "检查点的人类可读说明，不能为空。" }
     },
     "cases": {
+      "description": "本场景需要执行的验证 case 列表。",
       "type": "array",
       "minItems": 1,
       "items": {
+        "description": "单个场景验证 case，声明类别、环境和检查点。",
         "type": "object",
         "required": ["key", "kind", "requiredIn", "checks"],
         "properties": {
-          "key": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-          "kind": { "enum": ["behavior", "module", "engineering"] },
+          "key": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "case 的稳定键，使用小写字母、数字和连字符。" },
+          "kind": { "enum": ["behavior", "module", "engineering"], "description": "验证类别：公共行为、模块单测或工程门禁。" },
           "requiredIn": {
+            "description": "case 必须运行的测试项目，且必须与 kind 的允许环境匹配。",
             "type": "array", "minItems": 1, "uniqueItems": true,
-            "items": { "enum": ["sdk-unit", "protocol-unit", "test-tools-unit", "integration", "weapp"] }
+            "items": { "enum": ["sdk-unit", "protocol-unit", "test-tools-unit", "integration", "weapp"], "description": "执行该 case 的项目名称。" }
           },
           "checks": {
+            "description": "该 case 必须实际执行的 checkpoint 名称列表。",
             "type": "array", "minItems": 1, "uniqueItems": true,
-            "items": { "type": "string" }
+            "items": { "type": "string", "description": "引用 checkpoints 中已声明的检查点名称。" }
           }
         },
         "allOf": [
           {
-            "if": { "properties": { "kind": { "const": "behavior" } }, "required": ["kind"] },
-            "then": { "properties": { "requiredIn": { "type": "array", "items": { "enum": ["integration", "weapp"] } } } }
+            "if": { "properties": { "kind": { "const": "behavior", "description": "行为 case 的类别判定。" } }, "required": ["kind"] },
+            "then": { "properties": { "requiredIn": { "type": "array", "description": "行为 case 允许的集成环境。", "items": { "enum": ["integration", "weapp"], "description": "行为 case 的集成执行项目。" } } } }
           },
           {
-            "if": { "properties": { "kind": { "const": "module" } }, "required": ["kind"] },
-            "then": { "properties": { "requiredIn": { "type": "array", "items": { "enum": ["sdk-unit", "protocol-unit", "test-tools-unit"] } } } }
+            "if": { "properties": { "kind": { "const": "module", "description": "模块 case 的类别判定。" } }, "required": ["kind"] },
+            "then": { "properties": { "requiredIn": { "type": "array", "description": "模块 case 允许的单测项目。", "items": { "enum": ["sdk-unit", "protocol-unit", "test-tools-unit"], "description": "模块 case 的单测执行项目。" } } } }
           },
           {
-            "if": { "properties": { "kind": { "const": "engineering" } }, "required": ["kind"] },
-            "then": { "properties": { "requiredIn": { "type": "array", "items": { "const": "integration" } } } }
+            "if": { "properties": { "kind": { "const": "engineering", "description": "工程 case 的类别判定。" } }, "required": ["kind"] },
+            "then": { "properties": { "requiredIn": { "type": "array", "description": "工程 case 的执行项目。", "items": { "const": "integration", "description": "工程 case 只能在 integration 项目执行。" } } } }
           }
         ],
         "additionalProperties": false
       }
     },
-    "blockedBy": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^SDK-P-" } }
+    "blockedBy": { "type": "array", "uniqueItems": true, "description": "阻塞该场景验收的非空依赖标识列表。", "items": { "type": "string", "minLength": 1, "description": "阻塞依赖标识，必须为非空字符串。" } }
   },
   "additionalProperties": false
 }

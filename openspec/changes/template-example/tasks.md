@@ -84,7 +84,7 @@
   **Commit**
   - `feat(scenario-gate): build inventory from effective OpenSpec specs`
 
-- [ ] 2. 门禁前置检查、schema 字段说明与根 AGENTS 硬规则
+- [x] 2. 门禁前置检查、schema 字段说明与根 AGENTS 硬规则
 
   **Files**
   - Modify `scripts/check-scenarios.ts`、`scripts/check-scenarios.test.ts`：固定前置检查顺序（OpenSpec 存在 → ID → FLOW 位置与行格式 → verification 块），在读取报告前失败；新增"绑定引用未登记的 FLOW"检查。CLI 调用通过可注入的执行函数完成。`--input` 模式不执行任何前置检查，只做对账（含未知引用检查）；现有支付门禁用例及 `packages/e2e/tests/tooling/helpers.ts` 不做修改。

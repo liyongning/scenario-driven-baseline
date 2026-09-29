@@ -87,6 +87,26 @@ ${duplicateCases}
     expect(inventory.issues.filter(issue => issue.includes('invalid verification metadata'))).toHaveLength(5);
   });
 
+  it('rejects more than one verification block instead of selecting one', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'payment-spec-multiple-verification-'));
+    const path = join(root, 'spec.md');
+    const block = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["integration"],"checks":["x"]}],"blockedBy":[]}';
+    await writeFile(path, `#### Scenario: TC-PAYSDK-CORE-009 Multiple
+
+\`\`\`json verification
+${block}
+\`\`\`
+
+\`\`\`json verification
+${block}
+\`\`\``);
+    const inventory = await readSpecInventory([path]);
+    expect(inventory.issues).toEqual(expect.arrayContaining([
+      expect.stringContaining('multiple verification metadata blocks'),
+    ]));
+    expect(inventory.scenarios[0]?.verification).toBeUndefined();
+  });
+
   it('reads the reviewed v2 denominator without reducing any category', async () => {
     const inventory = await readSpecInventory([
       new URL('../../openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md', import.meta.url).pathname,

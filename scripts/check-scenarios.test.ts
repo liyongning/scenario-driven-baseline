@@ -1,8 +1,8 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { evaluateCoverage, loadReporterOutputs, runScenariosCli, scenarioCoverageDefinition, type CoverageInput } from './check-scenarios.ts';
+import { evaluateCoverage, loadReporterOutputs, runScenarioPrechecks, runScenariosCli, scenarioCoverageDefinition, type CoverageInput } from './check-scenarios.ts';
 
 function base(): CoverageInput {
   return {
@@ -110,6 +110,14 @@ describe('evaluateCoverage', () => {
     ]));
   });
 
+  it('rejects a FLOW reference that is absent from the declared inventory', () => {
+    const input = base();
+    const binding = { ...input.bindings[0]!, flowId: 'FLOW-PAYSDK-999' };
+    expect(evaluateCoverage({ ...input, bindings: [binding] }).issues).toContain(
+      'integration/flow-normal: unknown FLOW reference FLOW-PAYSDK-999',
+    );
+  });
+
   it('loads bindings and execution facts from saved reporter outputs without changing their project or fingerprints', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'payment-reports-'));
     const file = join(directory, 'integration.json');
@@ -199,6 +207,26 @@ describe('evaluateCoverage', () => {
     expect(inventory).toMatchObject({ exitCode: 1, output: { mode: 'inventory', scenarios: expect.any(Array), contracts: expect.any(Array) } });
     const complete = await runScenariosCli([], process.cwd(), {});
     expect(complete).toMatchObject({ exitCode: 1, output: { mode: 'complete', issues: expect.any(Array) } });
+  });
+
+  it('runs OpenSpec prechecks before report loading and keeps --input pure', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'payment-precheck-'));
+    try {
+      const calls: string[] = [];
+      const command = (name: string) => { calls.push(name); return { status: 1 }; };
+      const missing = await runScenarioPrechecks(root, command);
+      expect(missing.issues[0]).toContain('openspec/specs directory is missing');
+      expect(missing.issues).toContain('precheck: openspec CLI cannot be invoked');
+      await mkdir(join(root, 'openspec/specs'), { recursive: true });
+      await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({
+        scenarioIdPatterns: ['^SCN-[A-Z]+-\\d+$'], flowIdPatterns: ['^FLOW-[A-Z]+-\\d+$'], ownerIdPattern: '^SCN-[A-Z]+-\\d+$',
+      }));
+      const input = join(root, 'input.json');
+      await writeFile(input, JSON.stringify(base()));
+      const result = await runScenariosCli(['node', 'script', '--input', input], root, {}, () => { throw new Error('must not invoke openspec'); });
+      expect(result.output.issues).toEqual(expect.any(Array));
+      expect(calls).toEqual(['openspec']);
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 
   it('keeps scenarios with missing verification in the denominator with empty executable cases', () => {

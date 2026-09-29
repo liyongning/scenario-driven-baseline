@@ -1,5 +1,13 @@
 # packages/e2e/AGENTS.md
 
+## 模板通用规则
+
+### 按示例扩展新业务
+
+新业务按示例组织 integration、FLOW、Fixture 和 reporter 绑定；场景事实来自有效 Spec，测试只消费公开包入口并保留实际证据。工具门禁的反例使用受控临时仓库，不把替身结果冒充 SDK 运行证据。
+
+## 当前业务：支付
+
 
 必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [能力 Spec](../../openspec/specs/payment-sdk/spec.md), [公共契约](../../openspec/specs/payment-sdk-contract/spec.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
 [根 AGENTS](../../AGENTS.md)

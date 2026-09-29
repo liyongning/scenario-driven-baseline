@@ -1,15 +1,23 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readSpecInventory } from './lib/spec-inventory.ts';
 import { readEffectiveSpecs } from './lib/spec-sources.ts';
-import { loadScenarioConfig } from './lib/scenario-config.ts';
+import { loadScenarioConfig, validateScenarioConfig } from './lib/scenario-config.ts';
 import { buildContractInventory } from './lib/contract-inventory.ts';
 import { buildVerificationFingerprints } from './lib/fingerprints.ts';
 
 export type Project = 'sdk-unit' | 'protocol-unit' | 'test-tools-unit' | 'integration' | 'weapp';
 export type VerificationKind = 'behavior' | 'module' | 'engineering';
+export type ScenarioCommandResult = Readonly<{ status: number | null; stdout?: string; stderr?: string; error?: unknown }>;
+export type ScenarioCommand = (command: string, args: ReadonlyArray<string>, options: Readonly<{ cwd: string }>) => ScenarioCommandResult;
+
+const defaultScenarioCommand: ScenarioCommand = (command, args, options) => {
+  const result = spawnSync(command, [...args], { cwd: options.cwd, encoding: 'utf8' });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr, error: result.error };
+};
 type Cover = Readonly<{ id: string; caseKey: string; checks: ReadonlyArray<string> }>;
 export type CaseBinding = Readonly<{
   ownerId: string;
@@ -57,6 +65,62 @@ export type CoverageInput = Readonly<{
     evidence: ReadonlyArray<string>;
   }>>>;
 }>;
+
+export type ScenarioPrecheckResult = Readonly<{
+  issues: ReadonlyArray<string>;
+  effective?: Awaited<ReturnType<typeof readEffectiveSpecs>>;
+  inventory?: Awaited<ReturnType<typeof readSpecInventory>>;
+}>;
+
+/**
+ * Run the repository and effective-Spec checks in their contractual order.
+ * Report loading is deliberately outside this function so a failed precheck
+ * cannot accidentally produce a coverage conclusion from stale reports.
+ */
+export async function runScenarioPrechecks(
+  root: string,
+  command: ScenarioCommand = defaultScenarioCommand,
+): Promise<ScenarioPrecheckResult> {
+  const issues: string[] = [];
+  const specsDirectory = resolve(root, 'openspec/specs');
+  const specsPresent = (() => {
+    try { return statSync(specsDirectory).isDirectory(); } catch { return false; }
+  })();
+  if (!specsPresent) issues.push('precheck: openspec/specs directory is missing');
+
+  let cliAvailable = false;
+  try {
+    const result = command('openspec', ['--version'], { cwd: root });
+    cliAvailable = result.status === 0;
+  } catch (error) {
+    issues.push(`precheck: openspec CLI cannot be invoked: ${String(error)}`);
+  }
+  if (!cliAvailable && !issues.some(issue => issue.startsWith('precheck: openspec CLI cannot be invoked'))) {
+    issues.push('precheck: openspec CLI cannot be invoked');
+  }
+  if (issues.length > 0) return { issues };
+
+  const effective = await readEffectiveSpecs(root);
+  const config = await loadScenarioConfig(root);
+  const configIssues = validateScenarioConfig(config);
+  if (configIssues.length > 0) issues.push(...configIssues.map(issue => `precheck: ${issue}`));
+  const inventory = await readSpecInventory(effective.documents, config);
+
+  // Keep diagnostics deterministic and aligned with the gate contract:
+  // identity checks, FLOW placement/rows, then verification metadata.
+  const idIssues: string[] = [];
+  const flowIssues: string[] = [];
+  const verificationIssues: string[] = [];
+  const otherIssues: string[] = [];
+  for (const issue of [...effective.issues, ...inventory.issues]) {
+    if (/Scenario ID|duplicate Scenario ID|duplicate FLOW ID|invalid FLOW ID/.test(issue)) idIssues.push(issue);
+    else if (/FLOW (?:table|row)|invalid FLOW row/.test(issue)) flowIssues.push(issue);
+    else if (/verification/.test(issue)) verificationIssues.push(issue);
+    else otherIssues.push(issue);
+  }
+  issues.push(...idIssues, ...flowIssues, ...verificationIssues, ...otherIssues);
+  return { issues, effective, inventory };
+}
 
 type ReporterOutput = Readonly<{
   runId: string;
@@ -136,6 +200,7 @@ export function evaluateCoverage(input: CoverageInput) {
   for (const scenario of input.scenarios) {
     for (const item of scenario.cases) scenarioCases.set(`${scenario.id}/${item.key}`, item);
   }
+  const flowIds = new Set(input.flows.map(flow => flow.id));
   const contractCases = new Set(input.contracts.flatMap(contract => contract.cases.map(caseKey => `${contract.id}/${caseKey}`)));
   for (const binding of input.bindings) {
     for (const cover of binding.covers) {
@@ -158,6 +223,9 @@ export function evaluateCoverage(input: CoverageInput) {
       for (const checkpoint of cover.checks) {
         if (!item.checks.includes(checkpoint)) issues.push(`${cover.id}/${cover.caseKey}: binding references unknown checkpoint ${checkpoint}`);
       }
+    }
+    if (binding.flowId && !flowIds.has(binding.flowId)) {
+      issues.push(`${binding.environment}/${binding.caseId}: unknown FLOW reference ${binding.flowId}`);
     }
   }
 
@@ -273,6 +341,7 @@ export async function runScenariosCli(
   argv: ReadonlyArray<string>,
   root = process.cwd(),
   environment: Readonly<Record<string, string | undefined>> = process.env,
+  command: ScenarioCommand = defaultScenarioCommand,
 ) {
   const inputIndex = argv.indexOf('--input');
   if (inputIndex >= 0 && argv[inputIndex + 1]) {
@@ -280,8 +349,15 @@ export async function runScenariosCli(
     const result = evaluateCoverage(input);
     return { output: result, exitCode: Math.min(1, result.issues.length) };
   }
-  const effective = await readEffectiveSpecs(root);
-  const specs = await readSpecInventory(effective.documents, await loadScenarioConfig(root));
+  const precheck = await runScenarioPrechecks(root, command);
+  if (precheck.issues.length > 0) {
+    return {
+      output: { mode: argv.includes('--inventory') ? 'inventory' : 'complete', issues: precheck.issues },
+      exitCode: 1,
+    };
+  }
+  const effective = precheck.effective!;
+  const specs = precheck.inventory!;
   const contracts = await buildContractInventory(root);
   const fingerprints = buildVerificationFingerprints(root);
   const reportArguments = argv.flatMap((value, index) => value === '--report' && argv[index + 1] ? [resolve(root, argv[index + 1]!)] : []);
