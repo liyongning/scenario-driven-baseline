@@ -25,3 +25,23 @@ test('requires every schema property to carry documentation and AGENTS reference
 test('accepts the repository schemas and root documentation', () => {
   expect(checkSchemaDocumentation(process.cwd())).toEqual([]);
 });
+
+test('handles absent, invalid, and nested schema branches', () => {
+  const root = mkdtempSync(join(tmpdir(), 'schema-docs-')); roots.push(root);
+  expect(checkSchemaDocumentation(root)).toEqual([]);
+  mkdirSync(join(root, 'scripts'));
+  writeFileSync(join(root, 'scenario-gate.config.schema.json'), '{invalid');
+  expect(checkSchemaDocumentation(root)).toEqual(expect.arrayContaining([expect.stringContaining('schema cannot be parsed')]));
+  writeFileSync(join(root, 'scenario-gate.config.schema.json'), JSON.stringify({
+    allOf: [{ properties: { a: { description: '字段甲', type: 'string' } } }],
+    if: { properties: { b: { description: '字段乙' } } },
+    then: { properties: { c: { description: '字段丙' } } },
+    else: { properties: { d: { description: '字段丁' } } },
+    items: { properties: { e: { description: '字段戊' } } },
+    additionalProperties: { properties: { f: { description: '字段己' } } },
+    propertyNames: { properties: { g: { description: '字段庚' } } },
+    properties: { ignoredArray: { description: '数组', properties: [] }, empty: null },
+  }));
+  writeFileSync(join(root, 'AGENTS.md'), 'scenario-gate.config.schema.json');
+  expect(checkSchemaDocumentation(root)).toEqual(expect.arrayContaining([expect.stringContaining('property empty is missing')]));
+});

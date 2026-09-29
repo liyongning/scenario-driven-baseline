@@ -72,6 +72,12 @@ describe('checkFixtures', () => {
       formatVersion: 1, ownerId: 'TC-PAYSDK-CORE-004', sources: { idlCommit: 'a'.repeat(40) },
       cases: { case: 'case.json' }, sha256: { 'case.json': sha('{}') },
     }));
+    const invalidOwnerDirectory = join(input.fixtureRoot, 'invalid-owner');
+    await mkdir(invalidOwnerDirectory);
+    await writeFile(join(invalidOwnerDirectory, 'manifest.json'), JSON.stringify({
+      formatVersion: 1, ownerId: 'invalid-owner', sources: { idlCommit: 'a'.repeat(40) }, cases: { case: 'case.json' }, sha256: { 'case.json': sha('{}') },
+    }));
+    await writeFile(join(invalidOwnerDirectory, 'case.json'), '{}');
 
     const ownerManifestPath = join(input.owner, 'manifest.json');
     const omittedWithoutRequest = '{"response":{}}';
@@ -91,6 +97,7 @@ describe('checkFixtures', () => {
       expect.stringContaining('manifest schema'), expect.stringContaining('ownerId'),
       expect.stringContaining('spec source missing.md is missing'), expect.stringContaining('declared fixture file missing.json is missing'),
       expect.stringContaining('bad.json is not valid JSON'), expect.stringContaining('required case sandbox'),
+      expect.stringContaining('invalid-owner: ownerId does not match configured format'),
     ]));
   });
 });
