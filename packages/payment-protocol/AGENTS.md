@@ -6,6 +6,8 @@
 
 新业务只通过协议包公开入口消费生产能力；generated 由获准工具维护，testing/Shadow 负责测试宿主，不把业务场景写进通用协议引擎。模块单测就近维护，跨包行为由 E2E 绑定 verification case。
 
+新增 Shadow 业务路由时，在 `testing/shadow/<业务>/routes.ts` 从 generated metadata 发现方法，并通过 `createShadowServer({ routes })` 注入；通用 Shadow 引擎只执行 E2E 提供的步骤和故障，不保存业务场景。
+
 ## 当前业务：支付
 
 
