@@ -71,7 +71,7 @@ test('无平台全局时可导入公共工厂且创建客户端不访问平台',
   expect('window' in globalThis).toBe(false);
   expect('document' in globalThis).toBe(false);
   const entry = await import('./index');
-  expect(Object.keys(entry).sort()).toEqual(['PaymentConfigurationError', 'createPaymentClient']);
+  expect(Object.keys(entry).sort()).toEqual(['ExampleConfigurationError', 'PaymentConfigurationError', 'createExampleClient', 'createPaymentClient']);
   expect(() => entry.createPaymentClient({
     runtime: 'wechat-miniapp', gatewayBaseUrl: 'https://fixture.invalid', appId: 'fixture-app',
     enabledMethods: ['wechat-miniapp-virtual-goods'], getAccessToken: () => null,
