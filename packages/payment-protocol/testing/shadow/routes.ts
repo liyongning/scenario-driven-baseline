@@ -2,7 +2,7 @@ import type { RpcMethodMeta } from '../../src/generated/std.ts';
 import { CreateTradePay, QueryTrade } from '../../src/generated/idl/infra/trade/v1/trade.ts';
 
 export type ShadowRoute = Readonly<{
-  methodName: 'CreateTradePay' | 'QueryTrade';
+  methodName: 'CreateTradePay' | 'CreateTrade' | 'QueryTrade';
   httpMethod: string;
   path: string;
   meta: RpcMethodMeta<unknown, unknown>;

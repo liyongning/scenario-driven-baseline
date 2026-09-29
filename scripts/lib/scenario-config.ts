@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import Ajv2020 from 'ajv/dist/2020.js';
 
 export type ScenarioConfig = Readonly<{ scenarioIdPatterns: ReadonlyArray<string>; flowIdPatterns: ReadonlyArray<string>; ownerIdPattern: string }>;
 const fallback: ScenarioConfig = { scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'], flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'], ownerIdPattern: '^(?:TC|FLOW)-[A-Z0-9-]+$' };

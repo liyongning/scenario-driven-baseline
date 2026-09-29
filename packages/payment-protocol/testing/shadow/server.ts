@@ -42,8 +42,8 @@ export async function closeShadowListener(server: Pick<Server, 'close'>): Promis
   await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 }
 
-export function createShadowServer(options: Readonly<{ scenarios: ReadonlyArray<ShadowScenario> }>) {
-  const routes = discoverPaymentRoutes();
+export function createShadowServer(options: Readonly<{ scenarios: ReadonlyArray<ShadowScenario>; routes?: ReadonlyArray<ShadowRoute> }>) {
+  const routes = options.routes ? [...options.routes] : discoverPaymentRoutes();
   if (options.scenarios.length !== 1) throw new Error('a shadow server owns exactly one scenario');
   const scenario = options.scenarios[0]!;
   const states = new Map<string, RouteState>();

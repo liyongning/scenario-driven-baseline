@@ -23,3 +23,7 @@
 8. xpayEnv 仅由本次 PaymentRequest 输入；核心复制并校验，backend 映射 generated 具名常量；省略保持 absence。不得放入初始化默认或从 runtime/lane 推断，不得改写 signData.env；查询不携带选择，恢复按公共契约由业务显式再次 pay。
 
 9. ports/backend.ts 的内部 BackendResult 只为通信 CANCELLED 增加 `{ok:false,cancelled:true}`；prepare/query 都中性透传，不附 error、不伪装 TIMEOUT。公共 PortResult/PaymentError/PaymentClient.query 和 SDK 根 exports 不扩展；停止、预算与异常取消的最终结算归核心。backend 错误分类只从协议根出口消费手写 IDL 目录，不再复制错误数字或导出目录。
+
+## 按示例扩展新业务
+
+新业务以 `src/example/` 为参照，按工厂 → 核心 → 端口 → 适配器分层。工厂负责配置校验与协议装配，核心只编排中立端口，适配器是唯一接触 generated 的位置；业务目录之间不得互相导入，可共用的只有 `runtime/` 与协议包公开入口。`example-core-no-generated` 防止核心和端口绑定传输模型，`example-no-payment` 防止示例反向依赖支付实现，`payment-no-example` 防止支付实现反向依赖示例。`eslint.config.js` 中 core/ports 的 `wx` 限制防止平台全局穿透核心层；平台调用必须留在适配器边界。
