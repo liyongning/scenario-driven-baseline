@@ -5,6 +5,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { buildVerificationFingerprints } from '../../../../scripts/lib/fingerprints';
 import { cliErrorMessage } from './build';
 import { checkLiveHost } from './check';
+import { CreateTrade, QueryTrade } from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
 
 export const requiredLiveCases = [
   ['LIVE-PAYSDK-001', 'android-sandbox'], ['LIVE-PAYSDK-001', 'android-prod'], ['LIVE-PAYSDK-001', 'ios-prod'],
@@ -29,7 +30,26 @@ type EvidenceInput = {
   events: Array<{ sequence: number; atMs: number; executionId: string; correlationId: string; kind: string; reason?: string; snapshot?: { state?: string } }>;
   matrix: Array<{ id: string; caseKey: string; executionId: string; attachments: Array<{ path: string; sha256: string; mode: string; kind: string }> }>;
   review: { reviewer: string };
+  exampleRecords?: Array<{ requestPaths: string[] }>;
 };
+
+function examplePathIssues(record: { requestPaths: string[] }): string[] {
+  const paths = record.requestPaths.map(value => {
+    try { return new URL(value, 'https://example.invalid').pathname; } catch { return value; }
+  });
+  const issues: string[] = [];
+  if (paths.some(path => path === '/api/base/trade/pay')) issues.push('Live example record contains payment call');
+  if (paths[0] !== CreateTrade.meta.path || paths.slice(1).some(path => path !== QueryTrade.meta.path)) issues.push('Live example record paths must follow create then query');
+  return issues;
+}
+
+export async function checkExampleLiveRecord(record: unknown): Promise<string[]> {
+  const schema = JSON.parse(await readFile(new URL('./evidence.schema.json', import.meta.url), 'utf8')) as { $defs: Record<string, unknown> };
+  const ajv = new Ajv2020({ allErrors: true });
+  const validate = ajv.compile({ $ref: '#/$defs/exampleRecord', $defs: schema.$defs });
+  if (!validate(record)) return validate.errors!.map(error => `example schema ${error.instancePath || '/'} ${error.message}`);
+  return examplePathIssues(record as { requestPaths: string[] });
+}
 
 type LiveExecution = { id: string; kind: string; xpayEnv: string; device?: { platform: string }; services: { serverEnv: string } };
 
@@ -70,6 +90,8 @@ export async function checkLiveEvidence(runDir: string, options: Readonly<{ sche
   let input: EvidenceInput;
   try { input = { manifest: await load('manifest.json'), events: await load('events.json'), matrix: await load('matrix.json'), review: await load('review.json') } as EvidenceInput; }
   catch { return { issues: ['Live evidence files are missing or invalid'] }; }
+  try { input.exampleRecords = await load('example-records.json') as Array<{ requestPaths: string[] }>; }
+  catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) return { issues: ['Live example evidence is invalid'] }; }
 
   const schemaPath = options.schemaPath ?? new URL('./evidence.schema.json', import.meta.url).pathname;
   const schema = JSON.parse(await readFile(schemaPath, 'utf8'));
@@ -79,6 +101,7 @@ export async function checkLiveEvidence(runDir: string, options: Readonly<{ sche
     issues.push(...validate.errors!.map(error => `schema ${error.instancePath || '/'} ${error.message}`));
     return { issues };
   }
+  for (const record of input.exampleRecords ?? []) issues.push(...examplePathIssues(record));
 
   const provenance = options.expected ? { expected: options.expected, issues: [] } : await currentExpectations(resolve(options.repositoryRoot ?? process.cwd()), options.buildManifestPath, options.contractPath, options.configRoot);
   issues.push(...provenance.issues);

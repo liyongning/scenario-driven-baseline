@@ -1,5 +1,5 @@
 {
-  "sourceDigest": "cf70d0b814f25d16ef1d837cd2a8636fa03a6b149d1450ef34bee7fbd602140a",
+  "sourceDigest": "8ee85ac4a103e49ebab197d7b969adf25e2ea167662c15ff6dd06cc524fa2593",
   "entries": [
     {
       "term": "confirmed",
@@ -12,12 +12,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 39,
+          "line": 42,
           "contains": "'confirmed'"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 39,
+          "line": 42,
           "contains": "'confirmed'"
         }
       ]
@@ -33,12 +33,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 302,
+          "line": 420,
           "contains": "'PAID'"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 302,
+          "line": 420,
           "contains": "'PAID'"
         }
       ]
@@ -54,12 +54,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 304,
+          "line": 422,
           "contains": "'CLOSED'"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 304,
+          "line": 422,
           "contains": "'CLOSED'"
         }
       ]
@@ -75,12 +75,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 207,
+          "line": 325,
           "contains": "'confirming'"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 207,
+          "line": 325,
           "contains": "'confirming'"
         }
       ]
@@ -139,12 +139,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 57,
+          "line": 60,
           "contains": "'stopped'"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 57,
+          "line": 60,
           "contains": "'stopped'"
         }
       ]
@@ -160,12 +160,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 189,
+          "line": 307,
           "contains": "interruptedPhase?:"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 189,
+          "line": 307,
           "contains": "interruptedPhase?:"
         }
       ]
@@ -181,12 +181,12 @@
         },
         {
           "path": "packages/payment-sdk/dist/index.d.ts",
-          "line": 268,
+          "line": 386,
           "contains": "onPhase?:"
         },
         {
           "path": "packages/payment-sdk/dist/index.d.cts",
-          "line": 268,
+          "line": 386,
           "contains": "onPhase?:"
         }
       ]

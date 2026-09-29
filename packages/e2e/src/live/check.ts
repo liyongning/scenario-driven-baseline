@@ -59,7 +59,11 @@ export async function checkLiveHost(options: Readonly<{ repositoryRoot: string; 
 
   let bundle = '';
   try { bundle = await readFile(resolve(output, 'pages/live/index.js'), 'utf8'); } catch { issues.push('live page bundle missing'); }
+  let exampleBundle = '';
+  try { exampleBundle = await readFile(resolve(output, 'pages/live/example/index.js'), 'utf8'); } catch { issues.push('live example bundle missing'); }
   if (/(?:@payment-test\/protocol|testing\/shadow|channel-double|fixtures\/)/i.test(bundle)) issues.push('live bundle contains Shadow, channel double, or Fixture dependency');
+  if (/(?:@payment-test\/protocol|testing\/shadow|channel-double|fixtures\/)/i.test(exampleBundle)) issues.push('live example bundle contains Shadow, channel double, or Fixture dependency');
+  if (/createPaymentClient|requestVirtualPayment/.test(exampleBundle)) issues.push('live example bundle contains payment invocation');
   if (!manifest.moduleGraph || manifest.moduleGraph.some(isForbiddenLiveModule)) issues.push('live module graph is missing or contains Shadow, channel double, or Fixture dependency');
   if (controlledInvocation || manifest.controlledToolInput === true) issues.push('controlled tool build cannot be used as Live evidence');
   if (manifest.createTradeAdapter === 'unavailable' || bundle.includes('PAYMENT_LIVE_CREATE_TRADE_UNAVAILABLE')) issues.push('real create-trade adapter is not implemented');

@@ -1,4 +1,4 @@
 {
-  "pages": ["pages/live/index"],
+  "pages": ["pages/live/index", "pages/live/example/index"],
   "window": { "navigationBarTitleText": "Payment SDK Live" }
 }

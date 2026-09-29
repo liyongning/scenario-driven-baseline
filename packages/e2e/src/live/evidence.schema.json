@@ -61,9 +61,47 @@
         "notes": { "type": "string" }
       },
       "additionalProperties": false
+    },
+    "exampleRecords": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/exampleRecord" }
     }
   },
   "$defs": {
+    "exampleRecord": {
+      "type": "object",
+      "required": ["id", "kind", "resourceRef", "outcome", "requestPaths"],
+      "properties": {
+        "id": { "const": "LIVE-TEMPLATE-EXAMPLE-001" },
+        "kind": { "const": "live-example-record" },
+        "resourceRef": {
+          "type": "object",
+          "required": ["id", "externalRef"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "externalRef": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "outcome": {
+          "type": "object",
+          "required": ["end", "lastState"],
+          "properties": {
+            "end": { "enum": ["completed", "closed", "window_elapsed", "failed", "cancelled"] },
+            "lastState": { "enum": ["pending", "completed", "closed", "unknown"] },
+            "errorCategory": { "enum": ["invalid_input", "unauthorized", "host", "network", "timeout", "server", "protocol"] }
+          },
+          "additionalProperties": false
+        },
+        "requestPaths": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
     "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "baseEvent": {
       "type": "object",

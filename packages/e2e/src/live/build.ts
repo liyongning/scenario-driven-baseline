@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { parse } from 'dotenv';
 import { build as viteBuild } from 'vite';
+import { exampleLiveConfig } from '../../host/weapp/vite.live.config';
 import { CreateTrade } from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
 import { parseLiveConfig } from '../../host/weapp/live/config';
 import { buildVerificationFingerprints } from '../../../../scripts/lib/fingerprints';
@@ -10,6 +11,7 @@ import { buildVerificationFingerprints } from '../../../../scripts/lib/fingerpri
 export const liveOutputFiles = [
   'app.js', 'app.json', 'project.config.json', 'pages/live/index.js',
   'pages/live/index.json', 'pages/live/index.wxml', 'pages/live/index.wxss',
+  'pages/live/example/index.js', 'pages/live/example/index.json', 'pages/live/example/index.wxml', 'pages/live/example/index.wxss',
 ] as const;
 
 export const liveSourceFiles = [
@@ -22,7 +24,10 @@ export const liveSourceFiles = [
   'packages/e2e/host/weapp/live/runtime.ts',
   'packages/e2e/host/weapp/live/token-store.ts',
   'packages/e2e/host/weapp/live/trade-form.ts',
+  'packages/e2e/host/weapp/live/example-controller.ts',
+  'packages/e2e/host/weapp/live/example-page.ts',
   'packages/e2e/host/weapp/pages/live/index.js',
+  'packages/e2e/host/weapp/pages/live/example/index.js',
   'packages/e2e/host/weapp/vite.live.config.ts',
 ] as const;
 
@@ -120,9 +125,15 @@ export async function buildLiveHost(options: Readonly<{ repositoryRoot: string; 
     },
     build: { outDir: output, emptyOutDir: true },
   });
-  const moduleGraph = collectLiveModuleGraph(repositoryRoot, viteResult);
+  const exampleViteResult = await viteBuild({ ...exampleLiveConfig, configFile: false,
+    envDir: false, envPrefix: '__PAYMENT_LIVE_DISABLED__',
+    define: { __PAYMENT_LIVE_CONFIG__: JSON.stringify(config), __PAYMENT_LIVE_APP_ID__: JSON.stringify(project.appid) },
+    build: { ...exampleLiveConfig.build, outDir: output, emptyOutDir: false },
+  });
+  const moduleGraph = [...new Set([...collectLiveModuleGraph(repositoryRoot, viteResult), ...collectLiveModuleGraph(repositoryRoot, exampleViteResult)])].sort();
   assertLiveModuleGraph(moduleGraph);
   await mkdir(resolve(output, 'pages/live'), { recursive: true });
+  await mkdir(resolve(output, 'pages/live/example'), { recursive: true });
   const normalizedProject = `${JSON.stringify(project, null, 2)}\n`;
   await Promise.all([
     copyFile(resolve(hostRoot, 'app.live.js'), resolve(output, 'app.js')),
@@ -130,6 +141,9 @@ export async function buildLiveHost(options: Readonly<{ repositoryRoot: string; 
     copyFile(resolve(hostRoot, 'pages/live/index.json'), resolve(output, 'pages/live/index.json')),
     copyFile(resolve(hostRoot, 'pages/live/index.wxml'), resolve(output, 'pages/live/index.wxml')),
     copyFile(resolve(hostRoot, 'pages/live/index.wxss'), resolve(output, 'pages/live/index.wxss')),
+    copyFile(resolve(hostRoot, 'pages/live/example/index.json'), resolve(output, 'pages/live/example/index.json')),
+    copyFile(resolve(hostRoot, 'pages/live/example/index.wxml'), resolve(output, 'pages/live/example/index.wxml')),
+    copyFile(resolve(hostRoot, 'pages/live/example/index.wxss'), resolve(output, 'pages/live/example/index.wxss')),
     writeFile(resolve(output, 'project.config.json'), normalizedProject),
   ]);
   const sdkManifest = JSON.parse(await readFile(resolve(repositoryRoot, 'packages/payment-sdk/package.json'), 'utf8')) as { version: string };

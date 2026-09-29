@@ -9,6 +9,10 @@ export const liveEnvKeys = [
   'PAYMENT_LIVE_SERVER_ENV',
   'PAYMENT_LIVE_USER_ID',
   'PAYMENT_LIVE_TRADE_DEFAULTS_JSON',
+  'LIVE_EXAMPLE_KIND',
+  'LIVE_EXAMPLE_ITEM_ID',
+  'LIVE_EXAMPLE_ITEM_NAME',
+  'LIVE_EXAMPLE_UNIT_VALUE',
 ] as const;
 
 export type LiveConfig = Readonly<{
@@ -20,6 +24,7 @@ export type LiveConfig = Readonly<{
   serverEnv: 'test' | 'prod';
   userId?: string;
   tradeDefaults?: LiveTradeDefaults;
+  exampleCatalog?: Readonly<{ kind: string; itemId: string; itemName: string; unitValue: string }>;
 }>;
 
 function required(values: Readonly<Record<string, string>>, key: string): string {
@@ -80,6 +85,14 @@ function parseUserId(raw: string | undefined): string | undefined {
   return value;
 }
 
+function parseExampleCatalog(values: Readonly<Record<string, string>>): LiveConfig['exampleCatalog'] {
+  const keys = ['LIVE_EXAMPLE_KIND', 'LIVE_EXAMPLE_ITEM_ID', 'LIVE_EXAMPLE_ITEM_NAME', 'LIVE_EXAMPLE_UNIT_VALUE'] as const;
+  if (keys.every(key => !values[key]?.trim())) return undefined;
+  const [kind, itemId, itemName, unitValue] = keys.map(key => required(values, key).trim());
+  if (!/^[1-9]\d*$/.test(unitValue!) || BigInt(unitValue!) > INT64_MAX) throw new Error('invalid LIVE_EXAMPLE_UNIT_VALUE');
+  return { kind: kind!, itemId: itemId!, itemName: itemName!, unitValue: unitValue! };
+}
+
 // 凭据类 key 一律拒绝；未登记的非凭据 key 不进入宿主配置，也不影响已登记配置解析。
 const credentialKeyPattern = /TOKEN|SECRET|SESSION_KEY|SIGNATURE|PASSWORD/i;
 const viteKeyPattern = /^VITE_/i;
@@ -96,6 +109,7 @@ export function parseLiveConfig(values: Readonly<Record<string, string>>): LiveC
   const appVersion = values.PAYMENT_LIVE_APP_VERSION?.trim();
   const userId = parseUserId(values.PAYMENT_LIVE_USER_ID);
   const tradeDefaults = parseTradeDefaults(values.PAYMENT_LIVE_TRADE_DEFAULTS_JSON);
+  const exampleCatalog = parseExampleCatalog(values);
   return {
     gatewayBaseUrl: httpsUrl(required(values, 'PAYMENT_LIVE_GATEWAY_BASE_URL'), 'PAYMENT_LIVE_GATEWAY_BASE_URL'),
     createTradeUrl: (() => {
@@ -109,5 +123,6 @@ export function parseLiveConfig(values: Readonly<Record<string, string>>): LiveC
     serverEnv,
     ...(userId ? { userId } : {}),
     ...(tradeDefaults ? { tradeDefaults } : {}),
+    ...(exampleCatalog ? { exampleCatalog } : {}),
   };
 }

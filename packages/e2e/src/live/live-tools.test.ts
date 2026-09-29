@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { assertLiveModuleGraph, buildLiveHost, cliErrorMessage, collectLiveModuleGraph, defaultCliIo, isForbiddenLiveModule, parseBuildArgs, parseLiveProjectConfig, runBuildCli } from './build';
 import { checkLiveHost, defaultCheckCliIo, parseCheckArgs, runCheckCli } from './check';
-import { checkLiveEvidence, defaultEvidenceCliIo, parseEvidenceArgs, requiredLiveCases, runEvidenceCli, type LiveEvidenceExpectations } from './check-evidence';
+import { checkExampleLiveRecord, checkLiveEvidence, defaultEvidenceCliIo, parseEvidenceArgs, requiredLiveCases, runEvidenceCli, type LiveEvidenceExpectations } from './check-evidence';
 
 const roots: string[] = [];
 const temp = (prefix: string) => { const path = mkdtempSync(join(tmpdir(), prefix)); roots.push(path); return path; };
@@ -28,7 +28,7 @@ test('buildLiveHost builds an isolated controlled bundle and validates fixed bou
   const result = await buildLiveHost({ repositoryRoot: process.cwd(), configRoot: root, output, controlledToolInput: true });
   expect(result.manifest).toMatchObject({ mode: 'live', controlledToolInput: true, createTradeAdapter: 'protocol-generated', createTradeBinding: { method: 'POST', path: '/api/base/trade/create' } });
   expect(result.manifest.moduleGraph.length).toBeGreaterThan(0);
-  expect(Object.keys(result.manifest.outputFiles)).toHaveLength(7);
+  expect(Object.keys(result.manifest.outputFiles)).toHaveLength(11);
   const livePage = readFileSync(join(output, 'pages/live/index.wxml'), 'utf8');
   expect(livePage).toContain('发起真实支付');
   expect(livePage).toContain('<view class="field-label">bizType</view>');
@@ -62,6 +62,10 @@ test('checkLiveHost verifies current hashes and rejects controlled or tampered o
   expect((await checkLiveHost({ repositoryRoot: process.cwd(), configRoot: root, output })).issues).toContain('real create-trade adapter is not implemented');
   writeFileSync(bundlePath, originalBundle); (manifest.createTradeBinding as { path: string }).path = '/wrong'; writeFileSync(manifestPath, JSON.stringify(manifest));
   expect((await checkLiveHost({ repositoryRoot: process.cwd(), configRoot: root, output })).issues).toContain('generated CreateTrade binding is missing or stale');
+  const exampleBundlePath = join(output, 'pages/live/example/index.js'); const originalExampleBundle = readFileSync(exampleBundlePath, 'utf8');
+  writeFileSync(exampleBundlePath, `${originalExampleBundle}\n/* testing/shadow createPaymentClient */`);
+  expect((await checkLiveHost({ repositoryRoot: process.cwd(), configRoot: root, output })).issues).toEqual(expect.arrayContaining(['live example bundle contains Shadow, channel double, or Fixture dependency', 'live example bundle contains payment invocation']));
+  writeFileSync(exampleBundlePath, originalExampleBundle);
   (manifest.createTradeBinding as { path: string }).path = '/api/base/trade/create';
   const readyContract = join(root, 'ready-contract.md'); writeFileSync(readyContract, 'Status: ready\n'); manifest.createContractDigest = h('Status: ready\n'); writeFileSync(manifestPath, JSON.stringify(manifest));
   expect((await checkLiveHost({ repositoryRoot: process.cwd(), configRoot: root, output, contractPath: readyContract })).issues).not.toContain('real create-trade contract is not ready');
@@ -128,6 +132,15 @@ test('Live CLI glue and module/project classifiers enforce their boundaries', as
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const h = (value: string) => hash(value);
 const expected: LiveEvidenceExpectations = { sourceDigest: h('source'), specDigest: h('spec'), idlDigest: h('idl'), createContractDigest: h('contract'), sdkVersion: '0.1.0', protocolVersion: '0.1.0', bundleHash: h('bundle'), configHash: h('config'), buildManifestHash: h('build-manifest') };
+
+test('example record checker accepts created and observed paths and rejects invalid or payment paths', async () => {
+  const record = { id: 'LIVE-TEMPLATE-EXAMPLE-001', kind: 'live-example-record', resourceRef: { id: 'r', externalRef: 'e' }, outcome: { end: 'completed', lastState: 'completed' }, requestPaths: ['/api/base/trade/create', '/api/base/trade/query'] };
+  expect(await checkExampleLiveRecord(record)).toEqual([]);
+  expect(await checkExampleLiveRecord({ ...record, requestPaths: ['https://example.invalid/api/base/trade/create', 'https://example.invalid/api/base/trade/query'] })).toEqual([]);
+  expect((await checkExampleLiveRecord({ ...record, requestPaths: ['http://[', '/api/base/trade/query'] })).join(' ')).toContain('create then query');
+  expect((await checkExampleLiveRecord({ ...record, requestPaths: [...record.requestPaths, '/api/base/trade/pay'] })).join(' ')).toContain('payment call');
+  expect((await checkExampleLiveRecord({ ...record, extra: 'secret' })).join(' ')).toContain('additional properties');
+});
 type MatrixEntry = { id: string; caseKey: string; status: string; executionId: string; attachments: Array<{ path: string; sha256: string; mode: string; kind: string }> };
 
 function validEvidence(root: string) {
@@ -152,6 +165,16 @@ function validEvidence(root: string) {
 test('checkLiveEvidence validates provenance, event shape, matrix uniqueness, and contained attachments', async () => {
   const root = temp('live-tools-evidence-'); const { proof, sha256 } = validEvidence(root);
   expect((await checkLiveEvidence(root, { expected })).issues).toEqual([]);
+  const exampleRecord = { id: 'LIVE-TEMPLATE-EXAMPLE-001', kind: 'live-example-record', resourceRef: { id: 'resource', externalRef: 'reference' }, outcome: { end: 'completed', lastState: 'completed' }, requestPaths: ['/api/base/trade/create', '/api/base/trade/query'] };
+  writeFileSync(join(root, 'example-records.json'), JSON.stringify([exampleRecord]));
+  expect((await checkLiveEvidence(root, { expected })).issues).toEqual([]);
+  writeFileSync(join(root, 'example-records.json'), JSON.stringify([{ ...exampleRecord, requestPaths: [...exampleRecord.requestPaths, '/api/base/trade/pay'] }]));
+  expect((await checkLiveEvidence(root, { expected })).issues).toContain('Live example record contains payment call');
+  writeFileSync(join(root, 'example-records.json'), '{}');
+  expect((await checkLiveEvidence(root, { expected })).issues.join(' ')).toContain('schema /exampleRecords');
+  writeFileSync(join(root, 'example-records.json'), '{');
+  expect((await checkLiveEvidence(root, { expected })).issues).toEqual(['Live example evidence is invalid']);
+  rmSync(join(root, 'example-records.json'));
   expect(parseEvidenceArgs(['--run-dir', root])).toBe(root);
   expect(() => parseEvidenceArgs([])).toThrow('--run-dir is required');
   const cliLogs: string[] = []; const cliErrors: string[] = []; const cliIo = { log: (value: string) => cliLogs.push(value), error: (value: string) => cliErrors.push(value) };

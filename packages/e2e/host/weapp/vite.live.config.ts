@@ -13,3 +13,16 @@ export default defineConfig({
     },
   },
 });
+
+export const exampleLiveConfig = defineConfig({
+  envPrefix: '__PAYMENT_LIVE_DISABLED__',
+  build: {
+    target: 'es2020',
+    emptyOutDir: false,
+    lib: {
+      entry: fileURLToPath(new URL('./pages/live/example/index.js', import.meta.url)),
+      formats: ['cjs'],
+      fileName: () => 'pages/live/example/index.js',
+    },
+  },
+});

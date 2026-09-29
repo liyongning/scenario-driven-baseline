@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="heading">资源创建与观察</view>
+  <view class="context">{{message}}</view>
+  <view class="section-title">鉴权</view>
+  <input password value="{{tokenInput}}" bindinput="onTokenInput" placeholder="Access Token" />
+  <view class="actions"><button bindtap="onSaveToken" disabled="{{busy}}">保存 Token</button><button bindtap="onClearToken" disabled="{{busy}}">清除</button></view>
+  <view class="status">{{tokenStatus}}</view>
+  <view class="section-title">资源</view>
+  <view class="field-label">所有者 ID</view>
+  <input value="{{ownerId}}" data-field="ownerId" bindinput="onInput" disabled="{{busy}}" />
+  <view class="field-label">外部引用</view>
+  <input value="{{externalRef}}" data-field="externalRef" bindinput="onInput" disabled="{{busy}}" />
+  <view class="field-label">数量</view>
+  <input type="number" value="{{units}}" data-field="units" bindinput="onInput" disabled="{{busy}}" />
+  <button class="primary" bindtap="onRun" loading="{{busy}}" disabled="{{busy || !catalogReady || tokenStatus !== 'configured'}}">创建并观察</button>
+  <view wx:if="{{referenceLabel}}" class="result"><view>资源 {{referenceLabel}}</view><text>{{resultText}}</text></view>
+  <button bindtap="onExport" disabled="{{!resultText}}">复制记录</button>
+</view>
