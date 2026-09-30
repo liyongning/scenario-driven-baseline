@@ -4,7 +4,7 @@
 
 Added the production example Live page, non-sensitive configuration allowlist, evidence schema/checks, and ESM/CommonJS package consumer coverage.
 
-Task remains blocked by the required aggregate weapp gate and the pending scope decision for the existing payment boundary test.
+The example Live and package-consumer evidence is complete. The aggregate weapp report has 64 passing cases and two pre-existing payment FLOW failures (`FLOW-PAYSDK-006` and `FLOW-PAYSDK-007`), which the user explicitly accepted as out of scope for this Change.
 
 ## Commands and Evidence
 
@@ -18,7 +18,7 @@ Task remains blocked by the required aggregate weapp gate and the pending scope 
 
 ## Expected Failures and Limits
 
-`pnpm live:build` without a local `.env.live` exits with the expected missing-config error. Controlled offline Live builds and checks pass; no real Live run is claimed. Aggregate weapp was independently verified for all three example cases but batch DevTools startup stalled.
+`pnpm live:build` without a local `.env.live` exits with the expected missing-config error. Controlled offline Live builds and checks pass; no real Live run is claimed. Aggregate weapp independently verifies all three example cases; the two accepted legacy payment FLOW failures remain recorded in `weapp-full-20260930`.
 
 ## Review Notes
 

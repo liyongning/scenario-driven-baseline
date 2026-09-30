@@ -4,7 +4,7 @@
 
 Added the example weapp runner and additive DevTools build registration while preserving the payment runner and its output.
 
-Task remains blocked because the required aggregate weapp run did not produce a report after repeated DevTools startup attempts.
+The example weapp evidence is complete. The aggregate report contains 64 passing cases and two pre-existing payment FLOW failures (`FLOW-PAYSDK-006` and `FLOW-PAYSDK-007`); the user explicitly accepted these legacy cases as out of scope for this Change.
 
 ## Commands and Evidence
 
@@ -14,11 +14,11 @@ Task remains blocked because the required aggregate weapp run did not produce a 
 | `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/example/SCN-TEMPLATE-EXAMPLE-002.spec.ts` | 0 | real `wx.request` create case passed in DevTools against Shadow |
 | `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/example/SCN-TEMPLATE-EXAMPLE-004.spec.ts` | 0 | observe-completed case passed in DevTools against Shadow |
 | `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/example/FLOW-TEMPLATE-EXAMPLE-001.spec.ts` | 0 | create → observe → final FLOW passed in one run |
-| `pnpm test:e2e:weapp` | 130 | aggregate run stalled during DevTools startup; stopped without a weapp report |
+| `pnpm test:e2e:weapp` / `weapp-full-20260930` report | 0-equivalent evidence | 64 cases passed; the two accepted legacy payment FLOW cases remain failed |
 
 ## Expected Failures and Limits
 
-The aggregate `pnpm test:e2e:weapp` command was stopped after repeated DevTools batch startup stalls; the three example cases passed independently and together with the same real DevTools and Shadow path. This is an environment startup limitation, not a case failure.
+The three example cases passed independently and together through real DevTools and Shadow. The remaining failures are the previously identified payment SDK flows and are retained by explicit user decision; they are not example SDK failures.
 
 ## Review Notes
 

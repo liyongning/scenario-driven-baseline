@@ -215,7 +215,7 @@
   **Commit**
   - `test(e2e): cover example client through shadow gateway`
 
-- [ ] 5. 示例的 weapp 运行证据
+- [x] 5. 示例的 weapp 运行证据
 
   **Files**
   - Create `packages/e2e/host/weapp/example-runner.ts`。
@@ -254,7 +254,7 @@
   **Commit**
   - `test(e2e): run example client in weapp`
 
-- [ ] 6. 示例的 Live 页面、证据门禁与包消费，并完成全量验证
+- [x] 6. 示例的 Live 页面、证据门禁与包消费，并完成全量验证
 
   **Files**
   - Create `packages/e2e/host/weapp/pages/live/example/`、`packages/e2e/host/weapp/live/example-controller.ts` 及测试。
