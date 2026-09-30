@@ -19,9 +19,11 @@ cliEvidence('SCN-SCENARIO-GATE-005', 'payment-baseline-cli', ['single-config', '
       required: number; executed: number; passed: number; summaries: unknown; issues: string[];
     };
     const coverage = runGate(baselineRoot, ['--input', join(baselineDirectory, 'payment-coverage-input.json')]);
+    // source 是机器与 Change 生命周期相关的绝对路径（归档、换检出目录后必然变化），不属于 Design 规定的等价比较字段。
+    const withoutSource = (items: unknown[]) => items.map(item => Object.fromEntries(Object.entries(item as Record<string, unknown>).filter(([key]) => key !== 'source')));
     await check('payment-baseline-unchanged', () => {
-      context.expect((current.output?.scenarios as Array<{ id: string }>).filter(item => item.id.startsWith('TC-PAYSDK-'))).toEqual(baseline.scenarios);
-      context.expect((current.output?.flows as Array<{ id: string }>).filter(item => item.id.startsWith('FLOW-PAYSDK-'))).toEqual(baseline.flows);
+      context.expect(withoutSource((current.output?.scenarios as Array<{ id: string }>).filter(item => item.id.startsWith('TC-PAYSDK-')))).toEqual(withoutSource(baseline.scenarios));
+      context.expect(withoutSource((current.output?.flows as Array<{ id: string }>).filter(item => item.id.startsWith('FLOW-PAYSDK-')))).toEqual(withoutSource(baseline.flows));
       context.expect(coverage.status).toBe(1);
       context.expect(coverage.output).toEqual(expectedCoverage);
     });

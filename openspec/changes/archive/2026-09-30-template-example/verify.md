@@ -183,7 +183,7 @@ All cases below come from this round's reports (`artifacts/verify-final-20260930
 
 ## Archive Readiness
 
-- Decision: READY WITH WARNINGS (W1 and W3 follow the user's existing decisions; W2 takes effect once the user accepts it)
+- Decision: READY WITH WARNINGS (W1, W2 and W3 are all accepted by the user)
 - Plan Review verdict: PASS
 - Plan Review freshness: PASS; reviewed and current digest are both `0ccb6e00…9ae2c8`
 - Fresh Apply state: all_done
@@ -196,6 +196,20 @@ All cases below come from this round's reports (`artifacts/verify-final-20260930
 - Requirements without evidence: 0
 - Warnings and rationale:
   - W1: the aggregate scenario gate exits 1, and all 445 issues are payment or payment IDL. Impact: the gate cannot go green before payment is deleted. Rationale: the user decided to exclude payment and clean it up during the later payment deletion. Accepted.
-  - W2: the Live CLI build and check were not executed because the real, non-sensitive config and a real `appid` are missing. Impact: the real Live build is not proven on this machine. Rationale: the EX-07 offline build and evidence obligations are covered by the SCN-TEMPLATE-EXAMPLE-010 integration cases. Awaiting user acceptance.
+  - W2: the Live CLI build and check were not executed because the real, non-sensitive config and a real `appid` are missing. Impact: the real Live build is not proven on this machine. Rationale: the EX-07 offline build and evidence obligations are covered by the SCN-TEMPLATE-EXAMPLE-010 integration cases. Accepted by the user on 2026-09-30.
   - W3: WeChat DevTools automation is unstable. `FLOW-TEMPLATE-EXAMPLE-001` passed only on its third whole-file attempt, and the warm-up command's exit code is unreliable. Impact: weapp evidence needs retries. Rationale: the user confirmed this is a known issue that will not be fixed now, and the procedure is recorded in `packages/e2e/AGENTS.md`. Accepted.
 - Blockers: None
+
+## Post-Archive Addendum (2026-09-30)
+
+Archive order followed the workflow. All pre-archive checks passed: `openspec validate --strict`; Apply `all_done` 6/6; Plan Review freshness PASS; the verification input manifest was re-computed as `4a322e8e…` and matched with no drift. OpenSpec CLI 1.6.0 has no separate `sync` command, so `openspec archive` merged the deltas into the main specs: payment-sdk ~1 (SDK-14), scenario-gate +6, template-example +8.
+
+Post-archive checks and fixes:
+
+1. **The FLOW tables survived.** The main specs contain the 8 `FLOW-PAYSDK-*` rows (in the SDK-14 body) and the 1 `FLOW-TEMPLATE-EXAMPLE-001` row (in the EX-08 body). This confirms hard rule 4. `check-scenarios --inventory` reads 69 Scenarios (19 of them this Change's own) and 9 FLOWs, with no precheck issues.
+2. **Fixture source paths were re-pointed**, as the Design risk item requires. The `sources.spec.path` of 10 Fixture manifests changed from `openspec/changes/template-example/…` to `openspec/changes/archive/2026-09-30-template-example/…`. The content is unchanged, so the digests are unchanged. `check:fixtures` covered 61 manifests with no issues.
+3. **Found and fixed a defect exposed by archiving (Important).** `SCN-SCENARIO-GATE-005 payment-baseline-cli` also compared the `source` field of payment scenarios. That field is an absolute file path, which changes with archiving and with the checkout directory (for example after merging into `main`). The Design's equivalence comparison lists only ID, case obligations and FLOW fields; it does not include `source`. The test now strips `source` from both sides before comparing. The baseline fixture is not modified.
+4. **Routine re-record.** Step 3 changed a `.ts` test file, so the source digest of `TC-PAYSDK-CONTRACT-021` was re-recorded (`46cb7a0d…` → `e4d25e06…`). This payment test's source digest covers every `.ts`/`.js` file in the repository, so **any source change requires re-recording it**. This is existing payment-test behaviour and goes away when payment is deleted.
+5. **Fresh evidence**: `PAYMENT_RUN_ID=post-archive-20260930c pnpm check:fast` exited 0. Unit 63 files / 784 tests; integration 48 files / 236 tests; coverage 100% on all four measures; fixture and package checks both report no issues. Log: `artifacts/post-archive-check-fast-c.log`.
+
+Remaining advisory item: `payment-inventory.json` stores machine-specific absolute paths in its `source` fields. The comparison no longer uses them, and the file goes away when payment is deleted.

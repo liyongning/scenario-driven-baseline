@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "ownerId": "SCN-SCENARIO-GATE-005",
   "sources": {
-    "spec": "openspec/changes/template-example/specs/scenario-gate/spec.md",
+    "spec": "openspec/changes/archive/2026-09-30-template-example/specs/scenario-gate/spec.md",
     "authority": "scenario gate payment baseline"
   },
   "cases": {
