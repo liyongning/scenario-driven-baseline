@@ -52,8 +52,8 @@ export function buildVerificationFingerprints(repositoryRoot: string): Verificat
     ),
   ];
   const specPaths = [
-    ...collectFiles(resolve(repositoryRoot, 'openspec/specs'), path => path.endsWith('.md')),
-    ...collectFiles(resolve(repositoryRoot, 'openspec/changes'), path => path.endsWith('.md') && !path.split('/').includes('archive')),
+    ...collectFiles(resolve(repositoryRoot, 'openspec/specs'), path => path.endsWith('/spec.md')),
+    ...collectFiles(resolve(repositoryRoot, 'openspec/changes'), path => path.endsWith('/spec.md') && path.split('/').includes('specs') && !path.split('/').includes('archive')),
   ];
   const fixturePaths = collectFiles(resolve(repositoryRoot, 'packages/e2e/tests/fixtures'), path => path.endsWith('.json'));
   return {

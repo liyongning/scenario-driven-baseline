@@ -273,6 +273,19 @@ describe('evaluateCoverage', () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
+  it('returns malformed inventory facts with the denominator when prechecks fail', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'scenario-precheck-denominator-'));
+    try {
+      await mkdir(join(root, 'openspec/specs/example'), { recursive: true });
+      await writeFile(join(root, 'openspec/specs/example/spec.md'), '### Requirement: TEST\n#### Scenario: SCN-TEST-001 Missing\n');
+      const result = await runScenariosCli([], root, {}, () => ({ status: 0 }));
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toMatchObject({ scenarios: [{ id: 'SCN-TEST-001' }] });
+      const inventory = await runScenariosCli(['--inventory'], root, {}, () => ({ status: 0 }));
+      expect(inventory.output).toMatchObject({ mode: 'inventory', scenarios: [{ id: 'SCN-TEST-001' }] });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   it('keeps scenarios with missing verification in the denominator with empty executable cases', () => {
     expect(scenarioCoverageDefinition({ id: 'TC-PAYSDK-CORE-999' })).toEqual({ id: 'TC-PAYSDK-CORE-999', cases: [], blockedBy: [] });
     expect(scenarioCoverageDefinition({ id: 'TC-PAYSDK-CORE-001', verification: { cases: base().scenarios[0]!.cases, blockedBy: ['dependency'] } })).toMatchObject({ id: 'TC-PAYSDK-CORE-001', cases: expect.any(Array), blockedBy: ['dependency'] });

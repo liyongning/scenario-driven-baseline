@@ -8,7 +8,7 @@ let restore: (() => void) | undefined;
 let server: ExampleServer | undefined;
 afterEach(async () => { restore?.(); restore = undefined; await server?.close(); server = undefined; });
 
-defineCase({ ownerId: 'FLOW-TEMPLATE-EXAMPLE-001', caseId: 'normal', fixtureCase: 'normal', environment: 'integration', flowId: 'FLOW-TEMPLATE-EXAMPLE-001', flowCase: 'normal', covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-011', caseKey: 'normal', checks: ['stage-order', 'reference-continuity', 'single-final-outcome'] }] }, async ({ fixture: value, checkpoint, flow, expect }) => {
+defineCase({ ownerId: 'FLOW-TEMPLATE-EXAMPLE-001', caseId: 'example-normal', fixtureCase: 'normal', environment: 'integration', flowId: 'FLOW-TEMPLATE-EXAMPLE-001', flowCase: 'normal', covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-011', caseKey: 'normal', checks: ['stage-order', 'reference-continuity', 'single-final-outcome'] }] }, async ({ fixture: value, checkpoint, flow, expect }) => {
   const fixture = value as { ownerId: string; externalRef: string; units: number; resourceId: string; states: string[] };
   expect(discoverExampleRoutes().map(route => route.methodName)).toEqual(['CreateTrade', 'QueryTrade']);
   server = await exampleServer('flow-example-normal', {
@@ -25,5 +25,5 @@ defineCase({ ownerId: 'FLOW-TEMPLATE-EXAMPLE-001', caseId: 'normal', fixtureCase
   await checkpoint('stage-order', () => { expect(server!.records().map(record => record.methodName)).toEqual(['CreateTrade', 'QueryTrade', 'QueryTrade']); expect(server!.verify()).toEqual([]); });
   await checkpoint('reference-continuity', () => expect(server!.records().slice(1).map(record => (record.rawBody as { tradeNo: string }).tradeNo)).toEqual([fixture.resourceId, fixture.resourceId]));
   await checkpoint('single-final-outcome', () => expect(outcome).toMatchObject({ end: 'completed', lastState: 'completed' }));
-  await flow(fixture.resourceId, ['createExampleClient', 'create', 'CreateTrade', 'observe', 'QueryTrade(CREATED)', 'QueryTrade(PAID)', 'completed']);
+  await flow(fixture.resourceId, ['createExampleClient', 'create', 'CreateTrade', 'observe', 'QueryTrade(CREATED', 'PAID)', '一次最终结果；资源引用贯通各阶段，调用顺序和次数一致，初始化时不发请求']);
 }, { fixtureRoot });

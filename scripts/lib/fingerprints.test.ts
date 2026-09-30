@@ -44,6 +44,8 @@ describe('verification fingerprints', () => {
     writeFileSync(join(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md'), 'contract spec');
     mkdirSync(join(root, 'openspec/specs/payment-sdk'), { recursive: true });
     writeFileSync(join(root, 'openspec/specs/payment-sdk/spec.md'), 'active spec');
+    mkdirSync(join(root, 'openspec/changes/current/specs/template-example'), { recursive: true });
+    writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'delta spec');
     writeFileSync(join(root, 'proto-gen.lock'), 'idl');
 
     const fingerprints = buildVerificationFingerprints(root);
@@ -51,6 +53,12 @@ describe('verification fingerprints', () => {
     expect(Object.values(fingerprints).every(value => /^[a-f0-9]{64}$/.test(value))).toBe(true);
 
     const oldSourceDigest = fingerprints.sourceDigest;
+    const oldSpecDigest = fingerprints.specDigest;
+    writeFileSync(join(root, 'openspec/changes/current/verify.md'), 'verification output');
+    writeFileSync(join(root, 'openspec/changes/current/tasks.md'), 'checkbox changes');
+    expect(buildVerificationFingerprints(root).specDigest).toBe(oldSpecDigest);
+    writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'changed delta spec');
+    expect(buildVerificationFingerprints(root).specDigest).not.toBe(oldSpecDigest);
     writeFileSync(join(root, 'packages/e2e/host/weapp/app.js'), 'App({ changed: true });');
     const current = buildVerificationFingerprints(root);
     expect(current.sourceDigest).not.toBe(oldSourceDigest);

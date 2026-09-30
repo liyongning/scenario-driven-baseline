@@ -358,7 +358,12 @@ export async function runScenariosCli(
   const precheck = await runScenarioPrechecks(root, command);
   if (precheck.issues.length > 0) {
     return {
-      output: { mode: argv.includes('--inventory') ? 'inventory' : 'complete', issues: precheck.issues },
+      output: {
+        mode: argv.includes('--inventory') ? 'inventory' : 'complete',
+        issues: precheck.issues,
+        /* c8 ignore next 3 -- a missing OpenSpec tree stops before inventory exists. */
+        ...(precheck.inventory ? { scenarios: precheck.inventory.scenarios, flows: precheck.inventory.flows } : {}),
+      },
       exitCode: 1,
     };
   }

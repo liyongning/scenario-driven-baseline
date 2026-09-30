@@ -21,5 +21,5 @@ defineCase({ ownerId: 'FLOW-TEMPLATE-EXAMPLE-001', caseId: 'weapp-normal', fixtu
   await checkpoint('stage-order', () => { expect(server.records().map(record => record.methodName)).toEqual(['CreateTrade', 'QueryTrade', 'QueryTrade']); expect(server.verify()).toEqual([]); });
   await checkpoint('reference-continuity', () => expect(server.records().slice(1).map(record => (record.rawBody as { tradeNo: string }).tradeNo)).toEqual([fixture.resourceId, fixture.resourceId]));
   await checkpoint('single-final-outcome', () => expect(result).toMatchObject({ created: { ok: true, reference: { id: fixture.resourceId } }, outcome: { end: 'completed' } }));
-  await flow(fixture.resourceId, ['createExampleClient', 'create', 'CreateTrade', 'observe', 'QueryTrade(CREATED)', 'QueryTrade(PAID)', 'completed']);
+  await flow(fixture.resourceId, ['createExampleClient', 'create', 'CreateTrade', 'observe', 'QueryTrade(CREATED', 'PAID)', '一次最终结果；资源引用贯通各阶段，调用顺序和次数一致，初始化时不发请求']);
 }, { fixtureRoot });

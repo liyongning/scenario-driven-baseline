@@ -1,5 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
+import { unified } from 'unified';
+import { nodeText } from './spec-inventory.ts';
 
 export type SpecSource = Readonly<{ path: string; content: string; kind: 'main' | 'change'; change?: string }>;
 export type EffectiveSpecs = Readonly<{ documents: ReadonlyArray<SpecSource>; issues: ReadonlyArray<string> }>;
@@ -32,6 +36,18 @@ function requirements(content: string, source: SpecSource): Requirement[] {
   });
 }
 
+function outsideFlowTable(content: string): boolean {
+  let inRequirement = false;
+  const tree = unified().use(remarkParse).use(remarkGfm).parse(content);
+  for (const node of tree.children) {
+    if (node.type === 'heading' && node.depth <= 3) {
+      inRequirement = node.depth === 3 && /^Requirement:\s+/.test(nodeText(node));
+    }
+    if (node.type === 'table' && !inRequirement && nodeText(node.children[0]?.children[0]) === 'FLOW ID') return true;
+  }
+  return false;
+}
+
 function deltaSection(content: string, name: string): string {
   const start = content.indexOf(`## ${name} Requirements`);
   if (start < 0) return '';
@@ -45,6 +61,7 @@ export async function readEffectiveSpecs(repositoryRoot: string): Promise<Effect
   const changeRoots = await readdir(resolve(repositoryRoot, 'openspec/changes'), { withFileTypes: true }).catch(() => []);
   const main = await Promise.all(mainPaths.map(async path => ({ path, content: await readFile(path, 'utf8'), kind: 'main' as const })));
   const issues: string[] = [];
+  for (const source of main) if (outsideFlowTable(source.content)) issues.push(`${source.path}: FLOW table is outside a Requirement and would be lost during archive`);
   const byId = new Map<string, Requirement>();
   for (const source of main) for (const requirement of requirements(source.content, source)) {
     if (byId.has(requirement.id)) issues.push(`${source.path}: duplicate main Requirement ${requirement.id}`);
@@ -55,6 +72,7 @@ export async function readEffectiveSpecs(repositoryRoot: string): Promise<Effect
     const specPaths = await filesUnder(resolve(repositoryRoot, 'openspec/changes', change.name, 'specs'));
     for (const path of specPaths) {
       const source: SpecSource = { path, content: await readFile(path, 'utf8'), kind: 'change', change: change.name };
+      if (outsideFlowTable(source.content)) issues.push(`${source.path}: FLOW table is outside a Requirement and would be lost during archive`);
       const touch = (id: string) => {
         const previous = activeTouches.get(id);
         if (previous && previous !== change.name) issues.push(`active changes ${previous} and ${change.name} both touch Requirement ${id}`);

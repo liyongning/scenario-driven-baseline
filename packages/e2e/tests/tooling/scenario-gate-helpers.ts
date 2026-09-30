@@ -1,0 +1,72 @@
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { test, type TestContext } from 'vitest';
+import { createOpenSpecStub } from './openspec-stub.ts';
+
+const repositoryRoot = process.cwd();
+const gateScript = resolve(repositoryRoot, 'scripts/check-scenarios.ts');
+const tsx = resolve(repositoryRoot, 'node_modules/.bin/tsx');
+const config = {
+  scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'],
+  flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'],
+  ownerIdPattern: '^[A-Z][A-Z0-9-]+$',
+};
+
+export const verification = (cases: unknown[] = [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['done'] }]) => `\n\`\`\`json verification\n${JSON.stringify({ formatVersion: 2, checkpoints: { done: '完成' }, cases, blockedBy: [] })}\n\`\`\``;
+export const flowHeader = '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
+
+export function fixtureRoot() {
+  const root = mkdtempSync(join(tmpdir(), 'scenario-gate-cli-'));
+  mkdirSync(join(root, 'openspec/specs/sample'), { recursive: true });
+  writeFileSync(join(root, 'scenario-gate.config.json'), JSON.stringify(config));
+  return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+export function writeSpec(root: string, content: string, relative = 'openspec/specs/sample/spec.md') {
+  const path = join(root, relative);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content);
+}
+
+export function enableInventory(root: string) {
+  const generated = join(root, 'packages/payment-protocol/src/generated');
+  mkdirSync(dirname(generated), { recursive: true });
+  symlinkSync(resolve(repositoryRoot, 'packages/payment-protocol/src/generated'), generated, 'dir');
+  writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
+  for (const [relative, source] of [
+    ['packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/descriptor.json', 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/descriptor.json'],
+    ['packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json', 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json'],
+  ] as const) {
+    const target = join(root, relative);
+    mkdirSync(dirname(target), { recursive: true });
+    symlinkSync(resolve(repositoryRoot, source), target);
+  }
+}
+
+export function runGate(root: string, args: string[] = [], available = true) {
+  const stub = createOpenSpecStub({ available });
+  try {
+    const result = spawnSync(tsx, [gateScript, ...args], { cwd: root, env: stub.env, encoding: 'utf8' });
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr, output: result.stdout ? JSON.parse(result.stdout) as { issues: string[]; scenarios?: unknown[]; flows?: unknown[]; summaries?: unknown; mode?: string } : undefined };
+  } finally { stub.cleanup(); }
+}
+
+export function runArchitecture(root: string) {
+  const result = spawnSync(tsx, [resolve(repositoryRoot, 'scripts/check-architecture.ts'), '--root', root, '--dependency-exit-code', '0'], { cwd: repositoryRoot, encoding: 'utf8' });
+  return { status: result.status, stdout: result.stdout, stderr: result.stderr, output: result.stdout ? JSON.parse(result.stdout) as { issues: string[] } : undefined };
+}
+
+export function cliEvidence(id: string, caseId: string, checks: string[], body: (context: TestContext, check: (name: string, assertion: () => void | Promise<void>) => Promise<void>) => void | Promise<void>) {
+  test(`${id} ${caseId}`, { timeout: 30_000, meta: { paymentCase: {
+    ownerId: id, caseId, fixtureCase: caseId, environment: 'integration',
+    covers: [{ id, caseKey: caseId, checks }],
+  } } }, async (context: TestContext) => {
+    const before = context.expect.getState().assertionCalls;
+    const executed: string[] = [];
+    await body(context, async (name, assertion) => { await assertion(); executed.push(name); });
+    context.expect(executed.sort()).toEqual([...checks].sort());
+    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'payment-evidence');
+  });
+}

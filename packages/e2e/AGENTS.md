@@ -10,6 +10,18 @@ integration 用例置于 `tests/example/`，跨阶段流程使用独立的 `FLOW
 
 `host/weapp/example-runner.ts` 只装配生产 SDK 并暴露 `runExampleCase`，`tests/weapp/example/` 通过现有 automator driver 调用它；网络记录必须来自 Shadow 观察到的真实小程序 `wx.request`。
 
+### 微信开发者工具自动化的注意事项
+
+已知限制：开发者工具第一次启动是稳定的；在同一个主进程上重复 `automator.launch()` 后会随机失败。失败有两种表现：一是 `checkVersion` 读到空版本号，报 `TypeError: Cannot read properties of undefined (reading 'split')`；二是 launch 或 evaluate 一直不返回，直到测试超时（120 秒）；三是退出主进程后冷启动偶尔超过 `miniprogram-automator` 默认的 30 秒启动等待，launch 直接失败。现有 driver 每个 case 都会重新 launch，结束时只 `disconnect`，不退出主进程，所以一次运行多个 weapp case 时可能出现这两种失败。它们发生在断言之前（报告里断言数为 0），与被测行为无关。
+
+执行约定：
+
+1. 运行每个 weapp 测试文件前，先彻底退出开发者工具主进程：`/Applications/wechatwebdevtools.app/Contents/MacOS/cli quit`，仍有残留时执行 `pkill -f wechatwebdevtools.app`。然后用 `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（约数秒），再运行测试。不预热时，首个 case 的冷启动常超过 30 秒启动等待而必然失败，重跑也无济于事。
+2. 出现上述失败时，先按第 1 条退出主进程，再重跑失败用例所在的整个测试文件，用新的完整报告替换该文件的旧报告；重跑通过即为有效证据。不要用 `-t` 只跑单个 case：被过滤掉的 case 会以 skipped 写入报告，汇入场景门禁时造成重复绑定。不得把这类失败判定为业务失败，也不得据此修改断言、跳过用例或缩小统计范围。
+3. 验收记录中写明哪些文件是在退出主进程后重跑取得证据的，以及每次失败的现象。
+
+本模板不追求在小程序生态下建设完整通用的自动化流程，因此暂不修改 driver。如需彻底消除，可在后续 Change 中让 driver 在每次 launch 前退出主进程，或让同一文件内的 case 复用一次启动。
+
 ## 当前业务：支付
 
 

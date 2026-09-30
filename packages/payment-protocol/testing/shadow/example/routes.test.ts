@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { CreateTrade, QueryTrade } from '../../../src/generated/idl/infra/trade/v1/trade.ts';
 import { discoverExampleRoutes } from './routes.ts';
 import { createShadowServer } from '../server.ts';
@@ -16,7 +16,14 @@ describe('discoverExampleRoutes', () => {
     expect(() => discoverExampleRoutes([{ ...CreateTrade.meta, path: '' } as never, QueryTrade.meta])).toThrow(/not an HTTP method/);
   });
 
-  it('runs generated CreateTrade route with business, delay, and disconnect steps', async () => {
+  test('SCN-TEMPLATE-EXAMPLE-009 shadow-create-route', { meta: { paymentCase: {
+    ownerId: 'SCN-TEMPLATE-EXAMPLE-009', caseId: 'shadow-create-route', environment: 'protocol-unit', fixtureCase: null,
+    covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-009', caseKey: 'shadow-create-route', checks: ['generated-route', 'fixture-driven'] }],
+  } } }, async context => {
+    const assertionsBefore = context.expect.getState().assertionCalls;
+    context.expect(discoverExampleRoutes().find(route => route.methodName === 'CreateTrade')).toMatchObject({
+      httpMethod: 'POST', path: CreateTrade.meta.path, meta: CreateTrade.meta,
+    });
     const server = await createShadowServer({ routes: discoverExampleRoutes(), scenarios: [{ id: 'example-route-faults', routes: {
       CreateTrade: { expectedRequests: [{ recordOnly: true }, { recordOnly: true }, { recordOnly: true }], steps: [
         { body: { baseResp: { statusCode: '10100801003070' } } },
@@ -26,13 +33,14 @@ describe('discoverExampleRoutes', () => {
     } }] }).start();
     try {
       const post = () => fetch(`${server.url}/api/base/trade/create`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-      expect(await (await post()).json()).toMatchObject({ baseResp: { statusCode: '10100801003070' } });
+      context.expect(await (await post()).json()).toMatchObject({ baseResp: { statusCode: '10100801003070' } });
       const before = Date.now();
-      expect(await (await post()).json()).toMatchObject({ tradeNo: 'created' });
-      expect(Date.now() - before).toBeGreaterThanOrEqual(8);
-      await expect(post()).rejects.toThrow();
-      expect(server.records().map(record => record.methodName)).toEqual(['CreateTrade', 'CreateTrade', 'CreateTrade']);
-      expect(server.verify()).toEqual([]);
+      context.expect(await (await post()).json()).toMatchObject({ tradeNo: 'created' });
+      context.expect(Date.now() - before).toBeGreaterThanOrEqual(8);
+      await context.expect(post()).rejects.toThrow();
+      context.expect(server.records().map(record => record.methodName)).toEqual(['CreateTrade', 'CreateTrade', 'CreateTrade']);
+      context.expect(server.verify()).toEqual([]);
+      await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['generated-route', 'fixture-driven'] }), 'payment-evidence');
     } finally { await server.close(); }
   });
 });

@@ -1,10 +1,16 @@
-import { expect, test } from 'vitest';
-import { evaluateCoverage } from '../../../../scripts/check-scenarios.ts';
-import { baseCoverage, type MutableCoverageInput } from './helpers.ts';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { cliEvidence, fixtureRoot, runGate } from './scenario-gate-helpers.ts';
 
-test('GATE-004 rejects bindings that reference an unregistered FLOW', () => {
-  const input = structuredClone(baseCoverage()) as MutableCoverageInput;
-  input.bindings[0]!.flowId = 'FLOW-SCENARIO-GATE-999';
-  const result = evaluateCoverage(input);
-  expect(result.issues).toContain('integration/normal: unknown FLOW reference FLOW-SCENARIO-GATE-999');
+function input() {
+  return { current: { runId: 'r', sourceDigest: 's', specDigest: 's', idlDigest: 'i', fixtureDigest: 'f' }, scenarios: [], contracts: [], flows: [], bindings: [{ ownerId: 'SCN-TEST-001', caseId: 'unknown', fixtureCase: 'unknown', environment: 'integration', covers: [{ id: 'SCN-TEST-999', caseKey: 'unknown', checks: ['done'] }], flowId: 'FLOW-TEST-999', flowCase: 'unknown' }], reports: [] };
+}
+
+cliEvidence('SCN-SCENARIO-GATE-004', 'lost-flow-table-cli', ['unknown-flow-reference'], async (context, check) => {
+  const fixture = fixtureRoot();
+  try {
+    writeFileSync(join(fixture.root, 'input.json'), JSON.stringify(input()));
+    const result = runGate(fixture.root, ['--input', 'input.json']);
+    await check('unknown-flow-reference', () => { context.expect(result.status).toBe(1); context.expect(result.output?.issues.join('\n')).toContain('unknown FLOW reference FLOW-TEST-999'); });
+  } finally { fixture.cleanup(); }
 });

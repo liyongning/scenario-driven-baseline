@@ -14,12 +14,12 @@ test('SCN-TEMPLATE-EXAMPLE-001 factory-validation', { meta: { paymentCase: {
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-001', caseKey: 'factory-validation', checks: ['config-validated-first'] }],
 } } }, async context => {
   const before = context.expect.getState().assertionCalls;
-  expect(() => createExampleClient(valid())).not.toThrow();
-  expect(() => createExampleClient({ ...valid(), gatewayBaseUrl: '' })).toThrow(ExampleConfigurationError);
-  expect(() => createExampleClient({ ...valid(), catalog: { ...valid().catalog, unitValue: 0n } })).toThrow(ExampleConfigurationError);
-  expect(() => createExampleClient({ ...valid(), policy: { windowMs: 0 } })).toThrow(ExampleConfigurationError);
-  expect(() => createExampleClient({ ...valid(), requestContext: { productId: 1 as never } })).toThrow(ExampleConfigurationError);
-  expect(() => createExampleClient({ ...valid(), policy: { requestTimeoutMs: 10, intervalMs: 20, windowMs: 30 }, requestContext: { productId: 'p', lane: 'l', appVersion: 'v' } })).not.toThrow();
+  context.expect(() => createExampleClient(valid())).not.toThrow();
+  context.expect(() => createExampleClient({ ...valid(), gatewayBaseUrl: '' })).toThrow(ExampleConfigurationError);
+  context.expect(() => createExampleClient({ ...valid(), catalog: { ...valid().catalog, unitValue: 0n } })).toThrow(ExampleConfigurationError);
+  context.expect(() => createExampleClient({ ...valid(), policy: { windowMs: 0 } })).toThrow(ExampleConfigurationError);
+  context.expect(() => createExampleClient({ ...valid(), requestContext: { productId: 1 as never } })).toThrow(ExampleConfigurationError);
+  context.expect(() => createExampleClient({ ...valid(), policy: { requestTimeoutMs: 10, intervalMs: 20, windowMs: 30 }, requestContext: { productId: 'p', lane: 'l', appVersion: 'v' } })).not.toThrow();
   await annotate(context, before);
 });
 

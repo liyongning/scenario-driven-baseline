@@ -16,6 +16,18 @@ async function fixture() {
 }
 
 describe('readEffectiveSpecs', () => {
+  it('reports FLOW tables outside Requirements before archive projection', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'effective-specs-flow-placement-'));
+    await mkdir(join(root, 'openspec/specs/example'), { recursive: true });
+    await writeFile(join(root, 'openspec/specs/example/spec.md'), '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-TEST-001 | SCN-TEST-001 | create | normal | integration | outside |');
+    expect((await readEffectiveSpecs(root)).issues.join('\n')).toContain('would be lost during archive');
+    await mkdir(join(root, 'openspec/changes/active/specs/example'), { recursive: true });
+    await writeFile(join(root, 'openspec/changes/active/specs/example/spec.md'), '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-TEST-002 | SCN-TEST-001 | create | normal | integration | outside |');
+    expect((await readEffectiveSpecs(root)).issues.join('\n')).toContain('openspec/changes/active/specs/example/spec.md: FLOW table');
+    await writeFile(join(root, 'openspec/specs/example/spec.md'), '```md\n| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n```\n### Requirement: BASE inside\n');
+    await writeFile(join(root, 'openspec/changes/active/specs/example/spec.md'), '## MODIFIED Requirements\n### Requirement: BASE inside\n');
+    expect((await readEffectiveSpecs(root)).issues).toEqual([]);
+  });
   it('merges active added, modified, removed, and renamed requirements while ignoring archive', async () => {
     const result = await readEffectiveSpecs(await fixture());
     const text = result.documents.map(document => document.content).join('\n');
