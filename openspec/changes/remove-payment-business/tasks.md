@@ -240,7 +240,7 @@
   **Commit**
   - `refactor(payment): remove auth, identity and recovery scenarios`
 
-- [ ] 7. 删除阶段通知
+- [x] 7. 删除阶段通知
 
   **Files**
   - 按 Design"功能分组"第 7 组：删除 SDK-15、CONTRACT-12 段落与 FLOW-007 行；删除该组测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。

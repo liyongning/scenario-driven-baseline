@@ -210,23 +210,8 @@ Scenario 与具体测试 case SHALL 支持多对多绑定。工程 MUST 额外�
 | FLOW-PAYSDK-001 | CONTRACT-001/002/003/008 | createPaymentClient → pay → CreateTradePay → 渠道 → QueryTrade(PAYING → PAID) → 一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求 | normal、long-channel-wait | integration、weapp | 公共契约结构化参数样例（Task 3）；long-channel-wait 的长时钟断言在 integration，weapp 验证手动释放回调前无查询，不做真实半小时等待 |
 | FLOW-PAYSDK-004 | CORE-006、CONTRACT-003/004/019 | pay → 准备 → 渠道 unknown → 查询仍 PAYING → 查询预算耗尽 → timed_out；查询不重叠，迟到响应不二次交付，交易到期不合成 CLOSED | slow-query、expired-but-paying | integration | 结构化参数样例；时间断言使用受控时钟 |
 | FLOW-PAYSDK-005 | CORE-012、CONTRACT-012 | pay → 准备 → 渠道 success_hint → 第一次查单 PAYING → 宿主 getter 数据更新 → 后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare | token-rotates-between-queries | integration、weapp | 结构化参数样例；本流程验证正常 Token 轮换 |
-| FLOW-PAYSDK-007 | CORE-018/019、CONTRACT-020 | 公共 pay/observe → 本次阶段通知 → 外部渠道/HTTP → 一次最终结果；验证通知前后副作用、数据关联、回调异常与停止重入 | first-paid、first-closed、observe-only、stop-before-invoke、stop-after-notification、stop-after-platform、stop-before-query、handler-throw、handler-reject、reentrant-pay、no-listener | integration、weapp | 使用 Task 3 正常/终态数据及外部渠道替身，业务回调由测试消费者提供；不 mock SDK 核心或注入假的阶段事件，不要求真实 UI 动画 |
 
 FLOW-001 至 006 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming；FLOW-005 多次查单只通知一次 confirming。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
-
-FLOW-007 每个 case 在同一次运行中验证下列检查点，两个环境均执行；快慢时间穷举和预算耗尽边界另由 CORE-019 的 sdk-unit/integration 用受控时钟验证，不要求微信环境执行真实长等待。
-
-| case key | 连续步骤与必须断言 |
-| --- | --- |
-| first-paid / first-closed | pay → prepare → channel_invoking → 实际渠道调用/成功提示 → confirming → 首笔 query(PAID/CLOSED) → confirmed；两个终态各一个 case，通知各一次并先于终态，无强制显示时长 |
-| observe-only | observe → confirming → 首笔 query(PAID) → confirmed；无 channel_invoking/prepare/渠道调用，channelSignal=not_invoked |
-| stop-before-invoke | pay → prepare → channel_invoking 回调内停止 → stopped/not_invoked；实际渠道和 query 均为零 |
-| stop-after-notification | pay → prepare → channel_invoking 正常返回 → 适配器第二次停止检查命中 → stopped/not_invoked；平台调用与 query 均为零。通过测试宿主的受控 Cancellation 在该检查点返回停止；不 mock 核心/适配器、不直接调用内部标记 |
-| stop-after-platform | pay → prepare → channel_invoking → 实际平台调用一次并保持回调 pending → 宿主停止 → stopped/unknown；query 为零、结果一次，旧平台回调不改变结束结果或新运行 |
-| stop-before-query | pay → prepare → channel_invoking → 渠道 success_hint → confirming 回调内停止 → stopped；首笔查询的 provider/HTTP 未发生，保留 success_hint |
-| handler-throw / handler-reject | 两个通知的消费回调分别同步抛错/返回拒绝 Promise → SDK 仍完成正常渠道及 query(PAID)；次数不增加、结果不被观察者错误改写，无未处理拒绝；异常原文不进入诊断 |
-| reentrant-pay | channel_invoking 回调内再次 pay 同交易 → 新调用 busy/无通知，原调用正常完成；原 prepare/渠道仍各一次，不将 busy 结果或事件归入原 attempt |
-| no-listener | 省略 onPhase 的 pay 完成 prepare/渠道/query(PAID)，与有监听的正常 case 网络/渠道计数和结果语义一致 |
 
 无关的场景组合不作笛卡尔积穷举；新增跨阶段交互风险时，先在本清单增加或修改必需流程/case 与检查点，再同步测试。FLOW 检查点须在同一 case 内关联真实执行断言；只有流程阶段全部贯通不自动满足所引用 Scenario 的全部边界。两者分别统计，防止用任意一个成功流程抵扣所有场景。
 
@@ -306,74 +291,6 @@ FLOW-007 每个 case 在同一次运行中验证下列检查点，两个环境�
     {"key": "untested-handwritten-file", "kind": "engineering", "requiredIn": ["integration"], "checks": ["machine-gates", "boundary-enforcement"]},
     {"key": "restored-valid-input", "kind": "engineering", "requiredIn": ["integration"], "checks": ["rules-restorable"]},
     {"key": "gate-reduction-review-evidence", "kind": "engineering", "requiredIn": ["integration"], "checks": ["review-record"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-15 稳定阶段边界与通知隔离
-
-SDK SHALL 按公共契约 CONTRACT-12 提供每次调用可选的 onPhase，核心拥有通知语义、异常隔离与去重；渠道适配器在校验后、实际平台调用前执行 ChannelContext.beforeInvoke，通知后复查停止。SDK MUST 不用阶段通知替代 PaymentOutcome，不等待业务 UI，不暴露支付参数或建立完整事件总线。状态中文说明与实现/声明注释按 CONTRACT-13 交付。
-
-#### Scenario: TC-PAYSDK-CORE-018 阶段顺序与分支完整
-- **WHEN** 公共 pay 分别遇到 success_hint、已返回 unknown、取消、明确失败/会话失效、prepare/参数校验失败，或调用独立 observe
-- **THEN** success_hint/unknown 在真实平台调用前通知 channel_invoking，回调后、首次 query/provider 前通知 confirming；重复查询只有一个 confirming。取消/明确失败/会话失效没有 confirming；prepare/调用前校验失败没有阶段通知。observe 只有 confirming，无 prepare/invoke；首笔 PAID/CLOSED 仍先通知后交付，各调用最终结果一次，省略监听不改变调用顺序/次数和交易事实。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "phase-order": "pay 的 channel_invoking 在真实平台调用前；success_hint/unknown 回调后的 confirming 在首笔 query/provider 前",
-    "phase-branching": "success_hint/unknown 有两阶段；取消/明确失败/会话失效无 confirming；prepare/调用前校验失败无通知",
-    "observe-phases": "observe 只有一次 confirming，发生在首笔 query/provider 前；无 channel_invoking、prepare 或 invoke",
-    "terminal-notification-order": "首笔 PAID/CLOSED 仍先 confirming 后一次交付",
-    "phase-dedup-and-optionality": "重复查询不重复 confirming，省略监听不改变主流程"
-  },
-  "cases": [
-    {"key": "success-hint", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-order", "phase-branching", "phase-dedup-and-optionality"]},
-    {"key": "channel-unknown", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-order", "phase-branching", "phase-dedup-and-optionality"]},
-    {"key": "channel-cancelled", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-branching"]},
-    {"key": "launch-failed", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-branching"]},
-    {"key": "channel-session-expired", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-branching"]},
-    {"key": "prepare-failed", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-branching"]},
-    {"key": "preinvoke-validation-failed", "kind": "behavior", "requiredIn": ["integration"], "checks": ["phase-branching"]},
-    {"key": "observe-only", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["observe-phases"]},
-    {"key": "first-query-paid", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["terminal-notification-order", "phase-dedup-and-optionality"]},
-    {"key": "first-query-closed", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["terminal-notification-order", "phase-dedup-and-optionality"]},
-    {"key": "no-listener", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["phase-dedup-and-optionality"]}
-  ],
-  "blockedBy": []
-}
-```
-
-#### Scenario: TC-PAYSDK-CORE-019 通知异常停止与旧运行隔离
-- **WHEN** 通知回调同步抛错、返回拒绝 Promise/thenable、显式 cancellation、重入同客户端同交易 pay，或停止后新运行期间收到旧渠道回调
-- **THEN** 观察者异常不改变主流程，不产生未处理拒绝；channel_invoking 内停止、或 beforeInvoke 返回 true 后实际平台调用前的停止检查命中，均不调平台且信号 not_invoked；只有 markInvoked 同步准入后实际调用平台、无有效结果时停止才为 unknown。重复/迟到标记不改已结束结果；confirming 内停止不发首笔 query/provider且保留已有渠道信号；查询预算在通知前固定。重入 busy 不干扰原调用；每阶段至多一次，结束后旧回调/异步拒绝不再通知、查单或影响新 attempt。无回调仍无 confirming/自动查询/渠道超时，宿主显式停止只交付一次 stopped；消费方自身异步 UI 更新须检查运行/页面有效性。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "observer-errors-isolated": "同步抛错、Promise/thenable 拒绝及迟到拒绝不改变主流程且不产生未处理拒绝",
-    "stop-inside-notification": "channel_invoking 回调内触发停止时平台/query 为零且 channelSignal=not_invoked",
-    "stop-after-notification-before-platform": "beforeInvoke 已返回后第二次停止检查命中时仍不调平台且为 not_invoked",
-    "stop-after-platform": "公共入口已实际调用平台且未收到有效渠道结果时停止为 unknown；用平台调用次数与公共结果验证，不读取或伪造内部 markInvoked",
-    "stop-before-query": "confirming 内停止不调用首笔 query/provider，保留已有渠道信号，查询预算在通知前固定",
-    "attempt-isolation": "按本 case 验证一次结束及运行关联；busy 不干扰原运行，结束后的旧回调/异步拒绝不通知、不查询、不影响新 attempt。内部迟到/重复标记的分支正确性由模块单测验证",
-    "no-callback-needs-host-stop": "无回调不自动 confirming/查询/超时，显式停止只交付一次"
-  },
-  "cases": [
-    {"key": "handler-throw", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["observer-errors-isolated", "attempt-isolation"]},
-    {"key": "handler-promise-reject", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["observer-errors-isolated", "attempt-isolation"]},
-    {"key": "handler-thenable-reject", "kind": "behavior", "requiredIn": ["integration"], "checks": ["observer-errors-isolated", "attempt-isolation"]},
-    {"key": "late-handler-reject", "kind": "behavior", "requiredIn": ["integration"], "checks": ["observer-errors-isolated", "attempt-isolation"]},
-    {"key": "stop-inside-channel-invoking", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["stop-inside-notification", "attempt-isolation"]},
-    {"key": "stop-after-notification", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["stop-after-notification-before-platform", "attempt-isolation"]},
-    {"key": "stop-after-platform", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["stop-after-platform", "attempt-isolation"]},
-    {"key": "stop-before-query", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["stop-before-query", "attempt-isolation"]},
-    {"key": "reentrant-pay", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["attempt-isolation"]},
-    {"key": "old-callback-after-new-attempt", "kind": "behavior", "requiredIn": ["integration"], "checks": ["attempt-isolation"]},
-    {"key": "no-callback-host-stop", "kind": "behavior", "requiredIn": ["integration"], "checks": ["no-callback-needs-host-stop", "attempt-isolation"]}
   ],
   "blockedBy": []
 }

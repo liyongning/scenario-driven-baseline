@@ -17,8 +17,6 @@ const defs: readonly D[] = [
  {ownerId:'TC-PAYSDK-CONTRACT-015',caseKey:'test-gateway-development-lane',checks:['explicit-gateway-and-lane','no-environment-rewrite','evidence-boundary']},
  ...['http-200-business-error','success-error-conflict-with-nonzero-status','success-error-conflict-with-zero-status','missing-base-resp','null-base-resp','non-object-root','undecodable-content','missing-status-code','null-status-code','invalid-status-code','lossy-status-code','http-401','non-2xx-with-business-code','non-2xx-without-business-code','network-failure'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-017',caseKey,checks: caseKey==='network-failure'?['transport-failure','no-replay-or-channel-cancel']:caseKey.startsWith('success-error-conflict')?['status-code-authority','inconsistent-details-diagnostic']:['missing-base-resp','null-base-resp','non-object-root','undecodable-content','missing-status-code','null-status-code','invalid-status-code','lossy-status-code'].includes(caseKey)?['invalid-2xx-envelope']:caseKey==='http-401'||caseKey==='non-2xx-without-business-code'?['non-2xx-order','no-replay-or-channel-cancel']:caseKey==='non-2xx-with-business-code'?['status-code-authority','non-2xx-order','no-replay-or-channel-cancel']:['status-code-authority','no-replay-or-channel-cancel']})),
  ...['default-policy','fieldwise-overrides','per-call-override-isolation','invalid-policy-zero','invalid-policy-negative','invalid-policy-nan','invalid-policy-infinity','channel-wait-budget'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-019',caseKey,checks:[caseKey==='default-policy'?'defaults':caseKey==='fieldwise-overrides'?'fieldwise-merge':caseKey==='per-call-override-isolation'?'override-isolation':caseKey==='channel-wait-budget'?'channel-wait-excluded':'invalid-before-send']})),
- {ownerId:'TC-PAYSDK-CONTRACT-020',caseKey:'independent-query',checks:['query-no-notifications']},
- {ownerId:'TC-PAYSDK-CONTRACT-020',caseKey:'no-extra-phase-values',checks:['public-event-shape','no-extra-phases']},
 ];
 const req=(tradeNo:string)=>({reference:{tradeNo},method:'wechat-miniapp-virtual-goods' as const});
 const error=(code:bigint,retryable=false)=>({baseResp:{statusCode:code.toString(),success:false,statusMsg:'fixture',error:{bizCode:code.toString(),canonicalCode:'CANONICAL_ERROR_CODE_UNAVAILABLE',retryable}}});
@@ -48,7 +46,7 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
  if(isMalformed) http=[malformed(f.tradeNo,key)];
  else if(key==='duplicate-active-pay') {http=[{path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];channel=['pending'];}
  else if(key==='provider-throws') token=null;
- else if(d.ownerId==='TC-PAYSDK-CONTRACT-015'||d.ownerId==='TC-PAYSDK-CONTRACT-019'||d.ownerId==='TC-PAYSDK-CONTRACT-020') {
+ else if(d.ownerId==='TC-PAYSDK-CONTRACT-015'||d.ownerId==='TC-PAYSDK-CONTRACT-019') {
   if(key==='request-id-multiple-clients') http=[
    {path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)},
    {path:'/api/base/trade/pay',body:successPrepare(`${f.tradeNo}-second`)},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-second`)},

@@ -315,38 +315,6 @@ SDK SHALL 在初始化提供可选 policy，按字段覆盖内置 requestTimeout
 }
 ```
 
-### Requirement: CONTRACT-12 每次调用的阶段通知
-
-pay/observe SHALL 接受可选 onPhase，仅提供 channel_invoking、confirming，事件仅含 attemptId/phase；每阶段每运行至多通知一次，通知发生于最终结果之前。channel_invoking MUST 在参数/能力检查通过后、实际平台调用前发出；confirming MUST 在进入结果确认时、首次 query/provider 前发出。pay 只有接纳 success_hint/已返回 unknown 才进入 confirming；独立 observe 直接进入 confirming。取消、明确失败和会话中断按既有最终结果处理，无额外 channel_returned/ended 通知。SDK MUST 不等待业务返回、渲染或动画，不以阶段证明 PAID、权益到账或原生界面可见/已关闭；通知异常、停止与迟到隔离按本文“阶段通知与一次最终交付”执行。
-
-#### Scenario: TC-PAYSDK-CONTRACT-020 可选阶段回调与结果分离
-- **WHEN** 调用方分别省略/传入 onPhase，通过 pay 或 observe 消费 SDK，并在回调中读取 attemptId/phase
-- **THEN** 两种接入均合法，省略回调不改变网络、渠道和结果规则；回调只含本次 attemptId 和两个约定阶段，最终 PaymentOutcome 仍经 Promise 交付一次。不存在 preparing、channel_returned 或轮询进度事件，独立 query 不增加过程通知参数。confirming 先于首笔查询和终态交付，但不能断言 UI 已渲染。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "callback-optionality": "省略或提供 onPhase 均合法且不改变网络、渠道、结果规则",
-    "public-event-shape": "事件只含本次 attemptId 和 channel_invoking/confirming",
-    "outcome-separate": "最终 PaymentOutcome 仍仅经 Promise 一次交付",
-    "no-extra-phases": "无 preparing/channel_returned/轮询进度，独立 query 无过程通知参数",
-    "confirming-order": "confirming 先于首笔查询和终态交付，且不代表 UI 已渲染",
-    "query-no-notifications": "独立 query 只交付一次查询结果，不产生 onPhase 通知",
-    "phase-type-surface": "实际双格式声明的 PhaseEvent 只有本次 attemptId 和两个约定 phase；query 参数不增加 onPhase，RunOptions 保留可选回调"
-  },
-  "cases": [
-    {"key": "with-listener", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["public-event-shape", "outcome-separate", "confirming-order"]},
-    {"key": "no-listener", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["callback-optionality", "outcome-separate"]},
-    {"key": "observe-listener", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["public-event-shape", "no-extra-phases", "confirming-order"]},
-    {"key": "independent-query", "kind": "behavior", "requiredIn": ["integration"], "checks": ["query-no-notifications"]},
-    {"key": "no-extra-phase-values", "kind": "behavior", "requiredIn": ["integration"], "checks": ["public-event-shape", "no-extra-phases"]},
-    {"key": "public-phase-type-surface", "kind": "engineering", "requiredIn": ["integration"], "checks": ["phase-type-surface"]}
-  ],
-  "blockedBy": []
-}
-```
-
 ### Requirement: CONTRACT-13 状态语义与中文代码注释
 
 SDK SHALL 以本文“状态字段的中文语义与触发场景”为状态说明权威，维护字段所属层次、中文含义、触发阶段、来源及不能推断的结论。手写公共类型/字段/联合值及对应映射、阶段迁移、取消/迟到分支 MUST 保留中文 JSDoc 或必要中文实现注释；声明构建 SHALL 保留公共 JSDoc，不能只保留英文标识。注释与 Spec 同步评审，不新增可供业务依赖的中文文案映射 API，不修改 ProtoGen 生成代码的注释。
