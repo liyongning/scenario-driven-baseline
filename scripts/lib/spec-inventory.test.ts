@@ -16,24 +16,24 @@ describe('readSpecInventory', () => {
   it('uses remark AST to extract scenario verification and the authoritative FLOW table', async () => {
     const root = await mkdtemp(join(tmpdir(), 'payment-spec-'));
     const path = join(root, 'spec.md');
-    await writeFile(path, `#### Scenario: TC-PAYSDK-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-PAYSDK-001 | CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`);
+    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`);
     const inventory = await readSpecInventory([path]);
     expect(inventory.issues).toEqual([]);
-    expect(inventory.scenarios[0]).toMatchObject({ id: 'TC-PAYSDK-CORE-001', verification: { cases: [{ key: 'ok', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['sent'] }] } });
-    expect(inventory.flows[0]).toMatchObject({ id: 'FLOW-PAYSDK-001', cases: ['normal', 'long'], requiredIn: ['integration', 'weapp'] });
+    expect(inventory.scenarios[0]).toMatchObject({ id: 'SCN-SAMPLE-CORE-001', verification: { cases: [{ key: 'ok', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['sent'] }] } });
+    expect(inventory.flows[0]).toMatchObject({ id: 'FLOW-SAMPLE-001', cases: ['normal', 'long'], requiredIn: ['integration', 'weapp'] });
   });
 
   it('keeps missing/invalid metadata and duplicate IDs in the denominator as explicit issues', async () => {
     const root = await mkdtemp(join(tmpdir(), 'payment-spec-'));
     const first = join(root, 'one.md');
     const second = join(root, 'two.md');
-    await writeFile(first, '#### Scenario: TC-PAYSDK-CORE-001 One\n- **WHEN** x\n- **THEN** y\n');
-    await writeFile(second, `#### Scenario: TC-PAYSDK-CORE-001 Again\n${block.replace('"sent"', '"unknown"')}`);
+    await writeFile(first, '#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n');
+    await writeFile(second, `#### Scenario: SCN-SAMPLE-CORE-001 Again\n${block.replace('"sent"', '"unknown"')}`);
     const inventory = await readSpecInventory([first, second]);
     expect(inventory.scenarios).toHaveLength(2);
     expect(inventory.issues).toEqual(expect.arrayContaining([
-      expect.stringContaining('TC-PAYSDK-CORE-001: verification metadata missing'),
-      expect.stringContaining('duplicate Scenario ID TC-PAYSDK-CORE-001'),
+      expect.stringContaining('SCN-SAMPLE-CORE-001: verification metadata missing'),
+      expect.stringContaining('duplicate Scenario ID SCN-SAMPLE-CORE-001'),
     ]));
   });
 
@@ -41,13 +41,13 @@ describe('readSpecInventory', () => {
     const root = await mkdtemp(join(tmpdir(), 'payment-spec-errors-'));
     const path = join(root, 'spec.md');
     const duplicateCases = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["x"]},{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["missing"]}],"blockedBy":[]}';
-    await writeFile(path, `#### Scenario: TC-PAYSDK-CORE-001 Broken JSON
+    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 Broken JSON
 
 \`\`\`json verification
 {
 \`\`\`
 
-#### Scenario: TC-PAYSDK-CORE-002 Duplicate cases
+#### Scenario: SCN-SAMPLE-CORE-002 Duplicate cases
 
 \`\`\`json verification
 ${duplicateCases}
@@ -58,14 +58,14 @@ ${duplicateCases}
 | FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |
 | --- | --- | --- | --- | --- | --- |
 | BAD-FLOW | CORE-001 | pay → result | normal | integration | bad |
-| FLOW-PAYSDK-001 | CORE-001 | pay → result | normal | integration | first |
-| FLOW-PAYSDK-001 | CORE-001 | pay → result | normal | integration | duplicate |
+| FLOW-SAMPLE-001 | CORE-001 | pay → result | normal | integration | first |
+| FLOW-SAMPLE-001 | CORE-001 | pay → result | normal | integration | duplicate |
 `);
     const inventory = await readSpecInventory([path]);
     expect(inventory.issues).toEqual(expect.arrayContaining([
       expect.stringContaining('verification JSON cannot be parsed'), expect.stringContaining('verification metadata missing'),
       expect.stringContaining('duplicate verification case key'), expect.stringContaining('unknown checkpoint missing'),
-      expect.stringContaining('invalid FLOW ID BAD-FLOW'), expect.stringContaining('duplicate FLOW ID FLOW-PAYSDK-001'),
+      expect.stringContaining('invalid FLOW ID BAD-FLOW'), expect.stringContaining('duplicate FLOW ID FLOW-SAMPLE-001'),
     ]));
   });
 
@@ -79,7 +79,7 @@ ${duplicateCases}
       '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["sdk-unit"],"checks":["x"]}],"blockedBy":[]}',
       '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"engineering","requiredIn":["protocol-unit"],"checks":["x"]}],"blockedBy":[]}',
     ];
-    await writeFile(path, blocks.map((json, index) => `#### Scenario: TC-PAYSDK-CORE-00${index + 1} Invalid\n\`\`\`json verification\n${json}\n\`\`\``).join('\n'));
+    await writeFile(path, blocks.map((json, index) => `#### Scenario: SCN-SAMPLE-CORE-00${index + 1} Invalid\n\`\`\`json verification\n${json}\n\`\`\``).join('\n'));
 
     const inventory = await readSpecInventory([path]);
 
@@ -91,7 +91,7 @@ ${duplicateCases}
     const root = await mkdtemp(join(tmpdir(), 'payment-spec-multiple-verification-'));
     const path = join(root, 'spec.md');
     const block = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["integration"],"checks":["x"]}],"blockedBy":[]}';
-    await writeFile(path, `#### Scenario: TC-PAYSDK-CORE-009 Multiple
+    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-009 Multiple
 
 \`\`\`json verification
 ${block}

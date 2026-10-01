@@ -1,11 +1,11 @@
 {
   "formatVersion": 1,
-  "ownerId": "TC-PAYSDK-CORE-016",
+  "ownerId": "SCN-SCENARIO-GATE-010",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "path": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md",
-      "sha256": "092bdea3ff40b1a517a1a83b766bd3406bdf24a078f7cb7d6400faa480ed6399"
+      "path": "openspec/changes/remove-payment-business/specs/scenario-gate/spec.md",
+      "sha256": "9a0ae4c1dbb2931efcd43b0ac00e299d4a5b9d88586695cd19a895c85486405f"
     }
   },
   "cases": {

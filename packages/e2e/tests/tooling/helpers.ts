@@ -14,18 +14,18 @@ export const current = { runId: 'tooling-run', sourceDigest: 'source', specDiges
 export function baseCoverage(): CoverageInput {
   return {
     current,
-    scenarios: [{ id: 'TC-PAYSDK-TEST-001', cases: [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['result'] }] }],
+    scenarios: [{ id: 'SCN-SAMPLE-TEST-001', cases: [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['result'] }] }],
     contracts: [],
-    flows: [{ id: 'FLOW-PAYSDK-001', cases: ['normal'], requiredIn: ['integration'], requiredStages: ['prepare', 'invoke', 'query', 'result'] }],
+    flows: [{ id: 'FLOW-SAMPLE-001', cases: ['normal'], requiredIn: ['integration'], requiredStages: ['prepare', 'invoke', 'query', 'result'] }],
     bindings: [{
-      ownerId: 'FLOW-PAYSDK-001', caseId: 'normal', fixtureCase: 'normal', environment: 'integration',
-      covers: [{ id: 'TC-PAYSDK-TEST-001', caseKey: 'normal', checks: ['result'] }],
-      flowId: 'FLOW-PAYSDK-001', flowCase: 'normal',
+      ownerId: 'FLOW-SAMPLE-001', caseId: 'normal', fixtureCase: 'normal', environment: 'integration',
+      covers: [{ id: 'SCN-SAMPLE-TEST-001', caseKey: 'normal', checks: ['result'] }],
+      flowId: 'FLOW-SAMPLE-001', flowCase: 'normal',
     }],
     reports: [{
-      ...current, project: 'integration', file: 'normal.spec.ts', fullName: 'FLOW-PAYSDK-001 normal', caseId: 'normal',
+      ...current, project: 'integration', file: 'normal.spec.ts', fullName: 'FLOW-SAMPLE-001 normal', caseId: 'normal',
       status: 'passed', assertions: 1, checkpoints: ['result'],
-      flow: { id: 'FLOW-PAYSDK-001', caseKey: 'normal', continuityId: 'run-one', stages: ['prepare', 'invoke', 'query', 'result'] },
+      flow: { id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'run-one', stages: ['prepare', 'invoke', 'query', 'result'] },
     }],
   };
 }

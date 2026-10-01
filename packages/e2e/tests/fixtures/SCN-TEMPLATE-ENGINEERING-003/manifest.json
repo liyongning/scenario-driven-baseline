@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-003",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/remove-payment-business/specs/template-engineering/spec.md",
+      "sha256": "c29e16119d5386cac7791b1ab7ea071d1616dd6d23001ea42fbdf116950c296b"
+    }
+  },
+  "cases": {
+    "source-and-dual-declarations": "source-and-dual-declarations.json",
+    "missing-comment-rejected": "missing-comment-rejected.json"
+  },
+  "sha256": {
+    "source-and-dual-declarations.json": "cc85160404e0450e131a087bb5764e449a47fc46275b23b456044352bbfedb7d",
+    "missing-comment-rejected.json": "6eed91dbaf04ad0c200966d3b005f9214a53cd2b31e7a42f1832a50ec74392e3"
+  }
+}

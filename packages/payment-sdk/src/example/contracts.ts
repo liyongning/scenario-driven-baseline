@@ -36,7 +36,14 @@ export type ExampleClientOptions = Readonly<{
   /** 创建资源所需的目录条目。 */
   catalog: ExampleCatalog;
   /** 协议层公共请求上下文。 */
-  requestContext?: Readonly<{ productId?: string; lane?: string; appVersion?: string }>;
+  requestContext?: Readonly<{
+    /** 产品标识。 */
+    productId?: string;
+    /** 分流标识。 */
+    lane?: string;
+    /** 宿主应用版本。 */
+    appVersion?: string;
+  }>;
   /** 初始化级时间策略覆盖。 */
   policy?: ExamplePolicyOverrides;
 }>;
@@ -60,12 +67,34 @@ export type ExampleResourceRef = Readonly<{
 }>;
 
 /** 资源观察状态；未知值按未到终态处理。 */
-export type ExampleState = 'pending' | 'completed' | 'closed' | 'unknown';
+export type ExampleState =
+  /** 尚未到达终态。 */
+  | 'pending'
+  /** 已成功到达终态。 */
+  | 'completed'
+  /** 已关闭，不再变化。 */
+  | 'closed'
+  /** 服务端返回未识别的状态。 */
+  | 'unknown';
 
 /** 示例操作错误；不暴露交易协议字段。 */
 export type ExampleError = Readonly<{
   /** 稳定错误类别。 */
-  category: 'invalid_input' | 'unauthorized' | 'host' | 'network' | 'timeout' | 'server' | 'protocol';
+  category:
+    /** 输入不合法。 */
+    | 'invalid_input'
+    /** 鉴权失败。 */
+    | 'unauthorized'
+    /** 宿主环境错误。 */
+    | 'host'
+    /** 网络错误。 */
+    | 'network'
+    /** 请求超时。 */
+    | 'timeout'
+    /** 服务端错误。 */
+    | 'server'
+    /** 协议错误。 */
+    | 'protocol';
   /** 面向调用方的稳定中文文案。 */
   message: string;
   /** 服务端错误码的十进制形式。 */
@@ -76,19 +105,43 @@ export type ExampleError = Readonly<{
 
 /** 创建结果。 */
 export type ExampleCreateResult =
-  | Readonly<{ ok: true; reference: ExampleResourceRef }>
-  | Readonly<{ ok: false; error: ExampleError }>;
+  /** 创建成功。 */
+  | Readonly<{
+      /** 成功判别值。 */
+      ok: true;
+      /** 已创建资源引用。 */
+      reference: ExampleResourceRef;
+    }>
+  /** 创建失败。 */
+  | Readonly<{
+      /** 失败判别值。 */
+      ok: false;
+      /** 中立错误。 */
+      error: ExampleError;
+    }>;
 
 /** 单次观察调用的控制项。 */
 export type ExampleRunOptions = Readonly<{
+  /** 取消信号；触发后停止本地等待。 */
   cancellation?: Cancellation;
+  /** 单次调用的时间策略覆盖。 */
   policy?: ExamplePolicyOverrides;
 }>;
 
 /** 观察最终结果。 */
 export type ExampleOutcome = Readonly<{
   /** 观察结束原因。 */
-  end: 'completed' | 'closed' | 'window_elapsed' | 'failed' | 'cancelled';
+  end:
+    /** 资源已完成。 */
+    | 'completed'
+    /** 资源已关闭。 */
+    | 'closed'
+    /** 观察窗口用尽。 */
+    | 'window_elapsed'
+    /** 观察失败。 */
+    | 'failed'
+    /** 被调用方取消。 */
+    | 'cancelled';
   /** 最后一次可信状态。 */
   lastState: ExampleState;
   /** 失败时的中立错误。 */
@@ -97,6 +150,8 @@ export type ExampleOutcome = Readonly<{
 
 /** 示例客户端公共入口。 */
 export interface ExampleClient {
+  /** 创建资源。 */
   create(input: ExampleCreateInput): Promise<ExampleCreateResult>;
+  /** 在有界窗口内观察资源状态。 */
   observe(reference: ExampleResourceRef, options?: ExampleRunOptions): Promise<ExampleOutcome>;
 }

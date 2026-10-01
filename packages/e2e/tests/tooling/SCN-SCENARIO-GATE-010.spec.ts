@@ -17,8 +17,8 @@ const caseChecks = {
 
 for (const [caseKey, checks] of Object.entries(caseChecks) as Array<[keyof typeof caseChecks, readonly string[]]>) {
   defineCase({
-    ownerId: 'TC-PAYSDK-CORE-016', caseId: caseKey, fixtureCase: caseKey, environment: 'integration',
-    covers: [{ id: 'TC-PAYSDK-CORE-016', caseKey, checks: [...checks] }],
+    ownerId: 'SCN-SCENARIO-GATE-010', caseId: caseKey, fixtureCase: caseKey, environment: 'integration',
+    covers: [{ id: 'SCN-SCENARIO-GATE-010', caseKey, checks: [...checks] }],
   }, async ({ checkpoint, expect }) => {
     const input = structuredClone(baseCoverage()) as MutableCoverageInput;
     const report = input.reports[0]!;
@@ -43,7 +43,7 @@ for (const [caseKey, checks] of Object.entries(caseChecks) as Array<[keyof typeo
       case 'mixed-scenario-module-missing':
         input.scenarios[0]!.cases.push({ key: 'internal', kind: 'module', requiredIn: ['sdk-unit'], checks: ['internal'] });
         break;
-      case 'missing-verification-metadata': input.sourceIssues = ['TC-PAYSDK-TEST-002: verification metadata missing']; break;
+      case 'missing-verification-metadata': input.sourceIssues = ['SCN-SAMPLE-TEST-002: verification metadata missing']; break;
     }
     const result = runScenarioCli(input);
     const output = JSON.parse(result.stdout);

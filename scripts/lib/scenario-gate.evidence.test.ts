@@ -9,9 +9,13 @@ import { readSpecInventory } from './spec-inventory.ts';
 import { loadScenarioConfig, matchesAny } from './scenario-config.ts';
 import { checkSchemaDocumentation } from './schema-docs.ts';
 
+const genericScenarioPattern = '^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$';
+const legacyScenarioPattern = '^LEGACY-[A-Z0-9]+-[0-9]{3}$';
+const genericFlowPattern = '^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$';
+const legacyFlowPattern = '^LEGACY-FLOW-[A-Z0-9]+-[0-9]{3}$';
 const config = {
-  scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'],
-  flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'],
+  scenarioIdPatterns: [genericScenarioPattern, legacyScenarioPattern],
+  flowIdPatterns: [genericFlowPattern, legacyFlowPattern],
   ownerIdPattern: '^[A-Z][A-Z0-9-]+$',
 };
 const metadata = '{"formatVersion":2,"checkpoints":{"done":"完成"},"cases":[{"key":"ok","kind":"behavior","requiredIn":["integration"],"checks":["done"]}],"blockedBy":[]}';
@@ -99,12 +103,15 @@ evidence('SCN-SCENARIO-GATE-004', 'unknown-reference-rules', ['unknown-flow-refe
   await check('unknown-scenario-reference', () => context.expect(result.issues.join('\n')).toContain('unknown cover SCN-TEST-999/unknown'));
 });
 
-evidence('SCN-SCENARIO-GATE-005', 'pattern-config', ['single-config', 'multi-pattern', 'removed-pattern-reported'], async (context, check) => {
-  const loaded = await loadScenarioConfig(process.cwd());
-  await check('single-config', () => context.expect(loaded.scenarioIdPatterns.length).toBeGreaterThan(1));
-  await check('multi-pattern', () => { context.expect(matchesAny('TC-PAYSDK-CORE-001', loaded.scenarioIdPatterns)).toBe(true); context.expect(matchesAny('SCN-SCENARIO-GATE-001', loaded.scenarioIdPatterns)).toBe(true); });
-  const removed = await readSpecInventory([{ path: 'removed', kind: 'main', content: `### Requirement: TEST rule\n#### Scenario: SCN-TEST-001 Example\n${block}` }], { ...loaded, scenarioIdPatterns: ['^TC-PAYSDK-'] });
-  await check('removed-pattern-reported', () => context.expect(removed.issues.join('\n')).toContain('Scenario ID SCN-TEST-001 does not match'));
+evidence('SCN-SCENARIO-GATE-011', 'pattern-config', ['single-config', 'multi-pattern', 'removed-pattern-reported'], async (context, check) => {
+  await temporaryRoot('pattern-config', async root => {
+    await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({ scenarioIdPatterns: [genericScenarioPattern, legacyScenarioPattern], flowIdPatterns: [genericFlowPattern, legacyFlowPattern], ownerIdPattern: '^[A-Z][A-Z0-9-]+$' }));
+    const loaded = await loadScenarioConfig(root);
+    await check('single-config', () => context.expect(loaded.scenarioIdPatterns).toEqual([genericScenarioPattern, legacyScenarioPattern]));
+    await check('multi-pattern', () => { context.expect(matchesAny('LEGACY-SAMPLE-001', loaded.scenarioIdPatterns)).toBe(true); context.expect(matchesAny('SCN-SCENARIO-GATE-001', loaded.scenarioIdPatterns)).toBe(true); });
+    const removed = await readSpecInventory([{ path: 'removed', kind: 'main', content: `### Requirement: TEST rule\n#### Scenario: SCN-TEST-001 Example\n${block}` }], { ...loaded, scenarioIdPatterns: [legacyScenarioPattern] });
+    await check('removed-pattern-reported', () => context.expect(removed.issues.join('\n')).toContain('Scenario ID SCN-TEST-001 does not match'));
+  });
 });
 
 evidence('SCN-SCENARIO-GATE-006', 'metadata-rules', ['missing-block-rejected', 'multiple-blocks-rejected', 'schema-enforced', 'stays-in-denominator'], async (context, check) => {

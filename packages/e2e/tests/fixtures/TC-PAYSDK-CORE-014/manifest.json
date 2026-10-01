@@ -9,12 +9,6 @@
     "sdk-esm-consumer": "package.json",
     "sdk-commonjs-consumer": "package.json",
     "sdk-types-consumer": "package.json",
-    "protocol-network-esm-consumer": "package.json",
-    "protocol-network-commonjs-consumer": "package.json",
-    "protocol-network-types-consumer": "package.json",
-    "sdk-does-not-reexport-network": "package.json",
-    "sdk-only-consumer": "package.json",
-    "package-boundaries": "package.json",
     "concurrent-clients": "package.json"
   },
   "sha256": {

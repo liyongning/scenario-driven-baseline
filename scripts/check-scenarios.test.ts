@@ -7,14 +7,14 @@ import { evaluateCoverage, loadReporterOutputs, runScenarioPrechecks, runScenari
 function base(): CoverageInput {
   return {
     current: { runId: 'run-1', sourceDigest: 'source', specDigest: 'spec', idlDigest: 'idl', fixtureDigest: 'fixture' },
-    scenarios: [{ id: 'TC-PAYSDK-CORE-001', cases: [{ key: 'normal', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['phase', 'result'] }] }],
+    scenarios: [{ id: 'SCN-SAMPLE-CORE-001', cases: [{ key: 'normal', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['phase', 'result'] }] }],
     contracts: [{ id: 'method#request#field', cases: ['normal'], requiredIn: ['integration'] }],
-    flows: [{ id: 'FLOW-PAYSDK-001', cases: ['normal'], requiredIn: ['integration'], requiredStages: ['prepare', 'invoke', 'query', 'result'] }],
-    bindings: [{ ownerId: 'FLOW-PAYSDK-001', caseId: 'flow-normal', fixtureCase: 'normal', environment: 'integration', covers: [
-      { id: 'TC-PAYSDK-CORE-001', caseKey: 'normal', checks: ['phase', 'result'] },
+    flows: [{ id: 'FLOW-SAMPLE-001', cases: ['normal'], requiredIn: ['integration'], requiredStages: ['prepare', 'invoke', 'query', 'result'] }],
+    bindings: [{ ownerId: 'FLOW-SAMPLE-001', caseId: 'flow-normal', fixtureCase: 'normal', environment: 'integration', covers: [
+      { id: 'SCN-SAMPLE-CORE-001', caseKey: 'normal', checks: ['phase', 'result'] },
       { id: 'method#request#field', caseKey: 'normal', checks: ['wire'] },
-    ], flowId: 'FLOW-PAYSDK-001', flowCase: 'normal' }],
-    reports: [{ runId: 'run-1', sourceDigest: 'source', specDigest: 'spec', idlDigest: 'idl', fixtureDigest: 'fixture', project: 'integration', file: 'flow.spec.ts', fullName: 'FLOW-PAYSDK-001 normal', caseId: 'flow-normal', status: 'passed', assertions: 3, checkpoints: ['phase', 'result', 'wire'], flow: { id: 'FLOW-PAYSDK-001', caseKey: 'normal', continuityId: 'one-run', stages: ['prepare', 'invoke', 'query', 'result'] } }],
+    ], flowId: 'FLOW-SAMPLE-001', flowCase: 'normal' }],
+    reports: [{ runId: 'run-1', sourceDigest: 'source', specDigest: 'spec', idlDigest: 'idl', fixtureDigest: 'fixture', project: 'integration', file: 'flow.spec.ts', fullName: 'FLOW-SAMPLE-001 normal', caseId: 'flow-normal', status: 'passed', assertions: 3, checkpoints: ['phase', 'result', 'wire'], flow: { id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'one-run', stages: ['prepare', 'invoke', 'query', 'result'] } }],
   };
 }
 
@@ -48,19 +48,19 @@ describe('evaluateCoverage', () => {
   it('requires each FLOW case to contain every stage in one continuous report', () => {
     const input = base();
     const split = [
-      { ...input.reports[0]!, fullName: 'part one', flow: { id: 'FLOW-PAYSDK-001', caseKey: 'normal', continuityId: 'run-a', stages: ['prepare', 'invoke'] } },
-      { ...input.reports[0]!, fullName: 'part two', caseId: 'flow-normal-2', flow: { id: 'FLOW-PAYSDK-001', caseKey: 'normal', continuityId: 'run-b', stages: ['query', 'result'] } },
+      { ...input.reports[0]!, fullName: 'part one', flow: { id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'run-a', stages: ['prepare', 'invoke'] } },
+      { ...input.reports[0]!, fullName: 'part two', caseId: 'flow-normal-2', flow: { id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'run-b', stages: ['query', 'result'] } },
     ];
     expect(evaluateCoverage({ ...input, reports: split }).issues).toEqual(expect.arrayContaining([expect.stringContaining('missing continuous stages')]));
   });
 
   it('rejects an unexplained inventory reduction against the saved baseline', () => {
     const input = base();
-    expect(evaluateCoverage({ ...input, baselineIds: ['TC-PAYSDK-CORE-001', 'TC-PAYSDK-CORE-999'] }).issues).toContain('inventory item TC-PAYSDK-CORE-999 was removed without an approved reason');
-    expect(evaluateCoverage({ ...input, baselineIds: ['TC-PAYSDK-CORE-999'], reductionReasons: { 'TC-PAYSDK-CORE-999': {
+    expect(evaluateCoverage({ ...input, baselineIds: ['SCN-SAMPLE-CORE-001', 'SCN-SAMPLE-CORE-999'] }).issues).toContain('inventory item SCN-SAMPLE-CORE-999 was removed without an approved reason');
+    expect(evaluateCoverage({ ...input, baselineIds: ['SCN-SAMPLE-CORE-999'], reductionReasons: { 'SCN-SAMPLE-CORE-999': {
       reason: 'approved Spec removal', reviewId: 'review-1', sourceDigest: input.current.sourceDigest, evidence: ['review.json'],
-    } } }).issues).not.toContain(expect.stringContaining('inventory item TC-PAYSDK-CORE-999'));
-    expect(evaluateCoverage({ ...input, baselineIds: ['TC-PAYSDK-CORE-999'], reductionReasons: { 'TC-PAYSDK-CORE-999': {
+    } } }).issues).not.toContain(expect.stringContaining('inventory item SCN-SAMPLE-CORE-999'));
+    expect(evaluateCoverage({ ...input, baselineIds: ['SCN-SAMPLE-CORE-999'], reductionReasons: { 'SCN-SAMPLE-CORE-999': {
       reason: '', reviewId: '', sourceDigest: 'old', evidence: [],
     } } }).issues).toEqual(expect.arrayContaining([
       expect.stringContaining('incomplete review record'), expect.stringContaining('review record is stale'),
@@ -70,15 +70,15 @@ describe('evaluateCoverage', () => {
   it('keeps all-Spec, payment behavior, protocol, and FLOW summaries independent', () => {
     const input = base();
     const moduleScenario = {
-      id: 'TC-PAYSDK-CORE-002',
+      id: 'SCN-SAMPLE-CORE-002',
       cases: [{ key: 'internal', kind: 'module' as const, requiredIn: ['sdk-unit' as const], checks: ['internal'] }],
     };
     const moduleBinding = {
-      ownerId: 'TC-PAYSDK-CORE-002', caseId: 'internal', fixtureCase: null, environment: 'sdk-unit' as const,
-      covers: [{ id: 'TC-PAYSDK-CORE-002', caseKey: 'internal', checks: ['internal'] }],
+      ownerId: 'SCN-SAMPLE-CORE-002', caseId: 'internal', fixtureCase: null, environment: 'sdk-unit' as const,
+      covers: [{ id: 'SCN-SAMPLE-CORE-002', caseKey: 'internal', checks: ['internal'] }],
     };
     const moduleReport = {
-      ...input.reports[0]!, project: 'sdk-unit' as const, caseId: 'internal', fullName: 'TC-PAYSDK-CORE-002 internal',
+      ...input.reports[0]!, project: 'sdk-unit' as const, caseId: 'internal', fullName: 'SCN-SAMPLE-CORE-002 internal',
       fixtureDigest: null, checkpoints: ['internal'],
     };
     const result = evaluateCoverage({
@@ -99,9 +99,9 @@ describe('evaluateCoverage', () => {
     const input = base();
     const result = evaluateCoverage({
       ...input,
-      scenarios: [{ id: 'TC-PAYSDK-CORE-002', cases: [{ key: 'internal', kind: 'module', requiredIn: ['sdk-unit'], checks: ['internal'] }] }],
+      scenarios: [{ id: 'SCN-SAMPLE-CORE-002', cases: [{ key: 'internal', kind: 'module', requiredIn: ['sdk-unit'], checks: ['internal'] }] }],
       contracts: [], flows: [],
-      bindings: [{ ...input.bindings[0]!, environment: 'integration', fixtureCase: 'forbidden', covers: [{ id: 'TC-PAYSDK-CORE-002', caseKey: 'internal', checks: ['internal'] }] }],
+      bindings: [{ ...input.bindings[0]!, environment: 'integration', fixtureCase: 'forbidden', covers: [{ id: 'SCN-SAMPLE-CORE-002', caseKey: 'internal', checks: ['internal'] }] }],
       reports: [],
     });
     expect(result.issues).toEqual(expect.arrayContaining([
@@ -112,9 +112,9 @@ describe('evaluateCoverage', () => {
 
   it('rejects a FLOW reference that is absent from the declared inventory', () => {
     const input = base();
-    const binding = { ...input.bindings[0]!, flowId: 'FLOW-PAYSDK-999' };
+    const binding = { ...input.bindings[0]!, flowId: 'FLOW-SAMPLE-999' };
     expect(evaluateCoverage({ ...input, bindings: [binding] }).issues).toContain(
-      'integration/flow-normal: unknown FLOW reference FLOW-PAYSDK-999',
+      'integration/flow-normal: unknown FLOW reference FLOW-SAMPLE-999',
     );
   });
 
@@ -160,8 +160,8 @@ describe('evaluateCoverage', () => {
   it('rejects unknown covers, checkpoint drift, wrong fixture class, blocked items, and weak reports', () => {
     const input = base();
     const invalidBinding = { ...input.bindings[0]!, fixtureCase: null, covers: [
-      { id: 'TC-PAYSDK-UNKNOWN-999', caseKey: 'missing', checks: [] },
-      { id: 'TC-PAYSDK-CORE-001', caseKey: 'normal', checks: ['unknown'] },
+      { id: 'SCN-SAMPLE-UNKNOWN-999', caseKey: 'missing', checks: [] },
+      { id: 'SCN-SAMPLE-CORE-001', caseKey: 'normal', checks: ['unknown'] },
     ] };
     const weakReport = { ...input.reports[0]!, status: 'skipped' as const, fullName: 'wrong', checkpoints: [] };
     const result = evaluateCoverage({
@@ -287,7 +287,7 @@ describe('evaluateCoverage', () => {
   });
 
   it('keeps scenarios with missing verification in the denominator with empty executable cases', () => {
-    expect(scenarioCoverageDefinition({ id: 'TC-PAYSDK-CORE-999' })).toEqual({ id: 'TC-PAYSDK-CORE-999', cases: [], blockedBy: [] });
-    expect(scenarioCoverageDefinition({ id: 'TC-PAYSDK-CORE-001', verification: { cases: base().scenarios[0]!.cases, blockedBy: ['dependency'] } })).toMatchObject({ id: 'TC-PAYSDK-CORE-001', cases: expect.any(Array), blockedBy: ['dependency'] });
+    expect(scenarioCoverageDefinition({ id: 'SCN-SAMPLE-CORE-999' })).toEqual({ id: 'SCN-SAMPLE-CORE-999', cases: [], blockedBy: [] });
+    expect(scenarioCoverageDefinition({ id: 'SCN-SAMPLE-CORE-001', verification: { cases: base().scenarios[0]!.cases, blockedBy: ['dependency'] } })).toMatchObject({ id: 'SCN-SAMPLE-CORE-001', cases: expect.any(Array), blockedBy: ['dependency'] });
   });
 });

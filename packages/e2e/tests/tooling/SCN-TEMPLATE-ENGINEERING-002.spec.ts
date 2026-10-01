@@ -67,8 +67,8 @@ const checks = {
 
 for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<[keyof typeof checks, readonly string[]]>) {
   defineCase({
-    ownerId: 'TC-PAYSDK-CORE-017', caseId: caseKey, fixtureCase: caseKey, environment: 'integration',
-    covers: [{ id: 'TC-PAYSDK-CORE-017', caseKey, checks: [...requiredChecks] }],
+    ownerId: 'SCN-TEMPLATE-ENGINEERING-002', caseId: caseKey, fixtureCase: caseKey, environment: 'integration',
+    covers: [{ id: 'SCN-TEMPLATE-ENGINEERING-002', caseKey, checks: [...requiredChecks] }],
   }, async ({ checkpoint, expect }) => {
     let result: ReturnType<typeof run>;
     switch (caseKey) {
@@ -108,11 +108,11 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<[keyof t
       case 'restored-valid-input': result = runPackageCli(packageInput()); break;
       case 'gate-reduction-review-evidence': {
         const bad = structuredClone(baseCoverage()) as MutableCoverageInput;
-        bad.baselineIds = ['TC-PAYSDK-REMOVED-001'];
-        bad.reductionReasons = { 'TC-PAYSDK-REMOVED-001': { reason: '', reviewId: '', sourceDigest: 'old', evidence: [] } };
+        bad.baselineIds = ['SCN-SAMPLE-REMOVED-001'];
+        bad.reductionReasons = { 'SCN-SAMPLE-REMOVED-001': { reason: '', reviewId: '', sourceDigest: 'old', evidence: [] } };
         const rejected = runScenarioCli(bad);
         const good = structuredClone(bad);
-        good.reductionReasons!['TC-PAYSDK-REMOVED-001'] = { reason: 'reviewed removal', reviewId: 'review-1', sourceDigest: current.sourceDigest, evidence: ['review.json'] };
+        good.reductionReasons!['SCN-SAMPLE-REMOVED-001'] = { reason: 'reviewed removal', reviewId: 'review-1', sourceDigest: current.sourceDigest, evidence: ['review.json'] };
         const accepted = runScenarioCli(good);
         result = { status: rejected.status, stdout: JSON.stringify({ rejected: JSON.parse(rejected.stdout), accepted: JSON.parse(accepted.stdout), acceptedStatus: accepted.status }), stderr: rejected.stderr + accepted.stderr };
         break;
@@ -149,7 +149,7 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<[keyof t
 // Task 6 只验证缺失证据会阻断；正式目标仓库记录由 Task 8 提供，因此此测试不绑定正式 case。
 test('controlled repository enforcement evidence remains absent from formal coverage', () => {
   const input = structuredClone(baseCoverage()) as MutableCoverageInput;
-  input.sourceIssues = ['TC-PAYSDK-CORE-017/repository-enforcement-evidence: target repository evidence missing'];
+  input.sourceIssues = ['SCN-TEMPLATE-ENGINEERING-002/repository-enforcement-evidence: target repository evidence missing'];
   const result = runScenarioCli(input);
   globalExpect(result.status).toBe(1);
   globalExpect(result.stdout).toContain('target repository evidence missing');

@@ -19,8 +19,8 @@ vi.mock('./fixture-loader.ts', () => ({
 import { defineCase } from './define-case.ts';
 
 const binding = {
-  ownerId: 'TC-PAYSDK-CONTRACT-023', caseId: 'execute', environment: 'integration' as const,
-  fixtureCase: 'omitted', covers: [{ id: 'TC-PAYSDK-CONTRACT-023', caseKey: 'omitted', checks: ['wire'] }],
+  ownerId: 'SCN-SAMPLE-CONTRACT-023', caseId: 'execute', environment: 'integration' as const,
+  fixtureCase: 'omitted', covers: [{ id: 'SCN-SAMPLE-CONTRACT-023', caseKey: 'omitted', checks: ['wire'] }],
 };
 
 function context() {
@@ -46,13 +46,13 @@ describe('defineCase execution', () => {
   });
 
   it('records continuous FLOW stages only for a FLOW binding', async () => {
-    defineCase({ ...binding, flowId: 'FLOW-PAYSDK-001', flowCase: 'normal' }, async ({ flow, expect: localExpect, checkpoint }) => {
+    defineCase({ ...binding, flowId: 'FLOW-SAMPLE-001', flowCase: 'normal' }, async ({ flow, expect: localExpect, checkpoint }) => {
       await checkpoint('wire', () => localExpect(true).toBe(true));
       await flow('attempt-one', ['prepare', 'invoke', 'result']);
     });
     const testContext = context();
     await state.registered!(testContext);
-    expect(testContext.annotate).toHaveBeenCalledWith(JSON.stringify({ id: 'FLOW-PAYSDK-001', caseKey: 'normal', continuityId: 'attempt-one', stages: ['prepare', 'invoke', 'result'] }), 'payment-flow');
+    expect(testContext.annotate).toHaveBeenCalledWith(JSON.stringify({ id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'attempt-one', stages: ['prepare', 'invoke', 'result'] }), 'payment-flow');
 
     defineCase(binding, async ({ flow, expect: localExpect, checkpoint }) => {
       await checkpoint('wire', () => localExpect(true).toBe(true));

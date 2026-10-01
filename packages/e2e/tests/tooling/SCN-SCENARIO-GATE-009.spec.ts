@@ -8,8 +8,8 @@ for (const caseKey of ['missing-scenario-case', 'missing-idl-field-case', 'owner
     ? ['missing-binding-rejected']
     : ['fact-derived-inventory', 'missing-binding-rejected', 'scope-cannot-shrink'];
   defineCase({
-    ownerId: 'TC-PAYSDK-CORE-015', caseId: caseKey, fixtureCase: caseKey, environment: 'integration',
-    covers: [{ id: 'TC-PAYSDK-CORE-015', caseKey, checks }],
+    ownerId: 'SCN-SCENARIO-GATE-009', caseId: caseKey, fixtureCase: caseKey, environment: 'integration',
+    covers: [{ id: 'SCN-SCENARIO-GATE-009', caseKey, checks }],
   }, async ({ checkpoint, expect }) => {
     const input = structuredClone(baseCoverage()) as MutableCoverageInput;
     if (caseKey === 'missing-scenario-case') {

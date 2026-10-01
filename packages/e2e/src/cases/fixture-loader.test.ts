@@ -9,7 +9,7 @@ const digest = (text: string) => createHash('sha256').update(text).digest('hex')
 
 async function fixture(overrides: Record<string, unknown> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'payment-fixture-'));
-  const ownerId = 'TC-PAYSDK-CONTRACT-023';
+  const ownerId = 'SCN-SAMPLE-CONTRACT-023';
   const directory = join(root, ownerId);
   await mkdir(directory);
   const data = JSON.stringify({ request: { tradeNo: 't-1' }, response: { ok: true } });
@@ -30,7 +30,7 @@ describe('loadFixtureCase', () => {
   });
 
   it('rejects owner/source version, digest, and path traversal mismatches', async () => {
-    const wrongOwner = await fixture({ ownerId: 'TC-PAYSDK-CONTRACT-999' });
+    const wrongOwner = await fixture({ ownerId: 'SCN-SAMPLE-CONTRACT-999' });
     await expect(loadFixtureCase({ ...wrongOwner, caseKey: 'omitted' })).rejects.toThrow(/ownerId/);
     const wrongSource = await fixture({ sources: {} });
     await expect(loadFixtureCase({ ...wrongSource, caseKey: 'omitted' })).rejects.toThrow(/sources/);

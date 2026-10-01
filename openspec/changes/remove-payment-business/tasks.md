@@ -33,7 +33,7 @@
 
 **Tracking rule:** One independently implementable and reviewable task maps to one unindented top-level checkbox. RED, GREEN, verification, and review steps are indented plain bullets, not additional tracked checkboxes.
 
-- [ ] 1. 迁出通用工程能力与门禁规则
+- [x] 1. 迁出通用工程能力与门禁规则
 
   **Files**
   - Modify：`scenario-gate.config.json`：`scenarioIdPatterns`、`flowIdPatterns` 改为 Design"ID 格式配置"中的通用格式，支付格式暂时保留。

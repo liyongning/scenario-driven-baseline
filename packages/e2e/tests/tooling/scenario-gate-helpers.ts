@@ -9,8 +9,8 @@ const repositoryRoot = process.cwd();
 const gateScript = resolve(repositoryRoot, 'scripts/check-scenarios.ts');
 const tsx = resolve(repositoryRoot, 'node_modules/.bin/tsx');
 const config = {
-  scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'],
-  flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'],
+  scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$', '^LEGACY-[A-Z0-9]+-[0-9]{3}$'],
+  flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$', '^LEGACY-FLOW-[A-Z0-9]+-[0-9]{3}$'],
   ownerIdPattern: '^[A-Z][A-Z0-9-]+$',
 };
 

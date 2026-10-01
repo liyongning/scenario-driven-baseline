@@ -1,0 +1,27 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-001",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/remove-payment-business/specs/template-engineering/spec.md",
+      "sha256": "c29e16119d5386cac7791b1ab7ea071d1616dd6d23001ea42fbdf116950c296b"
+    }
+  },
+  "cases": {
+    "protocol-network-esm-consumer": "protocol-network-esm-consumer.json",
+    "protocol-network-commonjs-consumer": "protocol-network-commonjs-consumer.json",
+    "protocol-network-types-consumer": "protocol-network-types-consumer.json",
+    "sdk-does-not-reexport-network": "sdk-does-not-reexport-network.json",
+    "sdk-only-consumer": "sdk-only-consumer.json",
+    "package-boundaries": "package-boundaries.json"
+  },
+  "sha256": {
+    "protocol-network-esm-consumer.json": "d86e46b6dfee680a34470a41fa0f827267a9f4ea9cef459d516cbdcb1a6d1125",
+    "protocol-network-commonjs-consumer.json": "d86e46b6dfee680a34470a41fa0f827267a9f4ea9cef459d516cbdcb1a6d1125",
+    "protocol-network-types-consumer.json": "d86e46b6dfee680a34470a41fa0f827267a9f4ea9cef459d516cbdcb1a6d1125",
+    "sdk-does-not-reexport-network.json": "d86e46b6dfee680a34470a41fa0f827267a9f4ea9cef459d516cbdcb1a6d1125",
+    "sdk-only-consumer.json": "d86e46b6dfee680a34470a41fa0f827267a9f4ea9cef459d516cbdcb1a6d1125",
+    "package-boundaries.json": "d86e46b6dfee680a34470a41fa0f827267a9f4ea9cef459d516cbdcb1a6d1125"
+  }
+}

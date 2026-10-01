@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, beforeAll } from 'vitest';
@@ -67,12 +67,6 @@ const caseChecks: Record<string, string[]> = {
   'sdk-esm-consumer': ['dual-module-consumption', 'production-package-clean'],
   'sdk-commonjs-consumer': ['dual-module-consumption', 'production-package-clean'],
   'sdk-types-consumer': ['dual-module-consumption'],
-  'protocol-network-esm-consumer': ['protocol-network-export'],
-  'protocol-network-commonjs-consumer': ['protocol-network-export'],
-  'protocol-network-types-consumer': ['protocol-network-export'],
-  'sdk-does-not-reexport-network': ['sdk-export-boundary'],
-  'sdk-only-consumer': ['dependency-release-contract'],
-  'package-boundaries': ['production-package-clean', 'source-and-graph-current'],
 };
 
 for (const [caseKey, checks] of Object.entries(caseChecks)) defineCase({
@@ -131,18 +125,6 @@ for (const [caseKey, checks] of Object.entries(caseChecks)) defineCase({
     await writeFile(join(cwd, 'consumer.cts'), `import subject = require('${name}'); void subject.${sdkCase ? 'createPaymentClient' : 'createWechatMiniappHttp'};`);
     await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, module: 'NodeNext', moduleResolution: 'NodeNext', target: 'ES2020' }, include: ['consumer.ts', 'consumer.cts'] }));
     await checkpoint(checks[0]!, () => expect(() => run('pnpm', ['exec', 'tsc', '-p', join(cwd, 'tsconfig.json')], root)).not.toThrow());
-  } else if (caseKey === 'sdk-does-not-reexport-network') {
-    const esm = await import('@daqian/payment-sdk');
-    await checkpoint('sdk-export-boundary', () => expect(esm).not.toHaveProperty('createWechatMiniappHttp'));
-  } else if (caseKey === 'sdk-only-consumer') {
-    const consumerManifest = JSON.parse(await readFile(join(state.sdkConsumer, 'package.json'), 'utf8'));
-    await checkpoint('dependency-release-contract', () => {
-      expect(Object.keys(consumerManifest.dependencies)).toEqual(['@daqian/payment-sdk']);
-      expect(state.sdkManifest.dependencies['@daqian/payment-protocol']).toBe(fixture.protocolVersion);
-    });
-  } else {
-    await checkpoint('production-package-clean', () => expect([...state.sdkFiles, ...state.protocolFiles].every(file => !/(testing|fixtures|e2e)/.test(file))).toBe(true));
-    await checkpoint('source-and-graph-current', () => expect(state.sdkManifest.version).toBe(fixture.sdkVersion));
   }
 }, { fixtureRoot });
 

@@ -60,16 +60,16 @@ describe('checkFixtures', () => {
 
   it('reports missing/invalid manifests, sources, declared files, required cases, and malformed case JSON', async () => {
     const input = await tree();
-    const missingManifest = join(input.fixtureRoot, 'TC-PAYSDK-CORE-001');
+    const missingManifest = join(input.fixtureRoot, 'SCN-SAMPLE-CORE-001');
     await mkdir(missingManifest);
-    const invalidManifest = join(input.fixtureRoot, 'TC-PAYSDK-CORE-002');
+    const invalidManifest = join(input.fixtureRoot, 'SCN-SAMPLE-CORE-002');
     await mkdir(invalidManifest); await writeFile(join(invalidManifest, 'manifest.json'), '{');
-    const schemaInvalid = join(input.fixtureRoot, 'TC-PAYSDK-CORE-003');
+    const schemaInvalid = join(input.fixtureRoot, 'SCN-SAMPLE-CORE-003');
     await mkdir(schemaInvalid); await writeFile(join(schemaInvalid, 'manifest.json'), '{}');
-    const validOther = join(input.fixtureRoot, 'TC-PAYSDK-CORE-004');
+    const validOther = join(input.fixtureRoot, 'SCN-SAMPLE-CORE-004');
     await mkdir(validOther); await writeFile(join(validOther, 'case.json'), '{}');
     await writeFile(join(validOther, 'manifest.json'), JSON.stringify({
-      formatVersion: 1, ownerId: 'TC-PAYSDK-CORE-004', sources: { idlCommit: 'a'.repeat(40) },
+      formatVersion: 1, ownerId: 'SCN-SAMPLE-CORE-004', sources: { idlCommit: 'a'.repeat(40) },
       cases: { case: 'case.json' }, sha256: { 'case.json': sha('{}') },
     }));
     const invalidOwnerDirectory = join(input.fixtureRoot, 'invalid-owner');
@@ -84,7 +84,7 @@ describe('checkFixtures', () => {
     await writeFile(join(input.owner, 'omitted.json'), omittedWithoutRequest);
     await writeFile(ownerManifestPath, JSON.stringify({
       ...input.manifest,
-      ownerId: 'TC-PAYSDK-CONTRACT-999',
+      ownerId: 'SCN-SAMPLE-CONTRACT-999',
       sources: { ...input.manifest.sources, spec: { path: 'missing.md', sha256: sha('missing') } },
       cases: { omitted: 'omitted.json', prod: 'bad.json', 'query-no-env': 'query-no-env.json' },
       supportingFiles: { missing: 'missing.json' },
