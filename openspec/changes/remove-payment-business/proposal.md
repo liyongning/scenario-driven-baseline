@@ -1,79 +1,68 @@
 ## Why
 
-这是模板演进的第二步。上一步（`2026-09-30-template-example`）新增了中立示例与通用场景门禁；这一步删除支付业务逻辑，使仓库只剩模板骨架与示例。之后的第三步另开 Change，做完全通用化（包与项目参数化、可选能力模块化、模板使用指南），不在本次范围内。
+这是模板演进的第二步：删除支付业务逻辑，让仓库成为 **SDK 领域的通用模板**。删除之后，支付 SDK 的质量体系必须完整保留，并能在剩下的示例与通用 Spec 上跑通和验证；下一个 SDK 项目或 agent 要能照着复刻，不需要猜。上一步（`2026-09-30-template-example`）已经新增了中立示例与通用场景门禁。更通用的模板（包与项目参数化、可选能力模块化、使用指南）放到下一个 Change。
 
-删除不能直接进行：支付代码与模板通用能力纠缠在一起。架构与质量门禁、包消费、发布预检、Live 构建与证据工具、公共类型中文注释进入声明、IDL 协议义务派生、手写错误码的来源校验，这些都是模板要保留的通用能力，但它们的测试挂在支付场景 ID（`TC-PAYSDK-*`）之下，规范写在支付 Spec 里。直接删除支付 Spec，这些能力的覆盖义务会随之消失而无人察觉。因此本次按"先迁出、再删除"的顺序执行：先把通用能力迁到通用能力 Spec 和通用场景 ID 之下，再删除支付业务。每一步结束后 `pnpm check:fast` 必须通过。
+删除不能直接进行，原因有两个：
 
-用户已决定：模板**长期借用**支付 IDL 中的 `CreateTrade`、`QueryTrade` 作为示例协议，不替换 IDL。理由是示例只是样板，全部验证走 Shadow 网关；为示例在公司公共 IDL 仓库新增 proto 并不合适。因此 IDL 协议义务派生在本次直接改为针对这两个接口生效，而不是暂停。
+1. **通用能力挂在支付之下。** 架构与质量门禁、包消费、覆盖对账与证据有效性、公共类型注释进入声明、发布预检、IDL 协议义务派生、错误码来源校验，都是模板要保留的能力，但它们的规范写在支付 Spec 里，测试绑定的是支付场景 ID（`TC-PAYSDK-*`）。
+2. **支付代码层层互相引用。** 上一版规划按代码层（先 E2E、再 SDK、再 Spec）拆分任务。两轮评审中，每一轮都发现新的跨任务悬空引用，评审因此不收敛。
+
+因此本次改为**按功能删除**：先把通用能力迁到通用 Spec 与 `SCN-*` 场景之下；再以 Requirement 与场景为单位，由外到内分组删除。每一组同时删掉 Spec 场景、测试绑定、Fixture，以及只属于这组功能的代码，由场景门禁、覆盖率、类型检查、lint 检验是否删干净。这也反过来检验"需求 → 测试 → 代码"的追溯是不是真的闭环。
 
 ## What Changes
 
-### 1. 先迁出：通用能力换到通用 Spec 与场景 ID 之下
+### 1. 先迁出通用能力
 
-- 新增能力 `template-engineering`，承接支付 Spec 中与业务无关的工程要求：
-  - 三包边界与产品交付：产品包只依赖协议包，E2E 私有；包产物的 ESM、CJS、类型声明可被消费，协议依赖在打包后固定为精确版本，测试代码不进入产物。
-  - 架构与质量门禁：反向依赖、生产代码夹带测试设施、场景目录越界、lint 与类型违规、未被测试的手写文件、缺失 AGENTS 入口等违规被阻断，恢复后通过。
-  - 公共类型中文 JSDoc 随双格式声明交付，缺注释被阻断；检查对象改为示例的公共类型。
-  - 发布预检：统一发布入口的记录输入、版本组合与失败检查点。
-  - Live 工具：非敏感配置白名单与 Token 存储控制、Live 构建与测试设施隔离、证据结构校验。只保留通用机制；支付的交易创建表单与支付证据矩阵删除，Live 证据矩阵只剩示例记录。
-- 新增能力 `protocol-contract`，承接协议层的通用能力：
-  - IDL 协议义务派生：从 generated 描述为示例消费的 `CreateTrade`、`QueryTrade` 自动列出字段映射、编码边界、公共请求上下文、响应与错误处理、超时等义务，每项义务须有 integration 与 weapp 证据。
-  - 手写错误码事实与来源校验：错误码副本缩减为示例实际使用的几项（`QueryTrade` 的 Unauthorized、Unavailable，网关的 Unauthorized 等，最终清单由 Design 固定），继续用独立的 Go 来源样例校验名称、数值与描述。
-- `scenario-gate` 增补覆盖对账与证据有效性要求。原来写在支付 SDK-14 里的规则迁入，包括：清单由事实源生成、缺绑定、skip、无断言、缺环境、来源过期、断言失败、FLOW 拼接、kind 抵扣等情况都要阻断。
-- 相关测试原样保留，只把绑定改为新的 `SCN-*` ID；测试逻辑本身不变的，直接迁移。
+- 新增能力 `template-engineering`：三包边界与产品交付、架构与质量门禁、公共类型中文注释随双格式声明交付、统一发布入口的预检。对应测试原样保留，只把绑定改到 `SCN-TEMPLATE-ENGINEERING-*`。
+- 新增能力 `protocol-contract`：基于 IDL 的协议义务派生改为针对示例的 `CreateTrade`、`QueryTrade`，并补齐示例协议矩阵用例（integration 与 weapp）；手写错误码缩减为示例需要识别的 7 项，删除后按 IDL 提交 `5539be8f09323709fa65f6568efe22896ec35d24` 重新运行 Go 来源提取并逐字比对。
+- `scenario-gate`：迁入覆盖对账与证据有效性（GATE-07、GATE-08）；新增 GATE-09（可配置的 ID 格式），替代被删除的 GATE-04；ID 配置改为通用的 `SCN-*`、`FLOW-*` 格式；FLOW 表"关联 Scenario"一列收紧为必须引用已登记的完整 ID。
+- `template-example`：EX-01、EX-05 去掉与支付有关的表述；删除 EX-07（见第 3 部分）。
 
-### 2. 再删除：支付业务逻辑
+### 2. 再按功能分组删除支付
 
-- SDK：删除支付的 `core/`、`adapters/`（支付基建、渠道、平台设备信息）、`ports/`、`errors/`、`contracts.ts`、`factory.ts` 及其单测。示例不再依赖支付类型：它目前通过 `runtime/default.ts` 间接引用支付的 `contracts` 与 `ports`，改为使用自己的运行辅助端口类型。SDK 根入口只导出示例。
-- 协议包：删除支付 Shadow 路由；Shadow 默认使用示例路由；错误码副本按第 1 部分缩减；通信执行器、网络适配、generated 代码保持不变。
-- E2E：删除支付的 sdk、protocol、flows、weapp 用例，以及 51 个支付 Fixture；删除支付 weapp 宿主入口、支付 Live 控制台（交易创建、表单、控制器）；工具单测中作为样本数据的 `TC-PAYSDK-*` ID 改为通用格式。
-- 规划：整份删除 `payment-sdk` 与 `payment-sdk-contract` 两份主 Spec。OpenSpec 1.6.0 无法用 delta 删除整个能力：删掉全部 Requirement 后，归档会以"Spec 至少要有一个 Requirement"拒绝，而且 CLI 没有删除能力的命令（已在仓库副本上模拟验证）。因此本 Change 不为这两份 Spec 写 delta，改为在最后一个任务中直接删除 `openspec/specs/payment-sdk/` 与 `openspec/specs/payment-sdk-contract/` 目录，并在 Design 中记录这一处例外。已归档的 Change 作为历史保留，不做修改。
+由外到内 7 组，每组一个任务：Live → `xpayEnv` 环境选择 → 渠道调起与原生生命周期 → 鉴权、身份与恢复 → 阶段通知 → 查询、观察与时间策略 → 核心与公共入口。前 6 组删除时，被多组共用的支付核心文件（核心编排、公共契约、工厂、支付基建适配器、支付错误）暂不精细删除：删除阶段开始时，把它们列入一份**临时覆盖率豁免清单**，清单只能减少，最后一组整体删除这些文件并清空清单。场景门禁、类型检查、lint 全程保持严格；除豁免清单外，其余代码的 100% 覆盖率要求不变。
 
-### 3. 门禁与配置收口
+支付主 Spec 随每组直接删除对应的 Requirement 段落，最后一组删除两个 Spec 目录。原因是 OpenSpec 1.6.0 无法用 delta 删除整个能力：删光全部 Requirement 后归档会被拒绝，CLI 也没有删除能力的命令（已在仓库副本上模拟验证）。这是对"主 Spec 只由归档更新"的有意例外，记录在 Design 中。
 
-- `scenario-gate.config.json` 只保留 `SCN-<CAPABILITY>-<NNN>` 与 `FLOW-<CAPABILITY>-<NNN>` 两种格式。
-- 删除 GATE-04：它的核心义务"支付对账结果不变"失效，支付基线 Fixture 一并删除。其中"多格式配置"能力迁入新增的 GATE-09，场景改用新 ID `SCN-SCENARIO-GATE-011`。之所以不直接修改 GATE-04：OpenSpec 要求被修改的 Requirement 保留原有场景标题原文，而原标题写的是"支付对账结果不变"，保留下来会误导使用方。
-- GATE-03 收紧 FLOW 表"关联 Scenario"一列：必须引用已登记的完整 Scenario ID。这是上一步登记的已知缺口，支付简写表删除后可以收紧。
-- 完成后，完整的 `pnpm check`（含场景门禁与 weapp）应**以退出码 0 通过**，这是模板第一次全绿。
+### 3. 移出模板的能力
 
-### 4. 文档
+- **Live 模式**：Live 工具、页面、配置、`live:*` 与 `check:live` 命令、只被 Live 使用的 `dotenv` 依赖，以及示例的 Live 页面（EX-07）全部删除。理由有两点：Shadow 与真实环境对 SDK 只是网关配置的差别；真实外部验收应由真实消费方（例如独立的轻量接入方项目）完成，放在 SDK 仓库内是不健康的耦合。
+- **人工语义评审记录**（原 TC-PAYSDK-CONTRACT-021 的 semantic-review-evidence）：它是支付领域统一维护大量状态中文解释的特有做法，直接删除。公共类型中文注释进入双格式声明的结构检查保留（ENG-03）。
+- **端侧渠道与平台适配器的代码样例**：不保留代码，改为在 AGENTS.md 中写明外部交互的设计标准。凡需要与外部交互的地方，都用替身在仓库内闭环：服务端接口由 Shadow 网关承载，平台或第三方能力由平台能力替身承载；同时写明端口放在哪、替身放在哪、如何接入用例。
 
-- 删除根目录与三个包 AGENTS.md 中的"当前业务：支付"整节。模板通用规则中与迁移相关的指向（能力 Spec、场景 ID）同步更新。
-- README 只删除支付内容，保持与仓库现状一致，不在本次改写为模板使用指南。
-- 删除 `docs/engineering` 中支付专属的 Live 文档；`.env.live.example` 删除支付专属键。
+### 4. 能力保全
+
+Design 中维护一张**能力保全清单**：列出支付 SDK 质量体系的每一项能力，每项写明删除后由哪个项目级文件承载、由哪个仍在运行的测试或门禁证明它有效。清单是本 Change 的验收项，Plan Review 与 Verify 都要逐项核对；任何一项缺少承载文件或运行证据，即视为能力丢失，不能通过。
+
+### 5. 文档
+
+根目录与三个包的 AGENTS.md 删除"当前业务：支付"整节，补充外部交互替身的设计标准，并更新能力与场景的指向。README 只删除支付与 Live 内容，不改写为使用指南。删除 `docs/engineering` 中的支付与 Live 文档，以及 `.env.live.example`。
 
 ### 非目标
 
-- 不改包名、scope、registry；不把示例提升为顶层目录结构；不做包与项目的配置化参数化；不做可选能力模块化；不写模板使用指南。这些都属于第三步。
-- 不替换 IDL，不修改 ProtoGen Consumer 与生成配置。
+- 不改包名、scope、registry；不移动 `src/example/`；不做参数化与可选能力模块化；不写模板使用指南。这些属于下一个 Change。
+- 不替换 IDL，不修改 ProtoGen Consumer。示例长期借用支付 IDL 的 `CreateTrade`、`QueryTrade`。
 - 不修复微信开发者工具自动化的已知不稳定问题，按 `packages/e2e/AGENTS.md` 的约定执行。
-- 不做 Live 真实运行，不发布包。
-- 不修改已归档 Change 的内容。
-
-### 已知缺口（本次登记，不在本次处理）
-
-- 删除支付后，"端侧渠道适配器"与"平台设备信息适配器"两类分层没有样例，示例只覆盖后端适配器。需要时再扩展示例。
-- 模板使用指南（能力地图、从方案到验收的流程、可替换点清单）留给第三步。
+- 不修改已归档的 Change；不新建接入方验证项目。
 
 ## Capabilities
 
 ### New Capabilities
 
-- `template-engineering`：三包边界与产品交付、架构与质量门禁、公共类型中文注释进入双格式声明、发布预检、Live 配置与构建和证据工具。
-- `protocol-contract`：基于 IDL 的协议义务派生与覆盖保障（针对示例的 `CreateTrade`、`QueryTrade`），手写错误码事实与来源校验。
+- `template-engineering`：三包边界与产品交付、架构与质量门禁、公共类型中文注释随双格式声明交付、发布预检。
+- `protocol-contract`：基于 IDL 的协议义务派生与覆盖（针对示例的 `CreateTrade`、`QueryTrade`），以及手写错误码事实与 Go 来源校验。
 
 ### Modified Capabilities
 
-- `scenario-gate`：新增 GATE-07、GATE-08（覆盖对账与证据有效性，迁自支付 SDK-14）；新增 GATE-09（可配置的 ID 格式）；修改 GATE-03，收紧 FLOW 关联 Scenario；删除 GATE-04。
-- `template-example`：修改 EX-01（不再引用"与支付客户端一致"）与 EX-05（隔离规则从"示例与支付互不导入"改为"产品包内各业务模块目录互不导入"）；EX-07"示例页面不调用支付接口"保留，因为借用的 IDL 中仍有扣款接口 `CreateTradePay`。
-- `payment-sdk`、`payment-sdk-contract`：整份删除。由于 OpenSpec 的限制，不写 delta，由任务直接删除主 Spec 目录（见上文"规划"一条）。
+- `scenario-gate`：新增 GATE-07、GATE-08、GATE-09；修改 GATE-03（收紧 FLOW 关联 Scenario）；删除 GATE-04。GATE-04 的原场景标题写着"支付对账结果不变"，OpenSpec 要求 MODIFIED 保留场景标题原文，保留会误导使用方，因此改为删除后新增。
+- `template-example`：修改 EX-01、EX-05；删除 EX-07。
+- `payment-sdk`、`payment-sdk-contract`：整份删除。由于 OpenSpec 的限制不写 delta，由各分组任务直接删除主 Spec 中的对应段落，最后删除目录。
 
 ## Impact
 
-- SDK 包：大幅删除支付代码；根入口只导出示例；示例改用自己的运行辅助端口类型。
-- 协议包：删除支付 Shadow 路由；缩减错误码副本；`testing` 导出调整。
-- E2E：删除支付用例、Fixture、宿主入口与 Live 控制台；新增示例的协议义务矩阵用例（integration 与 weapp）；迁移后的通用能力用例改绑新 ID。
-- 脚本：`contract-inventory` 改为基于示例路由与示例字段规则；`check-architecture`、`check-fixtures`、`check-package`、发布脚本中与支付耦合的部分调整。包名等标识不变。
-- 规划：新增两份能力 Spec；直接删除两份支付主 Spec 目录；修改 `scenario-gate`。
-- 运行要求：每个任务后 `pnpm check:fast` 通过；最终完整 `pnpm check` 通过，其中 weapp 需要本机微信开发者工具，并按 AGENTS 约定执行。
-- 流程：按 openspec-workflow 推进，Specs、Design、Tasks 完成后须通过 Plan Review 才能 Apply。
+- SDK 包：删除全部支付代码；根入口只导出示例；示例改用自己的运行辅助端口类型；依赖规则改为"业务模块目录互不导入"。
+- 协议包：删除支付 Shadow 路由；错误码目录缩减为 7 项；协议客户端单测改用示例接口样例。
+- E2E：删除全部支付用例、Fixture、支付宿主入口、渠道替身与整个 Live；新增示例协议矩阵用例；迁移后的通用用例改绑新 ID。
+- 脚本与配置：`contract-inventory` 改为针对示例路由；ID 配置改为通用格式；删除 `live:*`、`check:live` 命令与 `dotenv` 依赖；覆盖率配置在删除期间增加临时豁免清单，结束时移除。
+- 规划：新增两份能力 Spec；修改 `scenario-gate`、`template-example`；直接删除两份支付主 Spec。
+- 运行要求：每个任务后 `pnpm check:fast` 通过。最终验收为：`check:fast`、按 AGENTS 约定逐文件运行的 weapp、以全部报告运行的场景门禁，三者都以退出码 0 通过。

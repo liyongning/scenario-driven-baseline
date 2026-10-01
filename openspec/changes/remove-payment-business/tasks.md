@@ -1,267 +1,381 @@
 # 删除支付业务实施计划
 
-**Goal:** 删除全部支付业务，先把被支付场景"挂住"的通用能力迁到通用能力 Spec 与 `SCN-*` 场景之下，使仓库只剩模板骨架与示例，并让完整 `pnpm check` 第一次以退出码 0 通过。
+**Goal:** 删除全部支付业务与 Live，使仓库成为 SDK 领域的通用模板。能力保全清单中的每一项能力，删除后都仍有项目级承载文件与运行证据；最终验收中的三项检查全部以退出码 0 通过。
 
-**Architecture:** 执行顺序为先迁出、再删除（见 Design"执行顺序"）。迁出期间支付代码仍在，迁移后的用例先在原被测对象上跑通；删除之后，门禁对剩余的全部场景对账。
+**Architecture:** 先迁出通用能力，再按功能由外到内分组删除（见 Design"执行顺序""功能分组"）。每组同时删除 Spec 段落、测试绑定、Fixture 与独立代码，由门禁机械判定是否删干净；共享的支付核心在临时覆盖率豁免下保留到最后一组整体删除。
 
-**Tech Stack:** 沿用仓库现有工具链，不新增依赖。
+**Tech Stack:** 沿用仓库现有工具链，不新增依赖；删除 `dotenv`。
 
 **Spec:** [scenario-gate](specs/scenario-gate/spec.md)、[template-engineering](specs/template-engineering/spec.md)、[protocol-contract](specs/protocol-contract/spec.md)、[template-example](specs/template-example/spec.md)、[设计](design.md)。
 
 ## Global Constraints
 
-- 每个任务结束时 `pnpm check:fast` 必须通过；手写代码四项覆盖率保持 100%。
+- 每个任务结束时 `pnpm check:fast` 必须通过；豁免清单之外的手写代码四项覆盖率保持 100%。
+- 豁免清单以 Design"共享核心的临时覆盖率豁免"为准，只能减少，不能增加；如需增加，停止并返回 Plan Review。
 - 不改包名、scope、registry、IDL、ProtoGen Consumer 与生成配置；不修改已归档 Change。
-- 迁移只改绑定（`ownerId`、`covers`、测试名、文件名、Fixture 目录与 manifest），不改断言语义；被删除的 case 以 Design 迁移表为准。
-- 长期约定必须落在项目级载体上（AGENTS.md、schema、配置、脚本）；Change 文档不能是唯一出处。
+- 迁移只改绑定，不改断言语义；不迁移的 case 以 Design 迁移表为准。
+- 删除任务（3～9）按 Design"每组的删除步骤与完成判定"执行：先 `git grep` 列出引用方，再删除，最后机械判定。命中清单写入验收索引。
 - 场景门禁的结论必须来自本次实际运行的 `scripts/check-scenarios.ts`，禁止凭推断声称"已有绑定"或"门禁通过"。
 - weapp 按 `packages/e2e/AGENTS.md`"微信开发者工具自动化的注意事项"执行：每个文件运行前退出主进程并预热；失败时整文件重跑；不用 `-t` 单跑 case。
-- 任何源码改动之后，若 `TC-PAYSDK-CONTRACT-021` 仍存在（第 3 个任务之前），须重录它的 `sourceDigest` 与 manifest sha256，这是常规操作，不改测试逻辑。
-- 不新增依赖；若确需新增，先更新 Design 并重新评审。
+- 长期约定必须落在项目级载体上（AGENTS.md、schema、配置、脚本）；Change 文档不能是唯一出处。
 
 ## 每个任务的共同完成条件
 
 1. Files 中的产物齐全，行为与所列 Requirement/Scenario 及 Design 决定一致。
 2. `pnpm check:fast` 退出码为 0。
 3. 本任务的 RED 已先失败，GREEN 后通过；Verification 中的命令与反例符合预期。
-4. 实际运行一次场景门禁（unit、integration 报告，以及本任务涉及的 weapp 报告），记录结果：
-   - 第 1～4 个任务：非支付问题（不含 `TC-PAYSDK`、`FLOW-PAYSDK`、`infra.trade.v1.CreateTradePay`）只能来自尚未完成的后续任务，并在验收索引中逐条说明归属；
-   - 第 5、6 个任务：问题总数为 0。
-5. 在 `artifacts/<run-id>/tasks/task-<n>.md` 保存验收索引：实际命令与退出码、报告路径、方案与实际的差异、预期失败的反例、weapp 重跑记录。
-6. 本任务引入或修改的长期约定已写入 Design 所列的项目级文件。
+4. 实际运行一次场景门禁（unit、integration 报告，以及本任务涉及的 weapp 报告）：本任务新建或迁移的场景没有问题；删除任务中被删的场景 ID、FLOW ID 在门禁输出中零出现；其余问题只能涉及尚未删除的支付场景或 `infra.trade.v1.CreateTradePay`，并在验收索引中说明。
+5. 在 `artifacts/<run-id>/tasks/task-<n>.md` 保存验收索引：实际命令与退出码、报告路径、`git grep` 命中清单、当时的豁免清单、方案与实际的差异、预期失败的反例、weapp 重跑记录。
+6. 逐项核对 Design"能力保全清单"：每一项仍有承载文件与运行证据；本任务删除的内容不属于清单中的能力，或其承载已按 Design 迁移。
 7. 任务评审确认职责边界、断言与 Spec 一致后才勾选。
 
 ## Implementation Tasks
 
 **Tracking rule:** One independently implementable and reviewable task maps to one unindented top-level checkbox. RED, GREEN, verification, and review steps are indented plain bullets, not additional tracked checkboxes.
 
-- [ ] 1. 迁出通用工程能力与门禁规则：改挂 `SCN-TEMPLATE-ENGINEERING-*` 与 `SCN-SCENARIO-GATE-009/010/011`
+- [ ] 1. 迁出通用工程能力与门禁规则
 
   **Files**
-  - Rename + rebind：`packages/e2e/tests/tooling/TC-PAYSDK-CORE-015.spec.ts` → `SCN-SCENARIO-GATE-009.spec.ts`；`TC-PAYSDK-CORE-016.spec.ts` → `SCN-SCENARIO-GATE-010.spec.ts`；`TC-PAYSDK-CORE-017.spec.ts` → `SCN-TEMPLATE-ENGINEERING-002.spec.ts`；`TC-PAYSDK-RELEASE-PREFLIGHT.spec.ts` → `SCN-TEMPLATE-ENGINEERING-004.spec.ts`（新增绑定：preflight-valid-plan、preflight-rejects-drift、publish-order）；`TC-PAYSDK-CORE-022.spec.ts` 中的 isolated-live-build、live-evidence-validation 迁到 `SCN-TEMPLATE-ENGINEERING-006.spec.ts`（missing-create-contract 留在原文件，第 4 个任务随支付删除）。
-  - Rebind：`packages/e2e/tests/sdk/TC-PAYSDK-CORE-014.spec.ts` 中的 protocol-network-*、sdk-does-not-reexport-network、sdk-only-consumer、package-boundaries 迁到新文件 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts`；支付客户端相关的 case 留在原文件，第 4 个任务删除。
-  - Rebind：`packages/e2e/tests/sdk/TC-PAYSDK-CONTRACT-021.spec.ts` 中的 source-and-dual-declarations、missing-comment-rejected 迁到新文件 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts`，检查对象改为示例公共类型（`packages/payment-sdk/src/example/contracts.ts` 及其 ESM、CJS 声明）；semantic-review-evidence 留在原文件，第 4 个任务删除。
-  - Rebind：`packages/e2e/host/weapp/live/live.test.ts` 中的 config-source、token-save-replace-clear、storage-failure、redacted-record 绑定为 `SCN-TEMPLATE-ENGINEERING-005`（create-pay-recovery 留原绑定，第 4 个任务删除）。
-  - Modify：`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-005.spec.ts` → 更名 `SCN-SCENARIO-GATE-011.spec.ts`；payment-baseline-cli 去掉支付基线断言，更名为 multi-pattern-cli；绑定改为 SCN-SCENARIO-GATE-011；`scripts/lib/scenario-config.test.ts` 中 pattern-config 的绑定同步改为 011。
-  - 迁移涉及的 Fixture 目录按新 ID 改名，manifest 的 `ownerId` 与 `sources.spec.path` 同步更新；支付基线文件 `SCN-SCENARIO-GATE-005/payment-*.json` 随目录更名为 `SCN-SCENARIO-GATE-011/` 后删除。
+  - Modify：`scenario-gate.config.json`：`scenarioIdPatterns`、`flowIdPatterns` 改为 Design"ID 格式配置"中的通用格式，支付格式暂时保留。
+  - Rename + rebind：`packages/e2e/tests/tooling/TC-PAYSDK-CORE-015.spec.ts` → `SCN-SCENARIO-GATE-009.spec.ts`；`TC-PAYSDK-CORE-016.spec.ts` → `SCN-SCENARIO-GATE-010.spec.ts`；`TC-PAYSDK-CORE-017.spec.ts` → `SCN-TEMPLATE-ENGINEERING-002.spec.ts`；`TC-PAYSDK-RELEASE-PREFLIGHT.spec.ts` → `SCN-TEMPLATE-ENGINEERING-004.spec.ts`（新增绑定 preflight-valid-plan、preflight-rejects-drift、publish-order）。
+  - Split + rebind：`packages/e2e/tests/sdk/TC-PAYSDK-CORE-014.spec.ts` 中的 protocol-network-*、sdk-does-not-reexport-network、sdk-only-consumer、package-boundaries 迁到新文件 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts`；`packages/e2e/tests/sdk/TC-PAYSDK-CONTRACT-021.spec.ts` 中的 source-and-dual-declarations、missing-comment-rejected 迁到新文件 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts`，检查对象改为示例公共类型。
+  - Delete：`TC-PAYSDK-CONTRACT-021.spec.ts` 中的 semantic-review-evidence 用例及其 Fixture 文件 `semantic-review-evidence.json`，manifest 同步更新。
+  - Modify：`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-005.spec.ts` 更名为 `SCN-SCENARIO-GATE-011.spec.ts`；payment-baseline-cli 去掉支付基线断言后改名为 multi-pattern-cli；`scripts/lib/scenario-gate.evidence.test.ts` 中 pattern-config 的绑定改为 011。
+  - Delete：`packages/e2e/tests/fixtures/SCN-SCENARIO-GATE-005/` 整个目录。
+  - 迁移涉及的新 Fixture 目录：按新 ID 建立，只含迁走的 case 数据；manifest 的 `ownerId` 与 `sources.spec.path`（指向本 Change 的 delta spec）同步；原 manifest 保留剩余 case。
 
   **Requirements / Scenarios**
-  - template-engineering：ENG-01～06 / SCN-TEMPLATE-ENGINEERING-001～006
-  - scenario-gate：GATE-07 / SCN-SCENARIO-GATE-009；GATE-08 / SCN-SCENARIO-GATE-010；GATE-09 / SCN-SCENARIO-GATE-011
+  - template-engineering：ENG-01～04 / SCN-TEMPLATE-ENGINEERING-001～004
+  - scenario-gate：GATE-02（新能力的 ID 符合配置）；GATE-07 / SCN-SCENARIO-GATE-009；GATE-08 / SCN-SCENARIO-GATE-010；GATE-09 / SCN-SCENARIO-GATE-011
 
   **Design Decisions**
-  - Decision: 执行顺序是"先迁出，再删除"
-  - Decision: 能力归属与场景 ID 迁移表
+  - Decision: 能力归属与场景 ID 迁移（任务 1）
+  - Decision: ID 格式配置
   - Decision: OpenSpec 的两处例外
 
   **Interfaces**
-  - Consumes: 本 Change 的 delta spec（门禁经 active change 合并读取）；现有 tooling 与 Live 单测。
-  - Produces: 新场景 ID 下的全部绑定与报告记录。
+  - Consumes: 本 Change 的 delta spec（门禁经 active change 合并读取）；现有 tooling 用例。
+  - Produces: 通用 ID 格式配置；新场景 ID 下的全部绑定与报告记录。
 
   **RED**
-  - 先运行一次场景门禁，确认 `SCN-TEMPLATE-ENGINEERING-001～006`、`SCN-SCENARIO-GATE-009/010/011` 全部报告为缺绑定，并保存输出。
+  - 不改配置先运行场景门禁：新能力场景报告为 ID 格式不符（GATE-02）；改配置后再运行：新场景报告为缺绑定。两次输出都保存。
 
   **GREEN**
-  - 完成改名与改绑。`pnpm check:fast` 通过；再次运行场景门禁，上述场景不再缺绑定。
+  - 完成改名、拆分与改绑；`pnpm check:fast` 通过。
 
   **Verification**
-  - `pnpm check:fast` 退出码 0。
-  - 场景门禁：`SCN-TEMPLATE-ENGINEERING-*`、`SCN-SCENARIO-GATE-009/010/011` 没有问题；原 `TC-PAYSDK-CORE-014/015/016/017/021/022`、`TC-PAYSDK-CONTRACT-021` 中被迁走的 case 此时报告为缺绑定，属预期（第 5 个任务删除支付主 Spec 后消失）。
+  - `pnpm check:fast` 退出码 0；`pnpm check:fixtures` 无问题。
+  - 场景门禁：`SCN-TEMPLATE-ENGINEERING-001～004`、`SCN-SCENARIO-GATE-009～011` 没有问题；`SCN-PROTOCOL-CONTRACT-*` 缺绑定，归属任务 2。
 
   **Review / Acceptance**
-  - 逐项对照 Design 迁移表：每个保留的 case 都有新绑定，断言没有改变语义。
+  - 逐项对照 Design 迁移表：每个保留的 case 都有新绑定，断言没有改变语义；semantic-review-evidence 已删除。
 
   **Commit**
   - `refactor(template): rehome generic capabilities from payment scenarios`
 
-- [ ] 2. IDL 协议义务派生改为针对示例接口，并补齐示例协议矩阵用例
+- [ ] 2. IDL 协议义务派生改为针对示例接口，补齐示例协议矩阵
 
   **Files**
-  - Modify：`scripts/lib/contract-inventory.ts` 及测试：方法集合改为 `discoverExampleRoutes()`；按 Design 字段策略表重写 `requestPolicies`；删除 `xpay_env` 专项校验与对 `descriptor.json` 的读取；错误码清单改读 `SCN-PROTOCOL-CONTRACT-003/idl-errors.json`；共享义务去掉 `xpay-env-absent`；删除两条支付附加义务。测试绑定 `SCN-PROTOCOL-CONTRACT-001` 的 derivation-rules。
-  - Rename：`packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/` → `SCN-PROTOCOL-CONTRACT-003/`；`packages/e2e/tests/protocol/TC-PAYSDK-CONTRACT-024.spec.ts` → `SCN-PROTOCOL-CONTRACT-003.spec.ts`，绑定改为新 ID；`payment-projection-mismatch` 更名为 `projection-mismatch`。本任务只改名与改绑，缩减清单在第 3 个任务完成。
-  - Create：`packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts`（inventory-cli）；`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`（integration 协议矩阵，每个 case 以 `covers` 绑定义务 ID）；Fixture `SCN-PROTOCOL-CONTRACT-002/`。
-  - Modify：`packages/e2e/host/weapp/protocol-runner.ts` 的 `runProtocolSuite` 改为 `CreateTrade`/`QueryTrade`，但 `runPaymentCase` 暂时保留；`src/drivers/weapp-host.test.ts` 同步。
-  - Create：`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts`（一次宿主调用跑完整份清单）。
-  - Modify：`scripts/check-fixtures.ts` 删除 `TC-PAYSDK-CONTRACT-023` 特例。
+  - Modify：`scripts/lib/contract-inventory.ts` 及测试（按 Design"IDL 义务派生改为针对示例接口"），测试绑定 `SCN-PROTOCOL-CONTRACT-001` 的 derivation-rules。
+  - Rename：`packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/` → `SCN-PROTOCOL-CONTRACT-003/`；`tests/protocol/TC-PAYSDK-CONTRACT-024.spec.ts` → `SCN-PROTOCOL-CONTRACT-003.spec.ts`，绑定改为新 ID；`payment-projection-mismatch` 改名为 `projection-mismatch`。
+  - Modify（读取路径随改名同步）：`packages/payment-protocol/src/errors/business-codes.test.ts`；`packages/e2e/tests/tooling/scenario-gate-helpers.ts`（同时去掉 `TC-PAYSDK-CONTRACT-023/descriptor.json`）。
+  - Create：`packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts`（inventory-cli）；`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`；`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts`；Fixture `SCN-PROTOCOL-CONTRACT-002/`。
+  - Delete：`packages/e2e/tests/protocol/TC-PAYSDK-PROTOCOL-MATRIX.spec.ts`、`packages/e2e/tests/weapp/TC-PAYSDK-PROTOCOL-MATRIX.spec.ts`。
+  - Modify：`scripts/check-fixtures.ts` 与 `scripts/check-fixtures.test.ts`（删除 `TC-PAYSDK-CONTRACT-023` 特例及其断言）；`packages/payment-protocol/src/client.test.ts`（改用 `SCN-PROTOCOL-CONTRACT-002/` 样例，删除 `xpay_env` presence 用例）。
+  - Modify：`packages/e2e/host/weapp/protocol-runner.ts`（`runProtocolCase`、`runProtocolSuite` 改为 `createTrade`/`queryTrade`，`Cancellation` 改从协议包导入）；`packages/e2e/src/drivers/weapp-host.test.ts`、`weapp.test.ts`。
 
   **Requirements / Scenarios**
   - protocol-contract：PC-01 / SCN-PROTOCOL-CONTRACT-001、002；PC-02 / SCN-PROTOCOL-CONTRACT-003
   - scenario-gate：GATE-07（协议义务作为覆盖分母）
 
   **Design Decisions**
-  - Decision: IDL 义务派生改为针对示例接口
-  - Decision: 协议包的调整（Fixture 改名部分）
+  - Decision: IDL 义务派生改为针对示例接口（任务 2）
 
   **Interfaces**
   - Consumes: generated `CreateTrade`、`QueryTrade` 描述；示例 Shadow 路由；公共协议客户端。
-  - Produces: 以 `infra.trade.v1.CreateTrade#…`、`infra.trade.v1.QueryTrade#…` 为 ID 的义务清单，以及覆盖它们的 integration 与 weapp 证据。
+  - Produces: 以 `infra.trade.v1.CreateTrade#…`、`infra.trade.v1.QueryTrade#…` 为 ID 的义务清单及其 integration 与 weapp 证据。
 
   **RED**
-  - 先改派生器并运行场景门禁：新义务全部报告为缺绑定，派生器报告的待定字段也列出来，保存输出。
+  - 先改派生器并运行场景门禁：新义务全部缺绑定，派生器报告的待定字段也列出，保存输出。
 
   **GREEN**
-  - 补齐字段策略，使待定字段为 0；补齐矩阵用例与 Fixture；`pnpm check:fast` 通过；按 AGENTS 约定跑 weapp 矩阵文件。
+  - 补齐字段策略，使待定字段为 0；补齐矩阵、Fixture 与协议客户端单测样例；`pnpm check:fast` 通过；按 AGENTS 约定跑 weapp 矩阵文件。
 
   **Verification**
   - `pnpm check:fast` 退出码 0。
-  - 场景门禁：所有 `infra.trade.v1.CreateTrade#…` 与 `QueryTrade#…` 义务没有问题；`SCN-PROTOCOL-CONTRACT-001～003` 没有问题；派生器待定字段为 0。
+  - `git grep -n "TC-PAYSDK-CONTRACT-02[34]\|discoverPaymentRoutes"` 的命中只剩后续删除组的支付用例、Fixture 与支付 Shadow 路由，逐条记录。
+  - 场景门禁：`infra.trade.v1.CreateTrade#…`、`QueryTrade#…` 义务与 `SCN-PROTOCOL-CONTRACT-001～003` 没有问题；派生器待定字段为 0。
   - weapp 矩阵文件取得通过的报告（记录重跑次数）。
 
   **Review / Acceptance**
-  - 核对字段策略表与示例实际映射一致；矩阵用例每个 case 的断言与义务 case 含义一致，而不只是绑定 ID。
+  - 字段策略表与示例实际映射一致；矩阵每个 case 的断言与义务 case 的含义一致，而不只是绑定 ID。
 
   **Commit**
   - `feat(protocol-contract): derive IDL obligations for the example protocol`
 
-- [ ] 3. 删除 SDK 与协议包中的支付代码
+- [ ] 3. 删除 Live，并启用共享核心的临时覆盖率豁免
 
   **Files**
-  - Delete：`packages/payment-sdk/src/core/`、`adapters/`、`ports/`、`errors/`、`contracts.ts`、`factory.ts` 及其单测。
-  - Create：`packages/payment-sdk/src/runtime/port.ts`；Modify：`runtime/default.ts`（改引 `./port` 与协议包的 `Cancellation`，删除 `nextAttemptId`）及其测试。
-  - Modify：`packages/payment-sdk/src/index.ts` 只导出示例；`packages/payment-sdk/src/contracts.test.ts`、`factory.test.ts` 等随删除一并移除。
-  - Modify：`.dependency-cruiser.cjs`：删除 `example-no-payment`、`payment-no-example`；新增 `domain-isolation`；`core-no-platform-or-node` 路径改为 `src/(runtime|example/(core|ports))/`。
-  - Modify：`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`：跨业务目录反例改为临时的 `src/sample-domain/`。
-  - Modify：`packages/payment-protocol/testing/shadow/routes.ts`、`server.ts`、`testing/index.ts` 及测试：删除支付路由，`routes` 改为必填。
-  - Modify：`packages/payment-protocol/src/errors/business-codes.ts` 及测试：缩减为 Design 所列 7 项；`SCN-PROTOCOL-CONTRACT-003/` 中的 `idl-errors.json`、各反例、`extract.go`、`reproduce.sh`、`refresh-manifests.py` 同步缩减。
-  - 本任务之后 `TC-PAYSDK-CONTRACT-021` 已不再需要重录（其被测对象删除），相关用例在第 4 个任务删除；本任务若导致其失败，属预期，在验收索引中说明并确保 `check:fast` 仍通过（可在本任务中一并删除该文件）。
+  - Modify：根 `vitest.config.ts`：按 Design 加入临时豁免段；删除 Live 的覆盖范围与排除项。
+  - Delete（Design"移除 Live"）：`packages/e2e/src/live/`、`packages/e2e/host/weapp/live/`、`host/weapp/pages/live/`、`host/weapp/app.live.js`、`app.live.json`、`vite.live.config.ts`、`project.live.example.json`；`tests/tooling/TC-PAYSDK-CORE-022.spec.ts`、`TC-PAYSDK-CORE-023.spec.ts`、`tests/example/SCN-TEMPLATE-EXAMPLE-010.spec.ts` 及其 Fixture；`.env.live.example`；`docs/engineering/live-acceptance.md`、`live-create-trade-contract.md`。
+  - Modify：根 `package.json`（删除 `live:build`、`live:check`、`check:live`；`pnpm remove -D dotenv`）；`pnpm-lock.yaml`；`.gitignore` 的 Live 条目；`packages/e2e/src/bootstrap.test.ts` 等引用 Live 的测试；`scripts/lib/fingerprints.ts` 中如有 Live 路径同步删除。
+  - Modify：`openspec/specs/payment-sdk/spec.md`：删除 SDK-17 段落。
 
   **Requirements / Scenarios**
-  - template-example：EX-01、EX-05 / SCN-TEMPLATE-EXAMPLE-001、008
+  - 删除：SDK-17（TC-PAYSDK-CORE-021/022/023）；template-example EX-07（SCN-TEMPLATE-EXAMPLE-010，经 delta REMOVED）
+
+  **Design Decisions**
+  - Decision: 移除 Live（任务 3）
+  - Decision: 共享核心的临时覆盖率豁免
+  - Decision: 每组的删除步骤与完成判定
+
+  **Interfaces**
+  - Consumes: 任务 1、2 之后的仓库。
+  - Produces: 不含 Live 的仓库；生效的临时豁免清单。
+
+  **RED**
+  - `git grep` 列出 `live`、`Live`、`LIVE-`、`TC-PAYSDK-CORE-02[123]`、`SCN-TEMPLATE-EXAMPLE-010`、`dotenv`、`.env.live` 的全部引用方并保存。
+
+  **GREEN**
+  - 按清单删除与修改；`pnpm check:fast` 通过。
+
+  **Verification**
+  - 按 Design 完成判定逐项检查并记录。
+
+  **Review / Acceptance**
+  - 确认没有遗留的 Live 入口、命令与配置；豁免清单与 Design 完全一致。
+
+  **Commit**
+  - `refactor(template): remove live acceptance mode`
+
+- [ ] 4. 删除 `xpayEnv` 环境选择
+
+  **Files**
+  - 按 Design"功能分组"第 4 组：删除 SDK-16、CONTRACT-14 段落与 FLOW-008 行；删除该组列出的测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。
+
+  **Requirements / Scenarios**
+  - 删除：TC-PAYSDK-CORE-020、TC-PAYSDK-CONTRACT-022、TC-PAYSDK-CONTRACT-023、FLOW-PAYSDK-008
+
+  **Design Decisions**
+  - Decision: 功能分组；Decision: 每组的删除步骤与完成判定
+
+  **Interfaces**
+  - Consumes / Produces: 按 Design 完成判定。
+
+  **RED**
+  - `git grep` 列出本组 ID 与 Fixture 目录的全部引用方并保存。
+
+  **GREEN**
+  - 删除后 `pnpm check:fast` 通过。
+
+  **Verification**
+  - 按 Design 完成判定逐项检查并记录。
+
+  **Review / Acceptance**
+  - 确认被删 ID 零残留、豁免清单未增加、能力保全清单无损失。
+
+  **Commit**
+  - `refactor(payment): remove xpayEnv selection scenarios`
+
+- [ ] 5. 删除渠道调起与原生生命周期
+
+  **Files**
+  - 按 Design"功能分组"第 5 组：删除 SDK-02、03、04、08、12 段落与 FLOW-002、003 行；删除该组测试文件；在聚合文件与豁免文件的单测中删除只绑定本组场景的用例；删除无读取方的 Fixture 目录。
+
+  **Requirements / Scenarios**
+  - 删除：TC-PAYSDK-CORE-002、003、004、005、009、013、024，FLOW-PAYSDK-002、003
+
+  **Design Decisions**
+  - Decision: 功能分组；Decision: 每组的删除步骤与完成判定
+
+  **Interfaces**
+  - Consumes / Produces: 按 Design 完成判定。
+
+  **RED**
+  - `git grep` 列出本组 ID 与 Fixture 目录的全部引用方并保存。
+
+  **GREEN**
+  - 删除后 `pnpm check:fast` 通过。
+
+  **Verification**
+  - 按 Design 完成判定逐项检查并记录。
+
+  **Review / Acceptance**
+  - 同任务 4。
+
+  **Commit**
+  - `refactor(payment): remove channel invocation scenarios`
+
+- [ ] 6. 删除鉴权、身份与恢复
+
+  **Files**
+  - 按 Design"功能分组"第 6 组：删除 SDK-10、CONTRACT-04、05、09 段落与 FLOW-006 行；删除该组测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。
+
+  **Requirements / Scenarios**
+  - 删除：TC-PAYSDK-CORE-011，TC-PAYSDK-CONTRACT-005、006、007、013、014、018、025、026，FLOW-PAYSDK-006
+
+  **Design Decisions**
+  - Decision: 功能分组；Decision: 每组的删除步骤与完成判定
+
+  **Interfaces**
+  - Consumes / Produces: 按 Design 完成判定。
+
+  **RED**
+  - `git grep` 列出本组 ID 与 Fixture 目录的全部引用方并保存。
+
+  **GREEN**
+  - 删除后 `pnpm check:fast` 通过。
+
+  **Verification**
+  - 按 Design 完成判定逐项检查并记录。
+
+  **Review / Acceptance**
+  - 同任务 4。
+
+  **Commit**
+  - `refactor(payment): remove auth, identity and recovery scenarios`
+
+- [ ] 7. 删除阶段通知
+
+  **Files**
+  - 按 Design"功能分组"第 7 组：删除 SDK-15、CONTRACT-12 段落与 FLOW-007 行；删除该组测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。
+
+  **Requirements / Scenarios**
+  - 删除：TC-PAYSDK-CORE-018、019，TC-PAYSDK-CONTRACT-020，FLOW-PAYSDK-007
+
+  **Design Decisions**
+  - Decision: 功能分组；Decision: 每组的删除步骤与完成判定
+
+  **Interfaces**
+  - Consumes / Produces: 按 Design 完成判定。
+
+  **RED**
+  - `git grep` 列出本组 ID 与 Fixture 目录的全部引用方并保存。
+
+  **GREEN**
+  - 删除后 `pnpm check:fast` 通过。
+
+  **Verification**
+  - 按 Design 完成判定逐项检查并记录。
+
+  **Review / Acceptance**
+  - 同任务 4。
+
+  **Commit**
+  - `refactor(payment): remove phase notification scenarios`
+
+- [ ] 8. 删除查询、观察与时间策略
+
+  **Files**
+  - 按 Design"功能分组"第 8 组：删除 SDK-05、06、11、CONTRACT-03、08、10、11 段落与 FLOW-004、005 行；删除该组测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。
+
+  **Requirements / Scenarios**
+  - 删除：TC-PAYSDK-CORE-006、007、012，TC-PAYSDK-CONTRACT-003、004、011、012、015、016、017、019，FLOW-PAYSDK-004、005
+
+  **Design Decisions**
+  - Decision: 功能分组；Decision: 每组的删除步骤与完成判定
+
+  **Interfaces**
+  - Consumes / Produces: 按 Design 完成判定。
+
+  **RED**
+  - `git grep` 列出本组 ID 与 Fixture 目录的全部引用方并保存。
+
+  **GREEN**
+  - 删除后 `pnpm check:fast` 通过。
+
+  **Verification**
+  - 按 Design 完成判定逐项检查并记录。
+
+  **Review / Acceptance**
+  - 同任务 4。
+
+  **Commit**
+  - `refactor(payment): remove query and observation scenarios`
+
+- [ ] 9. 删除核心与公共入口，清空豁免清单
+
+  **Files**
+  - 按 Design"功能分组"第 9 组与"SDK 与协议包的最终删除（任务 9）"：
+    - 删除全部剩余支付场景、FLOW-001、聚合文件、剩余支付用例与 Fixture；
+    - 删除豁免清单中的全部文件与 `packages/payment-sdk/src/ports/`、其余支付单测；
+    - 新增 `src/runtime/port.ts`，修改 `runtime/default.ts`、`src/index.ts`；
+    - 修改 `.dependency-cruiser.cjs` 与 `tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`；
+    - 删除 `packages/e2e/src/drivers/channel-double.ts`、`protocol-runner.ts` 中的 `runPaymentCase` 与 `app.js` 中的注册；
+    - 修改 `testing/shadow/routes.ts`、`server.ts`、`testing/index.ts` 及测试；
+    - 缩减 `src/errors/business-codes.ts` 与 `SCN-PROTOCOL-CONTRACT-003/` 的全部文件（含 `extract.go`、`reproduce.sh`、`defensive-fixtures.py`、`refresh-manifests.py`、`refresh-manifests.test.py`、manifest 摘要、`toHaveLength(7)`）；
+    - 工具单测中的 `TC-PAYSDK-*`、`FLOW-PAYSDK-*` 样本改为通用格式；
+    - `scenario-gate.config.json`、`scripts/lib/scenario-config.ts`、`spec-inventory.ts` 删除支付格式，`ownerIdPattern` 不再接受 `TC-`；脚本中 v8-ignore 注释改指新场景 ID；
+    - 删除 `openspec/specs/payment-sdk/`、`payment-sdk-contract/`，并同步删除四份 AGENTS.md 中指向它们的链接；
+    - 根 `vitest.config.ts` 删除整段临时豁免。
+  - 同时收紧 FLOW 关联 Scenario：`scripts/flow.schema.json` 的 `relatedScenarios` 改为 ID 数组，`scripts/lib/spec-inventory.ts` 校验已登记；新增 SCN-SCENARIO-GATE-007 的 unregistered-related-scenario-cli 用例，并在 `spec-inventory.test.ts` 的 flow-placement-rules 中增加 related-scenarios-registered 检查。
+
+  **Requirements / Scenarios**
+  - 删除：其余全部支付场景与 FLOW-PAYSDK-001
+  - template-example：EX-01 / SCN-TEMPLATE-EXAMPLE-001；EX-05 / SCN-TEMPLATE-EXAMPLE-008
   - protocol-contract：PC-02 / SCN-PROTOCOL-CONTRACT-003
+  - scenario-gate：GATE-03 / SCN-SCENARIO-GATE-007（新增检查）、SCN-SCENARIO-GATE-003、SCN-SCENARIO-GATE-004（内容未变，作回归确认）；GATE-09 / SCN-SCENARIO-GATE-011
   - template-engineering：ENG-01 / SCN-TEMPLATE-ENGINEERING-001（产物边界在删除后仍成立）
 
   **Design Decisions**
-  - Decision: SDK 包的删除与运行辅助端口迁移
-  - Decision: 协议包的调整
+  - Decision: 功能分组；Decision: 每组的删除步骤与完成判定
+  - Decision: SDK 与协议包的最终删除（任务 9）
+  - Decision: 共享核心的临时覆盖率豁免
+  - Decision: ID 格式配置；Decision: OpenSpec 的两处例外
 
   **Interfaces**
-  - Consumes: 示例模块与协议包公开入口。
-  - Produces: 只含示例的 SDK 根入口；7 项错误码目录；必须显式传入路由的 Shadow。
+  - Consumes: 任务 3～8 之后的仓库。
+  - Produces: 不含支付代码与支付 Spec 的仓库；只含示例导出的 SDK；7 项错误码目录；必须显式传入路由的 Shadow；没有豁免的覆盖率配置。
 
   **RED**
-  - 先删除支付代码并运行 `pnpm typecheck` 与 `pnpm check:architecture`：示例因依赖支付类型而编译失败、依赖规则引用不存在的路径，保存输出。
+  - `git grep` 列出 `TC-PAYSDK`、`FLOW-PAYSDK`、`createPaymentClient`、`PaymentOutcome`、`discoverPaymentRoutes`、`from '@daqian/payment-sdk'`（`src/example/` 以外）、`tests/fixtures/TC-PAYSDK`、`openspec/specs/payment-sdk` 的全部引用方并保存；先加上 related-scenarios-registered 用例，确认在旧实现下失败。
 
   **GREEN**
-  - 完成运行辅助端口迁移与规则调整；删除随之失去被测对象的支付单测；`pnpm check:fast` 通过。
+  - 按清单删除与修改；`pnpm check:fast` 在**没有任何豁免**的情况下通过。
 
   **Verification**
-  - `pnpm check:fast` 退出码 0。
-  - `domain-isolation` 反例阻断、恢复后通过；错误码一致性校验的全部反例仍被拒绝。
-  - `pnpm check:package` 通过，SDK 产物只含示例导出。
+  - `pnpm check:fast` 退出码 0，覆盖率四项 100%，`vitest.config.ts` 中已无临时豁免段。
+  - `domain-isolation` 反例被阻断、恢复后通过；`pnpm check:package` 通过，SDK 产物只含示例导出。
+  - 以 `reproduce.sh /Users/liyongning/Projects/workspace/dev/idl <临时目录>` 实际运行，输出的 `idl-errors.json` 与提交版本逐字节一致；错误码一致性校验的全部反例仍被拒绝。
+  - 场景门禁（unit、integration 与示例、协议矩阵的 weapp 报告）问题总数为 0。
+  - 在仓库副本上模拟 `openspec archive remove-payment-business -y`，确认可以归档（不在真实仓库执行）。
 
   **Review / Acceptance**
-  - 确认 `packages/payment-sdk/src/` 下除 `example/`、`runtime/`、`index.ts` 外没有其他业务代码；确认没有未被测试导入的手写文件。
+  - `packages/payment-sdk/src/` 下只剩 `example/`、`runtime/`、`index.ts`；主 Spec 目录只剩 `scenario-gate`、`template-example`；能力保全清单逐项核对通过。
 
   **Commit**
-  - `refactor(payment-sdk): remove payment business code`
+  - `refactor(payment-sdk): remove payment core and public entry`
 
-- [ ] 4. 删除 E2E、宿主与 Live 中的支付部分
-
-  **Files**
-  - Delete：`packages/e2e/tests/sdk/`；`tests/flows/`；`tests/protocol/` 与 `tests/weapp/` 下的 `TC-PAYSDK-*`、`FLOW-PAYSDK-*` 文件；`tests/tooling/TC-PAYSDK-CORE-022.spec.ts`、`TC-PAYSDK-CORE-023.spec.ts`；全部 `TC-PAYSDK-*`、`FLOW-PAYSDK-*` Fixture 目录。
-  - Modify：`packages/e2e/host/weapp/protocol-runner.ts` 删除 `runPaymentCase`；`app.js` 删除其注册；`src/drivers/weapp-host.test.ts` 同步。
-  - Delete：`packages/e2e/src/drivers/channel-double.ts` 及测试；Modify：`src/live/build.ts`、`src/live/check.ts` 中测试设施判定去掉 `channel-double`，测试同步。
-  - Delete：`host/weapp/pages/live/index/`、`host/weapp/live/controller.ts`、`page.ts`、`create-trade.ts`、`create-trade-errors.ts`、`trade-form.ts`、`runtime.ts` 及对应测试。
-  - Modify：`host/weapp/live/config.ts` 与测试（去掉 `trade-form` 依赖，白名单按 Design 收窄）；`host/weapp/app.live.json`（只注册示例页面）；`src/live/check-evidence.ts`、`src/live/evidence.schema.json`、`src/live/build.ts` 的输入输出清单及测试（只保留 `LIVE-TEMPLATE-EXAMPLE-001`）。
-  - Modify：工具单测中作为样本的 `TC-PAYSDK-*`、`FLOW-PAYSDK-*` 改为通用格式样本：`scripts/check-fixtures.test.ts`、`scripts/check-scenarios.test.ts`、`packages/e2e/src/cases/*.test.ts`、`packages/e2e/src/reporters/scenario-reporter.test.ts` 等。
-  - Modify：`packages/e2e/vitest.config.*.ts` 的 include 去掉已删除目录。
-
-  **Requirements / Scenarios**
-  - template-engineering：ENG-05 / SCN-TEMPLATE-ENGINEERING-005；ENG-06 / SCN-TEMPLATE-ENGINEERING-006
-  - template-example：EX-07 / SCN-TEMPLATE-EXAMPLE-010
-
-  **Design Decisions**
-  - Decision: E2E、宿主与 Live 的删除范围
-
-  **Interfaces**
-  - Consumes: 第 1～3 个任务后的通用用例与示例。
-  - Produces: 只含通用与示例内容的 E2E 包、weapp 宿主与 Live 控制台。
-
-  **RED**
-  - 先删除支付 Live 页面与模块，运行 `pnpm test:unit`，确认 `config.ts` 因依赖 `trade-form` 失败、证据检查因缺少支付矩阵记录失败，保存输出。
-
-  **GREEN**
-  - 完成 Live 收窄、宿主调整与样本 ID 替换；`pnpm check:fast` 通过。
-
-  **Verification**
-  - `pnpm check:fast` 退出码 0。
-  - `grep -rE "(TC|FLOW)-PAYSDK" packages scripts` 只可能命中第 5 个任务要处理的配置与文档；在验收索引中列出命中位置。
-  - 示例的 3 个 weapp 文件与协议矩阵 weapp 文件按 AGENTS 约定取得通过的报告。
-
-  **Review / Acceptance**
-  - 确认 Live 构建与证据检查仍能离线执行，且示例页面的 Live 用例绑定在 SCN-TEMPLATE-ENGINEERING-005/006 与 SCN-TEMPLATE-EXAMPLE-010 之下。
-
-  **Commit**
-  - `refactor(e2e): remove payment tests, host entry and live console`
-
-- [ ] 5. 门禁与配置收口，删除支付主 Spec
+- [ ] 10. 文档与最终验收
 
   **Files**
-  - Modify：`scenario-gate.config.json` 删除支付格式；`scenario-gate.config.schema.json` 如有支付示例值同步修改。
-  - Modify：`scripts/flow.schema.json`（`relatedScenarios` 改为 ID 数组，字段说明同步）、`scripts/lib/spec-inventory.ts` 及测试：校验关联 Scenario 已登记。
-  - Create：`packages/e2e/tests/tooling/` 中 SCN-SCENARIO-GATE-007 的 unregistered-related-scenario-cli 用例；`scripts/lib/spec-inventory.test.ts` 中 flow-placement-rules 增加 related-scenarios-registered 检查。
-  - Delete：`openspec/specs/payment-sdk/`、`openspec/specs/payment-sdk-contract/`（Design"OpenSpec 的两处例外"）。
-
-  **Requirements / Scenarios**
-  - scenario-gate：GATE-03 / SCN-SCENARIO-GATE-007（新增检查）；GATE-03 / SCN-SCENARIO-GATE-003、004（内容未变，随 GATE-03 的 MODIFIED 整体保留，作回归确认）；GATE-09 / SCN-SCENARIO-GATE-011
-
-  **Design Decisions**
-  - Decision: 门禁与配置收口
-  - Decision: OpenSpec 的两处例外
-
-  **Interfaces**
-  - Consumes: 第 1～4 个任务后的仓库。
-  - Produces: 只含通用格式的配置；只含 4 个通用能力的主 Spec。
-
-  **RED**
-  - 先加上 related-scenarios-registered 用例并运行，确认在旧实现下失败。
-
-  **GREEN**
-  - 完成 schema 与校验；删除支付主 Spec；`pnpm check:fast` 通过。
-
-  **Verification**
-  - `pnpm check:fast` 退出码 0。
-  - 场景门禁问题总数为 0（以 unit、integration 与第 4 个任务取得的 weapp 报告运行，报告须与当前源码摘要一致，不一致时重跑）。
-  - 在仓库副本上执行 `openspec archive remove-payment-business -y` 的模拟，确认可以归档（不在真实仓库执行）。
-
-  **Review / Acceptance**
-  - 确认主 Spec 目录只剩 `scenario-gate`、`template-example`、`template-engineering`、`protocol-contract`（后两者在归档后出现，Apply 期间以 delta 形式存在）。
-
-  **Commit**
-  - `feat(scenario-gate): drop payment formats and enforce registered FLOW scenarios`
-
-- [ ] 6. 文档清理与完整验收
-
-  **Files**
-  - Modify：`AGENTS.md`、`packages/payment-sdk/AGENTS.md`、`packages/payment-protocol/AGENTS.md`、`packages/e2e/AGENTS.md`：删除"当前业务：支付"整节，更新通用规则中的能力与场景指向，补充"IDL 协议义务派生针对示例的 `CreateTrade`、`QueryTrade`"。
-  - Modify：`README.md` 删除支付内容。
-  - Delete：`docs/engineering/live-acceptance.md`、`docs/engineering/live-create-trade-contract.md`。
-  - Modify：`.env.live.example` 只保留白名单剩余键。
+  - Modify：`AGENTS.md`、`packages/payment-sdk/AGENTS.md`、`packages/payment-protocol/AGENTS.md`、`packages/e2e/AGENTS.md`：删除"当前业务：支付"整节；写入 Design"外部交互替身的设计标准"；更新能力与场景指向；注明 IDL 协议义务派生针对示例的 `CreateTrade`、`QueryTrade`。
+  - Modify：`README.md` 删除支付与 Live 内容。
 
   **Requirements / Scenarios**
   - template-engineering：ENG-02 / SCN-TEMPLATE-ENGINEERING-002（AGENTS 入口与链接检查）
   - scenario-gate：GATE-06 / SCN-SCENARIO-GATE-008（AGENTS 仍引用三份 schema）
 
   **Design Decisions**
-  - Decision: 文档
-  - Decision: 验证方式
+  - Decision: 文档（任务 10）；Decision: 外部交互替身的设计标准；Decision: 验证方式；Decision: 能力保全清单
 
   **Interfaces**
-  - Consumes: 前 5 个任务的全部产物。
-  - Produces: 不含支付内容的文档；完整验收证据。
+  - Consumes: 前 9 个任务的全部产物。
+  - Produces: 不含支付与 Live 内容的文档；完整验收证据。
 
   **RED**
-  - 先删除支付文档并运行 `pnpm check:architecture`，确认 AGENTS 中指向已删除文件的链接被报告，保存输出。
+  - `git grep -nE "当前业务：支付|TC-PAYSDK|FLOW-PAYSDK|Live|live:"` 对 `AGENTS.md`、`packages/*/AGENTS.md`、`README.md` 的命中清单（修改前应非空）并保存。
 
   **GREEN**
-  - 修正全部链接与指向；`pnpm check:fast` 通过。
+  - 完成文档修改，上述 grep 零命中；`pnpm check:fast` 通过。
 
   **Verification**
-  - 完整 `pnpm check` 退出码 0：`check:fast`、weapp（按 AGENTS 约定按文件运行）、场景门禁问题数为 0。
-  - `grep -rniE "TC-PAYSDK|FLOW-PAYSDK|支付业务" AGENTS.md packages/*/AGENTS.md README.md docs scripts packages --include='*.md' --include='*.ts' --include='*.json'` 不再命中业务内容（EX-07 中守护"不调用支付接口"的表述与 generated 代码除外），命中项在验收索引中逐条说明。
+  - 按 Design"验证方式"执行最终验收：`pnpm check:fast`、逐文件运行全部 weapp 文件、以全部报告运行场景门禁，三者退出码都为 0，门禁问题数为 0。
+  - 仓库范围 `git grep -nE "TC-PAYSDK|FLOW-PAYSDK|payment-sdk/spec.md|live-create-trade-contract"` 零命中（`openspec/changes/archive/`、本 Change 目录与 generated 代码除外）。
+  - 逐项核对能力保全清单，把每一项的承载文件与运行证据写入验收索引。
 
   **Review / Acceptance**
-  - 汇总 6 个任务的证据；逐项核对 Design 迁移表与载体清单；确认已知缺口 GAP-01、GAP-02 已在 Design 登记。
+  - 汇总 10 个任务的证据；确认 GAP-01～03 的登记与现状一致。
 
   **Commit**
   - `docs(template): remove payment documentation and complete verification`

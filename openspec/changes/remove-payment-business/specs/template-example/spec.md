@@ -49,3 +49,9 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
   "blockedBy": []
 }
 ```
+
+## REMOVED Requirements
+
+### Requirement: EX-07 示例的 Live 页面
+**Reason**: 用户决定 Live 模式整体移出模板。Shadow 与真实环境对 SDK 只是网关配置的差别；针对真实服务端与真实平台能力的验收，应由真实消费方（例如独立的轻量接入方项目）完成，放在 SDK 仓库内是不健康的耦合。
+**Migration**: 无迁移；示例的行为证据全部来自 Shadow（EX-02、EX-03、EX-06、EX-08）。场景 SCN-TEMPLATE-EXAMPLE-010 随之删除，编号不再复用。
