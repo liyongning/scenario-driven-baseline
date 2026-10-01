@@ -409,7 +409,6 @@ Scenario 与具体测试 case SHALL 支持多对多绑定。工程 MUST 额外�
 | FLOW-PAYSDK-005 | CORE-012、CONTRACT-012/018 | pay → 准备 → 渠道 success_hint → 第一次查单 PAYING → 宿主 getter 数据更新 → 后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare | token-rotates-between-queries | integration、weapp | 结构化参数样例；本流程验证正常 Token 轮换，鉴权拒绝后的恢复由 FLOW-006 验证 |
 | FLOW-PAYSDK-006 | CORE-011/013、CONTRACT-005/006/007/013 | 身份失效 → 原调用一次交付中断结果 → 宿主恢复 → 按阶段显式再次调用；另覆盖宿主停止后的旧回调隔离。具体调用顺序和次数见下表 | prepare-auth、query-auth、channel-session、channel-session-different-payment、native-stop-late-callback | integration、weapp | 公共契约参数/错误矩阵及 Task 3 完整样例；运行证据由 Task 7/8 交付 |
 | FLOW-PAYSDK-007 | CORE-018/019、CONTRACT-020 | 公共 pay/observe → 本次阶段通知 → 外部渠道/HTTP → 一次最终结果；验证通知前后副作用、数据关联、回调异常与停止重入 | first-paid、first-closed、observe-only、stop-before-invoke、stop-after-notification、stop-after-platform、stop-before-query、handler-throw、handler-reject、reentrant-pay、no-listener | integration、weapp | 使用 Task 3 正常/终态数据及外部渠道替身，业务回调由测试消费者提供；不 mock SDK 核心或注入假的阶段事件，不要求真实 UI 动画 |
-| FLOW-PAYSDK-008 | CORE-003/020、CONTRACT-022/023 | 公共 pay → CreateTradePay 的原始请求 → 本次参数/渠道 → QueryTrade → 一次结果；检查三态、presence、逐次隔离和签名不变 | omitted、sandbox、prod、successive-selection、request-snapshot | integration、weapp | 使用 Task 3 按独立 IDL 样例确定的请求期望及不同签名原文。Shadow 与渠道替身只验证 SDK 的请求/消费；实际部署默认和真扣款另由 Task 8 验收 |
 
 FLOW-001 至 006 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming；FLOW-005 多次查单只通知一次 confirming；FLOW-006 query-auth 恢复的 observe 单独通知 confirming，native-stop-late-callback 的旧运行停止后不得再通知。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
 
@@ -426,19 +425,6 @@ FLOW-007 每个 case 在同一次运行中验证下列检查点，两个环境�
 | handler-throw / handler-reject | 两个通知的消费回调分别同步抛错/返回拒绝 Promise → SDK 仍完成正常渠道及 query(PAID)；次数不增加、结果不被观察者错误改写，无未处理拒绝；异常原文不进入诊断 |
 | reentrant-pay | channel_invoking 回调内再次 pay 同交易 → 新调用 busy/无通知，原调用正常完成；原 prepare/渠道仍各一次，不将 busy 结果或事件归入原 attempt |
 | no-listener | 省略 onPhase 的 pay 完成 prepare/渠道/query(PAID)，与有监听的正常 case 网络/渠道计数和结果语义一致 |
-
-FLOW-008 每个 case 在 integration/weapp 的同一个连续测试内完成 prepare → channel_invoking → 渠道 success_hint → confirming → query(PAID) → confirmed；QueryTrade、Header 和 BaseReq 均无 xpayEnv，渠道业务参数只有原有四个字段（平台回调函数另计），signData 与本次准备响应逐字一致。
-
-| case key | 连续步骤与必须断言 |
-| --- | --- |
-| omitted | 分别以省略和显式 undefined 运行完整支付；两个请求都完全缺少 xpayEnv 键，不发送 null/0/UNSPECIFIED |
-| sandbox / prod | 各自完整运行，实际 HTTP JSON 分别带 XPAY_ENV_SANDBOX / XPAY_ENV_PROD；不把请求选择当作已证实的渠道环境，不改变网关地址或 lane |
-| successive-selection | 同一客户端、不同有效交易引用，依次 sandbox → prod → 省略，前次结束后才开始下一次；每次独立完成全链路，第三次不继承前次值 |
-| request-snapshot | pay 接纳 sandbox 后，在受控 provider 暂停期间把宿主原 request.xpayEnv 改成 prod；释放后实际 HTTP 仍发送 SANDBOX，完整支付使用本次响应，不依赖真实计时 |
-
-非法输入的零副作用和类型检查由 CONTRACT-022 完整覆盖，不用一条成功 FLOW 替代。以上模拟支付不证明服务端支持环境选择；测试部署/生产部署、Android/iOS 的真实矩阵见 Design 和 Task 8。
-
-FLOW-006 的环境补充检查：prepare-auth 使用 sandbox 并在显式重试保留；channel-session 使用 sandbox、channel-session-different-payment 使用 prod，两次 pay 保留各自原选择。query-auth 在首个 pay 使用 prod，恢复 observe 和独立 query 均不发送 xpayEnv。native-stop-late-callback 允许新 pay 显式使用不同选择，旧运行不能覆盖新值；这些输入只是本次测试数据，不增加 SDK 环境历史或服务端支付单切换保证。
 
 FLOW-006 每个 case 在一次连续运行中验证下列检查点；业务恢复使用可控测试宿主操作，不让 SDK 执行登录。
 
@@ -596,35 +582,6 @@ SDK SHALL 按公共契约 CONTRACT-12 提供每次调用可选的 onPhase，核�
     {"key": "reentrant-pay", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["attempt-isolation"]},
     {"key": "old-callback-after-new-attempt", "kind": "behavior", "requiredIn": ["integration"], "checks": ["attempt-isolation"]},
     {"key": "no-callback-host-stop", "kind": "behavior", "requiredIn": ["integration"], "checks": ["no-callback-needs-host-stop", "attempt-isolation"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-16 支付环境选择的逐次隔离
-
-SDK SHALL 在每次 pay 接纳时复制该次 xpayEnv，并只交给 PaymentBackend.prepare 按 CONTRACT-14 映射；不能修改已保存签名、客户端默认值或后续请求。字段非法时 MUST 在 provider/HTTP/渠道/阶段通知前拒绝。环境选择不改变同客户端同交易 busy、显式凭据恢复或只查询原交易的规则；服务端实际环境、支付单复用和签名由服务端裁决。
-
-#### Scenario: TC-PAYSDK-CORE-020 环境选择不串用且不影响恢复边界
-- **WHEN** 同一客户端连续以 sandbox、prod、省略发起已结束前序运行的新 pay，或调用后修改原 request，再按阶段恢复 pay/query/observe
-- **THEN** 每次 prepare 只使用各自接纳时的选择；省略不继承前值，在途值不受对象修改影响。显式恢复 pay 由测试宿主保留原选择及 tradeNo/method/appId，并采用本次响应完整参数；query/observe 仅查原交易、不发送环境字段，SDK 不自动续接。渠道收到的四参数与当次响应逐字一致，不从 xpayEnv 重写 signData。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "per-run-selection": "sandbox、prod、省略逐次隔离；省略不继承前值",
-    "request-snapshot": "接纳后复制请求，调用方后续修改不影响在途值",
-    "pay-recovery-selection": "显式恢复 pay 保留原选择及 tradeNo/method/appId，并消费本次完整响应",
-    "query-recovery-absence": "query/observe 只查原交易且不发送环境字段，SDK 不自动续接",
-    "channel-signature-unchanged": "渠道四参数来自当次响应且逐字一致，不由 xpayEnv 重写 signData"
-  },
-  "cases": [
-    {"key": "successive-selection", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["per-run-selection"]},
-    {"key": "request-snapshot", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["request-snapshot"]},
-    {"key": "prepare-auth-retry-selection", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["pay-recovery-selection", "channel-signature-unchanged"]},
-    {"key": "channel-session-retry-selection", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["pay-recovery-selection", "channel-signature-unchanged"]},
-    {"key": "query-recovery-no-env", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["query-recovery-absence"]}
   ],
   "blockedBy": []
 }

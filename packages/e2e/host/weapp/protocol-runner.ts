@@ -2,9 +2,6 @@ import { createProtocolClient, createWechatMiniappHttp, type Cancellation } from
 import { createPaymentClient, type PaymentOutcome, type PaymentPhaseEvent } from '@daqian/payment-sdk';
 import {
   CreateTrade,
-  CreateTradePay,
-  CreateTradePayRequest,
-  CreateTradePayResponse,
   CreateTradeRequest,
   CreateTradeResponse,
   QueryTrade,
@@ -15,8 +12,7 @@ import {
 type ProtocolMethod = 'CreateTrade' | 'QueryTrade';
 
 type ProtocolCaseInput = Readonly<{
-  /** 过渡期：createTradePay 只服务第 4 组删除前的 TC-PAYSDK-CONTRACT-023 小程序用例。 */
-  action: 'createTrade' | 'createTradePay' | 'queryTrade';
+  action: 'createTrade' | 'queryTrade';
   gatewayBaseUrl: string;
   request: Record<string, unknown>;
   accessToken: string;
@@ -56,12 +52,6 @@ export async function runProtocolCase(input: ProtocolCaseInput) {
     },
   });
   const context = { deadlineAtMs: Date.now() + input.timeoutMs };
-  if (input.action === 'createTradePay') {
-    const result = await client.request(CreateTradePay.meta, CreateTradePayRequest.fromJSON(input.request), context);
-    return result.ok
-      ? { ok: true, httpStatus: result.value.http.status, wire: result.value.wire, decoded: CreateTradePayResponse.toJSON(result.value.data) }
-      : result;
-  }
   if (input.action === 'createTrade') {
     const result = await client.request(CreateTrade.meta, CreateTradeRequest.fromJSON(input.request), context);
     return result.ok
@@ -160,9 +150,6 @@ type PaymentCaseInput = Readonly<{
   tradeNo: string;
   accessToken: string;
   appId: string;
-  xpayEnv?: unknown;
-  retryXpayEnv?: unknown;
-  tradeNos?: readonly string[];
   accessTokens?: readonly (string | null)[];
   policy?: import('@daqian/payment-sdk').PaymentPolicyOverrides;
   caseKey: string;
@@ -249,19 +236,14 @@ export async function runPaymentCase(input: PaymentCaseInput) {
     subscribe() { return () => undefined; },
   };
   const accessTokens = [...(input.accessTokens ?? [])];
-  let releaseSnapshotToken: (() => void) | undefined;
-  const snapshotToken = input.caseKey === 'request-snapshot'
-    ? new Promise<string>(resolve => { releaseSnapshotToken = () => resolve(input.accessToken); })
-    : undefined;
   const client = createPaymentClient({
     runtime: 'wechat-miniapp', gatewayBaseUrl: input.gatewayBaseUrl, appId: input.appId,
-    enabledMethods: ['wechat-miniapp-virtual-goods'], getAccessToken: () => snapshotToken ?? (accessTokens.length > 0 ? accessTokens.shift()! : input.accessToken),
+    enabledMethods: ['wechat-miniapp-virtual-goods'], getAccessToken: () => (accessTokens.length > 0 ? accessTokens.shift()! : input.accessToken),
     requestContext: { productId: 'fixture-product', lane: 'fixture-lane', appVersion: '1.0.0' },
     policy: input.policy ?? { observation: { intervalMs: 1, maxWaitMs: 100 }, requestTimeoutMs: 10_000 },
   });
-  const request = (xpayEnv: unknown = input.xpayEnv, tradeNo = input.tradeNo, explicitUndefined = false) => ({
+  const request = (tradeNo = input.tradeNo) => ({
     reference: { tradeNo }, method: 'wechat-miniapp-virtual-goods' as const,
-    ...(explicitUndefined || Object.prototype.hasOwnProperty.call(input, 'xpayEnv') || xpayEnv !== undefined || input.caseKey === 'explicit-undefined' ? { xpayEnv } : {}),
   } as unknown as import('@daqian/payment-sdk').PaymentRequest);
   const onPhase = (event: PaymentPhaseEvent) => {
     phases.push(event);
@@ -291,33 +273,13 @@ export async function runPaymentCase(input: PaymentCaseInput) {
         pending[0]!.success();
         await track(client.observe({ tradeNo: input.tradeNo }, { onPhase }));
       } else if (input.caseKey === 'native-stop-late-callback') {
-        const second = track(client.pay(request(input.retryXpayEnv), { onPhase }));
+        const second = track(client.pay(request(), { onPhase }));
         pending[0]!.success();
         await second;
       } else pending[0]!.success();
     } else if (input.caseKey === 'prepare-auth' || input.caseKey.startsWith('channel-session')) {
       await track(client.pay(request(), { onPhase }));
-      await track(client.pay(request(input.retryXpayEnv), { onPhase }));
-    } else if (input.caseKey === 'successive-selection') {
-      // automator 会把 undefined 编成 null；宿主在同一客户端内构造三次真实输入，第三次省略用于捕获前次 prod 污染。
-      const xpayEnvs: readonly unknown[] = ['sandbox', 'prod', undefined];
-      const tradeNos = input.tradeNos ?? [`${input.tradeNo}-sandbox`, `${input.tradeNo}-prod`, `${input.tradeNo}-omitted`];
-      for (let index = 0; index < xpayEnvs.length; index += 1) {
-        await track(client.pay(request(xpayEnvs[index], tradeNos[index]), { onPhase }));
-      }
-    } else if (input.caseKey === 'flow-omitted') {
-      // FLOW-008 omitted 同一 case 连续验证属性省略与 own-property undefined；两者的 wire 都必须缺键。
-      const tradeNos = input.tradeNos ?? [`${input.tradeNo}-omitted`, `${input.tradeNo}-explicit-undefined`];
-      await track(client.pay(request(undefined, tradeNos[0], false), { onPhase }));
-      await track(client.pay(request(undefined, tradeNos[1], true), { onPhase }));
-    } else if (input.caseKey === 'request-snapshot') {
-      const mutable = request('sandbox') as { xpayEnv: unknown };
-      const pendingPay = track(client.pay(mutable as never, { onPhase }));
-      mutable.xpayEnv = 'prod';
-      releaseSnapshotToken?.();
-      while (pending.length === 0) await new Promise(resolve => setTimeout(resolve, 0));
-      pending[0]!.success();
-      await pendingPay;
+      await track(client.pay(request(), { onPhase }));
     } else if (input.caseKey === 'long-channel-wait') {
       const pendingPay = track(client.pay(request() as never, { onPhase }));
       while (pending.length === 0) await new Promise(resolve => setTimeout(resolve, 0));

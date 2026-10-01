@@ -25,7 +25,6 @@ const defs: readonly D[] = [
  ...['default-policy','fieldwise-overrides','per-call-override-isolation','invalid-policy-zero','invalid-policy-negative','invalid-policy-nan','invalid-policy-infinity','channel-wait-budget'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-019',caseKey,checks:[caseKey==='default-policy'?'defaults':caseKey==='fieldwise-overrides'?'fieldwise-merge':caseKey==='per-call-override-isolation'?'override-isolation':caseKey==='channel-wait-budget'?'channel-wait-excluded':'invalid-before-send']})),
  {ownerId:'TC-PAYSDK-CONTRACT-020',caseKey:'independent-query',checks:['query-no-notifications']},
  {ownerId:'TC-PAYSDK-CONTRACT-020',caseKey:'no-extra-phase-values',checks:['public-event-shape','no-extra-phases']},
- {ownerId:'TC-PAYSDK-CONTRACT-023',caseKey:'observe-no-env',checks:['observe-absence','independent-wire-oracle']},
 ];
 const req=(tradeNo:string)=>({reference:{tradeNo},method:'wechat-miniapp-virtual-goods' as const});
 const error=(code:bigint,retryable=false)=>({baseResp:{statusCode:code.toString(),success:false,statusMsg:'fixture',error:{bizCode:code.toString(),canonicalCode:'CANONICAL_ERROR_CODE_UNAVAILABLE',retryable}}});
@@ -68,7 +67,7 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
  else if(key==='observe-after-stop') http=[{path:'/api/base/trade/query',body:successQuery(f.tradeNo),delayMs:20},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];
  else if(key==='duplicate-active-pay') {http=[{path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];channel=['pending'];}
  else if(key==='provider-throws') token=null;
- else if(d.ownerId==='TC-PAYSDK-CONTRACT-018'||d.ownerId==='TC-PAYSDK-CONTRACT-015'||d.ownerId==='TC-PAYSDK-CONTRACT-019'||d.ownerId==='TC-PAYSDK-CONTRACT-020'||d.ownerId==='TC-PAYSDK-CONTRACT-023') {
+ else if(d.ownerId==='TC-PAYSDK-CONTRACT-018'||d.ownerId==='TC-PAYSDK-CONTRACT-015'||d.ownerId==='TC-PAYSDK-CONTRACT-019'||d.ownerId==='TC-PAYSDK-CONTRACT-020') {
   if(key==='request-id-multiple-clients') http=[
    {path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)},
    {path:'/api/base/trade/pay',body:successPrepare(`${f.tradeNo}-second`)},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-second`)},
@@ -78,7 +77,7 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
    {path:'/api/base/trade/pay',body:successPrepare(`${f.tradeNo}-override`)},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-override`,'TRADE_STATUS_PAYING')},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-override`)},
    {path:'/api/base/trade/pay',body:successPrepare(`${f.tradeNo}-base`)},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-base`,'TRADE_STATUS_PAYING')},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-base`)},
   ];
-  else http=[{path:key==='independent-query'||key==='observe-no-env'?'/api/base/trade/query':'/api/base/trade/pay',body:key==='independent-query'||key==='observe-no-env'?successQuery(f.tradeNo):successPrepare(f.tradeNo)},...key==='independent-query'||key==='observe-no-env'?[]:[{path:'/api/base/trade/query' as const,body:successQuery(f.tradeNo)}]];
+  else http=[{path:key==='independent-query'?'/api/base/trade/query':'/api/base/trade/pay',body:key==='independent-query'?successQuery(f.tradeNo):successPrepare(f.tradeNo)},...key==='independent-query'?[]:[{path:'/api/base/trade/query' as const,body:successQuery(f.tradeNo)}]];
  }
  if(key==='success-error-conflict-with-zero-status') http.push({path:'/api/base/trade/query',body:successQuery(f.tradeNo)});
  if(key==='channel-wait-budget') channel=['pending'];
@@ -111,7 +110,6 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
  }
  else if(key==='channel-wait-budget') {const pending=harness.client.pay(req(f.tradeNo));while(!platform.pendingChannels.length)await new Promise(r=>setTimeout(r,0));await new Promise(r=>setTimeout(r,8));platform.pendingChannels[0]!.success();outcomes=[await pending];}
  else if(key==='independent-query') outcomes=[await harness.client.query({tradeNo:f.tradeNo})];
- else if(key==='observe-no-env') outcomes=[await harness.client.observe({tradeNo:f.tradeNo})];
  else outcomes=[key==='no-extra-phase-values'?await harness.pay(req(f.tradeNo)):await harness.client.pay(req(f.tradeNo))];
  for(const check of d.checks) await checkpoint(check,()=>{
   const out=outcomes[0] as PaymentOutcome;
@@ -151,7 +149,6 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
   }
   else if(key==='independent-query'){expect(outcomes[0]).toMatchObject({ok:true,value:{state:'PAID'}});}
   else if(key==='no-extra-phase-values'){expect(harness.phases.map(p=>p.phase)).toEqual(['channel_invoking','confirming']);}
-  else if(key==='observe-no-env'){expect(platform.httpRecords[0]?.body).not.toHaveProperty('xpayEnv');expect(out).toMatchObject({reason:'confirmed',channelSignal:'not_invoked'});}
  });
 }, {fixtureRoot});
 

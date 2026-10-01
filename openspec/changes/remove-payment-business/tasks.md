@@ -153,7 +153,7 @@
   **Commit**
   - `refactor(template): remove live acceptance mode`
 
-- [ ] 4. 删除 `xpayEnv` 环境选择
+- [x] 4. 删除 `xpayEnv` 环境选择
 
   **Files**
   - 按 Design"功能分组"第 4 组：删除 SDK-16、CONTRACT-14 段落与 FLOW-008 行；删除该组列出的测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。
