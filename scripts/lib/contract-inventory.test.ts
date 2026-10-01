@@ -1,51 +1,62 @@
-import { cp, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test, type TestContext } from 'vitest';
+import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 
+const generated = join(process.cwd(), 'packages/payment-protocol/src/generated');
+const tradeFile = 'generated/idl/infra/trade/v1/trade.ts';
+
+async function copyGenerated(prefix: string) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  await cp(generated, join(root, 'generated'), { recursive: true });
+  return { root, file: join(root, tradeFile) };
+}
+
 describe('buildContractInventory', () => {
-  it('separates reachable fields from reviewed request applicability and directional encoding rules', async () => {
+  it('derives obligations for the example protocol only', async () => {
     const inventory = await buildContractInventory(process.cwd());
     expect(inventory.methods).toEqual([
-      { name: 'CreateTradePay', method: 'POST', path: '/api/base/trade/pay' },
+      { name: 'CreateTrade', method: 'POST', path: '/api/base/trade/create' },
       { name: 'QueryTrade', method: 'POST', path: '/api/base/trade/query' },
     ]);
     expect(inventory.obligations).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#request-mapping#trade_no', cases: ['mapped-value'] }),
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#request-mapping#open_id', cases: ['omitted'] }),
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#response-mapping#payment_no', cases: ['decoded-value', 'decoded-default'] }),
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#response-mapping#pay_params.wechat_virtual.sign_data' }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#http-route#$', cases: ['CreateTrade'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#request-mapping#user_id', cases: ['mapped-value'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#request-mapping#goods_type', cases: ['fixed-value'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#request-mapping#items.sku_snapshot', cases: ['omitted'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#request-mapping#discount_amount', cases: ['fixed-value'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#response-mapping#order_nos', cases: ['decoded-value', 'decoded-default'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.CreateTrade#encoding-boundary#response.order_nos', cases: ['response-repeated-array'] }),
       expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#request-mapping#sync_channel', cases: ['omitted'] }),
       expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#response-mapping#trade.orders.refund_status' }),
       expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#header-base-req#$' }),
       expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#encoding-boundary#response.trade.orders.unit_price', cases: expect.arrayContaining(['response-json-int64-string']) }),
       expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#response-handling#$' }),
+      expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#error-handling#$' }),
       expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#timeout#$' }),
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#request-mapping#xpay_env', cases: ['omitted', 'sandbox', 'prod'] }),
-      expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#request-mapping#xpay_env', cases: ['query-no-env'] }),
       expect.objectContaining({ id: 'idl.error-contract#business-error#$', cases: expect.arrayContaining(['ErrInfraTradeQueryTradeUnavailable']) }),
     ]));
-    expect(inventory.obligations).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#encoding-boundary#request.trade_no' }),
-      expect.objectContaining({ id: 'infra.trade.v1.CreateTradePay#encoding-boundary#response.trade_no' }),
-    ]));
+    expect(inventory.obligations.some(item => item.id.includes('CreateTradePay'))).toBe(false);
     expect(new Set(inventory.obligations.map(item => item.id)).size).toBe(inventory.obligations.length);
+    for (const obligation of inventory.obligations) {
+      expect(obligation.cases.length, obligation.id).toBeGreaterThan(0);
+      expect(obligation.requiredIn.length, obligation.id).toBeGreaterThan(0);
+    }
     expect(inventory.discoveries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ method: 'CreateTradePay', direction: 'request', path: 'open_id', applicability: 'applicable', authority: expect.stringContaining('Design') }),
-      expect.objectContaining({ method: 'CreateTradePay', direction: 'response', path: 'pay_params.wechat_jsapi', oneofBranch: true, applicability: 'applicable' }),
+      expect.objectContaining({ method: 'CreateTrade', direction: 'request', path: 'user_id', applicability: 'applicable', authority: expect.stringContaining('Design') }),
+      expect.objectContaining({ method: 'QueryTrade', direction: 'response', path: 'trade.orders.refund_status', applicability: 'applicable', authority: expect.stringContaining('Design') }),
     ]));
     expect(inventory.discoveries.filter(item => item.applicability === 'pending')).toEqual([]);
     expect(inventory.issues).toEqual([]);
   });
 
-  it('derives a newly reachable non-xpay field and leaves it missing without a binding', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-contract-added-field-'));
-    await cp(join(process.cwd(), 'packages/payment-protocol/src/generated'), join(root, 'generated'), { recursive: true });
-    const tradeFile = join(root, 'generated/idl/infra/trade/v1/trade.ts');
-    const original = await readFile(tradeFile, 'utf8');
-    await writeFile(tradeFile, original.replace('export interface QueryTradeResponse {', 'export interface QueryTradeResponse {\n  reviewProbe: string;'));
+  it('derives a newly reachable field and leaves it missing without a binding', async () => {
+    const { root, file } = await copyGenerated('payment-contract-added-field-');
+    const original = await readFile(file, 'utf8');
+    await writeFile(file, original.replace('export interface QueryTradeResponse {', 'export interface QueryTradeResponse {\n  reviewProbe: string;'));
     const inventory = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
     const obligation = inventory.obligations.find(item => item.id === 'infra.trade.v1.QueryTrade#response-mapping#review_probe');
     expect(obligation).toEqual(expect.objectContaining({ cases: ['decoded-value', 'decoded-default'] }));
@@ -59,11 +70,9 @@ describe('buildContractInventory', () => {
   });
 
   it('keeps unreviewed request fields and unknown encodings visible as pending issues', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-contract-pending-field-'));
-    await cp(join(process.cwd(), 'packages/payment-protocol/src/generated'), join(root, 'generated'), { recursive: true });
-    const tradeFile = join(root, 'generated/idl/infra/trade/v1/trade.ts');
-    const original = await readFile(tradeFile, 'utf8');
-    await writeFile(tradeFile, original
+    const { root, file } = await copyGenerated('payment-contract-pending-field-');
+    const original = await readFile(file, 'utf8');
+    await writeFile(file, original
       .replace('export interface QueryTradeRequest {', 'export interface QueryTradeRequest {\n  reviewProbe: string;')
       .replace('export interface QueryTradeResponse {', 'export interface QueryTradeResponse {\n  cycle?: QueryTradeResponse;\n  opaqueProbe: unknown;'));
     const inventory = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
@@ -79,47 +88,91 @@ describe('buildContractInventory', () => {
     expect(inventory.obligations.some(item => item.id.includes('review_probe') || item.id.includes('opaque_probe'))).toBe(false);
   });
 
-  it('makes malformed oneof shapes and missing generated roots explicit', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-contract-malformed-oneof-'));
-    await cp(join(process.cwd(), 'packages/payment-protocol/src/generated'), join(root, 'generated'), { recursive: true });
-    const payFile = join(root, 'generated/idl/infra/pay/v1/pay.ts');
-    const original = await readFile(payFile, 'utf8');
-    await writeFile(payFile, original.replace(
-      '{ $case: "wechatVirtual"; wechatVirtual: WechatVirtualPayParams }',
-      '{ $case: "wechatVirtual"; wechatVirtual: WechatVirtualPayParams; unexpected: string }',
-    ));
-    const malformed = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
-    expect(malformed.issues).toContain('CreateTradePay response field pay_params.params has no approved encoding rule');
-
-    const recursiveRoot = await mkdtemp(join(tmpdir(), 'payment-contract-recursive-oneof-'));
-    await cp(join(process.cwd(), 'packages/payment-protocol/src/generated'), join(recursiveRoot, 'generated'), { recursive: true });
-    const recursivePayFile = join(recursiveRoot, 'generated/idl/infra/pay/v1/pay.ts');
-    await writeFile(recursivePayFile, original.replace('wechatVirtual: WechatVirtualPayParams }', 'wechatVirtual: PayParams }'));
-    const recursive = await buildContractInventory(process.cwd(), { generatedRoot: join(recursiveRoot, 'generated') });
-    expect(recursive.discoveries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: 'pay_params.wechat_virtual', encoding: 'oneof-object', oneofBranch: true }),
+  it('treats a single-params union as oneof branches and rejects malformed shapes', async () => {
+    const { root, file } = await copyGenerated('payment-contract-oneof-');
+    const original = await readFile(file, 'utf8');
+    const probes = [
+      'interface OneofProbe { params: { $case: "alpha"; alpha: string } | { $case: "beta"; beta: string } | { $case: "gamma"; gamma: { nested: string } } }',
+      'interface SingleFieldProbe { only: string }',
+    ].join('\n');
+    const patched = original.replace(
+      'export interface QueryTradeResponse {',
+      `${probes}\nexport interface QueryTradeResponse {\n  probe?: OneofProbe | undefined;\n  single?: SingleFieldProbe | undefined;`,
+    );
+    await writeFile(file, patched);
+    const inventory = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
+    expect(inventory.discoveries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'probe', encoding: 'oneof-object', oneofBranch: false, applicability: 'applicable' }),
+      expect.objectContaining({ path: 'probe.alpha', oneofBranch: true, encoding: 'json-string' }),
+      expect.objectContaining({ path: 'single.only', oneofBranch: false, encoding: 'json-string' }),
     ]));
+    expect(inventory.obligations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#response-mapping#probe', cases: ['decoded-value', 'decoded-absence', 'wire-present', 'wire-absent'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#response-mapping#probe.alpha', cases: ['decoded-branch', 'wire-present', 'wire-absent'] }),
+      expect.objectContaining({ id: 'infra.trade.v1.QueryTrade#encoding-boundary#response.probe', cases: ['response-oneof-object', 'response-optional-absence'] }),
+    ]));
+    expect(inventory.issues).toEqual([]);
 
-    const missingRoot = await mkdtemp(join(tmpdir(), 'payment-contract-missing-generated-'));
-    await expect(buildContractInventory(process.cwd(), { generatedRoot: missingRoot })).rejects.toThrow('generated Consumer trade output is missing');
-    const tradeFile = join(recursiveRoot, 'generated/idl/infra/trade/v1/trade.ts');
-    const trade = await readFile(tradeFile, 'utf8');
-    await writeFile(tradeFile, trade
+    const malformed = await copyGenerated('payment-contract-malformed-oneof-');
+    await writeFile(malformed.file, patched.replace('alpha: string }', 'alpha: string; unexpected: string }'));
+    const malformedInventory = await buildContractInventory(process.cwd(), { generatedRoot: join(malformed.root, 'generated') });
+    expect(malformedInventory.issues).toContain('QueryTrade response field probe.params has no approved encoding rule');
+  });
+
+  it('fails loudly when the generated Consumer output is missing or incomplete', async () => {
+    const missing = await mkdtemp(join(tmpdir(), 'payment-contract-missing-generated-'));
+    await expect(buildContractInventory(process.cwd(), { generatedRoot: missing })).rejects.toThrow('generated Consumer trade output is missing');
+
+    const { root, file } = await copyGenerated('payment-contract-missing-type-');
+    const trade = await readFile(file, 'utf8');
+    await writeFile(file, trade
       .replace('export interface QueryTradeResponse {', 'export interface MissingQueryTradeResponse {')
       .replace('export const QueryTradeResponse:', 'export const MissingQueryTradeResponse:'));
-    await expect(buildContractInventory(process.cwd(), { generatedRoot: join(recursiveRoot, 'generated') })).rejects.toThrow('missing type QueryTradeResponse');
+    await expect(buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') })).rejects.toThrow('missing type QueryTradeResponse');
+  });
+});
+
+test('SCN-PROTOCOL-CONTRACT-001 derivation-rules', { meta: { paymentCase: {
+  ownerId: 'SCN-PROTOCOL-CONTRACT-001', caseId: 'derivation-rules', fixtureCase: null, environment: 'test-tools-unit',
+  covers: [{ id: 'SCN-PROTOCOL-CONTRACT-001', caseKey: 'derivation-rules', checks: ['consumed-methods-only', 'complete-obligations', 'pending-reported'] }],
+} } }, async (context: TestContext) => {
+  const before = context.expect.getState().assertionCalls;
+  const executed: string[] = [];
+  const check = async (name: string, assertion: () => void | Promise<void>) => { await assertion(); executed.push(name); };
+  const inventory = await buildContractInventory(process.cwd());
+
+  await check('consumed-methods-only', () => {
+    context.expect(inventory.methods.map(item => item.name)).toEqual(['CreateTrade', 'QueryTrade']);
+    const prefixes = new Set(inventory.obligations.map(item => item.id.split('#')[0]));
+    context.expect([...prefixes].sort()).toEqual(['idl.error-contract', 'infra.trade.v1.CreateTrade', 'infra.trade.v1.QueryTrade']);
+  });
+  await check('complete-obligations', () => {
+    const categories = new Set(inventory.obligations.map(item => item.id.split('#')[1]));
+    context.expect([...categories].sort()).toEqual([
+      'business-error', 'encoding-boundary', 'error-handling', 'header-base-req', 'http-route', 'request-mapping', 'response-handling', 'response-mapping', 'timeout',
+    ]);
+    for (const method of ['CreateTrade', 'QueryTrade']) {
+      const scoped = inventory.obligations.filter(item => item.id.startsWith(`infra.trade.v1.${method}#`));
+      context.expect(scoped.length, method).toBeGreaterThan(0);
+      for (const obligation of scoped) {
+        context.expect(obligation.cases.length, obligation.id).toBeGreaterThan(0);
+        context.expect(obligation.requiredIn, obligation.id).toEqual(['integration', 'weapp']);
+      }
+    }
+    context.expect(inventory.discoveries.filter(item => item.applicability === 'pending')).toEqual([]);
+  });
+  await check('pending-reported', async () => {
+    const { root, file } = await copyGenerated('payment-contract-derivation-');
+    const original = await readFile(file, 'utf8');
+    await writeFile(file, original.replace('export interface QueryTradeRequest {', 'export interface QueryTradeRequest {\n  reviewProbe: string;'));
+    const mutated = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
+    context.expect(mutated.discoveries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ direction: 'request', path: 'review_probe', applicability: 'pending', authority: null }),
+    ]));
+    context.expect(mutated.issues.join('\n')).toContain('review_probe has no reviewed applicability rule');
+    context.expect(mutated.obligations.some(item => item.id.includes('review_probe'))).toBe(false);
   });
 
-  it('reports missing presence rules and enum value drift from independent descriptor evidence', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-contract-inventory-'));
-    const descriptorDir = join(root, 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023');
-    const errorsDir = join(root, 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024');
-    await mkdir(descriptorDir, { recursive: true }); await mkdir(errorsDir, { recursive: true });
-    await writeFile(join(errorsDir, 'idl-errors.json'), await readFile(new URL('../../packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json', import.meta.url)));
-    await writeFile(join(descriptorDir, 'descriptor.json'), '[]');
-    const generatedRoot = join(process.cwd(), 'packages/payment-protocol/src/generated');
-    expect((await buildContractInventory(root, { generatedRoot })).issues).toEqual(expect.arrayContaining([expect.stringContaining('does not preserve')]));
-    await writeFile(join(descriptorDir, 'descriptor.json'), JSON.stringify([{ field: 'infra.trade.v1.CreateTradePayRequest.xpay_env', optional: true, hasPresence: true, rules: { definedOnly: true, notIn: [0] }, values: { XPAY_ENV_SANDBOX: 9, XPAY_ENV_PROD: 8 } }]));
-    expect((await buildContractInventory(root, { generatedRoot })).issues).toEqual(expect.arrayContaining([expect.stringContaining('enum values drifted')]));
-  });
+  context.expect(executed.sort()).toEqual(['complete-obligations', 'consumed-methods-only', 'pending-reported']);
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'payment-evidence');
 });

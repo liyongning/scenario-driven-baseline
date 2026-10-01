@@ -217,9 +217,12 @@ describe('official minimal weapp host', () => {
     vi.stubGlobal('wx', { request });
 
     const result = await runProtocolSuite({
-      action: 'createTradePay', gatewayBaseUrl: 'https://fixture.invalid', request: { tradeNo: 'trade-projection' },
-      sparseRequest: { tradeNo: 'trade-projection' }, accessToken: 'fixture-token', requestId: 'request-projection',
-      productId: 'product-projection', timeoutMs: 100, responseCount: 1, responsePaths: ['base_resp'],
+      gatewayBaseUrl: 'https://fixture.invalid', accessToken: 'fixture-token', requestId: 'request-projection',
+      productId: 'product-projection', timeoutMs: 100,
+      methods: [{
+        method: 'CreateTrade', request: { bizType: 'projection' }, sparseRequest: { bizType: 'projection' },
+        responseCount: 1, responsePaths: ['base_resp', 'base_resp.status_code'],
+      }],
     });
     const containsBigint = (value: unknown): boolean => typeof value === 'bigint'
       || Boolean(value && typeof value === 'object' && Object.values(value).some(containsBigint));

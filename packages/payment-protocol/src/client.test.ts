@@ -3,11 +3,12 @@ import { afterEach, beforeEach, expect, expectTypeOf, test, vi } from 'vitest';
 import * as protocol from './index';
 import type { Cancellation, CommunicationResult, DecodedHttpResponse, HttpRequest, ProtocolClient, ProtocolClientOptions } from './index';
 import { CreateTradePay, CreateTradePayRequest, QueryTrade, QueryTradeRequest, type CreateTradePayResponse } from './generated/idl/infra/trade/v1/trade';
-import { Channel, XpayEnv } from './generated/idl/infra/pay/v1/pay';
-const omitted = JSON.parse(readFileSync('packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/omitted.json', 'utf8'));
-const sandbox = JSON.parse(readFileSync('packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/sandbox.json', 'utf8'));
-const prod = JSON.parse(readFileSync('packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/prod.json', 'utf8'));
-const query = JSON.parse(readFileSync('packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/query-no-env.json', 'utf8'));
+const matrix = JSON.parse(readFileSync('packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json', 'utf8')) as {
+  create: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
+  query: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
+};
+const create = { request: matrix.create.request, response: matrix.create.responses[0]! };
+const query = { request: matrix.query.request, response: matrix.query.responses[0]! };
 
 function cancellation() {
   let stopped = false; const listeners = new Set<() => void>();
@@ -18,11 +19,11 @@ function setup(overrides: Partial<ProtocolClientOptions> = {}) {
   const options: ProtocolClientOptions = {
     gatewayBaseUrl: 'https://fixture-gateway.invalid/', getAccessToken: () => 'fixture-token',
     requestContext: {productId:'fixture-product',lane:'dev-lane',appVersion:'1.2.3'},
-    runtime: {nowMs: () => Date.now(),nextRequestId: () => 'pay-fixture-1',sleepMs: (duration: number, stop?: Cancellation) => new Promise(resolve => {
+    runtime: {nowMs: () => Date.now(),nextRequestId: () => 'matrix-request',sleepMs: (duration: number, stop?: Cancellation) => new Promise(resolve => {
       const finish = () => { clearTimeout(timer); unsubscribe?.(); resolve(); };
       const timer = setTimeout(finish,duration); const unsubscribe = stop?.subscribe(finish);
     })},
-    http: {send: async request => { requests.push(request); return {ok:true,value:{status:200,headers:{},body:omitted.response}}; }},
+    http: {send: async request => { requests.push(request); return {ok:true,value:{status:200,headers:{},body:create.response}}; }},
     ...overrides,
   };
   expect(protocol).toHaveProperty('createProtocolClient');
@@ -35,24 +36,12 @@ test('通信接口从 generated metadata 推断响应，不引入支付结果', 
   const consume = (client: ProtocolClient) => client.request(CreateTradePay.meta, CreateTradePayRequest.create(), { deadlineAtMs: 100 });
   expectTypeOf(consume).returns.toEqualTypeOf<Promise<CommunicationResult<DecodedHttpResponse<CreateTradePayResponse>>>>();
 });
-test.each([[undefined,omitted],[XpayEnv.XPAY_ENV_SANDBOX,sandbox],[XpayEnv.XPAY_ENV_PROD,prod]] as const)('独立 Go JSON 核对 xpay presence %s', async (env, fixture) => {
-  const {client,requests} = setup();
-  expect(requests).toEqual([]);
-  const req = CreateTradePayRequest.create({tradeNo:'trade-fixture-001',channel:Channel.CHANNEL_WECHAT_VIRTUAL,appId:'app-fixture',clientPlatform:'ios',xpayEnv:env});
-  const result = await client.request(CreateTradePay.meta,req,{deadlineAtMs:61000});
-  expect(result).toMatchObject({ok:true,value:{wire:fixture.response,data:{baseResp:{statusCode:0n}}}});
-  expect(requests).toHaveLength(1);
-  expect(JSON.parse(requests[0]!.body!)).toEqual(fixture.request);
-  expect(requests[0]).toMatchObject({url:'https://fixture-gateway.invalid/api/base/trade/pay',method:'POST',timeoutMs:60000,headers:{Authorization:'Bearer fixture-token','Content-Type':'application/json','X-Product-ID':'fixture-product',request_id:'pay-fixture-1',lane:'dev-lane',app_version:'1.2.3'}});
-  expect(req.baseReq).toBeUndefined();
-  expect(vi.getTimerCount()).toBe(0);
-});
 test('query 只发送原交易，缺省上下文不补环境或身份字段',async () => {
   const {client,requests} = setup({requestContext:{}});
-  await client.request(QueryTrade.meta,QueryTradeRequest.create({tradeNo:'trade-fixture-001'}),{deadlineAtMs:61000});
+  await client.request(QueryTrade.meta,QueryTradeRequest.create({tradeNo:String(query.request.tradeNo)}),{deadlineAtMs:61000});
   const expected = structuredClone(query.request); delete (expected.baseReq as {productId?:string}).productId;
   expect(JSON.parse(requests[0]!.body!)).toEqual(expected);
-  expect(requests[0]!.headers).toEqual({Authorization:'Bearer fixture-token','Content-Type':'application/json',request_id:'pay-fixture-1'});
+  expect(requests[0]!.headers).toEqual({Authorization:'Bearer fixture-token','Content-Type':'application/json',request_id:'matrix-request'});
 });
 test('连续请求逐次读取 Token，并扣除 provider 用时',async () => {
   let sequence=0; const {client,requests} = setup({getAccessToken:async () => { await new Promise(resolve=>setTimeout(resolve,50)); return `fixture-${++sequence}`; }});
@@ -154,18 +143,6 @@ test('配置在实例创建时复制，之后宿主修改配置不污染该实�
  const {client,requests}=setup(options);context.productId='changed';options.gatewayBaseUrl='https://changed.invalid';
  await client.request(QueryTrade.meta,QueryTradeRequest.create(),{deadlineAtMs:2000});
  expect(requests[0]!.url).toBe('https://original.invalid/api/base/trade/query');expect(requests[0]!.headers['X-Product-ID']).toBe('original');
-});
-
-test('独立 Go descriptor：两个 optional xpay_env 都拒绝显式 UNSPECIFIED 与未知枚举',()=>{
- const descriptors=JSON.parse(readFileSync('packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/descriptor.json','utf8'));
- expect(descriptors).toHaveLength(2);
- for(const descriptor of descriptors) {
-  expect(descriptor).toMatchObject({optional:true,hasPresence:true,enum:'infra.pay.v1.XpayEnv',values:{XPAY_ENV_UNSPECIFIED:0,XPAY_ENV_SANDBOX:1,XPAY_ENV_PROD:2},rules:{definedOnly:true,notIn:[0]}});
-  expect(descriptor.rules.notIn).toContain(descriptor.values.XPAY_ENV_UNSPECIFIED);
-  expect(Object.values(descriptor.values)).not.toContain(99);
- }
- expect(omitted.request).not.toHaveProperty('xpayEnv');
- expect(sandbox.request.xpayEnv).toBe('XPAY_ENV_SANDBOX');expect(prod.request.xpayEnv).toBe('XPAY_ENV_PROD');
 });
 
 test('codec 返回不可序列化的 undefined 时不得发送无效 body',async()=>{

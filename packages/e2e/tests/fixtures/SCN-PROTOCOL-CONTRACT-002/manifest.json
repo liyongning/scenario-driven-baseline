@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-002",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/remove-payment-business/specs/protocol-contract/spec.md",
+      "sha256": "e18fac44e932aeab68edb5a3bedac7bad31fac57bb54feb204522d289525842b"
+    }
+  },
+  "cases": {
+    "protocol-matrix": "protocol-matrix.json"
+  },
+  "sha256": {
+    "protocol-matrix.json": "16608d06c5504ba5790046721b0e7baab612da9bc473d892e47345d04d68ff90"
+  }
+}

@@ -11,20 +11,21 @@ async function tree() {
   const root = await mkdtemp(join(tmpdir(), 'fixture-gate-'));
   const spec = join(root, 'spec.md');
   await writeFile(spec, 'spec-v1');
+  // 受控仓库显式给出通用 ID 格式；默认格式由任务 9 更新，不在本用例范围内。
+  await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({
+    scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],
+    flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],
+    ownerIdPattern: '^SCN-[A-Z0-9-]+$',
+  }));
   const fixtureRoot = join(root, 'fixtures');
-  const owner = join(fixtureRoot, 'TC-PAYSDK-CONTRACT-023');
+  const owner = join(fixtureRoot, 'SCN-SAMPLE-CONTRACT-001');
   await mkdir(owner, { recursive: true });
-  const cases = {
-    'omitted.json': '{"request":{"tradeNo":"t"},"response":{}}',
-    'sandbox.json': '{"request":{"tradeNo":"t","xpayEnv":"XPAY_ENV_SANDBOX"},"response":{}}',
-    'prod.json': '{"request":{"tradeNo":"t","xpayEnv":"XPAY_ENV_PROD"},"response":{}}',
-    'query-no-env.json': '{"request":{"tradeNo":"t"},"response":{}}',
-  };
+  const cases = { 'case.json': '{"request":"fixture","response":{}}' };
   await Promise.all(Object.entries(cases).map(([name, content]) => writeFile(join(owner, name), content)));
   const manifest = {
-    formatVersion: 1, ownerId: 'TC-PAYSDK-CONTRACT-023',
+    formatVersion: 1, ownerId: 'SCN-SAMPLE-CONTRACT-001',
     sources: { spec: { path: 'spec.md', sha256: sha('spec-v1') }, idlCommit: 'a'.repeat(40) },
-    cases: { omitted: 'omitted.json', sandbox: 'sandbox.json', prod: 'prod.json', 'query-no-env': 'query-no-env.json' },
+    cases: { case: 'case.json' },
     sha256: Object.fromEntries(Object.entries(cases).map(([name, content]) => [name, sha(content)])),
   };
   await writeFile(join(owner, 'manifest.json'), JSON.stringify(manifest));
@@ -32,7 +33,7 @@ async function tree() {
 }
 
 describe('checkFixtures', () => {
-  it('accepts complete source, digest, and xpay presence facts', async () => {
+  it('accepts complete source and digest facts', async () => {
     const input = await tree();
     expect((await checkFixtures({ fixtureRoot: input.fixtureRoot, repositoryRoot: input.root })).issues).toEqual([]);
     expect(await runFixturesCli(['node', 'script', '--root', input.fixtureRoot], input.root)).toMatchObject({ issues: [], exitCode: 0 });
@@ -41,24 +42,20 @@ describe('checkFixtures', () => {
     expect(await runFixturesCli([], input.root)).toMatchObject({ manifests: 0, issues: [], exitCode: 0 });
   });
 
-  it('rejects stale sources, undeclared files, digest drift, and the four xpay presence mistakes', async () => {
+  it('rejects stale sources, undeclared files, and digest drift', async () => {
     const input = await tree();
     await writeFile(join(input.root, 'spec.md'), 'spec-v2');
     await writeFile(join(input.owner, 'extra.json'), '{}');
-    await writeFile(join(input.owner, 'sandbox.json'), '{"request":{"tradeNo":"t"},"response":{}}');
-    await writeFile(join(input.owner, 'prod.json'), '{"request":{"tradeNo":"t","xpayEnv":"XPAY_ENV_SANDBOX"},"response":{}}');
-    await writeFile(join(input.owner, 'omitted.json'), '{"request":{"tradeNo":"t","xpayEnv":null},"response":{}}');
-    await writeFile(join(input.owner, 'query-no-env.json'), '{"request":{"tradeNo":"t","xpayEnv":"XPAY_ENV_PROD"},"response":{}}');
+    await writeFile(join(input.owner, 'case.json'), '{"request":"drifted","response":{}}');
     const result = await checkFixtures({ fixtureRoot: input.fixtureRoot, repositoryRoot: input.root });
     expect(result.issues).toEqual(expect.arrayContaining([
-      expect.stringContaining('spec source digest is stale'), expect.stringContaining('undeclared fixture file extra.json'),
-      expect.stringContaining('sha256 mismatch'), expect.stringContaining('omitted must not contain xpayEnv'),
-      expect.stringContaining('sandbox must encode XPAY_ENV_SANDBOX'), expect.stringContaining('prod must encode XPAY_ENV_PROD'),
-      expect.stringContaining('query-no-env must not contain xpayEnv'),
+      expect.stringContaining('spec source digest is stale'),
+      expect.stringContaining('undeclared fixture file extra.json'),
+      expect.stringContaining('sha256 mismatch'),
     ]));
   });
 
-  it('reports missing/invalid manifests, sources, declared files, required cases, and malformed case JSON', async () => {
+  it('reports missing/invalid manifests, sources, declared files, and owner formats', async () => {
     const input = await tree();
     const missingManifest = join(input.fixtureRoot, 'SCN-SAMPLE-CORE-001');
     await mkdir(missingManifest);
@@ -79,25 +76,20 @@ describe('checkFixtures', () => {
     }));
     await writeFile(join(invalidOwnerDirectory, 'case.json'), '{}');
 
-    const ownerManifestPath = join(input.owner, 'manifest.json');
-    const omittedWithoutRequest = '{"response":{}}';
-    await writeFile(join(input.owner, 'omitted.json'), omittedWithoutRequest);
-    await writeFile(ownerManifestPath, JSON.stringify({
+    await writeFile(join(input.owner, 'manifest.json'), JSON.stringify({
       ...input.manifest,
       ownerId: 'SCN-SAMPLE-CONTRACT-999',
       sources: { ...input.manifest.sources, spec: { path: 'missing.md', sha256: sha('missing') } },
-      cases: { omitted: 'omitted.json', prod: 'bad.json', 'query-no-env': 'query-no-env.json' },
       supportingFiles: { missing: 'missing.json' },
-      sha256: { ...input.manifest.sha256, 'omitted.json': sha(omittedWithoutRequest), 'missing.json': sha('{}'), 'bad.json': sha('{') },
+      sha256: { ...input.manifest.sha256, 'missing.json': sha('{}') },
     }));
-    await writeFile(join(input.owner, 'bad.json'), '{');
     const result = await checkFixtures({ fixtureRoot: input.fixtureRoot, repositoryRoot: input.root });
     expect(result.issues).toEqual(expect.arrayContaining([
       expect.stringContaining('manifest.json missing'), expect.stringContaining('manifest JSON invalid'),
       expect.stringContaining('manifest schema'), expect.stringContaining('ownerId'),
       expect.stringContaining('spec source missing.md is missing'), expect.stringContaining('declared fixture file missing.json is missing'),
-      expect.stringContaining('bad.json is not valid JSON'), expect.stringContaining('required case sandbox'),
       expect.stringContaining('invalid-owner: ownerId does not match configured format'),
+      expect.stringContaining('SCN-SAMPLE-CONTRACT-001: ownerId SCN-SAMPLE-CONTRACT-999 does not match directory'),
     ]));
   });
 });

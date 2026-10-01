@@ -1,14 +1,14 @@
-// @TC-PAYSDK-CONTRACT-024: IDL 5539be8；仅消费协议包构建 exports，Go 原文给出独立期望。
+// @SCN-PROTOCOL-CONTRACT-003: IDL 5539be8；仅消费协议包构建 exports，Go 原文给出独立期望。
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type TestContext } from 'vitest';
 import { parse } from 'yaml';
 import * as protocol from '@daqian/payment-protocol';
 import { canonicalErrorCodeToJSON } from '@daqian/payment-protocol/generated/idl/common/v1/enums';
-import expected from '../fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json';
-import manifest from '../fixtures/TC-PAYSDK-CONTRACT-024/manifest.json';
+import expected from '../fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json';
+import manifest from '../fixtures/SCN-PROTOCOL-CONTRACT-003/manifest.json';
 
-const fixtureRoot = 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024';
+const fixtureRoot = 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003';
 const historicalBaseline = manifest.sources.generatedCompatibility;
 const currentBaseline = manifest.sources.generatedCurrent;
 type GeneratedBaseline = typeof historicalBaseline;
@@ -53,7 +53,7 @@ const scenarioChecks = {
   'missing-error': ['drift-rejected'],
   'source-mismatch': ['drift-rejected'],
   'metadata-only-sync': ['source-alignment', 'compatible-refresh'],
-  'payment-projection-mismatch': ['projection-drift'],
+  'projection-mismatch': ['projection-drift'],
 } as const;
 
 function contractTest(caseKey: keyof typeof scenarioChecks, body: () => void | Promise<void>) {
@@ -61,9 +61,9 @@ function contractTest(caseKey: keyof typeof scenarioChecks, body: () => void | P
   const idlCovers = caseKey === 'all-errors'
     ? expected.map(item => ({ id: 'idl.error-contract#business-error#$', caseKey: item.name, checks: ['catalog-parity'] }))
     : [];
-  test(`TC-PAYSDK-CONTRACT-024/${caseKey}`, { meta: { paymentCase: {
-    ownerId: 'TC-PAYSDK-CONTRACT-024', caseId: caseKey, environment: 'integration', fixtureCase: caseKey,
-    covers: [{ id: 'TC-PAYSDK-CONTRACT-024', caseKey, checks: [...checks] }, ...idlCovers],
+  test(`SCN-PROTOCOL-CONTRACT-003/${caseKey}`, { meta: { paymentCase: {
+    ownerId: 'SCN-PROTOCOL-CONTRACT-003', caseId: caseKey, environment: 'integration', fixtureCase: caseKey,
+    covers: [{ id: 'SCN-PROTOCOL-CONTRACT-003', caseKey, checks: [...checks] }, ...idlCovers],
   } } }, async (context: TestContext) => {
     const before = expect.getState().assertionCalls;
     await body();
@@ -80,7 +80,7 @@ contractTest('all-errors', () => {
   expect(expected).toHaveLength(17);
   for (const file of ['idl-errors.json', 'extract.go'] as const) {
     const want = file === 'extract.go' ? manifest.sources.extraction.programSha256 : manifest.sha256[file];
-    expect(createHash('sha256').update(readFileSync(`packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/${file}`)).digest('hex')).toBe(want);
+    expect(createHash('sha256').update(readFileSync(`packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/${file}`)).digest('hex')).toBe(want);
   }
 });
 contractTest('wrong-code', () => {
@@ -149,7 +149,7 @@ contractTest('metadata-only-sync', () => {
 });
 
 // 每次仅污染一个已评审字段或集合，再要求实际兼容校验拒绝，避免负例被错误事实的前置失败遮蔽。
-contractTest('payment-projection-mismatch', () => {
+contractTest('projection-mismatch', () => {
   const good = readLock(`${fixtureRoot}/provenance/current.lock`);
   verifyGenerated(good, currentBaseline);
   const mutations: [string, (lock: Lock) => void][] = [

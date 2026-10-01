@@ -1,13 +1,13 @@
 {
   "formatVersion": 1,
-  "ownerId": "TC-PAYSDK-CONTRACT-024",
+  "ownerId": "SCN-PROTOCOL-CONTRACT-003",
   "sources": {
     "kind": "fixed-go-source",
     "idlCommit": "5539be8f09323709fa65f6568efe22896ec35d24",
     "paymentSemanticCommit": "4e5cb22659fd4f4c36d06ae81256dc1c43e691d9",
     "spec": {
-      "path": "openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md",
-      "sha256": "559d810dbe638328171cebaabf413900a3b02486a6135ec271529e4c6acd2bed"
+      "path": "openspec/changes/remove-payment-business/specs/protocol-contract/spec.md",
+      "sha256": "e18fac44e932aeab68edb5a3bedac7bad31fac57bb54feb204522d289525842b"
     },
     "idlFiles": {
       "error_code.go": "10b5ec750907b4f851c926014b3952c916d154b47144f1e932c7b5ead3fc4afc",
@@ -377,7 +377,7 @@
     "missing-error": "missing-error.json",
     "source-mismatch": "source-mismatch.json",
     "metadata-only-sync": "metadata-only-sync.json",
-    "payment-projection-mismatch": "payment-projection-mismatch.json"
+    "projection-mismatch": "projection-mismatch.json"
   },
   "sha256": {
     "idl-errors.json": "2ab7007b8467648a3f6b4d986a486c7ef0c02361eb65d61625bac6ba021dd792",
@@ -386,7 +386,7 @@
     "missing-error.json": "468c6c22baf75e5de213e944002fb23c306a3788846cc6f1560c8807b7d711b7",
     "source-mismatch.json": "68da488f0ec12705c3fe774a3e2dbdab5e98044ceb1dab48f2a19d3ac0c1c954",
     "metadata-only-sync.json": "78abf7614d7ffddcb694c6e3d65699b2d76ee6fcbeb38908a37ad7bcdce78cfc",
-    "payment-projection-mismatch.json": "077e131246c0bbfce2091caf3821a1590ffdeb882ef8af3d6bad2a73a32f83ed"
+    "projection-mismatch.json": "077e131246c0bbfce2091caf3821a1590ffdeb882ef8af3d6bad2a73a32f83ed"
   },
   "defensiveMutations": {},
   "maintenance": {

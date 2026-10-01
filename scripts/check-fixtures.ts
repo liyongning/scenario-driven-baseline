@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { loadScenarioConfig } from './lib/scenario-config.ts';
@@ -54,19 +54,6 @@ export async function checkFixtures(options: Readonly<{ fixtureRoot: string; rep
     const files = await readdir(directory, { withFileTypes: true });
     for (const file of files) {
       if (file.isFile() && file.name.endsWith('.json') && !declared.has(file.name)) issues.push(`${entry.name}: undeclared fixture file ${file.name}`);
-    }
-    if (entry.name === 'TC-PAYSDK-CONTRACT-023') {
-      const expected: Record<string, string | undefined> = { omitted: undefined, sandbox: 'XPAY_ENV_SANDBOX', prod: 'XPAY_ENV_PROD', 'query-no-env': undefined };
-      for (const [caseKey, value] of Object.entries(expected)) {
-        const file = manifest.cases[caseKey];
-        if (!file) { issues.push(`${entry.name}: required case ${caseKey} missing`); continue; }
-        try {
-          const data = JSON.parse(await readFile(join(directory, file), 'utf8')) as { request?: Record<string, unknown> };
-          const present = Object.prototype.hasOwnProperty.call(data.request ?? {}, 'xpayEnv');
-          if (value === undefined && present) issues.push(`${entry.name}: ${caseKey} must not contain xpayEnv`);
-          if (value !== undefined && data.request?.xpayEnv !== value) issues.push(`${entry.name}: ${caseKey} must encode ${value}`);
-        } catch { issues.push(`${entry.name}: ${basename(file)} is not valid JSON`); }
-      }
     }
   }
   return { manifests, issues };

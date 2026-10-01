@@ -14,7 +14,7 @@ const config = {
   ownerIdPattern: '^[A-Z][A-Z0-9-]+$',
 };
 
-export const verification = (cases: unknown[] = [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['done'] }]) => `\n\`\`\`json verification\n${JSON.stringify({ formatVersion: 2, checkpoints: { done: '完成' }, cases, blockedBy: [] })}\n\`\`\``;
+export const verification = (cases: unknown[] = [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['done'] }], checkpoints: Record<string, string> = { done: '完成' }) => `\n\`\`\`json verification\n${JSON.stringify({ formatVersion: 2, checkpoints, cases, blockedBy: [] })}\n\`\`\``;
 export const flowHeader = '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
 
 export function fixtureRoot() {
@@ -36,8 +36,7 @@ export function enableInventory(root: string) {
   symlinkSync(resolve(repositoryRoot, 'packages/payment-protocol/src/generated'), generated, 'dir');
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
   for (const [relative, source] of [
-    ['packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/descriptor.json', 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/descriptor.json'],
-    ['packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json', 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json'],
+    ['packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json', 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'],
   ] as const) {
     const target = join(root, relative);
     mkdirSync(dirname(target), { recursive: true });

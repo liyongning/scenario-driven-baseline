@@ -1,16 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { discoverPaymentRoutes } from '../../packages/payment-protocol/testing/shadow/routes.ts';
+import { discoverExampleRoutes } from '../../packages/payment-protocol/testing/shadow/example/routes.ts';
 import { collectFiles } from './fingerprints.ts';
-
-type Descriptor = Readonly<{
-  field: string;
-  optional: boolean;
-  hasPresence: boolean;
-  rules: Readonly<{ definedOnly: boolean; notIn: number[] }>;
-  values: Readonly<Record<string, number>>;
-}>;
 
 type Direction = 'request' | 'response';
 type Encoding = 'json-string' | 'json-number' | 'json-int64-string' | 'json-boolean' | 'enum-name'
@@ -36,16 +28,28 @@ type FieldDiscovery = Readonly<{
   authority: string | null;
 }>;
 
-const requestAuthority = 'Design 205/213/216/219; contract Spec 352/401/651-652';
-const responseAuthority = 'Design 221/227-229/586/598/973/988';
+const requestAuthority = 'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
+const responseAuthority = 'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
 const requestPolicies: Readonly<Record<string, Readonly<Record<string, RequestPolicy>>>> = {
-  CreateTradePay: {
-    trade_no: { cases: ['mapped-value'], authority: requestAuthority },
-    channel: { cases: ['mapped-value'], authority: requestAuthority },
-    open_id: { cases: ['omitted'], authority: requestAuthority },
-    app_id: { cases: ['mapped-value'], authority: requestAuthority },
-    client_platform: { cases: ['mapped-value'], authority: requestAuthority },
-    xpay_env: { cases: ['omitted', 'sandbox', 'prod'], authority: requestAuthority },
+  CreateTrade: {
+    biz_type: { cases: ['mapped-value'], authority: requestAuthority },
+    biz_trade_no: { cases: ['mapped-value'], authority: requestAuthority },
+    user_id: { cases: ['mapped-value'], authority: requestAuthority },
+    goods_type: { cases: ['fixed-value'], authority: requestAuthority },
+    pay_amount: { cases: ['mapped-value'], authority: requestAuthority },
+    items: { cases: ['mapped-value'], authority: requestAuthority },
+    'items.biz_order_no': { cases: ['mapped-value'], authority: requestAuthority },
+    'items.sku_id': { cases: ['mapped-value'], authority: requestAuthority },
+    'items.sku_name': { cases: ['mapped-value'], authority: requestAuthority },
+    'items.quantity': { cases: ['mapped-value'], authority: requestAuthority },
+    'items.unit_price': { cases: ['mapped-value'], authority: requestAuthority },
+    'items.pay_amount': { cases: ['mapped-value'], authority: requestAuthority },
+    'items.discount_amount': { cases: ['fixed-value'], authority: requestAuthority },
+    'items.sku_snapshot': { cases: ['omitted'], authority: requestAuthority },
+    'items.sku_snapshot.wechat_virtual_product_id': { cases: ['omitted'], authority: requestAuthority },
+    'items.sku_snapshot.biz_snapshot': { cases: ['omitted'], authority: requestAuthority },
+    original_amount: { cases: ['mapped-value'], authority: requestAuthority },
+    discount_amount: { cases: ['fixed-value'], authority: requestAuthority },
     base_req: { cases: ['generated-value'], authority: requestAuthority },
     'base_req.request_id': { cases: ['generated-value'], authority: requestAuthority },
     'base_req.product_id': { cases: ['configured-value', 'omitted'], authority: requestAuthority },
@@ -91,7 +95,8 @@ function describeType(checker: ts.TypeChecker, input: ts.Type): Readonly<{ type:
   const type = members.length === 1 ? members[0]! : input;
   if (checker.isArrayType(type)) {
     const element = checker.getTypeArguments(type as ts.TypeReference)[0]!;
-    return { type: element, encoding: 'repeated-array', descend: true };
+    const shape = describeType(checker, element);
+    return { type: shape.type, encoding: 'repeated-array', descend: shape.descend };
   }
   if (type.getStringIndexType()) return { type, encoding: 'string-map', descend: false };
   if (type.flags & ts.TypeFlags.EnumLike) return { type, encoding: 'enum-name', descend: false };
@@ -206,7 +211,7 @@ const sharedMethodObligations = (method: string): Obligation[] => [
     cases: [
       'authorization', 'content-type', 'x-product-id-configured', 'x-product-id-omitted', 'request-id-header',
       'base-req-request-id', 'base-req-product-id-configured', 'base-req-product-id-omitted',
-      'lane-configured', 'lane-omitted', 'app-version-configured', 'app-version-omitted', 'xpay-env-absent',
+      'lane-configured', 'lane-omitted', 'app-version-configured', 'app-version-omitted',
     ],
     requiredIn: ['integration', 'weapp'],
   },
@@ -216,20 +221,12 @@ const sharedMethodObligations = (method: string): Obligation[] => [
 ];
 
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
-  const routes = discoverPaymentRoutes();
+  const routes = discoverExampleRoutes();
   const generatedRoot = options.generatedRoot ?? resolve(root, 'packages/payment-protocol/src/generated');
   const typeNames = routes.flatMap(route => [route.meta.requestType, route.meta.responseType]);
   const fields = deriveFields(generatedRoot, typeNames);
-  const descriptor = JSON.parse(await readFile(join(root, 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-023/descriptor.json'), 'utf8')) as Descriptor[];
-  const errors = JSON.parse(await readFile(join(root, 'packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json'), 'utf8')) as Array<{ name: string }>;
+  const errors = JSON.parse(await readFile(join(root, 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'), 'utf8')) as Array<{ name: string }>;
   const issues: string[] = [];
-  const xpay = descriptor.find(item => item.field === 'infra.trade.v1.CreateTradePayRequest.xpay_env');
-  if (!xpay || !xpay.optional || !xpay.hasPresence || !xpay.rules.definedOnly || !xpay.rules.notIn.includes(0)) {
-    issues.push('CreateTradePay.xpay_env descriptor does not preserve reviewed optional presence rules');
-  }
-  if (xpay && (xpay.values.XPAY_ENV_SANDBOX !== 1 || xpay.values.XPAY_ENV_PROD !== 2)) {
-    issues.push('CreateTradePay.xpay_env descriptor enum values drifted');
-  }
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const route of routes) {
@@ -242,8 +239,6 @@ export async function buildContractInventory(root: string, options: InventoryOpt
     obligations.push(...sharedMethodObligations(route.methodName));
   }
   obligations.push(
-    { id: 'infra.trade.v1.CreateTradePay#request-mapping#user_id', cases: ['omitted'], requiredIn: ['integration', 'weapp'] },
-    { id: 'infra.trade.v1.QueryTrade#request-mapping#xpay_env', cases: ['query-no-env'], requiredIn: ['integration', 'weapp'] },
     { id: 'idl.error-contract#business-error#$', cases: errors.map(item => item.name), requiredIn: ['integration'] },
   );
   return {

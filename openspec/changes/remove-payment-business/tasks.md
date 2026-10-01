@@ -78,7 +78,7 @@
   **Commit**
   - `refactor(template): rehome generic capabilities from payment scenarios`
 
-- [ ] 2. IDL 协议义务派生改为针对示例接口，补齐示例协议矩阵
+- [x] 2. IDL 协议义务派生改为针对示例接口，补齐示例协议矩阵
 
   **Files**
   - Modify：`scripts/lib/contract-inventory.ts` 及测试（按 Design"IDL 义务派生改为针对示例接口"，含 `requestAuthority`、`responseAuthority` 的引用改指），测试绑定 `SCN-PROTOCOL-CONTRACT-001` 的 derivation-rules。

@@ -1,0 +1,116 @@
+{
+  "create": {
+    "request": {
+      "bizType": "example-biz",
+      "bizTradeNo": "biz-matrix",
+      "userId": "9007199254740993",
+      "goodsType": "GOODS_TYPE_VIRTUAL",
+      "payAmount": "190",
+      "items": [
+        {
+          "bizOrderNo": "biz-order",
+          "skuId": "sku-id",
+          "skuName": "示例商品",
+          "quantity": 2,
+          "unitPrice": "100",
+          "payAmount": "190",
+          "discountAmount": "10"
+        }
+      ],
+      "originalAmount": "200",
+      "discountAmount": "10",
+      "baseReq": {
+        "requestId": "matrix-request",
+        "productId": "matrix-product"
+      }
+    },
+    "responses": [
+      {
+        "tradeNo": "trade-matrix",
+        "orderNos": [
+          "order-matrix"
+        ],
+        "status": "TRADE_STATUS_PAID",
+        "baseResp": {
+          "requestId": "matrix-response",
+          "success": false,
+          "error": {
+            "message": "matrix-message",
+            "details": {
+              "field": "value"
+            },
+            "retryable": true,
+            "source": "trade",
+            "canonicalCode": "CANONICAL_ERROR_CODE_UNAVAILABLE",
+            "bizCode": "123",
+            "bizCodeName": "MatrixError"
+          },
+          "serverTimeMs": "1700000000000",
+          "statusCode": "123",
+          "statusMsg": "matrix-status"
+        }
+      },
+      {}
+    ]
+  },
+  "query": {
+    "request": {
+      "tradeNo": "trade-matrix",
+      "baseReq": {
+        "requestId": "matrix-request",
+        "productId": "matrix-product"
+      }
+    },
+    "responses": [
+      {
+        "trade": {
+          "tradeNo": "trade-matrix",
+          "userId": "9007199254740993",
+          "status": "TRADE_STATUS_PAID",
+          "payAmount": "101",
+          "channel": "CHANNEL_WECHAT_VIRTUAL",
+          "paidTime": "1700000000000",
+          "orders": [
+            {
+              "orderNo": "order-matrix",
+              "bizType": "sku",
+              "bizOrderNo": "biz-order",
+              "skuId": "sku-id",
+              "skuName": "示例商品",
+              "quantity": 2,
+              "unitPrice": "100",
+              "payAmount": "190",
+              "refundedAmount": "10",
+              "status": "ORDER_STATUS_PAID",
+              "refundStatus": "REFUND_STATUS_PARTIAL_REFUNDED",
+              "originalAmount": "200",
+              "discountAmount": "10"
+            }
+          ],
+          "expireTime": "1800000000000",
+          "originalAmount": "111",
+          "discountAmount": "10"
+        },
+        "baseResp": {
+          "requestId": "matrix-response",
+          "success": false,
+          "error": {
+            "message": "matrix-message",
+            "details": {
+              "field": "value"
+            },
+            "retryable": true,
+            "source": "trade",
+            "canonicalCode": "CANONICAL_ERROR_CODE_UNAVAILABLE",
+            "bizCode": "123",
+            "bizCodeName": "MatrixError"
+          },
+          "serverTimeMs": "1700000000000",
+          "statusCode": "123",
+          "statusMsg": "matrix-status"
+        }
+      },
+      {}
+    ]
+  }
+}

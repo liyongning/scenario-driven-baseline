@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import * as protocol from '../index';
-const expected = JSON.parse(readFileSync('packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/idl-errors.json', 'utf8'));
+const expected = JSON.parse(readFileSync('packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json', 'utf8'));
 
 test('精确错误码命中只读 IDL 描述；未知值不能按位段或 canonical 猜测身份', () => {
   expect(protocol).toHaveProperty('getPaymentBusinessError');
