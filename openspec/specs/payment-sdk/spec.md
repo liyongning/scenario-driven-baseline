@@ -26,54 +26,6 @@ SDK MUST 使用纯 TypeScript 源码并输出独立可消费的 JS/类型声明�
 }
 ```
 
-### Requirement: SDK-05 有界观察与清理
-
-SDK SHALL 内置并允许覆盖查询间隔 3000 ms、结果确认总时长 60000 ms 和单次请求超时 60000 ms；策略必须为有限正数，不同时发起重叠查询。结果预算从进入查询确认阶段起算，不包含预下单和原生收银台等待，在 confirming 通知前固定且不因回调重置。停止后 MUST 清理自身计时器/取消订阅，忽略迟到结果，不撤销在途支付；诊断与阶段回调异常不能破坏支付结算。内部阶段由核心维护，pay/observe 各交付一次最终结果。通信 CANCELLED 经内部 BackendResult 交给核心按公共契约结算，适配器不将其伪装 TIMEOUT；取消与计时竞争遵守一次结束原因锁定。服务端错误的观察重查只消费 backend 按公共契约赋予的内部 cause=query_unavailable，不能仅凭 retryable 或原码推断；公开 query 只请求一次，所有公共结果剥离内部标签。
-
-#### Scenario: TC-PAYSDK-CORE-006 慢查询与超时
-- **WHEN** 查询请求持续较慢，随后观察预算耗尽
-- **THEN** 不启动第二个重叠请求，本地只结束一次，返回最后可信快照及 timed_out；迟到响应不再次通知业务。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "no-overlap": "慢查询期间同时在途请求数不超过一",
-    "single-timeout-result": "观察预算耗尽只结算一次并返回最后可信快照及 timed_out",
-    "late-result-isolated": "迟到查询响应不再通知或改变结果"
-  },
-  "cases": [
-    {"key": "slow-query", "kind": "behavior", "requiredIn": ["integration"], "checks": ["no-overlap", "single-timeout-result"]},
-    {"key": "late-query-after-timeout", "kind": "behavior", "requiredIn": ["integration"], "checks": ["single-timeout-result", "late-result-isolated"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-06 并发与重试约束
-
-SDK MUST 阻止同客户端同交易活动 pay 的重入；前次调用结束后相同 tradeNo 按普通调用交给服务端处理，不维护交易支付历史表。宿主显式 cancellation 可结束原生调用的本地等待并释放活动记录，不关闭渠道界面。SDK SHALL 不自动重试创建业务订单、支付提交或不确定幂等性的准备接口；查询恢复不等于重新支付。本地 attemptId 不是服务端幂等键。
-
-#### Scenario: TC-PAYSDK-CORE-007 重复回调和连续点击
-- **WHEN** 同一交易重复调用 pay 且渠道重复发送回调
-- **THEN** 实际调起只有一次，每次运行只产生一个最终结果；业务仍需服务端幂等保障。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "single-invocation": "同交易活动 pay 的并发/连续调用只产生一次实际渠道调起",
-    "one-outcome-per-run": "重复渠道回调不使任一运行交付多个最终结果",
-    "server-idempotency-boundary": "证据不宣称 SDK 替代服务端幂等"
-  },
-  "cases": [
-    {"key": "duplicate-pay", "kind": "behavior", "requiredIn": ["integration"], "checks": ["single-invocation", "one-outcome-per-run"]},
-    {"key": "duplicate-channel-callback", "kind": "behavior", "requiredIn": ["integration"], "checks": ["single-invocation", "one-outcome-per-run", "server-idempotency-boundary"]}
-  ],
-  "blockedBy": []
-}
-```
-
 ### Requirement: SDK-07 可观测性不携带敏感支付载荷
 
 SDK SHALL 提供可选、宿主控制的阶段/错误诊断，不强依赖项目 logger。诊断 MUST 不包含 token、AppKey、session_key、完整 signData、paySig 或 signature。
@@ -121,31 +73,6 @@ SDK MUST 自己维护 HTTP 请求实现，网络实现归属通信协议包，�
     {"key": "weapp-production-network", "kind": "behavior", "requiredIn": ["weapp"], "checks": ["protocol-root-factory", "real-weapp-network"]},
     {"key": "replace-internal-network-port", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["network-port-isolation"]},
     {"key": "replace-internal-channel-port", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["channel-port-isolation"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-11 数据 provider 纳入预算
-
-SDK MUST 在每次实际 HTTP 前取得当前 Token，数据获取受当前请求截止约束，等 provider 返回后重新计算请求剩余预算。provider 异常 SHALL 与服务器错误区分；SDK 不缓存或记录业务凭据。
-
-#### Scenario: TC-PAYSDK-CORE-012 provider 消耗等待时间
-- **WHEN** provider 消耗部分或全部操作预算
-- **THEN** 发送时网络超时不超过剩余预算；耗尽时不发送请求，迟到 provider 不启动网络或二次回调。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "remaining-budget": "provider 返回后网络 timeout 不超过操作剩余预算",
-    "no-send-after-exhaustion": "provider 已耗尽预算时不发送网络请求",
-    "late-provider-isolated": "迟到 provider 不启动网络或二次回调"
-  },
-  "cases": [
-    {"key": "provider-partial-budget", "kind": "behavior", "requiredIn": ["integration"], "checks": ["remaining-budget"]},
-    {"key": "provider-exhausts-budget", "kind": "behavior", "requiredIn": ["integration"], "checks": ["no-send-after-exhaustion"]},
-    {"key": "late-provider-result", "kind": "behavior", "requiredIn": ["integration"], "checks": ["no-send-after-exhaustion", "late-provider-isolated"]}
   ],
   "blockedBy": []
 }
@@ -207,11 +134,9 @@ Scenario 与具体测试 case SHALL 支持多对多绑定。工程 MUST 额外�
 
 | FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |
 | --- | --- | --- | --- | --- | --- |
-| FLOW-PAYSDK-001 | CONTRACT-001/002/003/008 | createPaymentClient → pay → CreateTradePay → 渠道 → QueryTrade(PAYING → PAID) → 一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求 | normal、long-channel-wait | integration、weapp | 公共契约结构化参数样例（Task 3）；long-channel-wait 的长时钟断言在 integration，weapp 验证手动释放回调前无查询，不做真实半小时等待 |
-| FLOW-PAYSDK-004 | CORE-006、CONTRACT-003/004/019 | pay → 准备 → 渠道 unknown → 查询仍 PAYING → 查询预算耗尽 → timed_out；查询不重叠，迟到响应不二次交付，交易到期不合成 CLOSED | slow-query、expired-but-paying | integration | 结构化参数样例；时间断言使用受控时钟 |
-| FLOW-PAYSDK-005 | CORE-012、CONTRACT-012 | pay → 准备 → 渠道 success_hint → 第一次查单 PAYING → 宿主 getter 数据更新 → 后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare | token-rotates-between-queries | integration、weapp | 结构化参数样例；本流程验证正常 Token 轮换 |
+| FLOW-PAYSDK-001 | CONTRACT-001/002/008 | createPaymentClient → pay → CreateTradePay → 渠道 → QueryTrade(PAYING → PAID) → 一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求 | normal、long-channel-wait | integration、weapp | 公共契约结构化参数样例（Task 3）；long-channel-wait 的长时钟断言在 integration，weapp 验证手动释放回调前无查询，不做真实半小时等待 |
 
-FLOW-001 至 006 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming；FLOW-005 多次查单只通知一次 confirming。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
+FLOW-001 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
 
 无关的场景组合不作笛卡尔积穷举；新增跨阶段交互风险时，先在本清单增加或修改必需流程/case 与检查点，再同步测试。FLOW 检查点须在同一 case 内关联真实执行断言；只有流程阶段全部贯通不自动满足所引用 Scenario 的全部边界。两者分别统计，防止用任意一个成功流程抵扣所有场景。
 

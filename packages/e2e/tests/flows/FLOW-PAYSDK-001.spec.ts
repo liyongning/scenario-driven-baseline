@@ -12,9 +12,7 @@ defineCase({ ownerId: 'FLOW-PAYSDK-001', caseId: 'normal', fixtureCase: 'normal'
   covers: [
     { id: 'TC-PAYSDK-CONTRACT-001', caseKey: 'public-client', checks: ['public-assembly', 'substitute-evidence-boundary'] },
     { id: 'TC-PAYSDK-CONTRACT-002', caseKey: 'existing-trade-pay', checks: ['existing-trade-only', 'prepare-response-validation', 'no-client-order-or-signing'] },
-    { id: 'TC-PAYSDK-CONTRACT-003', caseKey: 'success-hint-paying', checks: ['server-state-authoritative', 'no-paid-or-entitlement-inference'] },
     { id: 'TC-PAYSDK-CONTRACT-008', caseKey: 'paid-without-entitlement', checks: ['paid-without-entitlement', 'fulfillment-owned-by-consumer'] },
-    { id: 'TC-PAYSDK-CONTRACT-011', caseKey: 'sdk-network-request', checks: ['sdk-owned-network', 'request-contract'] },
   ],
 }, async ({ fixture: value, checkpoint, flow, expect }) => {
   const fixture = value as Fixture;

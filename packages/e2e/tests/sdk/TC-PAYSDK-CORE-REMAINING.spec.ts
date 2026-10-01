@@ -10,13 +10,8 @@ type Fixture = Readonly<{ tradeNo: string; variant?: string }>;
 type Definition = Readonly<{ ownerId: string; caseKey: string; checks: readonly string[] }>;
 const definitions: readonly Definition[] = [
   { ownerId: 'TC-PAYSDK-CORE-001', caseKey: 'runtime-assembly', checks: ['production-runtime-assembly'] },
-  { ownerId: 'TC-PAYSDK-CORE-007', caseKey: 'duplicate-pay', checks: ['single-invocation','one-outcome-per-run'] },
-  { ownerId: 'TC-PAYSDK-CORE-007', caseKey: 'duplicate-channel-callback', checks: ['single-invocation','one-outcome-per-run','server-idempotency-boundary'] },
   { ownerId: 'TC-PAYSDK-CORE-008', caseKey: 'invalid-param-log', checks: ['diagnostic-allowlist','sensitive-data-absent'] },
   { ownerId: 'TC-PAYSDK-CORE-008', caseKey: 'network-failure-log', checks: ['diagnostic-allowlist','sensitive-data-absent'] },
-  { ownerId: 'TC-PAYSDK-CORE-012', caseKey: 'provider-partial-budget', checks: ['remaining-budget'] },
-  { ownerId: 'TC-PAYSDK-CORE-012', caseKey: 'provider-exhausts-budget', checks: ['no-send-after-exhaustion'] },
-  { ownerId: 'TC-PAYSDK-CORE-012', caseKey: 'late-provider-result', checks: ['no-send-after-exhaustion','late-provider-isolated'] },
 ];
 
 const request = (tradeNo: string) => ({ reference: { tradeNo }, method: 'wechat-miniapp-virtual-goods' as const });

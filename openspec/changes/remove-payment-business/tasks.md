@@ -269,7 +269,7 @@
   **Commit**
   - `refactor(payment): remove phase notification scenarios`
 
-- [ ] 8. 删除查询、观察与时间策略
+- [x] 8. 删除查询、观察与时间策略
 
   **Files**
   - 按 Design"功能分组"第 8 组：删除 SDK-05、06、11、CONTRACT-03、08、10、11 段落与 FLOW-004、005 行；删除该组测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。
