@@ -350,7 +350,7 @@
   **Commit**
   - `refactor(payment-sdk): remove payment core and public entry`
 
-- [ ] 10. 文档与最终验收
+- [x] 10. 文档与最终验收
 
   **Files**
   - Modify：`AGENTS.md`、`packages/payment-sdk/AGENTS.md`、`packages/payment-protocol/AGENTS.md`、`packages/e2e/AGENTS.md`：先按 Design"文档（任务 10）"的迁移表，把"保留"列的规则去掉支付表述后迁入"模板通用规则"；再删除"当前业务：支付"整节；写入 Design"外部交互替身的设计标准"；更新能力与场景指向；注明 IDL 协议义务派生针对示例的 `CreateTrade`、`QueryTrade`。
