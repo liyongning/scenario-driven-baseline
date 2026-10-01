@@ -15,8 +15,6 @@ const definitions: readonly Definition[] = [
   { ownerId: 'TC-PAYSDK-CORE-007', caseKey: 'duplicate-channel-callback', checks: ['single-invocation','one-outcome-per-run','server-idempotency-boundary'] },
   { ownerId: 'TC-PAYSDK-CORE-008', caseKey: 'invalid-param-log', checks: ['diagnostic-allowlist','sensitive-data-absent'] },
   { ownerId: 'TC-PAYSDK-CORE-008', caseKey: 'network-failure-log', checks: ['diagnostic-allowlist','sensitive-data-absent'] },
-  { ownerId: 'TC-PAYSDK-CORE-011', caseKey: 'prepare-retryable-error', checks: ['single-prepare','no-implicit-recovery'] },
-  { ownerId: 'TC-PAYSDK-CORE-011', caseKey: 'prepare-network-interruption', checks: ['single-prepare','no-implicit-recovery'] },
   { ownerId: 'TC-PAYSDK-CORE-012', caseKey: 'provider-partial-budget', checks: ['remaining-budget'] },
   { ownerId: 'TC-PAYSDK-CORE-012', caseKey: 'provider-exhausts-budget', checks: ['no-send-after-exhaustion'] },
   { ownerId: 'TC-PAYSDK-CORE-012', caseKey: 'late-provider-result', checks: ['no-send-after-exhaustion','late-provider-isolated'] },
@@ -55,8 +53,8 @@ for (const definition of definitions) defineCase({
   let releaseProvider: (() => void) | undefined;
   const provider = providerCase ? () => new Promise<string>(resolve => { releaseProvider = () => resolve('fixture-token'); setTimeout(() => resolve('fixture-token'), key === 'provider-partial-budget' ? 5 : 30); }) : undefined;
   const http: HttpPlan[] = invalid ? [{ path: '/api/base/trade/pay', body: invalidPrepare(fixture.tradeNo, key === 'preinvoke-validation-failed' ? 'missing-mode' : key) }]
-    : key === 'network-failure-log' || key === 'prepare-network-interruption' ? [{ path: '/api/base/trade/pay', failure: true }]
-      : key === 'prepare-retryable-error' || key === 'prepare-failed' ? [{ path: '/api/base/trade/pay', body: businessError(paymentBusinessErrors.ErrInfraTradeCreateTradePayUnavailable.statusCode, true) }]
+    : key === 'network-failure-log' ? [{ path: '/api/base/trade/pay', failure: true }]
+      : key === 'prepare-failed' ? [{ path: '/api/base/trade/pay', body: businessError(paymentBusinessErrors.ErrInfraTradeCreateTradePayUnavailable.statusCode, true) }]
         : key === 'channel-session-expired' ? [{ path: '/api/base/trade/pay', body: successPrepare(fixture.tradeNo) }]
           : [{ path: '/api/base/trade/pay', body: successPrepare(fixture.tradeNo) }, { path: '/api/base/trade/query', body: successQuery(fixture.tradeNo) }];
   const channel = key === 'channel-unknown' ? ['unknown' as const]
@@ -93,7 +91,7 @@ for (const definition of definitions) defineCase({
     else if (key === 'runtime-assembly') expect(outcome).toMatchObject({ reason: 'confirmed', snapshot: { state: 'PAID' } });
     else if (key === 'duplicate-pay') { expect(outcomes[0]).toMatchObject({ reason: 'busy' }); expect(outcomes[1]).toMatchObject({ reason: 'confirmed' }); expect(platform.channelRecords).toHaveLength(1); }
     else if (key === 'duplicate-channel-callback') { expect(outcome.reason).toBe('confirmed'); expect(platform.httpRecords.filter(record => record.path.endsWith('/query'))).toHaveLength(1); }
-    else if (key.includes('network') || key === 'prepare-retryable-error' || key === 'prepare-failed') { expect(outcome.reason).toBe('error'); expect(platform.httpRecords).toHaveLength(1); expect(platform.channelRecords).toHaveLength(0); }
+    else if (key.includes('network') || key === 'prepare-failed') { expect(outcome.reason).toBe('error'); expect(platform.httpRecords).toHaveLength(1); expect(platform.channelRecords).toHaveLength(0); }
     else if (providerCase) {
       if (key === 'provider-partial-budget') { expect(outcome.reason).toBe('confirmed'); expect(platform.httpRecords[0]!.timeout).toBeLessThan(requestTimeoutMs); }
       else { expect(outcome).toMatchObject({ reason: 'timed_out', channelSignal: 'not_invoked' }); expect(platform.httpRecords).toHaveLength(0); }

@@ -211,7 +211,7 @@
   **Commit**
   - `refactor(payment): remove channel invocation scenarios`
 
-- [ ] 6. 删除鉴权、身份与恢复
+- [x] 6. 删除鉴权、身份与恢复
 
   **Files**
   - 按 Design"功能分组"第 6 组：删除 SDK-10、CONTRACT-04、05、09 段落与 FLOW-006 行；删除该组测试文件；在聚合文件中删除本组 case；删除无读取方的 Fixture 目录。

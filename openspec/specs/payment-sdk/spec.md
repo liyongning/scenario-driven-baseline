@@ -126,32 +126,6 @@ SDK MUST 自己维护 HTTP 请求实现，网络实现归属通信协议包，�
 }
 ```
 
-### Requirement: SDK-10 支付请求行为由 SDK 控制
-
-SDK SHALL 按 IDL/generated metadata/codecs 与配套网关契约组装请求、归一响应，宿主提供契约要求的数据。SDK MUST 独立执行规定的鉴权结果处理、重放规则和显式泳道配置；Proto 协议产物独立生成，endpoint 由 generated metadata 提供；具体业务错误码按公共契约在协议包手写维护同源 TS 副本，并验证与锁定 IDL 一致。
-
-#### Scenario: TC-PAYSDK-CORE-011 准备失败不隐含重放
-- **WHEN** prepare 收到 Unauthorized、可重试错误或网络中断
-- **THEN** 网络调用计数为一次，SDK 识别并保留错误，不调用登录/refresh、不再次 prepare 或 invoke；retryable 字段不改变这个规则。鉴权中断结束本次 pay，返回 interruptedPhase=prepare；业务恢复凭据后可显式 pay 同一交易，不隐含 SDK 自动重放。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "single-prepare": "Unauthorized、可重试错误和网络中断均只调用一次 prepare",
-    "no-implicit-recovery": "不登录、不刷新、不自动重放 prepare/invoke；retryable 不改变规则",
-    "prepare-interrupted": "鉴权失败一次结束为 interruptedPhase=prepare，并保留错误",
-    "explicit-retry": "凭据恢复后只能由业务显式以同交易再次 pay"
-  },
-  "cases": [
-    {"key": "prepare-unauthorized", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["single-prepare", "no-implicit-recovery", "prepare-interrupted", "explicit-retry"]},
-    {"key": "prepare-retryable-error", "kind": "behavior", "requiredIn": ["integration"], "checks": ["single-prepare", "no-implicit-recovery"]},
-    {"key": "prepare-network-interruption", "kind": "behavior", "requiredIn": ["integration"], "checks": ["single-prepare", "no-implicit-recovery"]}
-  ],
-  "blockedBy": []
-}
-```
-
 ### Requirement: SDK-11 数据 provider 纳入预算
 
 SDK MUST 在每次实际 HTTP 前取得当前 Token，数据获取受当前请求截止约束，等 provider 返回后重新计算请求剩余预算。provider 异常 SHALL 与服务器错误区分；SDK 不缓存或记录业务凭据。
@@ -235,11 +209,10 @@ Scenario 与具体测试 case SHALL 支持多对多绑定。工程 MUST 额外�
 | --- | --- | --- | --- | --- | --- |
 | FLOW-PAYSDK-001 | CONTRACT-001/002/003/008 | createPaymentClient → pay → CreateTradePay → 渠道 → QueryTrade(PAYING → PAID) → 一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求 | normal、long-channel-wait | integration、weapp | 公共契约结构化参数样例（Task 3）；long-channel-wait 的长时钟断言在 integration，weapp 验证手动释放回调前无查询，不做真实半小时等待 |
 | FLOW-PAYSDK-004 | CORE-006、CONTRACT-003/004/019 | pay → 准备 → 渠道 unknown → 查询仍 PAYING → 查询预算耗尽 → timed_out；查询不重叠，迟到响应不二次交付，交易到期不合成 CLOSED | slow-query、expired-but-paying | integration | 结构化参数样例；时间断言使用受控时钟 |
-| FLOW-PAYSDK-005 | CORE-012、CONTRACT-012/018 | pay → 准备 → 渠道 success_hint → 第一次查单 PAYING → 宿主 getter 数据更新 → 后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare | token-rotates-between-queries | integration、weapp | 结构化参数样例；本流程验证正常 Token 轮换，鉴权拒绝后的恢复由 FLOW-006 验证 |
-| FLOW-PAYSDK-006 | CORE-011、CONTRACT-005/006/007/013 | 身份失效 → 原调用一次交付中断结果 → 宿主恢复 → 按阶段显式再次调用；另覆盖宿主停止后的旧回调隔离。具体调用顺序和次数见下表 | prepare-auth、query-auth、channel-session、channel-session-different-payment、native-stop-late-callback | integration、weapp | 公共契约参数/错误矩阵及 Task 3 完整样例；运行证据由 Task 7/8 交付 |
+| FLOW-PAYSDK-005 | CORE-012、CONTRACT-012 | pay → 准备 → 渠道 success_hint → 第一次查单 PAYING → 宿主 getter 数据更新 → 后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare | token-rotates-between-queries | integration、weapp | 结构化参数样例；本流程验证正常 Token 轮换 |
 | FLOW-PAYSDK-007 | CORE-018/019、CONTRACT-020 | 公共 pay/observe → 本次阶段通知 → 外部渠道/HTTP → 一次最终结果；验证通知前后副作用、数据关联、回调异常与停止重入 | first-paid、first-closed、observe-only、stop-before-invoke、stop-after-notification、stop-after-platform、stop-before-query、handler-throw、handler-reject、reentrant-pay、no-listener | integration、weapp | 使用 Task 3 正常/终态数据及外部渠道替身，业务回调由测试消费者提供；不 mock SDK 核心或注入假的阶段事件，不要求真实 UI 动画 |
 
-FLOW-001 至 006 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming；FLOW-005 多次查单只通知一次 confirming；FLOW-006 query-auth 恢复的 observe 单独通知 confirming，native-stop-late-callback 的旧运行停止后不得再通知。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
+FLOW-001 至 006 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming；FLOW-005 多次查单只通知一次 confirming。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
 
 FLOW-007 每个 case 在同一次运行中验证下列检查点，两个环境均执行；快慢时间穷举和预算耗尽边界另由 CORE-019 的 sdk-unit/integration 用受控时钟验证，不要求微信环境执行真实长等待。
 
@@ -254,16 +227,6 @@ FLOW-007 每个 case 在同一次运行中验证下列检查点，两个环境�
 | handler-throw / handler-reject | 两个通知的消费回调分别同步抛错/返回拒绝 Promise → SDK 仍完成正常渠道及 query(PAID)；次数不增加、结果不被观察者错误改写，无未处理拒绝；异常原文不进入诊断 |
 | reentrant-pay | channel_invoking 回调内再次 pay 同交易 → 新调用 busy/无通知，原调用正常完成；原 prepare/渠道仍各一次，不将 busy 结果或事件归入原 attempt |
 | no-listener | 省略 onPhase 的 pay 完成 prepare/渠道/query(PAID)，与有监听的正常 case 网络/渠道计数和结果语义一致 |
-
-FLOW-006 每个 case 在一次连续运行中验证下列检查点；业务恢复使用可控测试宿主操作，不让 SDK 执行登录。
-
-| case key | 连续步骤与必须断言 |
-| --- | --- |
-| prepare-auth | pay(T) → CreateTradePay 鉴权失败 → auth_required/prepare → 宿主更新 Token → 显式 pay(T) → 准备/渠道/查询成功。首个 pay 的 prepare 恰好一次、invoke 为零，无 SDK 自动重试；后一次使用新 Token、同 tradeNo/method |
-| query-auth | pay(T) → prepare → 渠道 success_hint → QueryTrade 鉴权失败 → auth_required/query，保留渠道信号与引用 → 宿主更新 Token → observe(T) → QueryTrade(PAID)。整个 case 的 prepare=1、invoke=1；新 Token 只用于后续查单，两个运行各交付一次。独立 query 失败再 query 及 unknown 信号恢复也按同一禁止重下单规则覆盖 |
-| channel-session | pay(T) → prepare(P) → 渠道明确会话失效 → channel_session_required/invoke → 宿主完成服务端会话更新 → 显式 pay(T) → prepare 返回相同 paymentNo=P → 使用本次参数调渠道 → query(PAID)。tradeNo/channel/appId 不变；signData/paySig 允许相同，signature 使用第二次响应；prepare=2、invoke=2，无 SDK 登录或自动再准备、不直接重用旧 PreparedPayment。准备阶段 SessionExpired 分支按 CONTRACT-013 另验 |
-| channel-session-different-payment | 同上连续会话恢复流程，第二次响应改为不同 paymentNo 及该响应完整参数；仍为 prepare=2、invoke=2，SDK 采用相同调度路径，不因前后单号相同/不同增减步骤。只证明 SDK 可消费服务端结果，不以 Fixture 代替服务端状态机验收 |
-| native-stop-late-callback | pay(T) → prepare → 渠道不回调 → 宿主显式停止 → stopped → 新 pay(T) → 新运行的渠道/查询/结果。旧回调在新运行期间到达也不能触发查询或改变新结果；旧运行只结束一次。停止不关单、不关闭渠道界面 |
 
 无关的场景组合不作笛卡尔积穷举；新增跨阶段交互风险时，先在本清单增加或修改必需流程/case 与检查点，再同步测试。FLOW 检查点须在同一 case 内关联真实执行断言；只有流程阶段全部贯通不自动满足所引用 Scenario 的全部边界。两者分别统计，防止用任意一个成功流程抵扣所有场景。
 

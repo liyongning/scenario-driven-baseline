@@ -9,7 +9,6 @@ type Fixture = Readonly<{ tradeNo: string; tokens: string[] }>;
 defineCase({ ownerId: 'FLOW-PAYSDK-005', caseId: 'token-rotates-between-queries', fixtureCase: 'token-rotates-between-queries', environment: 'integration', flowId: 'FLOW-PAYSDK-005', flowCase: 'token-rotates-between-queries',
   covers: [
     { id: 'TC-PAYSDK-CONTRACT-012', caseKey: 'token-rotates-between-queries', checks: ['fresh-token-each-request', 'no-token-cache-or-body'] },
-    { id: 'TC-PAYSDK-CONTRACT-018', caseKey: 'request-id-sequential', checks: ['request-id-contract'] },
   ],
 }, async ({ fixture: value, checkpoint, flow, expect }) => {
   const fixture = value as Fixture;

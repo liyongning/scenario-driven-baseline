@@ -2,7 +2,7 @@ import { afterEach, vi } from 'vitest';
 import { PaymentConfigurationError, type DiagnosticEvent, type PaymentOutcome } from '@daqian/payment-sdk';
 import { createWechatMiniappHttp, paymentBusinessErrors } from '@daqian/payment-protocol';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { createCancellation, createPublicHarness, installPublicClientPlatform, successPrepare, successQuery, type HttpPlan } from './public-client-harness.ts';
+import { createPublicHarness, installPublicClientPlatform, successPrepare, successQuery, type HttpPlan } from './public-client-harness.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 let cleanup: (() => void) | undefined;
@@ -10,16 +10,10 @@ afterEach(() => { cleanup?.(); vi.restoreAllMocks(); vi.useRealTimers(); });
 type Fixture = Readonly<{ tradeNo: string; variant?: string; platform?: string }>;
 type D = Readonly<{ ownerId: string; caseKey: string; checks: readonly string[] }>;
 const defs: readonly D[] = [
- {ownerId:'TC-PAYSDK-CONTRACT-005',caseKey:'empty-token',checks:['empty-token-no-http','prepare-interruption-once','explicit-pay-recovery']},
- {ownerId:'TC-PAYSDK-CONTRACT-006',caseKey:'independent-query-auth',checks:['independent-query-recovery','query-only-recovery']},
- {ownerId:'TC-PAYSDK-CONTRACT-007',caseKey:'observe-after-stop',checks:['observe-recovery-only','old-run-isolated','historical-signal-not-inferred']},
  {ownerId:'TC-PAYSDK-CONTRACT-009',caseKey:'unsupported-h5-method',checks:['unsupported-before-effects','no-payment-side-effects']},
  {ownerId:'TC-PAYSDK-CONTRACT-010',caseKey:'duplicate-active-pay',checks:['busy-on-active-trade','single-prepare-invoke']},
  {ownerId:'TC-PAYSDK-CONTRACT-016',caseKey:'provider-throws',checks:['provider-throw','no-fake-unauthorized']},
  {ownerId:'TC-PAYSDK-CONTRACT-016',caseKey:'provider-hangs',checks:['provider-timeout','no-fake-unauthorized','late-provider-isolated']},
- ...['prepare-identity-not-found','prepare-session-expired','prepare-unavailable'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-013',caseKey,checks:['distinct-error-classification','no-login-or-binding',...(caseKey==='prepare-unavailable'?[]:['prepare-phase-context','explicit-reprepare'])]})),
- ...['trade-reference-mismatch','empty-payment-no','missing-wechat-virtual-oneof','multiple-pay-param-branches'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-014',caseKey,checks:[caseKey.includes('oneof')||caseKey.includes('branches')?'oneof-validation':'correlation-and-channel-validation','no-channel-fallback']})),
- ...['request-id-same-millisecond','request-id-multiple-clients','client-platform-ios','client-platform-android','client-platform-ohos','client-platform-ohos-pc','client-platform-unknown','client-platform-exception'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-018',caseKey,checks:[caseKey.startsWith('request-id')?'request-id-contract':'client-platform-owned']})),
  {ownerId:'TC-PAYSDK-CONTRACT-015',caseKey:'test-gateway-development-lane',checks:['explicit-gateway-and-lane','no-environment-rewrite','evidence-boundary']},
  ...['http-200-business-error','success-error-conflict-with-nonzero-status','success-error-conflict-with-zero-status','missing-base-resp','null-base-resp','non-object-root','undecodable-content','missing-status-code','null-status-code','invalid-status-code','lossy-status-code','http-401','non-2xx-with-business-code','non-2xx-without-business-code','network-failure'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-017',caseKey,checks: caseKey==='network-failure'?['transport-failure','no-replay-or-channel-cancel']:caseKey.startsWith('success-error-conflict')?['status-code-authority','inconsistent-details-diagnostic']:['missing-base-resp','null-base-resp','non-object-root','undecodable-content','missing-status-code','null-status-code','invalid-status-code','lossy-status-code'].includes(caseKey)?['invalid-2xx-envelope']:caseKey==='http-401'||caseKey==='non-2xx-without-business-code'?['non-2xx-order','no-replay-or-channel-cancel']:caseKey==='non-2xx-with-business-code'?['status-code-authority','non-2xx-order','no-replay-or-channel-cancel']:['status-code-authority','no-replay-or-channel-cancel']})),
  ...['default-policy','fieldwise-overrides','per-call-override-isolation','invalid-policy-zero','invalid-policy-negative','invalid-policy-nan','invalid-policy-infinity','channel-wait-budget'].map(caseKey=>({ownerId:'TC-PAYSDK-CONTRACT-019',caseKey,checks:[caseKey==='default-policy'?'defaults':caseKey==='fieldwise-overrides'?'fieldwise-merge':caseKey==='per-call-override-isolation'?'override-isolation':caseKey==='channel-wait-budget'?'channel-wait-excluded':'invalid-before-send']})),
@@ -47,27 +41,14 @@ function malformed(tradeNo:string,key:string): HttpPlan {
  return {path:'/api/base/trade/pay',body:{...good,baseResp:{statusCode:'0',success:false,statusMsg:'conflict',error:{bizCode:'1'}}}};
 }
 
-for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,fixtureCase:['TC-PAYSDK-CONTRACT-014','TC-PAYSDK-CONTRACT-017'].includes(d.ownerId)?`task8-${d.caseKey}`:d.caseKey,environment:'integration',covers:[{id:d.ownerId,caseKey:d.caseKey,checks:d.checks}]},async({fixture:value,checkpoint,expect})=>{
+for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,fixtureCase:d.ownerId==='TC-PAYSDK-CONTRACT-017'?`task8-${d.caseKey}`:d.caseKey,environment:'integration',covers:[{id:d.ownerId,caseKey:d.caseKey,checks:d.checks}]},async({fixture:value,checkpoint,expect})=>{
  const f=value as Fixture; const key=d.caseKey; const diagnostics:DiagnosticEvent[]=[];
  let http:HttpPlan[]=[]; let channel: ('success'|'pending')[]=['success']; let token:string|null='fixture-token'; const getAccessToken=():string|null=>token;
  const isMalformed=d.ownerId==='TC-PAYSDK-CONTRACT-017';
  if(isMalformed) http=[malformed(f.tradeNo,key)];
- else if(d.ownerId==='TC-PAYSDK-CONTRACT-013') {
-  const code=key==='prepare-identity-not-found'?paymentBusinessErrors.ErrInfraTradeCreateTradePayWxIdentityNotFound.statusCode:key==='prepare-session-expired'?paymentBusinessErrors.ErrInfraTradeCreateTradePaySessionExpiredInvalidParameter.statusCode:paymentBusinessErrors.ErrInfraTradeCreateTradePayUnavailable.statusCode;
-  http=[{path:'/api/base/trade/pay',body:error(code,key==='prepare-unavailable')},...key==='prepare-unavailable'?[]:[{path:'/api/base/trade/pay' as const,body:successPrepare(f.tradeNo,'recovered')},{path:'/api/base/trade/query' as const,body:successQuery(f.tradeNo)}]];
- } else if(d.ownerId==='TC-PAYSDK-CONTRACT-014') {
-  let body=successPrepare(f.tradeNo) as Record<string,unknown>;
-  if(key==='trade-reference-mismatch') body={...body,tradeNo:'other'};
-  if(key==='empty-payment-no') body={...body,paymentNo:''};
-  if(key==='missing-wechat-virtual-oneof') body={...body,payParams:null};
-  if(key==='multiple-pay-param-branches') body={...body,payParams:{...(body.payParams as object),wechatNative:{codeUrl:'fixture'}}};
-  http=[{path:'/api/base/trade/pay',body}];
- } else if(key==='empty-token') {token=null;http=[{path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];}
- else if(key==='independent-query-auth') http=[{path:'/api/base/trade/query',body:error(paymentBusinessErrors.ErrInfraTradeQueryTradeUnauthorized.statusCode)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];
- else if(key==='observe-after-stop') http=[{path:'/api/base/trade/query',body:successQuery(f.tradeNo),delayMs:20},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];
  else if(key==='duplicate-active-pay') {http=[{path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)}];channel=['pending'];}
  else if(key==='provider-throws') token=null;
- else if(d.ownerId==='TC-PAYSDK-CONTRACT-018'||d.ownerId==='TC-PAYSDK-CONTRACT-015'||d.ownerId==='TC-PAYSDK-CONTRACT-019'||d.ownerId==='TC-PAYSDK-CONTRACT-020') {
+ else if(d.ownerId==='TC-PAYSDK-CONTRACT-015'||d.ownerId==='TC-PAYSDK-CONTRACT-019'||d.ownerId==='TC-PAYSDK-CONTRACT-020') {
   if(key==='request-id-multiple-clients') http=[
    {path:'/api/base/trade/pay',body:successPrepare(f.tradeNo)},{path:'/api/base/trade/query',body:successQuery(f.tradeNo)},
    {path:'/api/base/trade/pay',body:successPrepare(`${f.tradeNo}-second`)},{path:'/api/base/trade/query',body:successQuery(`${f.tradeNo}-second`)},
@@ -94,13 +75,9 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
  }
  const harness=createPublicHarness({getAccessToken:key==='provider-throws'?()=>{throw new Error('fixture-secret');}:key==='provider-hangs'?()=>new Promise(()=>undefined):getAccessToken,...policy?{policy}:{},...(d.ownerId==='TC-PAYSDK-CONTRACT-015'?{gatewayBaseUrl:'https://test-gateway.fixture.invalid',requestContext:{lane:'development',productId:'product',appVersion:'1'}}:{}),onDiagnostic:e=>diagnostics.push(e)});
  let outcomes:(PaymentOutcome|unknown)[]=[];
- if(key==='empty-token') {outcomes=[await harness.client.pay(req(f.tradeNo))];token='restored';outcomes.push(await harness.client.pay(req(f.tradeNo)));}
- else if(key==='independent-query-auth') outcomes=[await harness.client.query({tradeNo:f.tradeNo}),await harness.client.query({tradeNo:f.tradeNo})];
- else if(key==='observe-after-stop') {const c=createCancellation();const old=harness.client.observe({tradeNo:f.tradeNo},{cancellation:c.cancellation});setTimeout(c.stop,2);outcomes=[await old,await harness.client.observe({tradeNo:f.tradeNo})];}
- else if(key==='unsupported-h5-method') outcomes=[await harness.client.pay({reference:{tradeNo:f.tradeNo},method:'h5' as never})];
+ if(key==='unsupported-h5-method') outcomes=[await harness.client.pay({reference:{tradeNo:f.tradeNo},method:'h5' as never})];
  else if(key==='duplicate-active-pay') {const first=harness.client.pay(req(f.tradeNo));while(!platform.pendingChannels.length)await new Promise(r=>setTimeout(r,0));outcomes=[await harness.client.pay(req(f.tradeNo))];platform.pendingChannels[0]!.success();outcomes.push(await first);}
  else if(key==='provider-hangs') outcomes=[await harness.client.pay(req(f.tradeNo))];
- else if(d.ownerId==='TC-PAYSDK-CONTRACT-013') {outcomes=[await harness.client.pay(req(f.tradeNo))];if(key!=='prepare-unavailable')outcomes.push(await harness.client.pay(req(f.tradeNo)));}
  else if(key==='request-id-multiple-clients') {const second=createPublicHarness();outcomes=[await harness.client.pay(req(f.tradeNo)),await second.client.pay(req(`${f.tradeNo}-second`))];}
  else if(key==='default-policy') {const pending=harness.client.pay(req(f.tradeNo));await vi.advanceTimersByTimeAsync(0);await vi.advanceTimersByTimeAsync(2_999);expect(platform.httpRecords.filter(record=>record.path.endsWith('/query'))).toHaveLength(1);await vi.advanceTimersByTimeAsync(1);outcomes=[await pending];}
  else if(key==='fieldwise-overrides') {const pending=harness.client.pay(req(f.tradeNo),{policy:{observation:{maxWaitMs:20}}});await vi.advanceTimersByTimeAsync(0);await vi.advanceTimersByTimeAsync(6);expect(platform.httpRecords.filter(record=>record.path.endsWith('/query'))).toHaveLength(1);await vi.advanceTimersByTimeAsync(1);outcomes=[await pending];}
@@ -113,23 +90,9 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
  else outcomes=[key==='no-extra-phase-values'?await harness.pay(req(f.tradeNo)):await harness.client.pay(req(f.tradeNo))];
  for(const check of d.checks) await checkpoint(check,()=>{
   const out=outcomes[0] as PaymentOutcome;
-  if(key==='empty-token'){expect(out).toMatchObject({reason:'auth_required',interruptedPhase:'prepare',channelSignal:'not_invoked'});expect(outcomes[1]).toMatchObject({reason:'confirmed'});expect(platform.httpRecords).toHaveLength(2);}
-  else if(key==='independent-query-auth'){expect(outcomes[0]).toMatchObject({ok:false,error:{code:'AUTH_REQUIRED'}});expect(outcomes[1]).toMatchObject({ok:true,value:{state:'PAID'}});expect(platform.httpRecords.every(r=>r.path.endsWith('/query'))).toBe(true);}
-  else if(key==='observe-after-stop'){expect(outcomes[0]).toMatchObject({reason:'stopped'});expect(outcomes[1]).toMatchObject({reason:'confirmed',channelSignal:'not_invoked'});expect(platform.channelRecords).toHaveLength(0);}
-  else if(key==='unsupported-h5-method'){expect(out).toMatchObject({reason:'unsupported',channelSignal:'not_invoked'});expect(platform.httpRecords).toHaveLength(0);}
+  if(key==='unsupported-h5-method'){expect(out).toMatchObject({reason:'unsupported',channelSignal:'not_invoked'});expect(platform.httpRecords).toHaveLength(0);}
   else if(key==='duplicate-active-pay'){expect(outcomes[0]).toMatchObject({reason:'busy'});expect(outcomes[1]).toMatchObject({reason:'confirmed'});expect(platform.channelRecords).toHaveLength(1);}
   else if(key.startsWith('provider-')){expect(out.reason).toBe(key==='provider-throws'?'error':'timed_out');expect(out.error?.code).toBe(key==='provider-throws'?'HOST_CONTEXT_ERROR':'TIMEOUT');expect(platform.httpRecords).toHaveLength(0);}
-  else if(d.ownerId==='TC-PAYSDK-CONTRACT-013'){
-   const originalCode=key==='prepare-identity-not-found'?paymentBusinessErrors.ErrInfraTradeCreateTradePayWxIdentityNotFound.statusCode.toString():key==='prepare-session-expired'?paymentBusinessErrors.ErrInfraTradeCreateTradePaySessionExpiredInvalidParameter.statusCode.toString():paymentBusinessErrors.ErrInfraTradeCreateTradePayUnavailable.statusCode.toString();
-   expect(out).toMatchObject({reason:key==='prepare-identity-not-found'?'identity_required':key==='prepare-session-expired'?'channel_session_required':'error',channelSignal:'not_invoked',error:{code:key==='prepare-identity-not-found'?'IDENTITY_REQUIRED':key==='prepare-session-expired'?'CHANNEL_SESSION_REQUIRED':'SERVER_ERROR',source:'gateway',originalCode}});
-   expect(out.interruptedPhase).toBe(key==='prepare-unavailable'?undefined:'prepare');expect(platform.channelRecords).toHaveLength(key==='prepare-unavailable'?0:1);
-   if(key!=='prepare-unavailable'){expect(outcomes[1]).toMatchObject({reason:'confirmed',snapshot:{reference:{tradeNo:f.tradeNo},state:'PAID'}});const prepares=platform.httpRecords.filter(record=>record.path.endsWith('/pay'));expect(prepares).toHaveLength(2);expect(prepares.map(record=>record.body.tradeNo)).toEqual([f.tradeNo,f.tradeNo]);expect(prepares.map(record=>record.body.appId)).toEqual(['app-fixture','app-fixture']);expect(platform.channelRecords[0]?.signData).toContain('recovered');}
-  }
-  else if(d.ownerId==='TC-PAYSDK-CONTRACT-014'){expect(out).toMatchObject({reason:'error',error:{code:'PROTOCOL_ERROR'}});expect(platform.channelRecords).toHaveLength(0);}
-  else if(d.ownerId==='TC-PAYSDK-CONTRACT-018'){
-   if(key.startsWith('request-id')) {const ids=platform.httpRecords.map(record=>String(record.headers.request_id??''));expect(ids.every(id=>/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(id))).toBe(true);expect(new Set(ids).size).toBe(ids.length);expect(platform.httpRecords.every(record=>record.headers.request_id===valueAt(record.body,'baseReq.requestId'))).toBe(true);if(key==='request-id-multiple-clients')expect(outcomes.every(value=>(value as PaymentOutcome).reason==='confirmed')).toBe(true);}
-   else expect(platform.httpRecords[0]?.body.clientPlatform).toBe(['ohos','ohos-pc'].includes(key.replace('client-platform-',''))?'harmony':['ios','android'].includes(key.replace('client-platform-',''))?key.replace('client-platform-',''):'unknown');
-  }
   else if(d.ownerId==='TC-PAYSDK-CONTRACT-015'){expect(platform.httpRecords[0]?.url).toBe('https://test-gateway.fixture.invalid/api/base/trade/pay');expect(platform.httpRecords[0]?.headers.lane).toBe('development');expect(platform.httpRecords[0]?.headers.lane).not.toBe('baseline');expect(platform.httpRecords[0]?.body).toHaveProperty('tradeNo',f.tradeNo);expect(out.reason).toBe('confirmed');}
   else if(isMalformed){
    const businessCode=paymentBusinessErrors.ErrInfraTradeCreateTradePayUnavailable.statusCode.toString();
@@ -152,7 +115,6 @@ for(const d of defs) defineCase({ownerId:d.ownerId,caseId:`task8-${d.caseKey}`,f
  });
 }, {fixtureRoot});
 
-function valueAt(root:unknown,path:string){let value=root;for(const part of path.split('.'))value=value&&typeof value==='object'?(value as Record<string,unknown>)[part]:undefined;return value;}
 
 defineCase({ownerId:'TC-PAYSDK-CORE-010',caseId:'task8-protocol-root-factory',fixtureCase:'protocol-root-factory',environment:'integration',covers:[
  {id:'TC-PAYSDK-CORE-010',caseKey:'protocol-root-factory',checks:['protocol-root-factory','lazy-platform-access','package-boundary']},

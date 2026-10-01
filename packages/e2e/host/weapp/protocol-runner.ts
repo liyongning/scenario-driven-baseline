@@ -255,27 +255,14 @@ export async function runPaymentCase(input: PaymentCaseInput) {
     if (input.caseKey === 'handler-reject') return Promise.reject(new Error('fixture-handler'));
   };
   try {
-    if (input.caseKey === 'empty-token') {
-      await track(client.pay(request(), { onPhase }));
-      await track(client.pay(request(), { onPhase }));
-    } else if (input.caseKey === 'prepare-identity-not-found' || input.caseKey === 'prepare-session-expired') {
-      await track(client.pay(request(), { onPhase }));
-      await track(client.pay(request(), { onPhase }));
-    } else if (input.caseKey === 'observe-only' || input.caseKey === 'query-auth') {
-      if (input.caseKey === 'query-auth') await track(client.pay(request(), { onPhase }));
+    if (input.caseKey === 'observe-only') {
       await track(client.observe({ tradeNo: input.tradeNo }, { onPhase }));
-    } else if (input.caseKey === 'stop-after-platform' || input.caseKey === 'observe-after-stop') {
+    } else if (input.caseKey === 'stop-after-platform') {
       const first = track(client.pay(request(), { onPhase, cancellation: host.value }));
       while (pending.length === 0) await new Promise(resolve => setTimeout(resolve, 0));
       host.stop();
       await first;
-      if (input.caseKey === 'observe-after-stop') {
-        pending[0]!.success();
-        await track(client.observe({ tradeNo: input.tradeNo }, { onPhase }));
-      } else pending[0]!.success();
-    } else if (input.caseKey === 'prepare-auth' || input.caseKey.startsWith('channel-session')) {
-      await track(client.pay(request(), { onPhase }));
-      await track(client.pay(request(), { onPhase }));
+      pending[0]!.success();
     } else if (input.caseKey === 'no-listener') {
       await track(client.pay(request()));
     } else {
