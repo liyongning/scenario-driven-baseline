@@ -16,7 +16,7 @@ describe('readSpecInventory', () => {
   it('uses remark AST to extract scenario verification and the authoritative FLOW table', async () => {
     const root = await mkdtemp(join(tmpdir(), 'payment-spec-'));
     const path = join(root, 'spec.md');
-    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`);
+    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | SCN-SAMPLE-CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`);
     const inventory = await readSpecInventory([path]);
     expect(inventory.issues).toEqual([]);
     expect(inventory.scenarios[0]).toMatchObject({ id: 'SCN-SAMPLE-CORE-001', verification: { cases: [{ key: 'ok', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['sent'] }] } });
@@ -132,16 +132,15 @@ ${block}
 
   it('reads the reviewed v2 denominator without reducing any category', async () => {
     const inventory = await readSpecInventory([
-      new URL('../../openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md', import.meta.url).pathname,
-      new URL('../../openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md', import.meta.url).pathname,
+      new URL('../../openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md', import.meta.url).pathname,
     ]);
     const cases = inventory.scenarios.flatMap(scenario => scenario.verification?.cases ?? []);
     expect(inventory.issues).toEqual([]);
-    expect(inventory.scenarios).toHaveLength(50);
-    expect(cases).toHaveLength(226);
-    expect(cases.filter(item => item.kind === 'behavior')).toHaveLength(153);
-    expect(cases.filter(item => item.kind === 'module')).toHaveLength(20);
-    expect(cases.filter(item => item.kind === 'engineering')).toHaveLength(53);
-    expect(inventory.scenarios.filter(scenario => scenario.verification?.cases.some(item => item.kind === 'behavior'))).toHaveLength(40);
+    expect(inventory.scenarios).toHaveLength(11);
+    expect(cases).toHaveLength(22);
+    expect(cases.filter(item => item.kind === 'behavior')).toHaveLength(9);
+    expect(cases.filter(item => item.kind === 'module')).toHaveLength(7);
+    expect(cases.filter(item => item.kind === 'engineering')).toHaveLength(6);
+    expect(inventory.scenarios.filter(scenario => scenario.verification?.cases.some(item => item.kind === 'behavior'))).toHaveLength(7);
   });
 });

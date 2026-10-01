@@ -11,7 +11,7 @@
 ## 当前业务：支付
 
 
-必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [能力 Spec](../../openspec/specs/payment-sdk/spec.md), [公共契约](../../openspec/specs/payment-sdk-contract/spec.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
+必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
 [根 AGENTS](../../AGENTS.md)
 
 1. 先读根 AGENTS、proto-gen.yaml/lock、公共请求契约与 Design。src/generated/ 仅由获准 ProtoGen 管理；不在其中增加手写 index、测试或 AGENTS，不编辑 generated DTO、codec 或 metadata。

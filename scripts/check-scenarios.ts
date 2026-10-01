@@ -402,7 +402,7 @@ export async function runScenariosCli(
   return { output, exitCode: Math.min(1, output.issues.length) };
 }
 
-/* v8 ignore start -- the real CLI branch is exercised by TC-PAYSDK-CORE-015. */
+/* v8 ignore start -- the real CLI branch is exercised by SCN-SCENARIO-GATE-009. */
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) void runScenariosCli(process.argv).then(result => {
   console.log(JSON.stringify(result.output, null, 2));
   process.exitCode = result.exitCode;

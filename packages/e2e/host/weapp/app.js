@@ -8,9 +8,6 @@ App({
   runProtocolSuite(input) {
     return runner.runProtocolSuite(input);
   },
-  runPaymentCase(input) {
-    return runner.runPaymentCase(input);
-  },
   runExampleCase(input) {
     return exampleRunner.runExampleCase(input);
   },

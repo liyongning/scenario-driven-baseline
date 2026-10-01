@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import type { Cancellation } from '../contracts';
+import type { Cancellation } from '@daqian/payment-protocol';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.resetModules(); });
 
@@ -22,7 +22,6 @@ test('请求标识采用固定公式，跨实例共享序号，同毫秒与时�
   const ids = Array.from({ length: 1000 }, () => second.nextRequestId());
   expect(new Set(ids).size).toBe(1000);
   for (const id of ids) { expect(id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/); expect(id.length).toBeLessThanOrEqual(128); }
-  expect(first.nextAttemptId()).not.toBe(second.nextAttemptId());
 });
 
 test('普通等待按时结束', async () => {

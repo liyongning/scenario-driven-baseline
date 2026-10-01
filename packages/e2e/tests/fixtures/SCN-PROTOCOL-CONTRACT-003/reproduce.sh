@@ -9,6 +9,5 @@ trap 'rm -rf "$archive_dir"' EXIT
 git -C "$idl_repo" archive 5539be8f09323709fa65f6568efe22896ec35d24 | tar -x -C "$archive_dir"
 cd "$archive_dir"
 go run "$input_dir/extract.go" "$output_dir"
-go test . -run '^Test(DescribeErrorCodeInfraTradePayContracts|PayParamsJSONShapeIsTheFrontendContract|XpayEnvIsTheSingleCrossServiceSandboxSwitch)$' -count=1 -v
-python3 "$input_dir/defensive-fixtures.py" "$output_dir"
+go test . -run '^TestDescribeErrorCodeInfraTradePayContracts$' -count=1 -v
 python3 "$input_dir/refresh-manifests.py" "$output_dir" "$archive_dir"

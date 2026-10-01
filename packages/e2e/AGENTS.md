@@ -25,7 +25,7 @@ integration 用例置于 `tests/example/`，跨阶段流程使用独立的 `FLOW
 ## 当前业务：支付
 
 
-必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [能力 Spec](../../openspec/specs/payment-sdk/spec.md), [公共契约](../../openspec/specs/payment-sdk-contract/spec.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
+必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
 [根 AGENTS](../../AGENTS.md)
 
 1. 先读根 AGENTS、有效 Scenario/必需 FLOW 清单、支付 IDL/补充契约及 Design。测试期望由这些事实决定，不能从 SDK 实现、现有返回值或 Fixture 自动反推预期。

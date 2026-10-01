@@ -6,11 +6,11 @@ module.exports = {
     // 本地路径即便指向公开入口，也必须通过 npm 名称消费；仅放行已配置的 npm 名称别名。
     { name: 'cross-workspace-no-direct-files', severity: 'error', from: { path: '^packages/(payment-sdk|payment-protocol)/src/' }, to: { path: '^packages/(?!$1/)(payment-sdk|payment-protocol|e2e)/', dependencyTypes: ['local'], dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'] } },
     { name: 'sdk-cross-package-exports-only', severity: 'error', from: { path: '^packages/payment-sdk/src/' }, to: { path: '^packages/payment-protocol/', pathNot: '^packages/payment-protocol/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))' } },
-    { name: 'core-no-platform-or-node', severity: 'error', from: { path: '^packages/payment-sdk/src/(core|ports|runtime)/|^packages/payment-sdk/src/example/(core|ports)/', pathNot: '[.]test[.]ts$' }, to: { dependencyTypes: ['core'] } },
+    { name: 'core-no-platform-or-node', severity: 'error', from: { path: '^packages/payment-sdk/src/(runtime|example/(core|ports))/', pathNot: '[.]test[.]ts$' }, to: { dependencyTypes: ['core'] } },
     // 示例分层约定见 packages/payment-sdk/AGENTS.md「按示例扩展新业务」。
     { name: 'example-core-no-generated', severity: 'error', from: { path: '^packages/payment-sdk/src/example/(core|ports)/' }, to: { path: '^packages/payment-protocol/(src/|dist/)?generated/' } },
-    { name: 'example-no-payment', severity: 'error', from: { path: '^packages/payment-sdk/src/example/' }, to: { path: '^packages/payment-sdk/src/(core|adapters|ports|errors|contracts|factory)(/|[.]ts$)', pathNot: '^packages/payment-sdk/src/runtime/' } },
-    { name: 'payment-no-example', severity: 'error', from: { path: '^packages/payment-sdk/src/(?!example/)', pathNot: '^packages/payment-sdk/src/index[.]ts$' }, to: { path: '^packages/payment-sdk/src/example/' } },
+    // 产品包内各业务模块目录互不导入；可共用的只有 runtime/ 与协议包公开入口，index.ts 作为装配入口豁免。
+    { name: 'domain-isolation', severity: 'error', from: { path: '^packages/payment-sdk/src/([^/]+)/', pathNot: '^packages/payment-sdk/src/runtime/' }, to: { path: '^packages/payment-sdk/src/([^/]+)/', pathNot: ['^packages/payment-sdk/src/runtime/', '^packages/payment-sdk/src/$1/'] } },
     {
       name: 'no-circular',
       severity: 'warn',

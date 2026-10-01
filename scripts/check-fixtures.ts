@@ -68,7 +68,7 @@ export async function runFixturesCli(argv: ReadonlyArray<string>, repositoryRoot
   return { ...result, exitCode: Math.min(1, result.issues.length) };
 }
 
-/* v8 ignore start -- the real CLI branch is exercised by TC-PAYSDK-CORE-015. */
+/* v8 ignore start -- the real CLI branch is exercised by SCN-SCENARIO-GATE-009. */
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) void runFixturesCli(process.argv).then(result => {
   const { exitCode, ...output } = result;
   console.log(JSON.stringify(output, null, 2));

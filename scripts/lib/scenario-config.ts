@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 
 export type ScenarioConfig = Readonly<{ scenarioIdPatterns: ReadonlyArray<string>; flowIdPatterns: ReadonlyArray<string>; ownerIdPattern: string }>;
-const fallback: ScenarioConfig = { scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'], flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'], ownerIdPattern: '^(?:TC|FLOW)-[A-Z0-9-]+$' };
+const fallback: ScenarioConfig = { scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'], flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'], ownerIdPattern: '^(?:FLOW|SCN)-[A-Z0-9-]+$' };
 
 export async function loadScenarioConfig(repositoryRoot: string): Promise<ScenarioConfig> {
   const path = resolve(repositoryRoot, 'scenario-gate.config.json');

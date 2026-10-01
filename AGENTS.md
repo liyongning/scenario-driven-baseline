@@ -27,8 +27,6 @@
 
 - [Proposal](openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md)
 - [Design](openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md)
-- [能力 Spec](openspec/specs/payment-sdk/spec.md)
-- [公共契约与设计待决登记](openspec/specs/payment-sdk-contract/spec.md)
 - [Tasks 与共同完成条件](openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md)
 - [仓库与跨仓库参考](README.md)
 

@@ -45,7 +45,7 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
   const flows: FlowInventoryItem[] = [];
   const issues: string[] = [];
 
-  const effectiveConfig = config ?? { scenarioIdPatterns: ['^TC-PAYSDK-[A-Z0-9-]+$', '^SCN-[A-Z0-9-]+$'], flowIdPatterns: ['^FLOW-PAYSDK-[A-Z0-9-]+$', '^FLOW-[A-Z0-9-]+$'], ownerIdPattern: '^(?:TC|FLOW)-[A-Z0-9-]+$' };
+  const effectiveConfig = config ?? { scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'], flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'], ownerIdPattern: '^(?:FLOW|SCN)-[A-Z0-9-]+$' };
   for (const sourceInput of specPaths) {
     const source = typeof sourceInput === 'string' ? sourceInput : sourceInput.path;
     const content = typeof sourceInput === 'string' ? await readFile(source, 'utf8') : sourceInput.content;
@@ -137,6 +137,12 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
   }
   for (const id of new Set(flows.map(item => item.id))) {
     if (flows.filter(item => item.id === id).length > 1) issues.push(`duplicate FLOW ID ${id}`);
+  }
+  const registeredScenarioIds = new Set(scenarios.map(item => item.id));
+  for (const flow of flows) {
+    for (const related of flow.relatedScenarios) {
+      if (!registeredScenarioIds.has(related)) issues.push(`FLOW ${flow.id} references unregistered Scenario ${related}`);
+    }
   }
   return { scenarios, flows, issues };
 }

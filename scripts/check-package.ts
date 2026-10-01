@@ -69,7 +69,7 @@ export async function runPackageCli(
   return { commands, sdkVersion: input.record.sdkVersion, protocolVersion: input.record.protocolVersion, issues, exitCode: Math.min(1, issues.length) };
 }
 
-/* v8 ignore start -- the real CLI branch is exercised by TC-PAYSDK-CORE-016. */
+/* v8 ignore start -- the real CLI branch is exercised by SCN-SCENARIO-GATE-010. */
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) void runPackageCli(process.argv).then(result => {
   const { exitCode, ...output } = result;
   console.log(JSON.stringify(output, null, 2));

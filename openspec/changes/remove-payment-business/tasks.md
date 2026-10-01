@@ -298,7 +298,7 @@
   **Commit**
   - `refactor(payment): remove query and observation scenarios`
 
-- [ ] 9. 删除核心与公共入口，清空豁免清单
+- [x] 9. 删除核心与公共入口，清空豁免清单
 
   **Files**
   - 按 Design"功能分组"第 9 组与"SDK 与协议包的最终删除（任务 9）"：

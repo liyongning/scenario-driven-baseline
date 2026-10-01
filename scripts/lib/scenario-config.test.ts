@@ -23,8 +23,8 @@ describe('scenario config', () => {
   it('uses fallback patterns only when config is missing', async () => {
     const root = await mkdtemp(join(tmpdir(), 'scenario-config-'));
     const fallback = await loadScenarioConfig(root);
-    expect(matchesAny('TC-PAYSDK-CORE-001', fallback.scenarioIdPatterns)).toBe(true);
-    expect(matchesAny('FLOW-PAYSDK-001', fallback.flowIdPatterns)).toBe(true);
+    expect(matchesAny('SCN-TEMPLATE-EXAMPLE-001', fallback.scenarioIdPatterns)).toBe(true);
+    expect(matchesAny('FLOW-TEMPLATE-EXAMPLE-001', fallback.flowIdPatterns)).toBe(true);
     await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({ $schema: './scenario-gate.config.schema.json', scenarioIdPatterns: ['^SCN-'], flowIdPatterns: ['^FLOW-'], ownerIdPattern: '^[A-Z]+$' }));
     expect(await loadScenarioConfig(root)).toEqual({ $schema: './scenario-gate.config.schema.json', scenarioIdPatterns: ['^SCN-'], flowIdPatterns: ['^FLOW-'], ownerIdPattern: '^[A-Z]+$' });
     await writeFile(join(root, 'scenario-gate.config.json'), '{invalid');

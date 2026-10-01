@@ -59,7 +59,7 @@ export function runArchitectureCli(argv: ReadonlyArray<string>, cwd = process.cw
   return { issues, exitCode: Math.min(1, issues.length) };
 }
 
-/* v8 ignore start -- the real CLI branch is exercised by TC-PAYSDK-CORE-015. */
+/* v8 ignore start -- the real CLI branch is exercised by SCN-SCENARIO-GATE-009. */
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const result = runArchitectureCli(process.argv);
   console.log(JSON.stringify({ issues: result.issues }, null, 2));

@@ -43,16 +43,15 @@
       "meaning": "historical recovery references; fixtures are Go message structures, not server execution or channel evidence"
     },
     "extraction": {
-      "command": "sh packages/e2e/tests/fixtures/TC-PAYSDK-CONTRACT-024/reproduce.sh <idl-git-repository> packages/e2e/tests/fixtures",
+      "command": "sh packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/reproduce.sh <idl-git-repository> packages/e2e/tests/fixtures",
       "goVersion": "go1.26.3 darwin/arm64",
-      "program": "TC-PAYSDK-CONTRACT-024/extract.go",
-      "programSha256": "5d3a14b7792219636c43ffb06e03aa430ed8c958f138d2c60561d787a49393fe",
-      "limitations": "Synthetic non-payable strings; no live token or channel signature. Historical gateway serialization does not prove xpay_env deployment compatibility.",
+      "program": "SCN-PROTOCOL-CONTRACT-003/extract.go",
+      "programSha256": "9efabf02401e10b70e3a5dc047a65ec37e756de3af74fca55b1230bbd33908bc",
+      "limitations": "只核对固定提交中 7 项错误码的常量值、canonical 分类与描述；不证明当前部署、网关序列化或运行行为。",
       "inputFilesSha256": {
-        "extract.go": "5d3a14b7792219636c43ffb06e03aa430ed8c958f138d2c60561d787a49393fe",
-        "reproduce.sh": "ca5a1420c8767e9bdc6cd9df7dfa25e88dd56a70743f2ebb9c3ca12c9aa128c1",
-        "defensive-fixtures.py": "04be3e7b802ef8653d00c696c5c2bfeeaaa8725691680ed70c49d55931e5258c",
-        "refresh-manifests.py": "5a8dd6c53db452428db2b0e29e3a65b1cabd3fc286d8e6ae177e29c737d85c08"
+        "extract.go": "9efabf02401e10b70e3a5dc047a65ec37e756de3af74fca55b1230bbd33908bc",
+        "reproduce.sh": "30d72b98e0a6c111c1b3209c5a4c265eb29f75e75219f6b3b77b65444184f8bc",
+        "refresh-manifests.py": "7589d0e6408e71de84c2995e8ef5f4ca0a16fa696c3f3baf301989776a30f3a1"
       }
     },
     "generatedCompatibility": {
@@ -380,7 +379,7 @@
     "projection-mismatch": "projection-mismatch.json"
   },
   "sha256": {
-    "idl-errors.json": "2ab7007b8467648a3f6b4d986a486c7ef0c02361eb65d61625bac6ba021dd792",
+    "idl-errors.json": "9277b30e1fe1fe415499f09af6ab950d97f9fc752751211a6a0674d30075e2d6",
     "wrong-code.json": "3bb3538cf6506b078fc35a2255ae0ed2c2c11d00a12694de089f8e4d9a3f554f",
     "wrong-description.json": "530e2761f25fd29dc165f0172732d98d01c8432f1affa48f99688da2e0337341",
     "missing-error.json": "468c6c22baf75e5de213e944002fb23c306a3788846cc6f1560c8807b7d711b7",
@@ -388,13 +387,20 @@
     "metadata-only-sync.json": "78abf7614d7ffddcb694c6e3d65699b2d76ee6fcbeb38908a37ad7bcdce78cfc",
     "projection-mismatch.json": "077e131246c0bbfce2091caf3821a1590ffdeb882ef8af3d6bad2a73a32f83ed"
   },
-  "defensiveMutations": {},
+  "defensiveMutations": {
+    "wrong-code": "Explicit mutation of fixed Go fixture; client defense only, not a captured server response",
+    "wrong-description": "Explicit mutation of fixed Go fixture; client defense only, not a captured server response",
+    "missing-error": "Explicit mutation of fixed Go fixture; client defense only, not a captured server response",
+    "source-mismatch": "Explicit mutation of fixed Go fixture; client defense only, not a captured server response",
+    "metadata-only-sync": "Explicit mutation of fixed Go fixture; client defense only, not a captured server response",
+    "projection-mismatch": "Explicit mutation of fixed Go fixture; client defense only, not a captured server response"
+  },
   "maintenance": {
     "change": "Separate generated provenance from fixed Go facts; no Go extraction rerun",
-    "baseline": "TC-PAYSDK-CONTRACT-024/provenance/before.lock",
+    "baseline": "SCN-PROTOCOL-CONTRACT-003/provenance/before.lock",
     "baselineSha256": "ecb8b02b9d7c85602e40a1207b8dfed3eef6b52a27456c7546717bf0aef8d716",
-    "refreshScriptSha256": "db00d3fdf0e4555496714cdc977f23417f254f4103a17c687b3f0b03ff3a7002",
-    "currentBaseline": "TC-PAYSDK-CONTRACT-024/provenance/current.lock",
+    "refreshScriptSha256": "7589d0e6408e71de84c2995e8ef5f4ca0a16fa696c3f3baf301989776a30f3a1",
+    "currentBaseline": "SCN-PROTOCOL-CONTRACT-003/provenance/current.lock",
     "currentBaselineSha256": "9652f6a678d03447eaa389cc40b05d7ef095433acf8f2cf4332a19b624efb999"
   },
   "provenance": {

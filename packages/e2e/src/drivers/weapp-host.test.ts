@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runPaymentCase, runProtocolSuite } from '../../host/weapp/protocol-runner.ts';
+import { runProtocolSuite } from '../../host/weapp/protocol-runner.ts';
 import { runExampleCase } from '../../host/weapp/example-runner.ts';
 
 const generatedRunner = new URL('../../host/weapp/.generated/protocol-runner.js', import.meta.url).pathname;
@@ -14,12 +14,11 @@ afterEach(() => {
 
 describe('official minimal weapp host', () => {
   it('registers the protocol runner on the App instance', async () => {
-    let definition: { runProtocolCase(input: unknown): Promise<unknown>; runProtocolSuite(input: unknown): Promise<unknown>; runPaymentCase(input: unknown): Promise<unknown>; runExampleCase(input: unknown): Promise<unknown> } | undefined;
+    let definition: { runProtocolCase(input: unknown): Promise<unknown>; runProtocolSuite(input: unknown): Promise<unknown>; runExampleCase(input: unknown): Promise<unknown> } | undefined;
     const runProtocolCase = vi.fn(async (input: unknown) => ({ input }));
     const runProtocolSuite = vi.fn(async (input: unknown) => ({ suite: input }));
-    const runPaymentCase = vi.fn(async (input: unknown) => ({ payment: input }));
     const runExampleCase = vi.fn(async (input: unknown) => ({ example: input }));
-    vi.stubGlobal('__PAYMENT_TEST_RUNNER__', { runProtocolCase, runProtocolSuite, runPaymentCase });
+    vi.stubGlobal('__PAYMENT_TEST_RUNNER__', { runProtocolCase, runProtocolSuite });
     vi.stubGlobal('__EXAMPLE_TEST_RUNNER__', { runExampleCase });
     vi.stubGlobal('App', (value: typeof definition) => { definition = value; });
 
@@ -28,11 +27,9 @@ describe('official minimal weapp host', () => {
 
     await expect(definition?.runProtocolCase({ caseKey: 'omitted' })).resolves.toEqual({ input: { caseKey: 'omitted' } });
     await expect(definition?.runProtocolSuite('matrix')).resolves.toEqual({ suite: 'matrix' });
-    await expect(definition?.runPaymentCase('pay')).resolves.toEqual({ payment: 'pay' });
     await expect(definition?.runExampleCase('example')).resolves.toEqual({ example: 'example' });
     expect(runProtocolCase).toHaveBeenCalledOnce();
     expect(runProtocolSuite).toHaveBeenCalledOnce();
-    expect(runPaymentCase).toHaveBeenCalledOnce();
     expect(runExampleCase).toHaveBeenCalledOnce();
   });
 
@@ -78,66 +75,6 @@ describe('official minimal weapp host', () => {
     expect(await runExampleCase({ action: 'normal', ...base })).toMatchObject({ created: { ok: true }, outcome: { end: 'completed' } });
     expect(await runExampleCase({ action: 'normal', ...base, ownerId: '' })).toMatchObject({ created: { ok: false, error: { category: 'invalid_input' } } });
     expect(requests.map(url => url.endsWith('/create') ? 'create' : 'query')).toEqual(['create', 'query', 'create', 'query']);
-  });
-
-  it('dispatches the controlled channel callback when the host has no queueMicrotask global', async () => {
-    const responses = [
-      {
-        baseResp: { statusCode: '0', success: true },
-        tradeNo: 'trade-host-callback', paymentNo: 'payment-host-callback',
-        channel: 'CHANNEL_WECHAT_VIRTUAL', expireTime: '1800000000000',
-        payParams: { wechatVirtual: { mode: 'short_series_goods', signData: '{}', paySig: 'sig', signature: 'signature' } },
-      },
-      { baseResp: { statusCode: '0', success: true }, trade: { tradeNo: 'trade-host-callback', status: 'TRADE_STATUS_PAID', expireTime: '1800000000000' } },
-    ];
-    const request = vi.fn((options: { success(value: unknown): void; complete?(): void }) => {
-      const body = responses.shift();
-      void Promise.resolve().then(() => {
-        options.success({ statusCode: 200, header: {}, data: JSON.stringify(body) });
-        options.complete?.();
-      });
-      return { abort() {} };
-    });
-    vi.stubGlobal('wx', { request, canIUse: () => false });
-    vi.stubGlobal('queueMicrotask', undefined);
-
-    const result = await runPaymentCase({
-      gatewayBaseUrl: 'https://fixture.invalid', tradeNo: 'trade-host-callback',
-      accessToken: 'fixture-token', appId: 'app-fixture', caseKey: 'explicit-undefined', channelModes: ['success'],
-    });
-
-    expect(result.outcomes[0]).toMatchObject({ reason: 'confirmed', snapshot: { state: 'PAID' } });
-    expect(result.platformCalls).toBe(1);
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(result.events.map(event => event.kind === 'phase' ? `phase:${event.phase}` : event.kind === 'http-request' ? `http:${event.url?.endsWith('/pay') ? 'pay' : 'query'}` : event.kind === 'outcome' ? `outcome:${event.reason}` : event.kind)).toEqual([
-      'http:pay', 'http-response', 'phase:channel_invoking', 'channel-invoke', 'channel-callback', 'phase:confirming', 'http:query', 'http-response', 'outcome:confirmed',
-    ]);
-  });
-
-  it('dispatches a controlled channel failure when the host has no queueMicrotask global', async () => {
-    const request = vi.fn((options: { success(value: unknown): void; complete?(): void }) => {
-      void Promise.resolve().then(() => {
-        options.success({ statusCode: 200, header: {}, data: JSON.stringify({
-          baseResp: { statusCode: '0', success: true },
-          tradeNo: 'trade-host-failure', paymentNo: 'payment-host-failure',
-          channel: 'CHANNEL_WECHAT_VIRTUAL', expireTime: '1800000000000',
-          payParams: { wechatVirtual: { mode: 'short_series_goods', signData: '{}', paySig: 'sig', signature: 'signature' } },
-        }) });
-        options.complete?.();
-      });
-      return { abort() {} };
-    });
-    vi.stubGlobal('wx', { request, canIUse: () => false });
-    vi.stubGlobal('queueMicrotask', undefined);
-
-    const result = await runPaymentCase({
-      gatewayBaseUrl: 'https://fixture.invalid', tradeNo: 'trade-host-failure',
-      accessToken: 'fixture-token', appId: 'app-fixture', caseKey: 'cancelled', channelModes: ['cancel'],
-    });
-
-    expect(result.outcomes[0]).toMatchObject({ reason: 'channel_cancelled', channelSignal: 'cancelled' });
-    expect(result.platformCalls).toBe(1);
-    expect(request).toHaveBeenCalledOnce();
   });
 
   it('returns protocol projections without nested bigint values', async () => {

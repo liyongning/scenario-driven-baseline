@@ -1,4 +1,4 @@
-"""维护工具回归：受控临时输入，不作为 Go 支付事实来源，也不调用 Go。"""
+"""维护工具回归：受控临时输入，不作为 Go 错误码事实来源，也不调用 Go。"""
 import copy
 import hashlib
 import json
@@ -21,7 +21,7 @@ class RefreshManifestsTest(unittest.TestCase):
         self.fixed = self.archive / 'controlled.go'
         self.fixed.write_text('// controlled maintenance input, not IDL authority\n')
         self.manifests = []
-        for owner in ['TC-PAYSDK-CONTRACT-024', 'TC-PAYSDK-CONTRACT-017']:
+        for owner in ['SCN-PROTOCOL-CONTRACT-003']:
             folder = self.root / owner
             folder.mkdir(parents=True)
             manifest = json.loads((SOURCE.parent / owner / 'manifest.json').read_text())
@@ -33,7 +33,7 @@ class RefreshManifestsTest(unittest.TestCase):
             file.write_text(json.dumps(manifest))
             (folder / 'controlled.json').write_text('{"controlled":true}\n')
             self.manifests.append((file, copy.deepcopy(manifest)))
-        for name in ['extract.go', 'reproduce.sh', 'defensive-fixtures.py', 'refresh-manifests.py']:
+        for name in ['extract.go', 'reproduce.sh', 'refresh-manifests.py']:
             (self.root / SOURCE.name / name).write_bytes((SOURCE / name).read_bytes())
 
     def refresh(self):

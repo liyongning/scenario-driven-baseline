@@ -87,13 +87,15 @@ evidence('SCN-SCENARIO-GATE-003', 'lifecycle-merge', ['main-specs-baseline', 'de
   });
 });
 
-evidence('SCN-SCENARIO-GATE-007', 'flow-placement-rules', ['outside-table-rejected', 'inside-table-accepted', 'flow-row-schema'], async (context, check) => {
+evidence('SCN-SCENARIO-GATE-007', 'flow-placement-rules', ['outside-table-rejected', 'inside-table-accepted', 'flow-row-schema', 'related-scenarios-registered'], async (context, check) => {
   const outside = await readSpecInventory([{ path: 'outside', kind: 'main', content: `${flowHeader}| FLOW-TEST-001 | SCN-TEST-001 | create → observe | normal | integration | outside |` }], config);
   await check('outside-table-rejected', () => context.expect(outside.issues.join('\n')).toContain('would be lost during archive'));
-  const inside = await readSpecInventory([{ path: 'inside', kind: 'main', content: `### Requirement: TEST flow\n${flowHeader}| FLOW-TEST-001 | SCN-TEST-001 | create → observe | normal | integration | inside |` }], config);
+  const inside = await readSpecInventory([{ path: 'inside', kind: 'main', content: `### Requirement: TEST flow\n#### Scenario: SCN-TEST-001 Example\n${block}\n${flowHeader}| FLOW-TEST-001 | SCN-TEST-001 | create → observe | normal | integration | inside |` }], config);
   await check('inside-table-accepted', () => context.expect(inside.flows.map(item => item.id)).toEqual(['FLOW-TEST-001']));
   const invalid = await readSpecInventory([{ path: 'invalid', kind: 'main', content: `### Requirement: TEST flow\n${flowHeader}| FLOW-TEST-001 | SCN-TEST-001 | create → observe | normal | sdk-unit | invalid |` }], config);
   await check('flow-row-schema', () => context.expect(invalid.issues.join('\n')).toContain('invalid FLOW row'));
+  const unregistered = await readSpecInventory([{ path: 'unregistered', kind: 'main', content: `### Requirement: TEST flow\n#### Scenario: SCN-TEST-001 Example\n${block}\n${flowHeader}| FLOW-TEST-001 | SCN-TEST-001、SCN-TEST-999 | create → observe | normal | integration | unregistered |` }], config);
+  await check('related-scenarios-registered', () => context.expect(unregistered.issues.join('\n')).toContain('SCN-TEST-999'));
 });
 
 evidence('SCN-SCENARIO-GATE-004', 'unknown-reference-rules', ['unknown-flow-reference', 'unknown-scenario-reference'], async (context, check) => {

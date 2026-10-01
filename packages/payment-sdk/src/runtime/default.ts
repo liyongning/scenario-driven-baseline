@@ -1,14 +1,13 @@
-import type { Cancellation } from '../contracts';
-import type { RuntimePort } from '../ports/runtime';
+import type { Cancellation } from '@daqian/payment-protocol';
+import type { RuntimePort } from './port';
 
 // 只声明跨宿主定时器能力，核心不引入 DOM 或 Node 全局类型。
 declare function setTimeout(callback: () => void, durationMs: number): number;
 declare function clearTimeout(handle: number): void;
 
-// 模块级共享序号不会随客户端重建或时间回拨重置；仅作诊断关联，不是支付幂等键。
+// 模块级共享序号不会随客户端重建或时间回拨重置；仅作诊断关联，不是业务幂等键。
 const processNonce = Math.random().toString(36).slice(2, 10);
 let sequence = 0;
-let attemptSequence = 0;
 
 function nextRequestId(): string {
   sequence += 1;
@@ -39,7 +38,6 @@ function sleepMs(durationMs: number, cancellation?: Cancellation): Promise<void>
 export function createDefaultRuntime(): RuntimePort {
   return {
     nowMs: () => Date.now(),
-    nextAttemptId: () => `attempt-${processNonce}-${(++attemptSequence).toString(36)}`,
     nextRequestId,
     sleepMs,
   };

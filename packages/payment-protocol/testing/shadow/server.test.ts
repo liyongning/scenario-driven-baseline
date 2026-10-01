@@ -1,16 +1,25 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { closeShadowListener, createShadowServer, shadowUrl, type RunningShadowServer } from './server.ts';
+import { discoverExampleRoutes } from './example/routes.ts';
+
+const routes = discoverExampleRoutes();
+const pathOf = (methodName: string) => {
+  const route = routes.find(candidate => candidate.methodName === methodName);
+  if (!route) throw new Error(`missing example route ${methodName}`);
+  return route.path;
+};
 
 const running: RunningShadowServer[] = [];
 afterEach(async () => Promise.all(running.splice(0).map(server => server.close())));
 
 async function start(steps: ReadonlyArray<Record<string, unknown>>) {
   const server = createShadowServer({
+    routes,
     scenarios: [{
       id: 'case-a',
       routes: {
-        CreateTradePay: {
-          expectedRequests: steps.map(() => ({ body: { tradeNo: 'trade-1', xpayEnv: 'XPAY_ENV_SANDBOX' } })),
+        CreateTrade: {
+          expectedRequests: steps.map(() => ({ body: { tradeNo: 'trade-1' } })),
           steps,
         },
       },
@@ -24,14 +33,14 @@ async function start(steps: ReadonlyArray<Record<string, unknown>>) {
 describe('shadow server', () => {
   it('isolates each scenario by server instance, keeps request order, and reports missing and extra requests', async () => {
     const make = async (id: string, tradeNo: string, turns: number[]) => {
-      const configured = createShadowServer({ scenarios: [{ id, routes: { QueryTrade: {
+      const configured = createShadowServer({ routes, scenarios: [{ id, routes: { QueryTrade: {
         expectedRequests: turns.map(() => ({ body: { tradeNo } })), steps: turns.map(turn => ({ body: { turn } })),
       } } }] });
       const active = await configured.start(); running.push(active); return active;
     };
     const first = await make('first', 't-1', [1, 2]);
     const second = await make('second', 't-2', [8]);
-    const post = (server: RunningShadowServer, body: unknown) => fetch(`${server.url}/api/base/trade/query`, {
+    const post = (server: RunningShadowServer, body: unknown) => fetch(`${server.url}${pathOf('QueryTrade')}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     });
     expect(await (await post(first, { tradeNo: 't-1' })).json()).toEqual({ turn: 1 });
@@ -46,14 +55,14 @@ describe('shadow server', () => {
 
   it('rejects an unmatched raw JSON request and preserves key presence in the record', async () => {
     const active = await start([{ body: { ok: true } }]);
-    const response = await fetch(`${active.url}/api/base/trade/pay`, {
+    const response = await fetch(`${active.url}${pathOf('CreateTrade')}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tradeNo: 'trade-1', xpayEnv: 0 }),
+      body: JSON.stringify({ tradeNo: 'trade-1', extra: 0 }),
     });
 
     expect(response.status).toBe(422);
-    expect(active.records()[0]?.rawBody).toEqual({ tradeNo: 'trade-1', xpayEnv: 0 });
-    expect(active.verify()).toContain('case-a/CreateTradePay request 1: $.xpayEnv: expected "XPAY_ENV_SANDBOX", received 0');
+    expect(active.records()[0]?.rawBody).toEqual({ tradeNo: 'trade-1', extra: 0 });
+    expect(active.verify()).toContain('case-a/CreateTrade request 1: $.extra: unexpected key');
   });
 
   it('replays status, delay, and disconnect faults in order and cleans up its listener', async () => {
@@ -62,9 +71,9 @@ describe('shadow server', () => {
       { delayMs: 20, body: { ok: true } },
       { disconnect: true },
     ]);
-    const post = () => fetch(`${active.url}/api/base/trade/pay`, {
+    const post = () => fetch(`${active.url}${pathOf('CreateTrade')}`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tradeNo: 'trade-1', xpayEnv: 'XPAY_ENV_SANDBOX' }),
+      body: JSON.stringify({ tradeNo: 'trade-1' }),
     });
     expect((await post()).status).toBe(503);
     const before = Date.now();
@@ -78,7 +87,7 @@ describe('shadow server', () => {
   });
 
   it('matches selected headers and preserves null and raw non-json responses', async () => {
-    const server = createShadowServer({ scenarios: [{ id: 'raw', routes: { QueryTrade: {
+    const server = createShadowServer({ routes, scenarios: [{ id: 'raw', routes: { QueryTrade: {
       expectedRequests: [
         { headers: { authorization: 'Bearer one' }, body: { tradeNo: 't' } },
         { headers: { authorization: 'Bearer two' }, body: { tradeNo: 't' } },
@@ -86,7 +95,7 @@ describe('shadow server', () => {
       steps: [{ body: null }, { rawBody: 'not-json', contentType: 'text/plain' }],
     } } }] });
     const active = await server.start(); running.push(active);
-    const send = (authorization: string) => fetch(`${active.url}/api/base/trade/query`, {
+    const send = (authorization: string) => fetch(`${active.url}${pathOf('QueryTrade')}`, {
       method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: '{"tradeNo":"t"}',
     });
     expect(await (await send('Bearer one')).text()).toBe('null');
@@ -97,11 +106,11 @@ describe('shadow server', () => {
   });
 
   it('records dynamic request ids for fieldwise scenario assertions without weakening header checks', async () => {
-    const configured = createShadowServer({ scenarios: [{ id: 'dynamic', routes: { QueryTrade: {
+    const configured = createShadowServer({ routes, scenarios: [{ id: 'dynamic', routes: { QueryTrade: {
       expectedRequests: [{ recordOnly: true, headers: { authorization: 'Bearer token' } }], steps: [{ body: {} }],
     } } }] });
     const server = await configured.start(); running.push(server);
-    const response = await fetch(`${server.url}/api/base/trade/query`, {
+    const response = await fetch(`${server.url}${pathOf('QueryTrade')}`, {
       method: 'POST', headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
       body: '{"tradeNo":"trade-dynamic","baseReq":{"requestId":"generated-at-runtime"}}',
     });
@@ -112,17 +121,17 @@ describe('shadow server', () => {
 
   it('rejects an unconfigured generated route and mismatched headers', async () => {
     const active = await start([{ body: {} }]);
-    const unmatched = await fetch(`${active.url}/api/base/trade/query`, {
+    const unmatched = await fetch(`${active.url}${pathOf('QueryTrade')}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"tradeNo":"t"}',
     });
     expect(unmatched.status).toBe(404);
 
-    const configured = createShadowServer({ scenarios: [{ id: 'headers', routes: { QueryTrade: {
+    const configured = createShadowServer({ routes, scenarios: [{ id: 'headers', routes: { QueryTrade: {
       expectedRequests: [{ headers: { authorization: 'Bearer expected' }, body: { tradeNo: 't' } }],
       steps: [{ body: {} }],
     } } }] });
     const server = await configured.start(); running.push(server);
-    const mismatch = await fetch(`${server.url}/api/base/trade/query`, {
+    const mismatch = await fetch(`${server.url}${pathOf('QueryTrade')}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"tradeNo":"t"}',
     });
     expect(mismatch.status).toBe(422);
@@ -134,13 +143,13 @@ describe('shadow server', () => {
   });
 
   it('rejects multiple scenario namespaces and unequal request/response sequences', () => {
-    expect(() => createShadowServer({ scenarios: [
+    expect(() => createShadowServer({ routes, scenarios: [
       { id: 'a', routes: {} }, { id: 'b', routes: {} },
     ] })).toThrow(/one scenario/);
-    expect(() => createShadowServer({ scenarios: [{ id: 'a', routes: { QueryTrade: {
+    expect(() => createShadowServer({ routes, scenarios: [{ id: 'a', routes: { QueryTrade: {
       expectedRequests: [{ body: { tradeNo: 't' } }], steps: [{ body: {} }, { body: {} }],
     } } }] })).toThrow(/same length/);
-    expect(() => createShadowServer({ scenarios: [{ id: 'a', routes: { QueryTrade: {
+    expect(() => createShadowServer({ routes, scenarios: [{ id: 'a', routes: { QueryTrade: {
       expectedRequests: [{}], steps: [{ body: {} }],
     } } }] })).toThrow(/body or recordOnly/);
   });

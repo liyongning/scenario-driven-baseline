@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { discoverPaymentRoutes, type ShadowRoute } from './routes.ts';
+import type { ShadowRoute } from './routes.ts';
 import { compareJsonPresence } from './requests.ts';
 import { sendShadowStep, type ShadowStep } from './faults.ts';
 
@@ -42,8 +42,8 @@ export async function closeShadowListener(server: Pick<Server, 'close'>): Promis
   await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 }
 
-export function createShadowServer(options: Readonly<{ scenarios: ReadonlyArray<ShadowScenario>; routes?: ReadonlyArray<ShadowRoute> }>) {
-  const routes = options.routes ? [...options.routes] : discoverPaymentRoutes();
+export function createShadowServer(options: Readonly<{ scenarios: ReadonlyArray<ShadowScenario>; routes: ReadonlyArray<ShadowRoute> }>) {
+  const routes = [...options.routes];
   if (options.scenarios.length !== 1) throw new Error('a shadow server owns exactly one scenario');
   const scenario = options.scenarios[0]!;
   const states = new Map<string, RouteState>();

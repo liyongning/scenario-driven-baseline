@@ -9,7 +9,7 @@
 ## 当前业务：支付
 
 
-必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [能力 Spec](../../openspec/specs/payment-sdk/spec.md), [公共契约](../../openspec/specs/payment-sdk-contract/spec.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
+必读：[Proposal](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/proposal.md), [Design](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/design.md), [Tasks](../../openspec/changes/archive/2026-09-22-headless-payment-sdk/tasks.md), [README](../../README.md)。
 [根 AGENTS](../../AGENTS.md)
 
 1. 先读根 AGENTS、能力 Spec、公共契约及 Design 的模块图/流程。src/index.ts 是公共导出；factory.ts 校验配置并装配客户端；禁止内部测试工厂进入公共 exports。
@@ -26,4 +26,4 @@
 
 ## 按示例扩展新业务
 
-新业务以 `src/example/` 为参照，按工厂 → 核心 → 端口 → 适配器分层。工厂负责配置校验与协议装配，核心只编排中立端口，适配器是唯一接触 generated 的位置；业务目录之间不得互相导入，可共用的只有 `runtime/` 与协议包公开入口。`example-core-no-generated` 防止核心和端口绑定传输模型，`example-no-payment` 防止示例反向依赖支付实现，`payment-no-example` 防止支付实现反向依赖示例。`eslint.config.js` 中 core/ports 的 `wx` 限制防止平台全局穿透核心层；平台调用必须留在适配器边界。
+新业务以 `src/example/` 为参照，按工厂 → 核心 → 端口 → 适配器分层。工厂负责配置校验与协议装配，核心只编排中立端口，适配器是唯一接触 generated 的位置；业务目录之间不得互相导入，可共用的只有 `runtime/` 与协议包公开入口。`example-core-no-generated` 防止核心和端口绑定传输模型，`domain-isolation` 防止产品包内不同业务模块目录互相导入。`eslint.config.js` 中 core/ports 的 `wx` 限制防止平台全局穿透核心层；平台调用必须留在适配器边界。

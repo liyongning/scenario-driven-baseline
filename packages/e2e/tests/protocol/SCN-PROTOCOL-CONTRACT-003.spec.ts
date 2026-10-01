@@ -77,7 +77,7 @@ contractTest('all-errors', () => {
   expect(protocol).toHaveProperty('paymentBusinessErrors');
   verify(protocol.paymentBusinessErrors, protocol.paymentBusinessErrorsIdlCommit);
   verifyGenerated(readLock('proto-gen.lock'), currentBaseline);
-  expect(expected).toHaveLength(17);
+  expect(expected).toHaveLength(7);
   for (const file of ['idl-errors.json', 'extract.go'] as const) {
     const want = file === 'extract.go' ? manifest.sources.extraction.programSha256 : manifest.sha256[file];
     expect(createHash('sha256').update(readFileSync(`packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/${file}`)).digest('hex')).toBe(want);

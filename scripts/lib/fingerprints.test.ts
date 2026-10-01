@@ -24,8 +24,8 @@ describe('verification fingerprints', () => {
     for (const directory of [
       'packages/payment-sdk/src', 'packages/payment-protocol/src', 'packages/payment-protocol/testing',
       'packages/e2e/src', 'packages/e2e/host/weapp', 'packages/e2e/tests/fixtures', 'scripts',
-      'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk',
-      'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract',
+      'openspec/changes/archive/2026-01-01-template-example/specs/template-example',
+      'openspec/changes/archive/2026-01-01-template-example/specs/template-engineering',
     ]) mkdirSync(join(root, directory), { recursive: true });
     writeFileSync(join(root, 'packages/payment-sdk/src/index.ts'), 'sdk');
     writeFileSync(join(root, 'packages/payment-protocol/src/index.ts'), 'protocol');
@@ -40,10 +40,10 @@ describe('verification fingerprints', () => {
     writeFileSync(join(root, 'packages/e2e/host/weapp/pages/index/index.wxss'), 'view {}');
     writeFileSync(join(root, 'scripts/check.ts'), 'tool');
     writeFileSync(join(root, 'packages/e2e/tests/fixtures/base.json'), '{}');
-    writeFileSync(join(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk/spec.md'), 'sdk spec');
-    writeFileSync(join(root, 'openspec/changes/archive/2026-09-22-headless-payment-sdk/specs/payment-sdk-contract/spec.md'), 'contract spec');
-    mkdirSync(join(root, 'openspec/specs/payment-sdk'), { recursive: true });
-    writeFileSync(join(root, 'openspec/specs/payment-sdk/spec.md'), 'active spec');
+    writeFileSync(join(root, 'openspec/changes/archive/2026-01-01-template-example/specs/template-example/spec.md'), 'archived spec');
+    writeFileSync(join(root, 'openspec/changes/archive/2026-01-01-template-example/specs/template-engineering/spec.md'), 'archived engineering spec');
+    mkdirSync(join(root, 'openspec/specs/template-example'), { recursive: true });
+    writeFileSync(join(root, 'openspec/specs/template-example/spec.md'), 'active spec');
     mkdirSync(join(root, 'openspec/changes/current/specs/template-example'), { recursive: true });
     writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'delta spec');
     writeFileSync(join(root, 'proto-gen.lock'), 'idl');
