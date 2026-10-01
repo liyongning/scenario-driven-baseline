@@ -159,9 +159,6 @@ defineCase({ownerId:'TC-PAYSDK-CORE-010',caseId:'task8-protocol-root-factory',fi
  {id:'TC-PAYSDK-CONTRACT-011',caseKey:'protocol-root-load-create',checks:['protocol-root-source','lazy-platform-access']},
 ]},async({checkpoint,expect})=>{delete(globalThis as{wx?:unknown}).wx;const sdk=await import('@daqian/payment-sdk');await checkpoint('protocol-root-factory',()=>expect(createWechatMiniappHttp()).toMatchObject({send:expect.any(Function)}));await checkpoint('protocol-root-source',()=>expect(createWechatMiniappHttp).toBeTypeOf('function'));await checkpoint('lazy-platform-access',()=>expect((globalThis as{wx?:unknown}).wx).toBeUndefined());await checkpoint('package-boundary',()=>expect(sdk).not.toHaveProperty('createWechatMiniappHttp'));},{fixtureRoot});
 
-defineCase({ownerId:'TC-PAYSDK-CORE-009',caseId:'fake-channel-report',fixtureCase:'fake-channel-report',environment:'integration',covers:[
- {id:'TC-PAYSDK-CORE-009',caseKey:'fake-channel-report',checks:['evidence-boundary','no-live-claim']},
-]},async({fixture:value,checkpoint,expect})=>{const record=value as {evidenceKind:string;liveChannelClaim:boolean};await checkpoint('evidence-boundary',()=>expect(record.evidenceKind).toBe('platform-substitute'));await checkpoint('no-live-claim',()=>expect(record.liveChannelClaim).toBe(false));},{fixtureRoot});
 
 defineCase({ownerId:'TC-PAYSDK-CONTRACT-011',caseId:'sdk-network-dependency-boundary',fixtureCase:'sdk-network-dependency-boundary',environment:'integration',covers:[
  {id:'TC-PAYSDK-CONTRACT-011',caseKey:'sdk-network-dependency-boundary',checks:['protocol-root-source','sdk-export-boundary']},

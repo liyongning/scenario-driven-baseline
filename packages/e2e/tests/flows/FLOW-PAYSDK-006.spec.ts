@@ -18,7 +18,6 @@ for (const caseKey of ['prepare-auth', 'query-auth', 'native-stop-late-callback'
   ] : caseKey === 'query-auth' ? [
     { id: 'TC-PAYSDK-CONTRACT-006', caseKey: 'query-auth', checks: ['query-auth-result', 'context-preserved', 'query-only-recovery'] },
   ] : [
-    { id: 'TC-PAYSDK-CORE-013', caseKey: 'native-stop-late-callback', checks: ['stop-once-and-clean', 'new-pay-is-new-run', 'old-callback-isolated'] },
     { id: 'TC-PAYSDK-CORE-019', caseKey: 'old-callback-after-new-attempt', checks: ['attempt-isolation'] },
     { id: 'TC-PAYSDK-CONTRACT-010', caseKey: 'repay-after-stop', checks: ['stop-releases-local-record', 'old-callback-isolated'] },
   ],

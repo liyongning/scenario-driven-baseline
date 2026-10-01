@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi, type TestContext } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { Cancellation } from '@daqian/payment-protocol';
 import type { PreparedPayment } from '../../ports/backend';
 import type { ChannelContext } from '../../ports/channel';
@@ -314,38 +314,6 @@ describe('微信小程序虚拟商品渠道回调与停止生命周期', () => {
     expect(await createWechatMiniappVirtualChannel().invoke(prepared(), context())).toEqual({
       ok: true, value: { kind: 'signal', signal: 'unknown' },
     });
-  });
-
-  test('TC-PAYSDK-CORE-024 adapter-failure-mapping', { meta: { paymentCase: {
-    ownerId: 'TC-PAYSDK-CORE-024', caseId: 'adapter-failure-mapping', environment: 'sdk-unit', fixtureCase: null,
-    covers: [
-      { id: 'TC-PAYSDK-CORE-024', caseKey: 'adapter-failure-mapping', checks: ['explicit-failure-code-preserved', 'unmapped-numeric-is-explicit-failure', 'documented-unknown-unchanged', 'invalid-codes-remain-unknown', 'special-codes-unchanged'] },
-    ],
-  } } }, async (testContext: TestContext) => {
-    const before = testContext.expect.getState().assertionCalls;
-    const invokeFailure = async (errCode: unknown) => {
-      installPlatform(options => options.fail({ errCode, errMsg: 'must not escape' }));
-      return createWechatMiniappVirtualChannel().invoke(prepared(), context());
-    };
-    // explicit-failure-code-preserved：已文档化码输出 CHANNEL_ERROR 并保留十进制原码。
-    testContext.expect(await invokeFailure(1001)).toEqual({ ok: false, error: expectedError('CHANNEL_ERROR', 'channel', { originalCode: '1001', channelMessage: 'must not escape' }) });
-    testContext.expect(await invokeFailure(-15010)).toEqual({ ok: false, error: expectedError('CHANNEL_ERROR', 'channel', { originalCode: '-15010', channelMessage: 'must not escape' }) });
-    // unmapped-numeric-is-explicit-failure：未映射的非零安全整数码同样归为明确失败，不回退 unknown。
-    testContext.expect(await invokeFailure(16)).toEqual({ ok: false, error: expectedError('CHANNEL_ERROR', 'channel', { originalCode: '16', channelMessage: 'must not escape' }) });
-    testContext.expect(await invokeFailure(-15015)).toEqual({ ok: false, error: expectedError('CHANNEL_ERROR', 'channel', { originalCode: '-15015', channelMessage: 'must not escape' }) });
-    // documented-unknown-unchanged：-5 仍是唯一按结果未知处理的失败码。
-    testContext.expect(await invokeFailure(-5)).toEqual({ ok: true, value: { kind: 'signal', signal: 'unknown' } });
-    // invalid-codes-remain-unknown：无可用数字错误码时不带原码。
-    for (const errCode of [undefined, null, 0, Number.NaN, Number.POSITIVE_INFINITY, 4.5, Number.MAX_SAFE_INTEGER + 1, '16']) {
-      testContext.expect(await invokeFailure(errCode)).toEqual({ ok: true, value: { kind: 'signal', signal: 'unknown' } });
-    }
-    // special-codes-unchanged：取消与会话失效保持专属语义。
-    testContext.expect(await invokeFailure(-2)).toEqual({ ok: true, value: { kind: 'signal', signal: 'cancelled' } });
-    testContext.expect(await invokeFailure(-15007)).toEqual({ ok: false, error: expectedError('CHANNEL_SESSION_REQUIRED', 'channel', { originalCode: '-15007', channelMessage: 'must not escape' }) });
-    await testContext.annotate(JSON.stringify({
-      assertions: testContext.expect.getState().assertionCalls - before,
-      checkpoints: ['explicit-failure-code-preserved', 'unmapped-numeric-is-explicit-failure', 'documented-unknown-unchanged', 'invalid-codes-remain-unknown', 'special-codes-unchanged'],
-    }), 'payment-evidence');
   });
 
   test('重复 success/fail 回调只接纳第一个并只清理一次', async () => {

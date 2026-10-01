@@ -182,7 +182,7 @@
   **Commit**
   - `refactor(payment): remove xpayEnv selection scenarios`
 
-- [ ] 5. 删除渠道调起与原生生命周期
+- [x] 5. 删除渠道调起与原生生命周期
 
   **Files**
   - 按 Design"功能分组"第 5 组：删除 SDK-02、03、04、08、12 段落与 FLOW-002、003 行；删除该组测试文件；在聚合文件与豁免文件的单测中删除只绑定本组场景的用例，同时绑定后续组场景的用例按 Design"多组共用的用例"处理（例如 `client.module.test.ts` 的 alternate-method-internal-adapter 改为只覆盖 CORE-010）；删除无读取方的 Fixture 目录。

@@ -52,11 +52,10 @@ test('TC-PAYSDK-CORE-001 headless-core-import-and-run', {
   await annotate(context, before, ['headless-internal-core', 'headless-core-evidence']);
 });
 
-test('TC-PAYSDK-CORE-002 alternate-method-internal-adapter', {
+test('TC-PAYSDK-CORE-010 replace-internal-channel-port', {
   meta: { paymentCase: {
-    ownerId: 'TC-PAYSDK-CORE-002', caseId: 'alternate-method-internal-adapter', environment: 'sdk-unit', fixtureCase: null,
+    ownerId: 'TC-PAYSDK-CORE-010', caseId: 'replace-internal-channel-port', environment: 'sdk-unit', fixtureCase: null,
     covers: [
-      { id: 'TC-PAYSDK-CORE-002', caseKey: 'alternate-method-internal-adapter', checks: ['internal-extension'] },
       { id: 'TC-PAYSDK-CORE-010', caseKey: 'replace-internal-channel-port', checks: ['channel-port-isolation'] },
     ],
   } },
@@ -81,52 +80,4 @@ test('TC-PAYSDK-CORE-002 alternate-method-internal-adapter', {
   context.expect(outcome).toMatchObject({ reason: 'action_required', channelSignal: 'not_invoked', nextAction: { kind: 'redirect' } });
   context.expect(query).not.toHaveBeenCalled();
   await annotate(context, before, ['internal-extension', 'channel-port-isolation']);
-});
-
-test('TC-PAYSDK-CORE-024 core-invoke-failure-classification', {
-  meta: { paymentCase: {
-    ownerId: 'TC-PAYSDK-CORE-024', caseId: 'core-invoke-failure-classification', environment: 'sdk-unit', fixtureCase: null,
-    covers: [
-      { id: 'TC-PAYSDK-CORE-024', caseKey: 'core-invoke-failure-classification', checks: ['thrown-invocation-no-code-classification', 'no-confirming-or-query-on-explicit-failure'] },
-    ],
-  } },
-}, async (context: TestContext) => {
-  const before = context.expect.getState().assertionCalls;
-  const query = vi.fn<PaymentBackend['query']>(async ref => ({ ok: true, value: { reference: ref, state: 'PAID', source: 'server', observedAtMs: 0 } }));
-  const backend: PaymentBackend = {
-    prepare: async request => ({ ok: true, value: {
-      reference: request.reference, paymentNo: 'payment-core-024', method: request.method as never,
-      payParams: { kind: 'wechat_virtual', mode: 'short_series_goods', signData: '{}', paySig: 'sig', signature: 'signature' },
-    } }),
-    query,
-  };
-  const phases: string[] = [];
-  // invoke 阶段抛错/以 CHANNEL_ERROR 返回都按明确调起失败结算；异常原文不进入结果或诊断。
-  for (const kind of ['throw', 'port-error'] as const) {
-    const channel: ChannelAdapter = {
-      method: 'wechat-miniapp-virtual-goods', available: () => true,
-      async invoke(_payment, channelContext) {
-        if (!channelContext.beforeInvoke() || !channelContext.markInvoked()) return { ok: true, value: { kind: 'stopped' } };
-        if (kind === 'throw') throw new Error('fixture-private-channel');
-        return { ok: false, error: {
-          code: 'CHANNEL_ERROR', source: 'channel', message: '支付渠道调用失败', originalCode: '-15010',
-          channelMessage: 'requestVirtualPayment:fail fixture-channel',
-        } };
-      },
-    };
-    const outcome = await createCoreClient({ backend, channels: [channel], enabledMethods: [channel.method as never], runtime })
-      .pay({ reference, method: channel.method as never }, { onPhase: event => phases.push(event.phase) });
-    context.expect(outcome).toMatchObject({ reason: 'launch_failed', channelSignal: 'launch_failed', snapshot: { state: 'UNKNOWN', source: 'unavailable' } });
-    if (kind === 'throw') {
-      context.expect(outcome.error).toMatchObject({ code: 'CHANNEL_ERROR', source: 'channel' });
-      context.expect(outcome.error).not.toHaveProperty('originalCode');
-    } else context.expect(outcome.error).toEqual({
-      code: 'CHANNEL_ERROR', source: 'channel', message: '支付渠道调用失败', originalCode: '-15010',
-      channelMessage: 'requestVirtualPayment:fail fixture-channel',
-    });
-  }
-  // 明确调起失败只通知 channel_invoking，不进入 confirming、不发起 QueryTrade、不重新 prepare。
-  context.expect(phases).toEqual(['channel_invoking', 'channel_invoking']);
-  context.expect(query).not.toHaveBeenCalled();
-  await annotate(context, before, ['thrown-invocation-no-code-classification', 'no-confirming-or-query-on-explicit-failure']);
 });

@@ -1,1 +1,0 @@
-{"tradeNo":"flow-003-channel","response":{"baseResp":{"statusCode":"0","success":true},"tradeNo":"flow-003-channel","paymentNo":"payment-channel","channel":"CHANNEL_H5","expireTime":"1800000000000","payParams":{"wechatVirtual":{"mode":"short_series_goods","signData":"signed","paySig":"sig","signature":"signature"}}}}

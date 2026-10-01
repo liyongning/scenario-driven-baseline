@@ -24,7 +24,6 @@ function covers(caseKey: CaseKey) {
     ];
     case 'stop-before-invoke': return [
       { id: 'TC-PAYSDK-CORE-019', caseKey: 'stop-inside-channel-invoking', checks: ['stop-inside-notification', 'attempt-isolation'] },
-      { id: 'TC-PAYSDK-CORE-013', caseKey: 'stop-before-invoke', checks: ['stop-once-and-clean', 'preinvoke-stop'] },
     ];
     case 'stop-after-notification': return [{ id: 'TC-PAYSDK-CORE-019', caseKey, checks: ['stop-after-notification-before-platform', 'attempt-isolation'] }];
     case 'stop-after-platform': return [{ id: 'TC-PAYSDK-CORE-019', caseKey, checks: ['stop-after-platform', 'attempt-isolation'] }];

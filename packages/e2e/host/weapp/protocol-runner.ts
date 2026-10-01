@@ -264,7 +264,7 @@ export async function runPaymentCase(input: PaymentCaseInput) {
     } else if (input.caseKey === 'observe-only' || input.caseKey === 'query-auth') {
       if (input.caseKey === 'query-auth') await track(client.pay(request(), { onPhase }));
       await track(client.observe({ tradeNo: input.tradeNo }, { onPhase }));
-    } else if (input.caseKey === 'native-stop-late-callback' || input.caseKey === 'stop-after-platform' || input.caseKey === 'observe-after-stop') {
+    } else if (input.caseKey === 'stop-after-platform' || input.caseKey === 'observe-after-stop') {
       const first = track(client.pay(request(), { onPhase, cancellation: host.value }));
       while (pending.length === 0) await new Promise(resolve => setTimeout(resolve, 0));
       host.stop();
@@ -272,20 +272,10 @@ export async function runPaymentCase(input: PaymentCaseInput) {
       if (input.caseKey === 'observe-after-stop') {
         pending[0]!.success();
         await track(client.observe({ tradeNo: input.tradeNo }, { onPhase }));
-      } else if (input.caseKey === 'native-stop-late-callback') {
-        const second = track(client.pay(request(), { onPhase }));
-        pending[0]!.success();
-        await second;
       } else pending[0]!.success();
     } else if (input.caseKey === 'prepare-auth' || input.caseKey.startsWith('channel-session')) {
       await track(client.pay(request(), { onPhase }));
       await track(client.pay(request(), { onPhase }));
-    } else if (input.caseKey === 'long-channel-wait') {
-      const pendingPay = track(client.pay(request() as never, { onPhase }));
-      while (pending.length === 0) await new Promise(resolve => setTimeout(resolve, 0));
-      await new Promise(resolve => setTimeout(resolve, 20));
-      pending[0]!.success();
-      await pendingPay;
     } else if (input.caseKey === 'no-listener') {
       await track(client.pay(request()));
     } else {

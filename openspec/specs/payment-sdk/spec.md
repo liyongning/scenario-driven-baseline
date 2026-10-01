@@ -26,125 +26,6 @@ SDK MUST 使用纯 TypeScript 源码并输出独立可消费的 JS/类型声明�
 }
 ```
 
-### Requirement: SDK-02 首期渠道与扩展范围
-
-SDK SHALL 首期只交付微信小程序网络适配及虚拟商品支付适配器。宿主 MUST 显式选择 runtime、启用的 method 和每笔支付方式，SDK 工厂据此装配自带能力。运行环境、网络实现与支付方式 SHALL 分开建模；未来 fetch、H5、公众号和扫码仅为扩展目标，不计首期支持能力。
-
-#### Scenario: TC-PAYSDK-CORE-002 替换适配器
-- **WHEN** SDK 内部测试注册一个不同 method 的假适配器
-- **THEN** 核心通过同一端口完成调用和结果归一，核心保持业务无关；该场景验证 SDK 内部适配扩展，真实新渠道需独立实现和联调。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "internal-extension": "内部注册不同 method 的假适配器后，核心仍经同一端口调用并归一结果；假动作不执行 UI/导航，不宣称新增真实渠道支持"
-  },
-  "cases": [
-    {"key": "alternate-method-internal-adapter", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["internal-extension"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-03 准备参数和签名透传
-
-SDK MUST 以已有 tradeNo 调用 CreateTradePay 取得渠道参数，微信身份由服务端按鉴权用户与 appId 查询。前端支付参数 SHALL 包含交易引用与 method，并允许按 CONTRACT-14 提供逐次 xpayEnv；SDK 不接收 OpenID，不生成签名或获取 AppKey/session_key。适配器 SHALL 校验 method、渠道参数结构和交易关联，保持签名原文，不从 SKU 显示信息推导交易参数。
-
-#### Scenario: TC-PAYSDK-CORE-003 签名原文保持
-- **WHEN** 服务端提供结构化 payParams.wechatVirtual，其中 signData 为原始签名字符串
-- **THEN** 微信适配器收到同一字符串表示；记录日志、字段排序或 JSON 重建不能改变传给渠道的签名原文。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "sign-data-unchanged": "渠道调用收到的 signData 与准备响应中的原始字符串逐字相等，不以字段排序或 JSON 重建后的等价对象代替"
-  },
-  "cases": [
-    {"key": "signed-original", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["sign-data-unchanged"]}
-  ],
-  "blockedBy": []
-}
-```
-
-#### Scenario: TC-PAYSDK-CORE-004 无效准备参数
-- **WHEN** 服务端结构化 pay_params 缺少公共契约规定的必填字段、oneof 分支非法或渠道不匹配
-- **THEN** SDK 返回协议错误，不调用微信支付，不尝试在前端补签名。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "invalid-params-rejected": "本 case 的非法字段/oneof/渠道返回 PROTOCOL_ERROR；missing-required-param 指缺 signData，其余必填缺失分别登记，不能用一个字段抵扣其他必填规则",
-    "no-channel-or-resign": "失败分支不调用微信，也不在前端补签名"
-  },
-  "cases": [
-    {"key": "missing-required-param", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]},
-    {"key": "missing-mode", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]},
-    {"key": "missing-pay-sig", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]},
-    {"key": "missing-signature", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]},
-    {"key": "invalid-oneof", "kind": "behavior", "requiredIn": ["integration"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]},
-    {"key": "multiple-oneof", "kind": "behavior", "requiredIn": ["integration"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]},
-    {"key": "channel-mismatch", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["invalid-params-rejected", "no-channel-or-resign"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-04 调起信号不是账务事实
-
-SDK MUST 区分渠道成功提示、取消、明确调起失败和未知回调。明确调起失败 SHALL 保留渠道原码：PaymentOutcome.error 使用 CHANNEL_ERROR、source=channel、稳定中文 message 与十进制 originalCode；渠道 fail 回调的 errMsg 仅在字符串时作为可选 channelMessage 透传，缺失、null、非字符串时省略。channelMessage 不参与分类、状态机、查单、恢复、重试或重放，也不进入诊断或日志。未文档化的非零安全整数 errCode 不能一律回退为结果未知。只有服务端查询可以确认交易状态；query/observe SHALL 支持按交易引用查询；渠道等待不设置 SDK 时限，身份中断按公共契约的阶段矩阵恢复，宿主显式 cancellation 仅结束本地等待。渠道失败码的完整映射、-2/-5/-15007 的专属语义、无可用错误码时的 unknown 边界以及 errMsg 校验/透传规则以公共契约“渠道失败码映射”为准。
-
-#### Scenario: TC-PAYSDK-CORE-005 正常等待渠道回调
-- **WHEN** 原生收银台等待超过配置的 HTTP/查询时长，随后返回成功提示
-- **THEN** 等待期间 SDK 不因这些配置或 trade.expire_time 自动结束、不提前启动查询；回调后才启动独立结果确认预算并查询，不将等待时长当成支付失败。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "channel-wait-unbounded": "原生等待不受 HTTP/查询配置或 trade.expire_time 截断",
-    "query-after-callback": "回调前不查询；回调后才启动独立确认预算",
-    "wait-not-failure": "长渠道等待不被归为支付失败"
-  },
-  "cases": [
-    {"key": "long-channel-wait", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["channel-wait-unbounded", "query-after-callback", "wait-not-failure"]},
-    {"key": "expired-during-channel-wait", "kind": "behavior", "requiredIn": ["integration"], "checks": ["channel-wait-unbounded", "query-after-callback", "wait-not-failure"]}
-  ],
-  "blockedBy": []
-}
-```
-
-#### Scenario: TC-PAYSDK-CORE-024 明确调起失败保留渠道原码与未文档化码归类
-- **WHEN** 渠道 fail 回调分别返回已文档化失败码（如 1001、-1、-4、-15010、-15011）、未文档化非零安全整数码（如 16、-15015）、结果未知码 -5、取消/会话失效码，或缺失、null、0、非整数、非数字及其他非法 errCode；平台调用同步抛错或适配器在 invoke 阶段以 CHANNEL_ERROR 结束时
-- **THEN** 每个 PaymentError.code 均使用公共契约固定的中文 message。已文档化失败码与未文档化非零安全整数码均以 launch_failed 结束：channelSignal=launch_failed、error={code:'CHANNEL_ERROR',source:'channel',message:'支付渠道调用失败',originalCode:'<十进制 errCode>',channelMessage?:'<字符串 errMsg>'}、snapshot 保持 UNKNOWN/unavailable，只有 channel_invoking 阶段且不发起 QueryTrade、不重新 prepare；-5 仍为 unknown 并保持既有 confirming 与自动查询；-2 保持 cancelled/channel_cancelled 且无 error；-15007 保持 CHANNEL_SESSION_REQUIRED/channel_session_required，并交付 error={code:'CHANNEL_SESSION_REQUIRED',source:'channel',message:'支付会话已失效，请重新发起支付',originalCode:'-15007',channelMessage?:'<字符串 errMsg>'}；缺失、null、0、非整数、非数字、NaN、Infinity、非安全整数保持 unknown 且不带原码；平台同步抛错或适配器异常不产生原码，仍以 CHANNEL_ERROR 与 launch_failed 结束且不自动查单；prepare/query 的 CHANNEL_ERROR 仍为 reason=error；所有产生 PaymentError 的 fail 分支都仅把字符串 errMsg 写入 channelMessage，缺失、null、非字符串时省略，且不参与任何 SDK 判定、诊断或日志；-2/-5 不因 errMsg 存在而新增 error。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "explicit-failure-code-preserved": "明确调起失败保留 CHANNEL_ERROR/source=channel/稳定中文 message/十进制 originalCode：适配器输出该错误对象，公共 pay 投影到 outcome.error，均为 launch_failed；字符串 errMsg 仅透传为 channelMessage，缺失、null、非字符串时省略，不参与 SDK 判定、诊断或日志",
-    "default-message-table-complete": "统一错误构造逐项覆盖公共契约全部 13 个 PaymentError.code，并返回各自固定中文 message；source/originalCode/渠道原文不能改写默认文案",
-    "no-confirming-or-query-on-explicit-failure": "明确失败只通知 channel_invoking；回调后无 confirming、无 QueryTrade、无重新 prepare",
-    "unmapped-numeric-is-explicit-failure": "16、-15015 等未映射的非零安全整数码按明确失败归因并保留原码，不进入 unknown/自动查单",
-    "documented-unknown-unchanged": "映射层 -5 仍输出 unknown 信号，行为回归由 CORE-018 channel-unknown 的自动查询路径承接",
-    "invalid-codes-remain-unknown": "缺失、null、非数字、非整数、非安全整数、NaN、Infinity、0 保持 unknown、无 originalCode；errMsg 仍按字符串校验，不能参与分类",
-    "special-codes-unchanged": "-2 保持 cancelled 且无 error；-15007 保持 CHANNEL_SESSION_REQUIRED、固定中文 message 与原码，字符串 errMsg 透传为 channelMessage，缺失/null/非字符串时省略；-5 保持 unknown 且无 error",
-    "thrown-invocation-no-code-classification": "平台同步抛错或适配器抛错/以 CHANNEL_ERROR 返回时按 launch_failed 结算、不带原码、不自动查单；prepare/query 的 CHANNEL_ERROR 仍为 reason=error"
-  },
-  "cases": [
-    {"key": "default-message-mapping", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["default-message-table-complete"]},
-    {"key": "adapter-failure-mapping", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["explicit-failure-code-preserved", "unmapped-numeric-is-explicit-failure", "documented-unknown-unchanged", "invalid-codes-remain-unknown", "special-codes-unchanged"]},
-    {"key": "core-invoke-failure-classification", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["thrown-invocation-no-code-classification", "no-confirming-or-query-on-explicit-failure"]},
-    {"key": "launch-failed-documented", "kind": "behavior", "requiredIn": ["integration"], "checks": ["explicit-failure-code-preserved", "no-confirming-or-query-on-explicit-failure"]},
-    {"key": "launch-failed-unmapped", "kind": "behavior", "requiredIn": ["integration"], "checks": ["explicit-failure-code-preserved", "no-confirming-or-query-on-explicit-failure", "unmapped-numeric-is-explicit-failure"]},
-    {"key": "channel-session-expired-message", "kind": "behavior", "requiredIn": ["integration"], "checks": ["special-codes-unchanged", "no-confirming-or-query-on-explicit-failure"]}
-  ],
-  "blockedBy": []
-}
-```
-
 ### Requirement: SDK-05 有界观察与清理
 
 SDK SHALL 内置并允许覆盖查询间隔 3000 ms、结果确认总时长 60000 ms 和单次请求超时 60000 ms；策略必须为有限正数，不同时发起重叠查询。结果预算从进入查询确认阶段起算，不包含预下单和原生收银台等待，在 confirming 通知前固定且不因回调重置。停止后 MUST 清理自身计时器/取消订阅，忽略迟到结果，不撤销在途支付；诊断与阶段回调异常不能破坏支付结算。内部阶段由核心维护，pay/observe 各交付一次最终结果。通信 CANCELLED 经内部 BackendResult 交给核心按公共契约结算，适配器不将其伪装 TIMEOUT；取消与计时竞争遵守一次结束原因锁定。服务端错误的观察重查只消费 backend 按公共契约赋予的内部 cause=query_unavailable，不能仅凭 retryable 或原码推断；公开 query 只请求一次，所有公共结果剥离内部标签。
@@ -211,28 +92,6 @@ SDK SHALL 提供可选、宿主控制的阶段/错误诊断，不强依赖项目
   "cases": [
     {"key": "invalid-param-log", "kind": "behavior", "requiredIn": ["integration"], "checks": ["diagnostic-allowlist", "sensitive-data-absent"]},
     {"key": "network-failure-log", "kind": "behavior", "requiredIn": ["integration"], "checks": ["diagnostic-allowlist", "sensitive-data-absent"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: SDK-08 验证边界和支持声明
-
-SDK MUST 分开记录模块验证、Shadow 自动化及 Live 真实支付结果。Shadow 包含 integration 与 weapp 两个现有执行项目；Live SHALL 使用本仓库测试小程序与生产 SDK、真实基建和真实 wx.requestVirtualPayment，不依赖 ESM 或其他业务应用完成本 Change 验收。不得提供真实基建搭配渠道替身的第三种验收模式。未完成真实验证的渠道 SHALL 不标记为可用；尚待契约确认的场景保持 draft。
-
-#### Scenario: TC-PAYSDK-CORE-009 假渠道测试通过
-- **WHEN** 假端口和假渠道测试全部通过但未进行真实微信联调
-- **THEN** 只能报告纯逻辑验证通过，不能报告微信支付已上线或未来渠道已支持。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "evidence-boundary": "假端口/假渠道通过仅能标记纯逻辑验证",
-    "no-live-claim": "报告不得据此标记微信支付上线或未来渠道受支持"
-  },
-  "cases": [
-    {"key": "fake-channel-report", "kind": "engineering", "requiredIn": ["integration"], "checks": ["evidence-boundary", "no-live-claim"]}
   ],
   "blockedBy": []
 }
@@ -318,34 +177,6 @@ SDK MUST 在每次实际 HTTP 前取得当前 Token，数据获取受当前请�
 }
 ```
 
-### Requirement: SDK-12 本地运行与原生互斥分离
-
-SDK MUST 不把本地结束等同原生收银台关闭。渠道调用 SHALL 等待回调，不设置 SDK 回调时限，不因长期无回调自动查询或再次支付。进程存活时，宿主 SHALL 通过 RunOptions.cancellation 显式结束 SDK 本地等待；SDK MUST 一次交付 stopped、清理活动记录及订阅并隔离旧回调；未支付交易的过期处置由服务端负责，不依赖前端计时或渠道回调。
-
-#### Scenario: TC-PAYSDK-CORE-013 交互结束但渠道回调缺失
-- **WHEN** 进程存活且渠道没有回调，宿主触发 RunOptions.cancellation，随后用户显式再次 pay 或旧回调到达
-- **THEN** 原调用只交付一次 stopped、清理活动记录及订阅；同 tradeNo 的后续 pay 按新流程请求服务端，旧回调不得触发查询、改变新结果或二次交付。未触发 cancellation 时原调用保持活动、同单 pay 返回 busy；调用前已停止则不调渠道。平台回调与停止竞争只处理先到事件，不用界面关闭、渠道时限或交易过期代替宿主停止信号。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "stop-once-and-clean": "宿主 cancellation 使原调用只交付一次 stopped，并清理活动记录和订阅",
-    "new-pay-is-new-run": "停止后同 tradeNo 显式 pay 重新请求服务端",
-    "old-callback-isolated": "旧回调不查询、不改变新结果、不二次交付",
-    "active-until-explicit-stop": "未 cancellation 且无回调时保持活动，同单 pay 为 busy",
-    "preinvoke-stop": "调用前停止不调渠道；停止/回调竞争只采纳先到事件"
-  },
-  "cases": [
-    {"key": "native-stop-late-callback", "kind": "behavior", "requiredIn": ["integration", "weapp"], "checks": ["stop-once-and-clean", "new-pay-is-new-run", "old-callback-isolated"]},
-    {"key": "no-callback-no-stop", "kind": "behavior", "requiredIn": ["integration"], "checks": ["active-until-explicit-stop"]},
-    {"key": "stop-before-invoke", "kind": "behavior", "requiredIn": ["integration"], "checks": ["stop-once-and-clean", "preinvoke-stop"]},
-    {"key": "stop-callback-race", "kind": "behavior", "requiredIn": ["integration"], "checks": ["stop-once-and-clean", "preinvoke-stop", "old-callback-isolated"]}
-  ],
-  "blockedBy": []
-}
-```
-
 ### Requirement: SDK-13 Monorepo 三包与产品交付边界
 
 仓库 SHALL 使用 infra-payment-sdk；三个 package.json name 分别为 @daqian/payment-sdk、@daqian/payment-protocol、@daqian/payment-e2e，对应目录为 packages/payment-sdk、packages/payment-protocol、packages/e2e。名称已经确认，发布 registry 与权限按 Design 的工程交付输入表登记。
@@ -402,12 +233,10 @@ Scenario 与具体测试 case SHALL 支持多对多绑定。工程 MUST 额外�
 
 | FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |
 | --- | --- | --- | --- | --- | --- |
-| FLOW-PAYSDK-001 | CONTRACT-001/002/003/008、CORE-003/005 | createPaymentClient → pay → CreateTradePay → 渠道 → QueryTrade(PAYING → PAID) → 一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求 | normal、long-channel-wait | integration、weapp | 公共契约结构化参数样例（Task 3）；long-channel-wait 的长时钟断言在 integration，weapp 验证手动释放回调前无查询，不做真实半小时等待 |
-| FLOW-PAYSDK-002 | CONTRACT-002/003、CORE-005 | pay → 准备成功 → 渠道明确取消/明确调起失败 → 对应结果；无自动 QueryTrade、重新准备或再次调起 | cancelled、launch-failed | integration、weapp | 公共契约结构化参数样例（Task 3） |
-| FLOW-PAYSDK-003 | CONTRACT-002/014、CORE-004 | pay → 准备响应 → 参数/关联校验失败 → 协议错误；渠道未调用、无查询，不在前端修补签名 | missing-required-param、channel-mismatch | integration、weapp | 公共契约 oneof/必填规则及错误样例（Task 3） |
-| FLOW-PAYSDK-004 | CORE-005/006、CONTRACT-003/004/019 | pay → 准备 → 渠道 unknown → 查询仍 PAYING → 查询预算耗尽 → timed_out；查询不重叠，迟到响应不二次交付，交易到期不合成 CLOSED | slow-query、expired-but-paying | integration | 结构化参数样例；时间断言使用受控时钟 |
+| FLOW-PAYSDK-001 | CONTRACT-001/002/003/008 | createPaymentClient → pay → CreateTradePay → 渠道 → QueryTrade(PAYING → PAID) → 一次最终结果；交易引用、签名原文、先后顺序、次数贯通，初始化及渠道回调前无多余请求 | normal、long-channel-wait | integration、weapp | 公共契约结构化参数样例（Task 3）；long-channel-wait 的长时钟断言在 integration，weapp 验证手动释放回调前无查询，不做真实半小时等待 |
+| FLOW-PAYSDK-004 | CORE-006、CONTRACT-003/004/019 | pay → 准备 → 渠道 unknown → 查询仍 PAYING → 查询预算耗尽 → timed_out；查询不重叠，迟到响应不二次交付，交易到期不合成 CLOSED | slow-query、expired-but-paying | integration | 结构化参数样例；时间断言使用受控时钟 |
 | FLOW-PAYSDK-005 | CORE-012、CONTRACT-012/018 | pay → 准备 → 渠道 success_hint → 第一次查单 PAYING → 宿主 getter 数据更新 → 后续查单 PAID；使用新 Token、新 Request ID、相同交易引用，不重启 SDK/不重新 prepare | token-rotates-between-queries | integration、weapp | 结构化参数样例；本流程验证正常 Token 轮换，鉴权拒绝后的恢复由 FLOW-006 验证 |
-| FLOW-PAYSDK-006 | CORE-011/013、CONTRACT-005/006/007/013 | 身份失效 → 原调用一次交付中断结果 → 宿主恢复 → 按阶段显式再次调用；另覆盖宿主停止后的旧回调隔离。具体调用顺序和次数见下表 | prepare-auth、query-auth、channel-session、channel-session-different-payment、native-stop-late-callback | integration、weapp | 公共契约参数/错误矩阵及 Task 3 完整样例；运行证据由 Task 7/8 交付 |
+| FLOW-PAYSDK-006 | CORE-011、CONTRACT-005/006/007/013 | 身份失效 → 原调用一次交付中断结果 → 宿主恢复 → 按阶段显式再次调用；另覆盖宿主停止后的旧回调隔离。具体调用顺序和次数见下表 | prepare-auth、query-auth、channel-session、channel-session-different-payment、native-stop-late-callback | integration、weapp | 公共契约参数/错误矩阵及 Task 3 完整样例；运行证据由 Task 7/8 交付 |
 | FLOW-PAYSDK-007 | CORE-018/019、CONTRACT-020 | 公共 pay/observe → 本次阶段通知 → 外部渠道/HTTP → 一次最终结果；验证通知前后副作用、数据关联、回调异常与停止重入 | first-paid、first-closed、observe-only、stop-before-invoke、stop-after-notification、stop-after-platform、stop-before-query、handler-throw、handler-reject、reentrant-pay、no-listener | integration、weapp | 使用 Task 3 正常/终态数据及外部渠道替身，业务回调由测试消费者提供；不 mock SDK 核心或注入假的阶段事件，不要求真实 UI 动画 |
 
 FLOW-001 至 006 的每个 case 同时记录真实 SDK 的通知轨迹：正常/unknown 回调路径为 channel_invoking → confirming → 最终结果；取消/明确失败/会话失效只有 channel_invoking；prepare/关联/参数校验失败无通知。FLOW-001 长等待在释放渠道回调前不得有 confirming；FLOW-005 多次查单只通知一次 confirming；FLOW-006 query-auth 恢复的 observe 单独通知 confirming，native-stop-late-callback 的旧运行停止后不得再通知。每次事件 attemptId 与该次最终结果一致，不跨运行归属。
