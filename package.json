@@ -20,9 +20,6 @@
     "check:package": "tsx scripts/check-package.ts",
     "release:preflight": "tsx scripts/check-release.ts",
     "sdk-release": "tsx scripts/sdk-release.ts",
-    "live:build": "tsx packages/e2e/src/live/build.ts",
-    "live:check": "tsx packages/e2e/src/live/check.ts",
-    "check:live": "tsx packages/e2e/src/live/check-evidence.ts",
     "check:fast": "pnpm proto:validate && pnpm proto:status && pnpm lint && pnpm build && pnpm typecheck && pnpm check:architecture && pnpm test:unit && pnpm check:fixtures && pnpm test:integration && pnpm check:package",
     "check": "pnpm check:fast && pnpm test:e2e:weapp && pnpm check:scenarios"
   },
@@ -37,7 +34,6 @@
     "@vitest/coverage-v8": "5.0.0",
     "ajv": "8.20.0",
     "dependency-cruiser": "18.2.0",
-    "dotenv": "17.4.2",
     "eslint": "10.10.0",
     "express": "5.2.1",
     "globals": "17.12.0",

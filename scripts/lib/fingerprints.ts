@@ -27,7 +27,7 @@ export function collectFiles(root: string, accept: (path: string) => boolean): s
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) {
-        if (!['dist', 'generated', '.generated', '.generated-live', 'node_modules'].includes(entry.name)) visit(path);
+        if (!['dist', 'generated', '.generated', 'node_modules'].includes(entry.name)) visit(path);
       } else if (accept(path)) output.push(path);
     }
   };

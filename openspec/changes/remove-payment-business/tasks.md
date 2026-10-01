@@ -118,7 +118,7 @@
   **Commit**
   - `feat(protocol-contract): derive IDL obligations for the example protocol`
 
-- [ ] 3. 删除 Live，并启用共享核心的临时覆盖率豁免
+- [x] 3. 删除 Live，并启用共享核心的临时覆盖率豁免
 
   **Files**
   - Modify：根 `vitest.config.ts`：按 Design 加入临时豁免段；删除 Live 的覆盖范围与排除项。
