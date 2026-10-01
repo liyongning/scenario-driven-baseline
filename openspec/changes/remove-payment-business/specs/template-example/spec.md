@@ -16,12 +16,14 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
   "checkpoints": {
     "platform-free-import": "无平台全局对象时可以导入根入口",
     "config-validated-first": "非法配置在任何外部动作前抛出配置错误，合法配置不发请求",
-    "package-consumable": "打包产物的 ESM、CJS 导入与示例类型声明可用"
+    "package-consumable": "打包产物的 ESM、CJS 导入与示例类型声明可用",
+    "public-type-contract": "公共类型的编译期契约成立：非法用法以 @ts-expect-error 反例证明被类型系统拒绝，联合类型可穷尽，只读字段不可写"
   },
   "cases": [
     {"key": "factory-validation", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["config-validated-first"]},
     {"key": "node-import", "kind": "behavior", "requiredIn": ["integration"], "checks": ["platform-free-import", "config-validated-first"]},
-    {"key": "package-consumer", "kind": "engineering", "requiredIn": ["integration"], "checks": ["package-consumable"]}
+    {"key": "package-consumer", "kind": "engineering", "requiredIn": ["integration"], "checks": ["package-consumable"]},
+    {"key": "public-type-contract", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["public-type-contract"]}
   ],
   "blockedBy": []
 }
