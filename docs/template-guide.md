@@ -51,7 +51,7 @@
    - 包名或目录改动后同步：各包 `package.json` 与 `publishConfig`、[pnpm-lock.yaml](../pnpm-lock.yaml)（跑一次 `pnpm install` 更新软链与锁文件）；根 [package.json](../package.json) 的 build 过滤与脚本；[tsconfig.base.json](../tsconfig.base.json)、[tsconfig.test.json](../tsconfig.test.json)、[vitest.config.ts](../vitest.config.ts)、[eslint.config.js](../eslint.config.js)、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 中含旧包名或旧路径的 glob（注意 `(sdk|e2e)` 这类交替组，按字面替换会漏改）；以及 [AGENTS.md](../AGENTS.md)、[README.md](../README.md) 中作为示例出现的包路径。
    - 按"替换点地图"替换或删除可替换点：协议来源、运行平台、包发布。
    - 以 [packages/sdk/src/example](../packages/sdk/src/example) 与 [packages/e2e/tests/example](../packages/e2e/tests/example) 为样板新增自己的业务模块：按工厂 → 核心 → 端口 → 适配器分层，业务目录之间不得互相导入，就近单测覆盖新代码以满足手写代码 100% 阈值。
-   - 新增业务目录后，把分层守卫扩展到新目录：[eslint.config.js](../eslint.config.js) 的 `no-restricted-globals: wx`、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `core-no-platform-or-node`/`example-core-no-generated` 当前只匹配 `example/`；`domain-isolation` 自动覆盖产品包内所有业务目录。需要对外时在 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 导出。
+   - 分层守卫按目录模式自动覆盖 `src/` 下除 `runtime/` 外的全部业务模块，新增模块无需修改配置：[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `domain-core-no-generated`（core/ports 不得导入 generated）、`core-no-platform-or-node`（不得依赖 Node 内置模块）、`domain-isolation`（业务模块互不导入），以及 [eslint.config.js](../eslint.config.js) 的 `no-restricted-globals: wx`。业务模块须使用 `core/`、`ports/` 目录名才受约束。需要对外时在 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 导出。
 4. **先加后删**：自己的业务覆盖到示例承担的能力后，再删除示例；删除时对应的 Scenario、FLOW、Fixture 与用例一并处理。
 5. **验收**：用"从方案到验收"的三项证明收尾：`pnpm check:fast`、逐文件 weapp、场景门禁。
 
@@ -85,6 +85,7 @@
 
 - **涉及文件（测试侧）**：[packages/e2e/src/drivers](../packages/e2e/src/drivers)、[packages/e2e/host/weapp](../packages/e2e/host/weapp)、[packages/e2e/tests/weapp](../packages/e2e/tests/weapp)、[packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts)、根 [package.json](../package.json) 的 `test:e2e:weapp` 脚本与 `check` 串联、[vitest.config.ts](../vitest.config.ts) 的 projects 列表。
 - **涉及文件（生产侧）**：[packages/protocol/src/adapters/network/wechat-miniapp.ts](../packages/protocol/src/adapters/network/wechat-miniapp.ts) 与协议包根导出。生产网络工厂是 SDK 工厂与全部集成用例唯一的 `HttpPort`，根 `AGENTS.md` 硬规则 7 要求它具名导出；只去掉平台测试项目时保留它。替换或删除生产适配器属于更大的改动：要改公共 API、协议导出、Fixture 与多条 Spec（`SCN-TEMPLATE-ENGINEERING-001` 等），先决定目标再动手。
+- **涉及文件（产品侧绑定）**：[packages/sdk/src/example/factory.ts](../packages/sdk/src/example/factory.ts)（导入 `createWechatMiniappHttp`，按 `runtime === 'wechat-miniapp'` 装配网络）、[packages/sdk/src/example/contracts.ts](../packages/sdk/src/example/contracts.ts) 的 `ExampleRuntime` 取值，以及 [SCN-TEMPLATE-ENGINEERING-003 Fixture](../packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-003/source-and-dual-declarations.json) 中 `ExampleRuntime` 的取值。换平台时同时调整这三处与示例的公共类型契约测试（[contracts.test.ts](../packages/sdk/src/example/contracts.test.ts)）；只去掉平台测试项目时保持不变。
 - **清单需要修改的项**：`manifest.testProjects`（删除 platform 类项目或替换为新平台项目）、`manifest.fingerprints.hostRoots`、`manifest.requiredCommands` 中的 `test:e2e:weapp`、e2e 包 `manifest.packages[].allowedDirectories` 中的 `host`；Spec 中 `requiredIn` 含 `weapp` 的 case 与正文表述随之调整。
 - **验收门禁**：`pnpm check:fast` 与替代平台项目的报告；保留小程序时按逐文件约定运行 weapp 用例。
 

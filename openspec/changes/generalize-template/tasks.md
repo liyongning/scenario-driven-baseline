@@ -298,7 +298,7 @@
   **Commit**
   - `test(template): record final template acceptance`
 
-- [ ] 8. 分层守卫覆盖全部业务模块，补齐运行平台的产品侧绑定
+- [x] 8. 分层守卫覆盖全部业务模块，补齐运行平台的产品侧绑定
 
   **Files**
   - Modify：`.dependency-cruiser.cjs`（`core-no-platform-or-node` 与 `domain-core-no-generated` 按目录模式匹配全部业务模块）；`eslint.config.js`（`wx` 限制按 `packages/sdk/src/*/core|ports/**`）。
