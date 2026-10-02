@@ -5,7 +5,7 @@ TBD - created by archiving change template-example. Update Purpose after archive
 ## Requirements
 ### Requirement: EX-01 示例公共入口与装配
 
-SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `create` 与 `observe` 的示例客户端。装配方式与支付客户端一致：`runtime` 选择宿主环境（首期 `wechat-miniapp`），`gatewayBaseUrl` 由宿主显式给出，`getAccessToken` 在每次请求前读取，`catalog` 提供创建资源所需的中立目录配置（类别、条目标识、条目名称、单位值），可选 `requestContext` 与时间策略覆盖。工厂 MUST 在任何外部动作之前校验配置，不合法时抛出配置错误。导入入口 SHALL NOT 依赖平台全局对象。示例的公共类型 SHALL 保留中文 JSDoc，并进入 ESM、CommonJS 双格式及类型声明产物。
+SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `create` 与 `observe` 的示例客户端。装配方式：`runtime` 选择宿主环境（首期 `wechat-miniapp`），`gatewayBaseUrl` 由宿主显式给出，`getAccessToken` 在每次请求前读取，`catalog` 提供创建资源所需的中立目录配置（类别、条目标识、条目名称、单位值），可选 `requestContext` 与时间策略覆盖。工厂 MUST 在任何外部动作之前校验配置，不合法时抛出配置错误。导入入口 SHALL NOT 依赖平台全局对象。示例的公共类型 SHALL 保留中文 JSDoc，并进入 ESM、CommonJS 双格式及类型声明产物。
 
 示例的中文语义：示例演示"创建资源、再在有界窗口内观察其状态"的通用流程，不代表任何业务含义。协议层借用的交易接口只是传输样例，交易字段名与状态值不得出现在示例公共类型中。
 
@@ -19,12 +19,14 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
   "checkpoints": {
     "platform-free-import": "无平台全局对象时可以导入根入口",
     "config-validated-first": "非法配置在任何外部动作前抛出配置错误，合法配置不发请求",
-    "package-consumable": "打包产物的 ESM、CJS 导入与示例类型声明可用"
+    "package-consumable": "打包产物的 ESM、CJS 导入与示例类型声明可用",
+    "public-type-contract": "公共类型的编译期契约成立：非法用法以 @ts-expect-error 反例证明被类型系统拒绝，联合类型可穷尽，只读字段不可写"
   },
   "cases": [
     {"key": "factory-validation", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["config-validated-first"]},
     {"key": "node-import", "kind": "behavior", "requiredIn": ["integration"], "checks": ["platform-free-import", "config-validated-first"]},
-    {"key": "package-consumer", "kind": "engineering", "requiredIn": ["integration"], "checks": ["package-consumable"]}
+    {"key": "package-consumer", "kind": "engineering", "requiredIn": ["integration"], "checks": ["package-consumable"]},
+    {"key": "public-type-contract", "kind": "module", "requiredIn": ["sdk-unit"], "checks": ["public-type-contract"]}
   ],
   "blockedBy": []
 }
@@ -176,10 +178,10 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
 
 ### Requirement: EX-05 示例分层与隔离
 
-示例 SHALL 按"工厂 → 核心 → 内部端口 → 适配器"分层，在 SDK、协议 testing 与 E2E 中各自使用独立的目录和命名空间。依赖方向与 lint 门禁 MUST 覆盖示例：示例核心不得导入 generated 代码或支付模块，也不得使用 `wx` 等平台全局对象；支付模块不得导入示例模块；示例不得复用支付的核心、backend 适配器、测试用例或 Fixture。可以共用的只有协议包的公开能力，以及 SDK 的运行辅助工具和平台网络装配。
+示例 SHALL 按"工厂 → 核心 → 内部端口 → 适配器"分层，在 SDK、协议 testing 与 E2E 中各自使用独立的目录和命名空间。依赖方向与 lint 门禁 MUST 覆盖示例：示例核心不得导入 generated 代码，也不得使用 `wx` 等平台全局对象；产品包内各业务模块目录（本模板目前只有 `src/example/`）不得互相导入。可以共用的只有协议包的公开能力，以及 SDK 的运行辅助工具和平台网络装配。
 
 #### Scenario: SCN-TEMPLATE-EXAMPLE-008 示例依赖越界被阻断
-- **WHEN** 分别引入以下违规：示例核心导入 generated 或使用 `wx` 全局对象；示例导入支付核心或支付 backend；支付模块导入示例模块
+- **WHEN** 分别引入以下违规：示例核心导入 generated 或使用 `wx` 全局对象；在临时新增的另一个业务模块目录与示例之间互相导入
 - **THEN** 架构或 lint 门禁逐项非零退出并指出违规位置；恢复后门禁通过。
 
 ```json verification
@@ -187,7 +189,7 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
   "formatVersion": 2,
   "checkpoints": {
     "example-core-isolated": "示例核心导入 generated 或使用平台全局对象时被阻断",
-    "no-cross-domain-import": "示例与支付模块互相导入时被阻断",
+    "no-cross-domain-import": "产品包内不同业务模块目录互相导入时被阻断",
     "restored-passes": "恢复合法依赖后门禁通过"
   },
   "cases": [
@@ -216,30 +218,6 @@ SDK 包根入口 SHALL 导出 `createExampleClient(options)`，返回提供 `cre
   "cases": [
     {"key": "shadow-create-route", "kind": "module", "requiredIn": ["protocol-unit"], "checks": ["generated-route", "fixture-driven"]},
     {"key": "shadow-excluded", "kind": "engineering", "requiredIn": ["integration"], "checks": ["not-in-product"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: EX-07 示例的 Live 页面
-
-Live 控制台 SHALL 新增示例页面：宿主填写中立输入后，调用生产 SDK 的 `create`，再用返回的资源引用调用 `observe`，并展示脱敏后的最终结果。页面 SHALL NOT 调用支付接口或发起扣款。页面沿用 Live 的非敏感 `.env.live` 白名单与 Storage Token 机制。构建检查与证据检查 SHALL 能离线执行；真实运行所需的服务地址和测试账号属于运行前置，缺失时只阻塞真实证据，不影响其余验收。
-
-#### Scenario: SCN-TEMPLATE-EXAMPLE-010 Live 示例页面构建与证据
-- **WHEN** 执行 Live 构建与离线检查；在具备真实服务地址和测试账号时，运行示例页面
-- **THEN** 构建产物包含示例页面，只注入白名单配置，不含 Token；离线检查能拒绝证据结构不合法或包含支付调用的记录；真实运行时，记录包含真实创建得到的资源引用和一次最终结果，并且没有支付调用。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "live-build-whitelist": "构建产物包含示例页面，只注入白名单配置，不含 Token",
-    "offline-evidence-check": "离线检查拒绝结构不合法或包含支付调用的证据",
-    "no-payment-call": "示例页面不调用支付接口"
-  },
-  "cases": [
-    {"key": "live-example-build", "kind": "engineering", "requiredIn": ["integration"], "checks": ["live-build-whitelist", "no-payment-call"]},
-    {"key": "live-example-evidence", "kind": "engineering", "requiredIn": ["integration"], "checks": ["offline-evidence-check"]}
   ],
   "blockedBy": []
 }

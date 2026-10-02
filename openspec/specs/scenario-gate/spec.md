@@ -59,7 +59,7 @@ TBD - created by archiving change template-example. Update Purpose after archive
 
 ### Requirement: GATE-03 场景来源发现与生命周期合并
 
-场景与 FLOW 清单 MUST 由有效 Spec 全集构建：以 `openspec/specs/**/spec.md` 为基础，再按 active change（`openspec/changes/*`，不含 `archive`）中 spec delta 的 ADDED、MODIFIED、REMOVED、RENAMED 合并。归档目录不作为来源；门禁代码 SHALL NOT 写死具体的 change 名、capability 名或 Spec 路径。FLOW 登记 SHALL 与 Scenario 一样放在有效 Spec 中，并且 MUST 写在某个 Requirement 的正文里：OpenSpec 归档时以 Requirement 为单位合并，Requirement 之外的章节会被丢弃，写在外面的 FLOW 表归档后就会从主 Spec 中消失。表头第一列为 `FLOW ID` 的表格若位于 Requirement 之外，门禁 SHALL 报错。FLOW 表的每一行由门禁解析为对象，并按 `scripts/flow.schema.json` 校验，列数、必填列或取值不合规时 SHALL 报错。"关联 Scenario"一列目前是说明性内容，门禁不校验其是否为已登记的完整 ID；这是已知缺口，在删除支付业务后收紧。FLOW 的登记方式是本项目在 OpenSpec 之上的扩展，Change Skill 不会提醒；根 AGENTS.md SHALL 把它写成硬规则。测试绑定引用了清单中不存在的 Scenario 或 FLOW 时，门禁 SHALL 失败。
+场景与 FLOW 清单 MUST 由有效 Spec 全集构建：以 `openspec/specs/**/spec.md` 为基础，再按 active change（`openspec/changes/*`，不含 `archive`）中 spec delta 的 ADDED、MODIFIED、REMOVED、RENAMED 合并。归档目录不作为来源；门禁代码 SHALL NOT 写死具体的 change 名、capability 名或 Spec 路径。FLOW 登记 SHALL 与 Scenario 一样放在有效 Spec 中，并且 MUST 写在某个 Requirement 的正文里：OpenSpec 归档时以 Requirement 为单位合并，Requirement 之外的章节会被丢弃，写在外面的 FLOW 表归档后就会从主 Spec 中消失。表头第一列为 `FLOW ID` 的表格若位于 Requirement 之外，门禁 SHALL 报错。FLOW 表的每一行由门禁解析为对象，并按 `scripts/flow.schema.json` 校验，列数、必填列或取值不合规时 SHALL 报错。"关联 Scenario"一列 MUST 以 `、` 分隔列出完整的 Scenario ID，每个 ID 都必须在有效 Spec 中已登记；出现简写、未登记或格式不符的 ID 时，门禁 SHALL 报错。FLOW 的登记方式是本项目在 OpenSpec 之上的扩展，Change Skill 不会提醒；根 AGENTS.md SHALL 把它写成硬规则。测试绑定引用了清单中不存在的 Scenario 或 FLOW 时，门禁 SHALL 失败。
 
 #### Scenario: SCN-SCENARIO-GATE-003 active change 的增、改、删生效
 - **WHEN** active change 新增一个带场景的 Requirement，修改一个已有 Requirement（替换其下的场景），并删除一个已有 Requirement；archive 下另有同名 Spec
@@ -83,7 +83,7 @@ TBD - created by archiving change template-example. Update Purpose after archive
 ```
 
 #### Scenario: SCN-SCENARIO-GATE-007 FLOW 表写在 Requirement 之外
-- **WHEN** 某个有效 Spec 中，表头第一列为 `FLOW ID` 的表格位于 Requirement 之外，例如写在独立的 `## 必需集成流程` 章节中；或 FLOW 表中某一行列数不对、必填列为空、环境取值不合法
+- **WHEN** 某个有效 Spec 中，表头第一列为 `FLOW ID` 的表格位于 Requirement 之外，例如写在独立的 `## 必需集成流程` 章节中；或 FLOW 表中某一行列数不对、必填列为空、环境取值不合法，或"关联 Scenario"列含有简写、未登记的 ID
 - **THEN** 门禁指出文件和表格位置（或具体的行与原因）并非零退出，位置问题会提示归档将丢失该表；把表挪进某个 Requirement 正文后，门禁通过，表中的 FLOW 正常进入清单。
 
 ```json verification
@@ -92,11 +92,13 @@ TBD - created by archiving change template-example. Update Purpose after archive
   "checkpoints": {
     "outside-table-rejected": "Requirement 之外的 FLOW 表被指出并阻断，并说明归档会丢失",
     "inside-table-accepted": "写在 Requirement 正文中的 FLOW 表正常进入清单",
-    "flow-row-schema": "FLOW 行按 scripts/flow.schema.json 校验，列数、必填列或取值不合规时被列出并阻断"
+    "flow-row-schema": "FLOW 行按 scripts/flow.schema.json 校验，列数、必填列或取值不合规时被列出并阻断",
+    "related-scenarios-registered": "关联 Scenario 列中的每个 ID 都是已登记的完整 Scenario ID，简写或未登记时被列出并阻断"
   },
   "cases": [
-    {"key": "flow-placement-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["outside-table-rejected", "inside-table-accepted", "flow-row-schema"]},
+    {"key": "flow-placement-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["outside-table-rejected", "inside-table-accepted", "flow-row-schema", "related-scenarios-registered"]},
     {"key": "invalid-flow-row-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["flow-row-schema"]},
+    {"key": "unregistered-related-scenario-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["related-scenarios-registered"]},
     {"key": "outside-flow-table-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["outside-table-rejected", "inside-table-accepted"]}
   ],
   "blockedBy": []
@@ -117,32 +119,6 @@ TBD - created by archiving change template-example. Update Purpose after archive
   "cases": [
     {"key": "unknown-reference-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["unknown-flow-reference", "unknown-scenario-reference"]},
     {"key": "lost-flow-table-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["unknown-flow-reference"]}
-  ],
-  "blockedBy": []
-}
-```
-
-### Requirement: GATE-04 可配置的 ID 格式与迁移不变性
-
-Scenario 与 FLOW 的 ID 格式 MUST 来自一份项目级配置，允许同时登记多个格式。Spec 清单与 Fixture 检查 SHALL 使用同一份配置；场景报告器只收集执行事实，不做 ID 格式判断，测试绑定中的 ID 由门禁对账时与清单比对。门禁通用化 SHALL NOT 改变支付场景的登记与对账逻辑：只比较支付子集（ID 符合支付格式的 Scenario 与 FLOW），改造后的清单与 case 义务必须与改造前导出的基线逐项一致；对同一份固定了 `current` 指纹的对账输入，改造前后输出的 summaries 与问题列表必须一致。比较不依赖实时运行报告的执行数或通过数。
-
-#### Scenario: SCN-SCENARIO-GATE-005 多格式并存且支付对账结果不变
-- **WHEN** 配置同时登记支付格式（`TC-PAYSDK-*`、`FLOW-PAYSDK-*`）和通用格式（`SCN-<CAPABILITY>-<NNN>`、`FLOW-<CAPABILITY>-<NNN>`），并分别与改造前导出的支付清单基线、以及固定的对账输入进行比较
-- **THEN** 两类场景都进入清单；支付子集的 Scenario/FLOW 集合与 case 义务与改造前基线一致；对固定的对账输入，改造前后的 summaries 与问题列表一致；从配置中移除某个格式后，使用该格式的 Scenario 按 GATE-02 报错，不会被跳过。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "single-config": "清单与 Fixture 检查读取同一份 ID 格式配置；报告器不做格式判断，绑定 ID 由门禁对账比对",
-    "multi-pattern": "多个格式并存时各自进入清单",
-    "payment-baseline-unchanged": "支付子集的清单与义务与基线逐项一致；对固定 current 指纹的对账输入，改造前后 summaries 与问题列表一致",
-    "removed-pattern-reported": "移除某个格式后，使用该格式的 Scenario 按 GATE-02 报错"
-  },
-  "cases": [
-    {"key": "pattern-config", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["single-config", "multi-pattern", "removed-pattern-reported"]},
-    {"key": "payment-baseline-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["single-config", "multi-pattern", "payment-baseline-unchanged"]},
-    {"key": "removed-pattern-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["removed-pattern-reported"]}
   ],
   "blockedBy": []
 }
@@ -194,6 +170,92 @@ Scenario 与 FLOW 的 ID 格式 MUST 来自一份项目级配置，允许同时�
   "cases": [
     {"key": "schema-description-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["schema-descriptions", "agents-references-schemas"]},
     {"key": "schema-documentation-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["schema-descriptions", "agents-references-schemas", "restored-passes"]}
+  ],
+  "blockedBy": []
+}
+```
+
+### Requirement: GATE-07 覆盖清单由事实源生成且缺绑定被阻断
+
+场景门禁的覆盖分母 MUST 从有效 Spec 与 IDL 协议义务（见 `protocol-contract`）这两类事实源生成，不得从已有测试反推。任何必需 case 缺少对应环境的绑定，或测试只标注了 ID 却没有绑定具体检查点时，门禁 SHALL 列出缺项并非零退出，不能以现有测试全部通过或缩小统计范围来宣称覆盖完整。
+
+#### Scenario: SCN-SCENARIO-GATE-009 新增场景或协议义务未绑定测试
+- **WHEN** 有效 Spec 或 IDL 协议义务中新增一项必需验证，但没有测试绑定它；或测试只标注了 owner ID 而没有绑定检查点
+- **THEN** 清单由事实源生成并列出缺项，门禁非零退出；不能以测试通过或缩小统计范围宣称覆盖完整。
+
+```json verification
+{
+  "formatVersion": 2,
+  "checkpoints": {
+    "fact-derived-inventory": "清单从有效 Spec 与 IDL 义务生成，不从已有测试反推分母",
+    "missing-binding-rejected": "新增义务缺 case，或只标 owner ID 而无检查点时，列明缺项并非零退出",
+    "scope-cannot-shrink": "不能以测试通过或缩小统计范围宣称覆盖完整"
+  },
+  "cases": [
+    {"key": "missing-scenario-case", "kind": "engineering", "requiredIn": ["integration"], "checks": ["fact-derived-inventory", "missing-binding-rejected", "scope-cannot-shrink"]},
+    {"key": "missing-idl-field-case", "kind": "engineering", "requiredIn": ["integration"], "checks": ["fact-derived-inventory", "missing-binding-rejected", "scope-cannot-shrink"]},
+    {"key": "owner-id-without-checkpoint", "kind": "engineering", "requiredIn": ["integration"], "checks": ["missing-binding-rejected"]}
+  ],
+  "blockedBy": []
+}
+```
+
+### Requirement: GATE-08 运行证据有效性
+
+门禁 MUST 只把本次运行中真实执行、断言通过、环境与来源摘要都匹配的记录计为证据。被跳过、没有执行断言、缺少必需运行环境、来源摘要过期或断言失败的记录 SHALL 分别报告为未执行、无效或失败；全部必需 case 与环境都执行后才计入执行覆盖，执行覆盖达到 100% 不能抵消断言失败。FLOW 必须由同一次连续运行证明，不同测试的阶段记录不能拼接。case 的 kind 与运行项目以 Spec 为准，单测报告不能抵扣 behavior 或 FLOW，缺少分类的 Scenario 仍计入缺口。
+
+#### Scenario: SCN-SCENARIO-GATE-010 场景运行证据不足
+- **WHEN** 绑定已存在，但必需 case 被跳过、断言未执行、缺少必需环境的报告、来源摘要已变化或断言失败；或者单项 Scenario 都通过，但必需 FLOW 缺失、未贯通或由多个测试拼接
+- **THEN** 报告分别列出未执行、无效证据、流程缺口或失败，门禁阻断；只有全部必需子项执行后才计该场景的执行覆盖，执行覆盖 100% 仍不能抵消断言失败。
+
+```json verification
+{
+  "formatVersion": 2,
+  "checkpoints": {
+    "execution-validity": "skip、无断言、缺环境、过期来源或失败分别报告为未执行、无效或失败",
+    "all-required-subitems": "全部必需 case 和环境执行后才计执行覆盖",
+    "pass-separate-from-coverage": "执行覆盖 100% 不抵消断言失败",
+    "flow-continuity": "FLOW 必须由同一连续运行证明，不能拼接不同测试",
+    "verification-kind-enforced": "以单测报告抵扣 behavior 或 FLOW 时门禁失败；kind 与项目按 Spec 匹配，不能由绑定改类",
+    "all-kinds-required": "混合 Scenario 即使 behavior 已通过，缺必需 module/engineering 证据仍不算完成",
+    "metadata-stays-in-denominator": "缺 verification 块或缺 kind 的 Scenario 仍计入缺口，不从分母中排除"
+  },
+  "cases": [
+    {"key": "skipped-required-case", "kind": "engineering", "requiredIn": ["integration"], "checks": ["execution-validity", "all-required-subitems"]},
+    {"key": "assertion-not-executed", "kind": "engineering", "requiredIn": ["integration"], "checks": ["execution-validity", "all-required-subitems"]},
+    {"key": "missing-required-environment", "kind": "engineering", "requiredIn": ["integration"], "checks": ["execution-validity", "all-required-subitems"]},
+    {"key": "stale-source-report", "kind": "engineering", "requiredIn": ["integration"], "checks": ["execution-validity"]},
+    {"key": "failed-assertion-at-full-coverage", "kind": "engineering", "requiredIn": ["integration"], "checks": ["execution-validity", "pass-separate-from-coverage"]},
+    {"key": "missing-flow", "kind": "engineering", "requiredIn": ["integration"], "checks": ["flow-continuity"]},
+    {"key": "spliced-flow-evidence", "kind": "engineering", "requiredIn": ["integration"], "checks": ["flow-continuity"]},
+    {"key": "unit-cannot-cover-behavior", "kind": "engineering", "requiredIn": ["integration"], "checks": ["verification-kind-enforced"]},
+    {"key": "mixed-scenario-module-missing", "kind": "engineering", "requiredIn": ["integration"], "checks": ["all-kinds-required"]},
+    {"key": "missing-verification-metadata", "kind": "engineering", "requiredIn": ["integration"], "checks": ["metadata-stays-in-denominator"]}
+  ],
+  "blockedBy": []
+}
+```
+
+### Requirement: GATE-09 可配置的 ID 格式
+
+Scenario 与 FLOW 的 ID 格式 MUST 来自一份项目级配置，允许同时登记多个格式。Spec 清单与 Fixture 检查 SHALL 使用同一份配置；场景报告器只收集执行事实，不做 ID 格式判断，测试绑定中的 ID 由门禁对账时与清单比对。模板默认只登记 `SCN-<CAPABILITY>-<NNN>` 与 `FLOW-<CAPABILITY>-<NNN>` 两种格式；使用方可以按需增加其他格式。
+
+#### Scenario: SCN-SCENARIO-GATE-011 多格式并存与移除格式
+- **WHEN** 配置同时登记两种不同的 Scenario 格式并执行门禁；随后从配置中移除其中一种格式
+- **THEN** 两种格式的场景都进入清单；移除格式后，使用该格式的 Scenario 按 GATE-02 报错，不会被跳过。
+
+```json verification
+{
+  "formatVersion": 2,
+  "checkpoints": {
+    "single-config": "清单与 Fixture 检查读取同一份 ID 格式配置；报告器不做格式判断，绑定 ID 由门禁对账比对",
+    "multi-pattern": "多个格式并存时各自进入清单",
+    "removed-pattern-reported": "移除某个格式后，使用该格式的 Scenario 按 GATE-02 报错"
+  },
+  "cases": [
+    {"key": "pattern-config", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["single-config", "multi-pattern", "removed-pattern-reported"]},
+    {"key": "multi-pattern-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["single-config", "multi-pattern"]},
+    {"key": "removed-pattern-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["removed-pattern-reported"]}
   ],
   "blockedBy": []
 }

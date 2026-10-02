@@ -4,7 +4,7 @@
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "path": "openspec/changes/remove-payment-business/specs/protocol-contract/spec.md",
+      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/protocol-contract/spec.md",
       "sha256": "e18fac44e932aeab68edb5a3bedac7bad31fac57bb54feb204522d289525842b"
     }
   },
