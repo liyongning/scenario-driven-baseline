@@ -7,7 +7,8 @@ function execute(command: string, args: string[]) {
   return spawnSync(resolve('node_modules/.bin', command), args, { cwd: process.cwd(), encoding: 'utf8' });
 }
 
-test('SCN-TEMPLATE-EXAMPLE-008 dependency-violations', { meta: { scenarioCase: {
+// 用例串行启动多个 depcruise/eslint 子进程，高负载下可能超过 5 秒默认超时；单独放宽到 60 秒，断言不变。
+test('SCN-TEMPLATE-EXAMPLE-008 dependency-violations', { timeout: 60_000, meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-008', caseId: 'dependency-violations', environment: 'integration', fixtureCase: 'dependency-violations',
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-008', caseKey: 'dependency-violations', checks: ['example-core-isolated', 'no-cross-domain-import', 'new-domain-guarded', 'restored-passes'] }],
 } } }, async context => {
