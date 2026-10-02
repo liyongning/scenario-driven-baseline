@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { loadProjectManifest } from './project-manifest.ts';
 
 export type VerificationFingerprints = Readonly<{
   sourceDigest: string;
@@ -36,20 +37,13 @@ export function collectFiles(root: string, accept: (path: string) => boolean): s
 }
 
 export function buildVerificationFingerprints(repositoryRoot: string): VerificationFingerprints {
-  const sourceRoots = [
-    'packages/payment-sdk/src',
-    'packages/payment-protocol/src',
-    'packages/payment-protocol/testing',
-    'packages/e2e/src',
-    'packages/e2e/tests',
-    'scripts',
-  ];
+  const manifest = loadProjectManifest(repositoryRoot);
   const sourcePaths = [
-    ...sourceRoots.flatMap(root => collectFiles(resolve(repositoryRoot, root), path => /\.(?:ts|js)$/.test(path))),
-    ...collectFiles(
-      resolve(repositoryRoot, 'packages/e2e/host'),
+    ...manifest.fingerprints.sourceRoots.flatMap(root => collectFiles(resolve(repositoryRoot, root), path => /\.(?:ts|js)$/.test(path))),
+    ...manifest.fingerprints.hostRoots.flatMap(root => collectFiles(
+      resolve(repositoryRoot, root),
       path => /\.(?:ts|js|json|wxml|wxss)$/.test(path),
-    ),
+    )),
   ];
   const specPaths = [
     ...collectFiles(resolve(repositoryRoot, 'openspec/specs'), path => path.endsWith('/spec.md')),

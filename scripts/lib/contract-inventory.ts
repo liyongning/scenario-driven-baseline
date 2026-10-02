@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
-import { discoverExampleRoutes } from '../../packages/payment-protocol/testing/shadow/example/routes.ts';
+import { fileURLToPath } from 'node:url';
 import { collectFiles } from './fingerprints.ts';
+import { loadProjectManifest, packageByRole, testProjectsByClass } from './project-manifest.ts';
 
 type Direction = 'request' | 'response';
 type Encoding = 'json-string' | 'json-number' | 'json-int64-string' | 'json-boolean' | 'enum-name'
@@ -171,7 +172,7 @@ function encodingCases(direction: Direction, field: ReachableField, mappingCases
   return cases;
 }
 
-function fieldObligations(method: string, direction: Direction, typeName: string, fields: ReadonlyArray<ReachableField>, issues: string[]) {
+function fieldObligations(method: string, direction: Direction, typeName: string, fields: ReadonlyArray<ReachableField>, requiredIn: ReadonlyArray<string>, issues: string[]) {
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const field of fields) {
@@ -194,18 +195,18 @@ function fieldObligations(method: string, direction: Direction, typeName: string
     obligations.push({
       id: `infra.trade.v1.${method}#${direction}-mapping#${field.path}`,
       cases: [...mappingCases],
-      requiredIn: ['integration', 'weapp'],
+      requiredIn: [...requiredIn],
     });
     obligations.push({
       id: `infra.trade.v1.${method}#encoding-boundary#${direction}.${field.path}`,
       cases: encodingCases(direction, field, mappingCases),
-      requiredIn: ['integration', 'weapp'],
+      requiredIn: [...requiredIn],
     });
   }
   return { obligations, discoveries };
 }
 
-const sharedMethodObligations = (method: string): Obligation[] => [
+const sharedMethodObligations = (method: string, requiredIn: ReadonlyArray<string>): Obligation[] => [
   {
     id: `infra.trade.v1.${method}#header-base-req#$`,
     cases: [
@@ -213,16 +214,26 @@ const sharedMethodObligations = (method: string): Obligation[] => [
       'base-req-request-id', 'base-req-product-id-configured', 'base-req-product-id-omitted',
       'lane-configured', 'lane-omitted', 'app-version-configured', 'app-version-omitted',
     ],
-    requiredIn: ['integration', 'weapp'],
+    requiredIn: [...requiredIn],
   },
-  { id: `infra.trade.v1.${method}#response-handling#$`, cases: ['success', 'business-error', 'http-error', 'malformed-body'], requiredIn: ['integration', 'weapp'] },
-  { id: `infra.trade.v1.${method}#error-handling#$`, cases: ['empty-access-token', 'host-context-error', 'network-error', 'cancelled', 'codec-error'], requiredIn: ['integration', 'weapp'] },
-  { id: `infra.trade.v1.${method}#timeout#$`, cases: ['deadline-before-context', 'provider-timeout', 'deadline-before-send', 'in-flight-timeout', 'late-result-isolated'], requiredIn: ['integration', 'weapp'] },
+  { id: `infra.trade.v1.${method}#response-handling#$`, cases: ['success', 'business-error', 'http-error', 'malformed-body'], requiredIn: [...requiredIn] },
+  { id: `infra.trade.v1.${method}#error-handling#$`, cases: ['empty-access-token', 'host-context-error', 'network-error', 'cancelled', 'codec-error'], requiredIn: [...requiredIn] },
+  { id: `infra.trade.v1.${method}#timeout#$`, cases: ['deadline-before-context', 'provider-timeout', 'deadline-before-send', 'in-flight-timeout', 'late-result-isolated'], requiredIn: [...requiredIn] },
 ];
 
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
+  const manifest = loadProjectManifest(root);
+  const protocolDirectory = packageByRole(manifest, 'protocol').directory;
+  const requiredIn = testProjectsByClass(manifest, ['integration', 'platform']);
+  const integrationOnly = testProjectsByClass(manifest, ['integration']);
+  // 示例方法描述模块按仓库清单的 protocol 角色目录定位，不随门禁根目录变化；临时根无需提供 testing/。
+  const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
+  const repositoryProtocol = packageByRole(loadProjectManifest(repositoryRoot), 'protocol').directory;
+  const { discoverExampleRoutes } = await import(`../../packages/${repositoryProtocol}/testing/shadow/example/routes.ts`) as {
+    discoverExampleRoutes(): ReadonlyArray<{ methodName: string; httpMethod: string; path: string; meta: Readonly<{ requestType: string; responseType: string }> }>;
+  };
   const routes = discoverExampleRoutes();
-  const generatedRoot = options.generatedRoot ?? resolve(root, 'packages/payment-protocol/src/generated');
+  const generatedRoot = options.generatedRoot ?? resolve(root, 'packages', protocolDirectory, 'src/generated');
   const typeNames = routes.flatMap(route => [route.meta.requestType, route.meta.responseType]);
   const fields = deriveFields(generatedRoot, typeNames);
   const errors = JSON.parse(await readFile(join(root, 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'), 'utf8')) as Array<{ name: string }>;
@@ -230,16 +241,16 @@ export async function buildContractInventory(root: string, options: InventoryOpt
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const route of routes) {
-    obligations.push({ id: `infra.trade.v1.${route.methodName}#http-route#$`, cases: [route.methodName], requiredIn: ['integration', 'weapp'] });
+    obligations.push({ id: `infra.trade.v1.${route.methodName}#http-route#$`, cases: [route.methodName], requiredIn: [...requiredIn] });
     for (const [direction, typeName] of [['request', route.meta.requestType], ['response', route.meta.responseType]] as const) {
-      const derived = fieldObligations(route.methodName, direction, typeName, fields.get(typeName)!, issues);
+      const derived = fieldObligations(route.methodName, direction, typeName, fields.get(typeName)!, requiredIn, issues);
       obligations.push(...derived.obligations);
       discoveries.push(...derived.discoveries);
     }
-    obligations.push(...sharedMethodObligations(route.methodName));
+    obligations.push(...sharedMethodObligations(route.methodName, requiredIn));
   }
   obligations.push(
-    { id: 'idl.error-contract#business-error#$', cases: errors.map(item => item.name), requiredIn: ['integration'] },
+    { id: 'idl.error-contract#business-error#$', cases: errors.map(item => item.name), requiredIn: [...integrationOnly] },
   );
   return {
     methods: routes.map(route => ({ name: route.methodName, method: route.httpMethod, path: route.path })),

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -6,18 +6,21 @@ import {
   checkReleaseRecord,
   parseReleaseInput,
   readReleaseWorkspaceFacts,
-  releaseRegistry,
+  releaseMissingMessage,
   runReleaseCli,
   type ReleaseInput,
   type ReleaseWorkspaceFacts,
 } from './check-release.ts';
+import type { ReleaseSettings } from './lib/project-manifest.ts';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 
+const registryUrl = 'https://registry.test.invalid/api/v4/projects/9/packages/npm/';
+const releaseSettings: ReleaseSettings = { registry: registryUrl, tagPrefix: 'payment-sdk-v' };
+
 const record = (overrides: Partial<ReleaseInput> = {}): ReleaseInput => ({
-  targetProject: 245,
-  registry: releaseRegistry,
+  registry: registryUrl,
   execution: 'local',
   tag: 'payment-sdk-v0.1.0-alpha.1',
   sourceRevision: 'a'.repeat(40),
@@ -37,6 +40,17 @@ function workspace() {
   roots.push(root);
   mkdirSync(join(root, 'packages/payment-sdk'), { recursive: true });
   mkdirSync(join(root, 'packages/payment-protocol'), { recursive: true });
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
+    packages: [
+      { directory: 'payment-sdk', name: '@daqian/payment-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
+      { directory: 'payment-protocol', name: '@daqian/payment-protocol', role: 'protocol', private: false, allowedDirectories: ['src'] },
+      { directory: 'e2e', name: '@daqian/payment-e2e', role: 'test', private: true, allowedDirectories: ['src'] },
+    ],
+    requiredCommands: ['check:fast'],
+    testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
+    fingerprints: { sourceRoots: ['scripts'], hostRoots: [] },
+    release: releaseSettings,
+  }));
   writeFileSync(join(root, 'packages/payment-sdk/package.json'), JSON.stringify({
     name: '@daqian/payment-sdk',
     version: '0.1.0-alpha.1',
@@ -60,12 +74,9 @@ describe('formal release record checker', () => {
 
   it.each([
     ['non-object record', null],
-    ['wrong project', { ...record(), targetProject: 1 }],
-    ['wrong registry', { ...record(), registry: 'https://wrong.invalid/' }],
+    ['unexpected project field', { ...record(), targetProject: 1 }],
     ['invalid execution', { ...record(), execution: 'runner' }],
     ['empty tag', { ...record(), tag: '' }],
-    ['wrong SDK name', { ...record(), sdk: { ...record().sdk, name: '@daqian/other' } }],
-    ['wrong protocol name', { ...record(), protocol: { ...record().protocol, name: '@daqian/other' } }],
     ['invalid SDK version', { ...record(), sdk: { ...record().sdk, version: 'latest' } }],
     ['invalid protocol version', { ...record(), protocol: { ...record().protocol, version: '*' } }],
     ['invalid changed flag', { ...record(), sdk: { ...record().sdk, changed: 'yes' } }],
@@ -74,24 +85,31 @@ describe('formal release record checker', () => {
   });
 
   it('validates the SDK tag, source revision, version-change relationship and workspace identities', () => {
-    expect(checkReleaseRecord(record(), facts())).toEqual([]);
-    expect(checkReleaseRecord(record({ execution: 'ci' }), facts())).toEqual([]);
-    expect(checkReleaseRecord(record({ tag: 'payment-sdk-v9.9.9', sourceRevision: 'short' }), facts()).join('\n')).toMatch(/tag|full commit SHA/);
-    expect(checkReleaseRecord(record({ sdk: { ...record().sdk, changed: false }, protocol: { ...record().protocol, changed: true } }), facts()).join('\n')).toMatch(/formal SDK release|protocol delivery/);
-    expect(checkReleaseRecord(record(), facts({ sdk: { ...facts().sdk, version: '9.9.9', protocolDependency: '0.1.0' }, protocol: { ...facts().protocol, version: '9.9.9' } })).join('\n')).toMatch(/SDK package identity|protocol package identity|workspace:\*/);
+    expect(checkReleaseRecord(record(), facts(), releaseSettings)).toEqual([]);
+    expect(checkReleaseRecord(record({ execution: 'ci' }), facts(), releaseSettings)).toEqual([]);
+    expect(checkReleaseRecord(record({ tag: 'payment-sdk-v9.9.9', sourceRevision: 'short' }), facts(), releaseSettings).join('\n')).toMatch(/tag|full commit SHA/);
+    expect(checkReleaseRecord(record({ sdk: { ...record().sdk, changed: false }, protocol: { ...record().protocol, changed: true } }), facts(), releaseSettings).join('\n')).toMatch(/formal SDK release|protocol delivery/);
+    expect(checkReleaseRecord(record(), facts({ sdk: { ...facts().sdk, version: '9.9.9', protocolDependency: '0.1.0' }, protocol: { ...facts().protocol, version: '9.9.9' } }), releaseSettings).join('\n')).toMatch(/SDK package identity|protocol package identity|workspace:\*/);
+  });
+
+  it('rejects drift against the manifest release settings and accepts a concrete manifest', () => {
+    expect(checkReleaseRecord(record(), facts(), { registry: 'https://other.invalid/', tagPrefix: 'payment-sdk-v' }).join('\n')).toMatch(/registry does not match the project manifest/);
+    expect(checkReleaseRecord(record(), facts(), { registry: 'https://gitlab.example/api/v4/projects/<PROJECT_ID>/packages/npm/', tagPrefix: 'payment-sdk-v' }).join('\n')).toMatch(/template placeholder/);
+    expect(checkReleaseRecord(record(), facts()).join('\n')).toMatch(/release settings are missing from project.manifest.json/);
+    expect(checkReleaseRecord(record({ sdk: { ...record().sdk, name: '@daqian/other' } }), facts(), releaseSettings).join('\n')).toMatch(/SDK package identity does not match/);
+    expect(checkReleaseRecord(record({ protocol: { ...record().protocol, name: '@daqian/other' } }), facts(), releaseSettings).join('\n')).toMatch(/protocol package identity does not match/);
   });
 
   it('reports defensive validation issues even for programmatically malformed typed input', () => {
     const malformed = {
       ...record(),
-      targetProject: 1,
       registry: 'https://wrong.invalid/',
       tag: 'wrong',
       sourceRevision: 'short',
       sdk: { ...record().sdk, version: 'latest' },
       protocol: { ...record().protocol, version: '*' },
     } as unknown as ReleaseInput;
-    expect(checkReleaseRecord(malformed).join('\n')).toMatch(/project 245|registry|invalid package version|tag|full commit SHA/);
+    expect(checkReleaseRecord(malformed, undefined, releaseSettings).join('\n')).toMatch(/registry|invalid package version|tag|full commit SHA/);
   });
 
   it('reads package identities and workspace dependency without packing', async () => {
@@ -112,5 +130,14 @@ describe('formal release record checker', () => {
     writeFileSync(join(root, 'invalid.json'), JSON.stringify({ ...record(), sdk: { ...record().sdk, version: '9.9.9' }, tag: 'payment-sdk-v9.9.9' }));
     expect((await runReleaseCli(['--input', 'invalid.json'], root)).issues).toContain('SDK package identity does not match the current workspace');
     expect((await runReleaseCli(['--input', 'missing.json'], root)).issues.join('\n')).toContain('could not be read');
+  });
+
+  it('reports a manifest without release settings through the CLI', async () => {
+    const root = workspace();
+    const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as Record<string, unknown>;
+    delete manifest.release;
+    writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest));
+    writeFileSync(join(root, 'release.json'), JSON.stringify(record()));
+    expect(await runReleaseCli(['--input', 'release.json'], root)).toEqual({ issues: [releaseMissingMessage], exitCode: 1 });
   });
 });

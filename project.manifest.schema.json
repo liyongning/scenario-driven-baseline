@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daqian.example/project.manifest.schema.json",
+  "title": "项目清单",
+  "description": "登记模板项目形态的唯一事实来源：包、必需命令、测试项目、源码摘要目录与发布设置；工程门禁只从此清单读取这些事实。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packages", "requiredCommands", "testProjects", "fingerprints"],
+  "properties": {
+    "packages": {
+      "description": "工程中的 npm 包清单；product、protocol、test 三种角色各恰好一个。",
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "description": "单个包的目录、包名、角色、私有标记与允许的一级子目录。",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["directory", "name", "role", "private", "allowedDirectories"],
+        "properties": {
+          "directory": {
+            "description": "该包在 packages/ 下的目录名。",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "name": {
+            "description": "该包发布的 npm 包名，必须带 scope。",
+            "type": "string",
+            "pattern": "^@[a-z0-9-]+/[a-z0-9-]+$"
+          },
+          "role": {
+            "description": "该包在模板中的角色：产品包、协议包或测试包。",
+            "enum": ["product", "protocol", "test"]
+          },
+          "private": {
+            "description": "该包是否在 package.json 中标记为 private。",
+            "type": "boolean"
+          },
+          "allowedDirectories": {
+            "description": "允许出现在该包目录下的一级子目录名。",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "description": "允许的一级子目录名。",
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+            }
+          }
+        }
+      }
+    },
+    "requiredCommands": {
+      "description": "根 package.json 必须存在的脚本名清单。",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "description": "必须存在的 npm 脚本名。",
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "testProjects": {
+      "description": "Vitest 测试项目及其类别；场景门禁按此校验 requiredIn 与 case 类别。",
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "description": "单个测试项目的名称与类别。",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "class"],
+        "properties": {
+          "name": {
+            "description": "Vitest 项目名，也是场景 case 的 requiredIn 取值。",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "class": {
+            "description": "测试项目类别：单元、集成或平台。",
+            "enum": ["unit", "integration", "platform"]
+          }
+        }
+      }
+    },
+    "fingerprints": {
+      "description": "参与验证摘要的源码与宿主目录。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceRoots", "hostRoots"],
+      "properties": {
+        "sourceRoots": {
+          "description": "参与源码摘要的目录，收集其中的 .ts 与 .js 文件。",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "description": "相对仓库根的源码目录路径。",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "hostRoots": {
+          "description": "参与宿主摘要的目录，额外收集 .json、.wxml 与 .wxss 文件。",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "description": "相对仓库根的宿主目录路径。",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "release": {
+      "description": "可选的包发布设置；缺省表示本项目已删除发布模块。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registry", "tagPrefix"],
+      "properties": {
+        "registry": {
+          "description": "npm 发布目标 registry 地址；模板占位值含 <PROJECT_ID>。",
+          "type": "string",
+          "minLength": 1
+        },
+        "tagPrefix": {
+          "description": "发布 tag 的前缀，完整 tag 为前缀拼接产品包版本。",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

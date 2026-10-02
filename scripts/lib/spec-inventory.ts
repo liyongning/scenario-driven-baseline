@@ -4,6 +4,7 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { unified } from 'unified';
 import { matchesAny, type ScenarioConfig } from './scenario-config.ts';
+import { loadProjectManifest, type TestProject, type TestProjectClass } from './project-manifest.ts';
 import type { SpecSource } from './spec-sources.ts';
 
 export type VerificationMetadata = Readonly<{
@@ -12,7 +13,7 @@ export type VerificationMetadata = Readonly<{
   cases: ReadonlyArray<Readonly<{
     key: string;
     kind: 'behavior' | 'module' | 'engineering';
-    requiredIn: ReadonlyArray<'sdk-unit' | 'protocol-unit' | 'test-tools-unit' | 'integration' | 'weapp'>;
+    requiredIn: ReadonlyArray<string>;
     checks: ReadonlyArray<string>;
   }>>;
   blockedBy: ReadonlyArray<string>;
@@ -35,7 +36,11 @@ export function nodeText(node: unknown): string {
   return typed.value ?? typed.children?.map(nodeText).join('') ?? '';
 }
 
-export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>, config?: ScenarioConfig) {
+export async function readSpecInventory(
+  specPaths: ReadonlyArray<InventoryInput>,
+  config?: ScenarioConfig,
+  projects?: ReadonlyArray<TestProject>,
+) {
   const schema = JSON.parse(await readFile(new URL('../verification.schema.json', import.meta.url), 'utf8')) as object;
   const flowSchema = JSON.parse(await readFile(new URL('../flow.schema.json', import.meta.url), 'utf8')) as object;
   const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -44,6 +49,10 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
   const scenarios: ScenarioInventoryItem[] = [];
   const flows: FlowInventoryItem[] = [];
   const issues: string[] = [];
+  const effectiveProjects = projects ?? loadProjectManifest(process.cwd()).testProjects;
+  const projectByName = new Map(effectiveProjects.map(item => [item.name, item]));
+  const allowedClasses = (kind: 'behavior' | 'module' | 'engineering'): ReadonlyArray<TestProjectClass> =>
+    kind === 'behavior' ? ['integration', 'platform'] : kind === 'module' ? ['unit'] : ['integration'];
 
   const effectiveConfig = config ?? { scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'], flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'], ownerIdPattern: '^(?:FLOW|SCN)-[A-Z0-9-]+$' };
   for (const sourceInput of specPaths) {
@@ -81,6 +90,16 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
                 for (const item of verification.cases) {
                   for (const check of item.checks) {
                     if (!Object.prototype.hasOwnProperty.call(verification.checkpoints, check)) issues.push(`${scenarioId}/${item.key}: unknown checkpoint ${check}`);
+                  }
+                  for (const required of item.requiredIn) {
+                    const project = projectByName.get(required);
+                    if (!project) {
+                      issues.push(`${scenarioId}: invalid verification metadata: requiredIn project ${required} is not registered in project.manifest.json`);
+                      continue;
+                    }
+                    if (!allowedClasses(item.kind).includes(project.class)) {
+                      issues.push(`${scenarioId}: invalid verification metadata: kind ${item.kind} cannot run in ${project.class} project ${required}`);
+                    }
                   }
                 }
               }
@@ -126,6 +145,12 @@ export async function readSpecInventory(specPaths: ReadonlyArray<InventoryInput>
           if (!validateFlow(flow)) {
             issues.push(`${source}: invalid FLOW row ${cells[0]}: ${ajv.errorsText(validateFlow.errors)}`);
             continue;
+          }
+          for (const required of flow.requiredIn) {
+            const project = projectByName.get(required);
+            if (!project || (project.class !== 'integration' && project.class !== 'platform')) {
+              issues.push(`${source}: invalid FLOW row ${flow.id}: requiredIn project ${required} is not an integration or platform project`);
+            }
           }
           flows.push(flow);
         }

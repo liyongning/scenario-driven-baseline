@@ -1,12 +1,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cliEvidence, fixtureRoot, runArchitecture } from './scenario-gate-helpers.ts';
+import { cliEvidence, fixtureRoot, runArchitecture, writeProjectManifest } from './scenario-gate-helpers.ts';
 
 cliEvidence('SCN-SCENARIO-GATE-008', 'schema-documentation-cli', ['schema-descriptions', 'agents-references-schemas', 'restored-passes'], async (context, check) => {
   const fixture = fixtureRoot();
   try {
     mkdirSync(join(fixture.root, 'packages'), { recursive: true });
     writeFileSync(join(fixture.root, 'package.json'), readFileSync(join(process.cwd(), 'package.json')));
+    writeProjectManifest(fixture.root);
     writeFileSync(join(fixture.root, 'AGENTS.md'), 'scenario-gate.config.schema.json');
     for (const name of ['payment-sdk', 'payment-protocol', 'e2e']) {
       mkdirSync(join(fixture.root, 'packages', name), { recursive: true });

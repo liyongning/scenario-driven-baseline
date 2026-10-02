@@ -119,7 +119,7 @@ ${block}
   it('enforces configured IDs, FLOW placement, required cells, and allowed environments', async () => {
     const config = { scenarioIdPatterns: ['^SCN-OK$'], flowIdPatterns: ['^FLOW-OK$'], ownerIdPattern: '^SCN-OK$' };
     const header = '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
-    const source = { path: 'controlled-spec', kind: 'main' as const, content: `${header}| FLOW-OK | SCN-OK | create → observe | normal | integration | outside |\n\n### Requirement: TEST flow\n\n#### Scenario: BAD-ID Invalid\n\n${block}\n\n${header}| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | wrong environment |\n| FLOW-OK | SCN-OK | | normal | integration | missing stage |\n| FLOW-OK | SCN-OK | create → observe | normal | integration |\n` };
+    const source = { path: 'controlled-spec', kind: 'main' as const, content: `${header}| FLOW-OK | SCN-OK | create → observe | normal | integration | outside |\n\n### Requirement: TEST flow\n\n#### Scenario: BAD-ID Invalid\n\n${block}\n\n${header}| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | wrong environment |\n| FLOW-OK | bad-id | create → observe | normal | integration | bad related |\n| FLOW-OK | SCN-OK | | normal | integration | missing stage |\n| FLOW-OK | SCN-OK | create → observe | normal | integration |\n` };
     const inventory = await readSpecInventory([source], config);
     expect(inventory.issues).toEqual(expect.arrayContaining([
       expect.stringContaining('FLOW table is outside a Requirement'),

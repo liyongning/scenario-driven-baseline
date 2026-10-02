@@ -1,8 +1,13 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { evaluateCoverage, loadReporterOutputs, runScenarioPrechecks, runScenariosCli, scenarioCoverageDefinition, type CoverageInput } from './check-scenarios.ts';
+
+/** 门禁根目录读取 project.manifest.json；临时根复制仓库清单以获得已登记的测试项目。 */
+async function writeProjectManifest(root: string) {
+  await writeFile(join(root, 'project.manifest.json'), await readFile(join(process.cwd(), 'project.manifest.json')));
+}
 
 function base(): CoverageInput {
   return {
@@ -242,6 +247,7 @@ describe('evaluateCoverage', () => {
     const root = await mkdtemp(join(tmpdir(), 'scenario-precheck-facts-'));
     try {
       await mkdir(join(root, 'openspec/specs/example'), { recursive: true });
+      await writeProjectManifest(root);
       await writeFile(join(root, 'scenario-gate.config.json'), JSON.stringify({ scenarioIdPatterns: ['^SCN-OK$'], flowIdPatterns: ['^FLOW-OK$'], ownerIdPattern: '[' }));
       await writeFile(join(root, 'openspec/specs/example/spec.md'), `### Requirement: TEST flow
 
@@ -277,12 +283,22 @@ describe('evaluateCoverage', () => {
     const root = await mkdtemp(join(tmpdir(), 'scenario-precheck-denominator-'));
     try {
       await mkdir(join(root, 'openspec/specs/example'), { recursive: true });
+      await writeProjectManifest(root);
       await writeFile(join(root, 'openspec/specs/example/spec.md'), '### Requirement: TEST\n#### Scenario: SCN-TEST-001 Missing\n');
       const result = await runScenariosCli([], root, {}, () => ({ status: 0 }));
       expect(result.exitCode).toBe(1);
       expect(result.output).toMatchObject({ scenarios: [{ id: 'SCN-TEST-001' }] });
       const inventory = await runScenariosCli(['--inventory'], root, {}, () => ({ status: 0 }));
       expect(inventory.output).toMatchObject({ mode: 'inventory', scenarios: [{ id: 'SCN-TEST-001' }] });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it('reports a missing project manifest as a precheck issue', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'scenario-precheck-manifest-'));
+    try {
+      await mkdir(join(root, 'openspec/specs'), { recursive: true });
+      const result = await runScenarioPrechecks(root, () => ({ status: 0 }));
+      expect(result.issues.join('\n')).toContain('precheck: project.manifest.json cannot be read');
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 

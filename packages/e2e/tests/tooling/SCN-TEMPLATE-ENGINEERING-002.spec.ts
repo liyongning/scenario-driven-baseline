@@ -22,6 +22,7 @@ function architectureFixture() {
   writeFileSync(join(root, 'README.md'), '# facts\n');
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md)\n');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
+  writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
   for (const name of ['payment-sdk', 'payment-protocol', 'e2e']) {
     const directory = join(root, 'packages', name);
     mkdirSync(directory);

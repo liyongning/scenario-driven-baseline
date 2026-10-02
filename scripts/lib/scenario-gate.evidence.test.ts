@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, type TestContext } from 'vitest';
@@ -24,6 +24,7 @@ const flowHeader = '| FLOW ID | Related | Stages | Cases | Environments | Notes 
 
 async function temporaryRoot(name: string, body: (root: string) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), `scenario-gate-${name}-`));
+  await writeFile(join(root, 'project.manifest.json'), await readFile(join(process.cwd(), 'project.manifest.json')));
   try { await body(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
@@ -117,12 +118,18 @@ evidence('SCN-SCENARIO-GATE-011', 'pattern-config', ['single-config', 'multi-pat
 });
 
 evidence('SCN-SCENARIO-GATE-006', 'metadata-rules', ['missing-block-rejected', 'multiple-blocks-rejected', 'schema-enforced', 'stays-in-denominator'], async (context, check) => {
-  const content = `### Requirement: TEST metadata\n#### Scenario: SCN-TEST-001 Missing\n\n#### Scenario: SCN-TEST-002 Multiple\n${block}\n${block}\n#### Scenario: SCN-TEST-003 Invalid\n\`\`\`json verification\n{}\n\`\`\``;
+  const invalidProject = JSON.stringify({ formatVersion: 2, checkpoints: { done: '完成' }, cases: [{ key: 'ok', kind: 'behavior', requiredIn: ['unregistered-project'], checks: ['done'] }], blockedBy: [] });
+  const wrongKind = JSON.stringify({ formatVersion: 2, checkpoints: { done: '完成' }, cases: [{ key: 'ok', kind: 'module', requiredIn: ['integration'], checks: ['done'] }], blockedBy: [] });
+  const content = `### Requirement: TEST metadata\n#### Scenario: SCN-TEST-001 Missing\n\n#### Scenario: SCN-TEST-002 Multiple\n${block}\n${block}\n#### Scenario: SCN-TEST-003 Invalid\n\`\`\`json verification\n{}\n\`\`\`\n#### Scenario: SCN-TEST-004 Unregistered\n\`\`\`json verification\n${invalidProject}\n\`\`\`\n#### Scenario: SCN-TEST-005 WrongKind\n\`\`\`json verification\n${wrongKind}\n\`\`\``;
   const result = await readSpecInventory([{ path: 'metadata', kind: 'main', content }], config);
   await check('missing-block-rejected', () => context.expect(result.issues.join('\n')).toContain('SCN-TEST-001: verification metadata missing'));
   await check('multiple-blocks-rejected', () => context.expect(result.issues.join('\n')).toContain('SCN-TEST-002: multiple verification metadata blocks'));
-  await check('schema-enforced', () => context.expect(result.issues.join('\n')).toContain('SCN-TEST-003: invalid verification metadata'));
-  await check('stays-in-denominator', () => context.expect(result.scenarios).toHaveLength(3));
+  await check('schema-enforced', () => {
+    context.expect(result.issues.join('\n')).toContain('SCN-TEST-003: invalid verification metadata');
+    context.expect(result.issues.join('\n')).toContain('SCN-TEST-004: invalid verification metadata: requiredIn project unregistered-project is not registered in project.manifest.json');
+    context.expect(result.issues.join('\n')).toContain('SCN-TEST-005: invalid verification metadata: kind module cannot run in integration project integration');
+  });
+  await check('stays-in-denominator', () => context.expect(result.scenarios).toHaveLength(5));
 });
 
 evidence('SCN-SCENARIO-GATE-008', 'schema-description-rules', ['schema-descriptions', 'agents-references-schemas'], async (context, check) => {

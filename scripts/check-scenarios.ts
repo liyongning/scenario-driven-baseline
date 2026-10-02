@@ -8,8 +8,9 @@ import { readEffectiveSpecs } from './lib/spec-sources.ts';
 import { loadScenarioConfig, validateScenarioConfig } from './lib/scenario-config.ts';
 import { buildContractInventory } from './lib/contract-inventory.ts';
 import { buildVerificationFingerprints } from './lib/fingerprints.ts';
+import { errorMessage, loadProjectManifest, type TestProject } from './lib/project-manifest.ts';
 
-export type Project = 'sdk-unit' | 'protocol-unit' | 'test-tools-unit' | 'integration' | 'weapp';
+export type Project = string;
 export type VerificationKind = 'behavior' | 'module' | 'engineering';
 export type ScenarioCommandResult = Readonly<{ status: number | null; stdout?: string; stderr?: string; error?: unknown }>;
 export type ScenarioCommand = (command: string, args: ReadonlyArray<string>, options: Readonly<{ cwd: string }>) => ScenarioCommandResult;
@@ -52,8 +53,8 @@ type ScenarioCase = Readonly<{
 export type CoverageInput = Readonly<{
   current: Readonly<{ runId: string; sourceDigest: string; specDigest: string; idlDigest: string; fixtureDigest: string }>;
   scenarios: ReadonlyArray<Readonly<{ id: string; cases: ReadonlyArray<ScenarioCase>; blockedBy?: ReadonlyArray<string> }>>;
-  contracts: ReadonlyArray<Readonly<{ id: string; cases: ReadonlyArray<string>; requiredIn: ReadonlyArray<'integration' | 'weapp'> }>>;
-  flows: ReadonlyArray<Readonly<{ id: string; cases: ReadonlyArray<string>; requiredIn: ReadonlyArray<'integration' | 'weapp'>; requiredStages: ReadonlyArray<string> }>>;
+  contracts: ReadonlyArray<Readonly<{ id: string; cases: ReadonlyArray<string>; requiredIn: ReadonlyArray<string> }>>;
+  flows: ReadonlyArray<Readonly<{ id: string; cases: ReadonlyArray<string>; requiredIn: ReadonlyArray<string>; requiredStages: ReadonlyArray<string> }>>;
   bindings: ReadonlyArray<CaseBinding>;
   reports: ReadonlyArray<ExecutionReport>;
   sourceIssues?: ReadonlyArray<string>;
@@ -71,6 +72,16 @@ export type ScenarioPrecheckResult = Readonly<{
   effective?: Awaited<ReturnType<typeof readEffectiveSpecs>>;
   inventory?: Awaited<ReturnType<typeof readSpecInventory>>;
 }>;
+
+/** 读取门禁根目录的测试项目；清单缺失或非法时记录 precheck 问题并降级为空集合。 */
+async function loadPrecheckProjects(root: string, issues: string[]): Promise<ReadonlyArray<TestProject>> {
+  try {
+    return loadProjectManifest(root).testProjects;
+  } catch (error) {
+    issues.push(`precheck: ${errorMessage(error)}`);
+    return [];
+  }
+}
 
 /**
  * Run the repository and effective-Spec checks in their contractual order.
@@ -110,7 +121,8 @@ export async function runScenarioPrechecks(
   }
   const configIssues = validateScenarioConfig(config);
   if (configIssues.length > 0) issues.push(...configIssues.map(issue => `precheck: ${issue}`));
-  const inventory = await readSpecInventory(effective.documents, config);
+  const projects = await loadPrecheckProjects(root, issues);
+  const inventory = await readSpecInventory(effective.documents, config, projects);
 
   // Keep diagnostics deterministic and aligned with the gate contract:
   // identity checks, FLOW placement/rows, then verification metadata.
@@ -379,11 +391,11 @@ export async function runScenariosCli(
   const coverage = evaluateCoverage({
     current: { runId: environment.PAYMENT_RUN_ID ?? 'local', ...fingerprints },
     scenarios: specs.scenarios.map(scenarioCoverageDefinition),
-    contracts: contracts.obligations.map(obligation => ({ ...obligation, requiredIn: obligation.requiredIn as Array<'integration' | 'weapp'> })),
+    contracts: contracts.obligations.map(obligation => ({ ...obligation, requiredIn: obligation.requiredIn })),
     flows: specs.flows.map(flow => ({
       id: flow.id,
       cases: flow.cases,
-      requiredIn: flow.requiredIn as Array<'integration' | 'weapp'>,
+      requiredIn: flow.requiredIn,
       requiredStages: flow.stages.split('→').map(stage => stage.trim()).filter(Boolean),
     })),
     bindings: loaded.bindings,

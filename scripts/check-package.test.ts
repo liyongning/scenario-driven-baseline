@@ -13,7 +13,7 @@ describe('checkPackageArtifacts', () => {
       sdkManifest: sdk, protocolManifest: protocol,
       sdkFiles: ['package/package.json', 'package/dist/index.js'], protocolFiles: ['package/package.json', 'package/dist/index.js'],
       record: { sdkVersion: '0.2.0', protocolVersion: '0.1.0' },
-    })).toEqual([]);
+    }, protocol.name)).toEqual([]);
   });
 
   it('rejects Shadow leakage, floating dependencies, version drift, and a publishable E2E package', () => {
@@ -21,7 +21,7 @@ describe('checkPackageArtifacts', () => {
       sdkManifest: { ...sdk, dependencies: { '@daqian/payment-protocol': 'latest' } }, protocolManifest: protocol,
       sdkFiles: ['package/testing/shadow.js'], protocolFiles: ['package/tests/fixture.json'],
       record: { sdkVersion: '0.1.0', protocolVersion: '0.9.0' }, e2eManifest: { private: false },
-    })).toEqual(expect.arrayContaining([
+    }, protocol.name)).toEqual(expect.arrayContaining([
       expect.stringContaining('test-only path'), expect.stringContaining('must be exact'),
       expect.stringContaining('SDK version does not match'), expect.stringContaining('protocol version does not match'),
       'packages/e2e must remain private',

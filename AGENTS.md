@@ -8,6 +8,10 @@
 - 使用 `openspec list` 查看当前 Change；生命周期状态以当前物理仓库为根。
 - [仓库与跨仓库参考](README.md)
 
+### 项目清单
+
+工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，字段与约束的唯一权威是 [project.manifest.schema.json](project.manifest.schema.json)；架构检查、场景门禁、协议义务、源码摘要与包发布都只从清单读取包、必需命令、测试项目与发布设置。
+
 ### OpenSpec 硬规则
 
 1. 所有规划、状态与归档必须使用当前仓库的 OpenSpec 根和 `openspec-workflow`；不要把另一个仓库的路径当作事实。

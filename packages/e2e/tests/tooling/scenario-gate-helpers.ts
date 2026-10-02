@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -17,10 +17,19 @@ const config = {
 export const verification = (cases: unknown[] = [{ key: 'normal', kind: 'behavior', requiredIn: ['integration'], checks: ['done'] }], checkpoints: Record<string, string> = { done: '完成' }) => `\n\`\`\`json verification\n${JSON.stringify({ formatVersion: 2, checkpoints, cases, blockedBy: [] })}\n\`\`\``;
 export const flowHeader = '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
 
+/** 把仓库清单原样复制到临时根，保证门禁读取到的目录与包名一致；反例可在复制后改写。 */
+export function writeProjectManifest(root: string, mutate?: (manifest: Record<string, unknown>) => void) {
+  const manifest = JSON.parse(readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8')) as Record<string, unknown>;
+  mutate?.(manifest);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+}
+
 export function fixtureRoot() {
   const root = mkdtempSync(join(tmpdir(), 'scenario-gate-cli-'));
   mkdirSync(join(root, 'openspec/specs/sample'), { recursive: true });
   writeFileSync(join(root, 'scenario-gate.config.json'), JSON.stringify(config));
+  writeProjectManifest(root);
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 

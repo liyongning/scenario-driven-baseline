@@ -4,6 +4,7 @@ import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { inspectPackageConsumer } from '../packages/e2e/src/package-consumer.ts';
+import { loadProjectManifest, packageByRole } from './lib/project-manifest.ts';
 
 type Manifest = Readonly<{ name?: string; version?: string; private?: boolean; files?: string[]; dependencies?: Readonly<Record<string, string>> }>;
 type PackageInput = Readonly<{
@@ -17,10 +18,10 @@ type PackageInput = Readonly<{
 type CommandResult = Readonly<{ status: number | null; stdout: string; stderr: string }>;
 type Spawn = (command: string, args: ReadonlyArray<string>, options: Readonly<Record<string, unknown>>) => CommandResult;
 
-export function checkPackageArtifacts(input: PackageInput): string[] {
+export function checkPackageArtifacts(input: PackageInput, protocolPackageName: string): string[] {
   const issues = [
-    ...inspectPackageConsumer({ packageJson: input.sdkManifest, files: input.sdkFiles, expectedProtocolVersion: input.record.protocolVersion }),
-    ...inspectPackageConsumer({ packageJson: input.protocolManifest, files: input.protocolFiles }),
+    ...inspectPackageConsumer({ packageJson: input.sdkManifest, files: input.sdkFiles, protocolPackageName, expectedProtocolVersion: input.record.protocolVersion }),
+    ...inspectPackageConsumer({ packageJson: input.protocolManifest, files: input.protocolFiles, protocolPackageName }),
   ];
   if (input.sdkManifest.version !== input.record.sdkVersion) issues.push(`SDK version does not match recorded ${input.record.sdkVersion}`);
   if (input.protocolManifest.version !== input.record.protocolVersion) issues.push(`protocol version does not match recorded ${input.record.protocolVersion}`);
@@ -36,36 +37,40 @@ export async function runPackageCli(
   const inputIndex = argv.indexOf('--input');
   let input: PackageInput;
   const commands: Array<Readonly<{ command: string; exitCode: number }>> = [];
+  const manifest = loadProjectManifest(root);
+  const product = packageByRole(manifest, 'product');
+  const protocol = packageByRole(manifest, 'protocol');
+  const test = packageByRole(manifest, 'test');
   if (inputIndex >= 0 && argv[inputIndex + 1]) {
     input = JSON.parse(await readFile(resolve(argv[inputIndex + 1]!), 'utf8')) as PackageInput;
   } else {
     const directory = await mkdtemp(resolve(tmpdir(), 'payment-pack-'));
     try {
-      const packed = (name: '@daqian/payment-protocol' | '@daqian/payment-sdk') => {
+      const packed = (name: string) => {
         const result = spawn('pnpm', ['--filter', name, 'pack', '--pack-destination', directory], { cwd: root, encoding: 'utf8' });
         commands.push({ command: `pnpm --filter ${name} pack --pack-destination <temp>`, exitCode: result.status ?? -1 });
         if (result.status !== 0) throw new Error(`${name} pack failed: ${result.stdout}${result.stderr}`);
         const path = resolve(directory, result.stdout.trim().split('\n').at(-1)!);
         const list = spawn('tar', ['-tf', path], { encoding: 'utf8' });
         if (list.status !== 0) throw new Error(`${basename(path)} cannot be listed: ${list.stderr}`);
-        const manifest = spawn('tar', ['-xOf', path, 'package/package.json'], { encoding: 'utf8' });
-        if (manifest.status !== 0) throw new Error(`${basename(path)} has no package manifest: ${manifest.stderr}`);
-        return { manifest: JSON.parse(manifest.stdout) as Manifest, files: list.stdout.trim().split('\n').filter(Boolean) };
+        const packedManifest = spawn('tar', ['-xOf', path, 'package/package.json'], { encoding: 'utf8' });
+        if (packedManifest.status !== 0) throw new Error(`${basename(path)} has no package manifest: ${packedManifest.stderr}`);
+        return { manifest: JSON.parse(packedManifest.stdout) as Manifest, files: list.stdout.trim().split('\n').filter(Boolean) };
       };
-      const protocol = packed('@daqian/payment-protocol');
-      const sdk = packed('@daqian/payment-sdk');
-      const e2eManifest = JSON.parse(await readFile(resolve(root, 'packages/e2e/package.json'), 'utf8')) as Manifest;
+      const protocolArtifact = packed(protocol.name);
+      const sdk = packed(product.name);
+      const e2eManifest = JSON.parse(await readFile(resolve(root, 'packages', test.directory, 'package.json'), 'utf8')) as Manifest;
       input = {
-        sdkManifest: sdk.manifest, protocolManifest: protocol.manifest,
-        sdkFiles: sdk.files, protocolFiles: protocol.files,
-        record: { sdkVersion: sdk.manifest.version!, protocolVersion: protocol.manifest.version! },
+        sdkManifest: sdk.manifest, protocolManifest: protocolArtifact.manifest,
+        sdkFiles: sdk.files, protocolFiles: protocolArtifact.files,
+        record: { sdkVersion: sdk.manifest.version!, protocolVersion: protocolArtifact.manifest.version! },
         e2eManifest,
       };
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
   }
-  const issues = checkPackageArtifacts(input);
+  const issues = checkPackageArtifacts(input, protocol.name);
   return { commands, sdkVersion: input.record.sdkVersion, protocolVersion: input.record.protocolVersion, issues, exitCode: Math.min(1, issues.length) };
 }
 

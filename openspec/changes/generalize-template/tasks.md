@@ -31,7 +31,7 @@
 
 **Tracking rule:** One independently implementable and reviewable task maps to one unindented top-level checkbox. RED, GREEN, verification, and review steps are indented plain bullets, not additional tracked checkboxes.
 
-- [ ] 1. 项目清单驱动门禁
+- [x] 1. 项目清单驱动门禁
 
   **Files**
   - Create：`project.manifest.schema.json`（按 Design"项目清单的格式与读取方"的字段表；每个属性带中文 `description`）；`project.manifest.json`（登记当前事实：`payment-sdk`/`@daqian/payment-sdk`/product、`payment-protocol`/`@daqian/payment-protocol`/protocol、`e2e`/`@daqian/payment-e2e`/test/private；现有允许目录与必需命令；测试项目 `sdk-unit`、`protocol-unit`、`test-tools-unit`（unit）、`integration`（integration）、`weapp`（platform）；`fingerprints` 取现有目录；`release.registry` 为现有项目 245 地址，`tagPrefix` 为 `payment-sdk-v`）。

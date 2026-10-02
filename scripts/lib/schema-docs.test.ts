@@ -26,6 +26,15 @@ test('accepts the repository schemas and root documentation', () => {
   expect(checkSchemaDocumentation(process.cwd())).toEqual([]);
 });
 
+test('validates the project manifest schema group independently', () => {
+  const root = mkdtempSync(join(tmpdir(), 'schema-docs-')); roots.push(root);
+  writeFileSync(join(root, 'project.manifest.schema.json'), JSON.stringify({ properties: { packages: { type: 'array' } } }));
+  writeFileSync(join(root, 'AGENTS.md'), 'project.manifest.schema.json');
+  expect(checkSchemaDocumentation(root)).toEqual(expect.arrayContaining([expect.stringContaining('property packages is missing')]));
+  writeFileSync(join(root, 'project.manifest.schema.json'), JSON.stringify({ properties: { packages: { description: '包列表', type: 'array' } } }));
+  expect(checkSchemaDocumentation(root)).toEqual([]);
+});
+
 test('handles absent, invalid, and nested schema branches', () => {
   const root = mkdtempSync(join(tmpdir(), 'schema-docs-')); roots.push(root);
   expect(checkSchemaDocumentation(root)).toEqual([]);

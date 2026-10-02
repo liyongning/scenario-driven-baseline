@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://daqian.example/payment-verification.schema.json",
+  "$id": "https://daqian.example/verification.schema.json",
   "type": "object",
   "required": ["formatVersion", "checkpoints", "cases", "blockedBy"],
   "properties": {
@@ -24,9 +24,11 @@
           "key": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "case 的稳定键，使用小写字母、数字和连字符。" },
           "kind": { "enum": ["behavior", "module", "engineering"], "description": "验证类别：公共行为、模块单测或工程门禁。" },
           "requiredIn": {
-            "description": "case 必须运行的测试项目，且必须与 kind 的允许环境匹配。",
-            "type": "array", "minItems": 1, "uniqueItems": true,
-            "items": { "enum": ["sdk-unit", "protocol-unit", "test-tools-unit", "integration", "weapp"], "description": "执行该 case 的项目名称。" }
+            "description": "case 必须运行的测试项目；取值必须是 project.manifest.json 登记的测试项目，kind 与项目类别的匹配由场景门禁按清单校验。",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "project.manifest.json 登记的测试项目名。" }
           },
           "checks": {
             "description": "该 case 必须实际执行的 checkpoint 名称列表。",
@@ -34,20 +36,6 @@
             "items": { "type": "string", "description": "引用 checkpoints 中已声明的检查点名称。" }
           }
         },
-        "allOf": [
-          {
-            "if": { "properties": { "kind": { "const": "behavior", "description": "行为 case 的类别判定。" } }, "required": ["kind"] },
-            "then": { "properties": { "requiredIn": { "type": "array", "description": "行为 case 允许的集成环境。", "items": { "enum": ["integration", "weapp"], "description": "行为 case 的集成执行项目。" } } } }
-          },
-          {
-            "if": { "properties": { "kind": { "const": "module", "description": "模块 case 的类别判定。" } }, "required": ["kind"] },
-            "then": { "properties": { "requiredIn": { "type": "array", "description": "模块 case 允许的单测项目。", "items": { "enum": ["sdk-unit", "protocol-unit", "test-tools-unit"], "description": "模块 case 的单测执行项目。" } } } }
-          },
-          {
-            "if": { "properties": { "kind": { "const": "engineering", "description": "工程 case 的类别判定。" } }, "required": ["kind"] },
-            "then": { "properties": { "requiredIn": { "type": "array", "description": "工程 case 的执行项目。", "items": { "const": "integration", "description": "工程 case 只能在 integration 项目执行。" } } } }
-          }
-        ],
         "additionalProperties": false
       }
     },

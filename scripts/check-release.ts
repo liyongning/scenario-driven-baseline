@@ -1,29 +1,29 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { loadProjectManifest, packageByRole, type ReleaseSettings } from './lib/project-manifest.ts';
 
-export const releaseRegistry = 'https://gitlab.daqian369.com/api/v4/projects/245/packages/npm/' as const;
-
-type PackageRecord<Name extends string = string> = Readonly<{
-  name: Name;
+type PackageRecord = Readonly<{
+  name: string;
   version: string;
   changed: boolean;
 }>;
 
 export type ReleaseInput = Readonly<{
-  targetProject: 245;
-  registry: typeof releaseRegistry;
+  registry: string;
   execution: 'ci' | 'local';
   tag: string;
   sourceRevision: string;
-  sdk: PackageRecord<'@daqian/payment-sdk'>;
-  protocol: PackageRecord<'@daqian/payment-protocol'>;
+  sdk: PackageRecord;
+  protocol: PackageRecord;
 }>;
 
 export type ReleaseWorkspaceFacts = Readonly<{
   sdk: Readonly<{ name: string; version: string; protocolDependency: string }>;
   protocol: Readonly<{ name: string; version: string }>;
 }>;
+
+export const releaseMissingMessage = 'release settings are missing from project.manifest.json; delete the release commands or restore release settings';
 
 const executions = ['ci', 'local'] as const;
 const versionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
@@ -48,47 +48,41 @@ function enumeration<const Values extends readonly string[]>(value: unknown, lab
   return value as Values[number];
 }
 
-function packageRecord<const Name extends '@daqian/payment-sdk' | '@daqian/payment-protocol'>(
-  value: unknown,
-  label: 'SDK' | 'protocol',
-  expectedName: Name,
-): PackageRecord<Name> {
+function packageRecord(value: unknown, label: 'SDK' | 'protocol'): PackageRecord {
   const input = object(value, `${label} package`);
   exactKeys(input, `${label} package`, ['name', 'version', 'changed']);
-  if (input.name !== expectedName) throw new Error(`${label} package name must be ${expectedName}`);
   const version = string(input.version, `${label} package version`);
   if (!versionPattern.test(version)) throw new Error(`${label} package version is invalid`);
   if (typeof input.changed !== 'boolean') throw new Error(`${label} package changed must be boolean`);
-  return { name: expectedName, version, changed: input.changed };
+  return { name: string(input.name, `${label} package name`), version, changed: input.changed };
 }
 
-/** 将不可信 JSON 收窄为固定项目、固定包名和版本组合；正式记录不包含本地 tarball 身份。 */
+/** 将不可信 JSON 收窄为固定字段与版本组合；包身份由 checkReleaseRecord 对照 workspace 事实。 */
 export function parseReleaseInput(value: unknown): ReleaseInput {
   const input = object(value, 'release record');
-  exactKeys(input, 'release record', ['targetProject', 'registry', 'execution', 'tag', 'sourceRevision', 'sdk', 'protocol']);
-  if (input.targetProject !== 245) throw new Error('release target must be GitLab project 245');
-  if (input.registry !== releaseRegistry) throw new Error('release registry must be GitLab project 245');
+  exactKeys(input, 'release record', ['registry', 'execution', 'tag', 'sourceRevision', 'sdk', 'protocol']);
   return {
-    targetProject: 245,
-    registry: releaseRegistry,
+    registry: string(input.registry, 'release registry'),
     execution: enumeration(input.execution, 'release execution', executions),
     tag: string(input.tag, 'release tag'),
     sourceRevision: string(input.sourceRevision, 'release sourceRevision'),
-    sdk: packageRecord(input.sdk, 'SDK', '@daqian/payment-sdk'),
-    protocol: packageRecord(input.protocol, 'protocol', '@daqian/payment-protocol'),
+    sdk: packageRecord(input.sdk, 'SDK'),
+    protocol: packageRecord(input.protocol, 'protocol'),
   };
 }
 
-/** 校验正式发布的版本组合与 workspace；本地测试 tarball 及其摘要不属于输入。 */
-export function checkReleaseRecord(input: ReleaseInput, facts?: ReleaseWorkspaceFacts): string[] {
+/** 校验正式发布的版本组合、清单发布设置与 workspace；本地测试 tarball 及其摘要不属于输入。 */
+export function checkReleaseRecord(input: ReleaseInput, facts?: ReleaseWorkspaceFacts, release?: ReleaseSettings): string[] {
   const issues: string[] = [];
-  if (input.targetProject !== 245) issues.push('release target must be GitLab project 245');
-  if (input.registry !== releaseRegistry) issues.push('release registry must be GitLab project 245');
+  if (!release) {
+    issues.push(releaseMissingMessage);
+  } else {
+    if (release.registry.includes('<PROJECT_ID>')) issues.push('release registry is a template placeholder; set release.registry in project.manifest.json');
+    else if (input.registry !== release.registry) issues.push('release registry does not match the project manifest');
+    if (input.tag !== `${release.tagPrefix}${input.sdk.version}`) issues.push('release tag does not match SDK version');
+  }
   if (!versionPattern.test(input.sdk.version)) issues.push(`invalid package version ${input.sdk.version}`);
   if (!versionPattern.test(input.protocol.version)) issues.push(`invalid package version ${input.protocol.version}`);
-  if (!/^payment-sdk-v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(input.tag) || input.tag !== `payment-sdk-v${input.sdk.version}`) {
-    issues.push('release tag does not match SDK version');
-  }
   if (!/^[0-9a-f]{40}$/.test(input.sourceRevision)) issues.push('release source revision must be a full commit SHA');
   if (!input.sdk.changed) issues.push('formal SDK release requires an SDK version change');
   if (input.protocol.changed && !input.sdk.changed) issues.push('a protocol delivery requires an SDK version change');
@@ -102,17 +96,20 @@ export function checkReleaseRecord(input: ReleaseInput, facts?: ReleaseWorkspace
 }
 
 export async function readReleaseWorkspaceFacts(root = process.cwd()): Promise<ReleaseWorkspaceFacts> {
-  const [sdk, protocol] = await Promise.all([
-    readFile(resolve(root, 'packages/payment-sdk/package.json'), 'utf8').then(JSON.parse) as Promise<Record<string, unknown>>,
-    readFile(resolve(root, 'packages/payment-protocol/package.json'), 'utf8').then(JSON.parse) as Promise<Record<string, unknown>>,
+  const manifest = loadProjectManifest(root);
+  const product = packageByRole(manifest, 'product');
+  const protocol = packageByRole(manifest, 'protocol');
+  const [sdk, protocolJson] = await Promise.all([
+    readFile(resolve(root, 'packages', product.directory, 'package.json'), 'utf8').then(JSON.parse) as Promise<Record<string, unknown>>,
+    readFile(resolve(root, 'packages', protocol.directory, 'package.json'), 'utf8').then(JSON.parse) as Promise<Record<string, unknown>>,
   ]);
   return {
     sdk: {
       name: String(sdk.name),
       version: String(sdk.version),
-      protocolDependency: String((sdk.dependencies as Record<string, unknown> | undefined)?.['@daqian/payment-protocol'] ?? ''),
+      protocolDependency: String((sdk.dependencies as Record<string, unknown> | undefined)?.[protocol.name] ?? ''),
     },
-    protocol: { name: String(protocol.name), version: String(protocol.version) },
+    protocol: { name: String(protocolJson.name), version: String(protocolJson.version) },
   };
 }
 
@@ -125,8 +122,10 @@ export async function runReleaseCli(argv: readonly string[], root = process.cwd(
   const inputPath = argument(argv, '--input');
   if (!inputPath) return { issues: ['--input is required'], exitCode: 1 };
   try {
+    const manifest = loadProjectManifest(root);
+    if (!manifest.release) return { issues: [releaseMissingMessage], exitCode: 1 };
     const input = parseReleaseInput(JSON.parse(await readFile(resolve(root, inputPath), 'utf8')));
-    const issues = checkReleaseRecord(input, await readReleaseWorkspaceFacts(root));
+    const issues = checkReleaseRecord(input, await readReleaseWorkspaceFacts(root), manifest.release);
     return { issues, exitCode: Math.min(1, issues.length) };
   } catch (error) {
     return { issues: [`release evidence could not be read: ${String(error)}`], exitCode: 1 };

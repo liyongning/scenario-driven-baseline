@@ -13,6 +13,7 @@ function fixture() {
   writeFileSync(join(root, 'README.md'), '# facts');
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md) [external](https://example.invalid)');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
+  writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
   for (const name of ['payment-sdk', 'payment-protocol', 'e2e']) {
     const dir = join(root, 'packages', name); mkdirSync(dir);
     writeFileSync(join(dir, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
@@ -35,6 +36,16 @@ test('缺失 AGENTS 和断链被拒绝', () => {
   const root = fixture(); rmSync(join(root, 'packages/e2e/AGENTS.md'));
   writeFileSync(join(root, 'AGENTS.md'), '[missing](missing.md)');
   expect(checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['missing packages/e2e/AGENTS.md', 'broken link AGENTS.md -> missing.md']));
+});
+
+test('缺少项目清单时直接报告清单错误', () => {
+  const root = fixture(); rmSync(join(root, 'project.manifest.json'));
+  expect(checkArchitecture(root, 1).join('\n')).toContain('project.manifest.json cannot be read');
+});
+
+test('清单登记但缺失的包目录被报告', () => {
+  const root = fixture(); rmSync(join(root, 'packages/e2e'), { recursive: true });
+  expect(checkArchitecture(root, 0)).toContain('missing package directory packages/e2e');
 });
 
 test('第四个包、未知职责目录及产品测试导出被拒绝', () => {

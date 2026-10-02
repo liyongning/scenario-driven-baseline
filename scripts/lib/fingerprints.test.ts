@@ -5,6 +5,20 @@ import { describe, expect, it } from 'vitest';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildVerificationFingerprints, collectFiles, digestFiles } from './fingerprints.ts';
 
+/** 指纹目录来自项目清单，测试根目录写入一份最小清单。 */
+function writeFingerprintManifest(root: string, sourceRoots: ReadonlyArray<string>, hostRoots: ReadonlyArray<string>) {
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
+    packages: [
+      { directory: 'payment-sdk', name: '@daqian/payment-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
+      { directory: 'payment-protocol', name: '@daqian/payment-protocol', role: 'protocol', private: false, allowedDirectories: ['src', 'testing'] },
+      { directory: 'e2e', name: '@daqian/payment-e2e', role: 'test', private: true, allowedDirectories: ['src', 'host', 'tests'] },
+    ],
+    requiredCommands: ['check:fast'],
+    testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
+    fingerprints: { sourceRoots: [...sourceRoots], hostRoots: [...hostRoots] },
+  }));
+}
+
 describe('verification fingerprints', () => {
   it('is stable across input order and changes when a relative path or content changes', () => {
     const root = mkdtempSync(join(tmpdir(), 'payment-fingerprint-'));
@@ -47,6 +61,10 @@ describe('verification fingerprints', () => {
     mkdirSync(join(root, 'openspec/changes/current/specs/template-example'), { recursive: true });
     writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'delta spec');
     writeFileSync(join(root, 'proto-gen.lock'), 'idl');
+    writeFingerprintManifest(root, [
+      'packages/payment-sdk/src', 'packages/payment-protocol/src', 'packages/payment-protocol/testing',
+      'packages/e2e/src', 'packages/e2e/tests', 'scripts',
+    ], ['packages/e2e/host']);
 
     const fingerprints = buildVerificationFingerprints(root);
     expect(Object.values(fingerprints)).toHaveLength(4);

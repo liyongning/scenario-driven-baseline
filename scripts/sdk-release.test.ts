@@ -3,7 +3,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
-import { releaseRegistry, type ReleaseInput } from './check-release';
+import { type ReleaseInput } from './check-release';
+import type { ReleaseSettings } from './lib/project-manifest.ts';
 import {
   createSdkReleasePlan,
   inspectReleaseSource,
@@ -19,10 +20,12 @@ afterEach(() => { vi.unstubAllEnvs(); for (const root of roots.splice(0)) rmSync
 
 const cleanSource = async () => ({ headRevision: 'a'.repeat(40), tagRevision: 'a'.repeat(40), clean: true });
 
+const registryUrl = 'https://registry.test.invalid/api/v4/projects/9/packages/npm/';
+const releaseSettings: ReleaseSettings = { registry: registryUrl, tagPrefix: 'payment-sdk-v' };
+
 function record(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
   return {
-    targetProject: 245,
-    registry: releaseRegistry,
+    registry: registryUrl,
     execution: 'local',
     tag: 'payment-sdk-v0.1.0-alpha.1',
     sourceRevision: 'a'.repeat(40),
@@ -37,6 +40,17 @@ function fixture() {
   roots.push(root);
   mkdirSync(join(root, 'packages/payment-sdk'), { recursive: true });
   mkdirSync(join(root, 'packages/payment-protocol'), { recursive: true });
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
+    packages: [
+      { directory: 'payment-sdk', name: '@daqian/payment-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
+      { directory: 'payment-protocol', name: '@daqian/payment-protocol', role: 'protocol', private: false, allowedDirectories: ['src'] },
+      { directory: 'e2e', name: '@daqian/payment-e2e', role: 'test', private: true, allowedDirectories: ['src'] },
+    ],
+    requiredCommands: ['check:fast'],
+    testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
+    fingerprints: { sourceRoots: ['scripts'], hostRoots: [] },
+    release: releaseSettings,
+  }));
   writeFileSync(join(root, 'packages/payment-sdk/package.json'), JSON.stringify({
     name: '@daqian/payment-sdk',
     version: '0.1.0-alpha.1',
@@ -55,7 +69,7 @@ function fixture() {
 }
 
 function registry(initial: Partial<Record<'@daqian/payment-sdk' | '@daqian/payment-protocol', 'missing' | 'existing'>> = {}) {
-  const states = new Map<'@daqian/payment-sdk' | '@daqian/payment-protocol', 'missing' | 'existing'>([
+  const states = new Map<string, 'missing' | 'existing'>([
     ['@daqian/payment-protocol', initial['@daqian/payment-protocol'] ?? 'missing'],
     ['@daqian/payment-sdk', initial['@daqian/payment-sdk'] ?? 'missing'],
   ]);
@@ -86,7 +100,7 @@ function gitFixture() {
 
 function releaseSnapshot(before: ReadonlySet<string>): string {
   const directory = readdirSync(tmpdir())
-    .filter(name => name.startsWith('payment-sdk-release-') && !name.startsWith('payment-sdk-release-auth-') && !before.has(name))
+    .filter(name => name.startsWith('template-sdk-release-') && !name.startsWith('template-sdk-release-auth-') && !before.has(name))
     .map(name => ({ name, mtime: statSync(join(tmpdir(), name)).mtimeMs }))
     .sort((left, right) => right.mtime - left.mtime)[0]?.name;
   if (!directory) throw new Error('release snapshot directory not found');
@@ -152,18 +166,40 @@ test('release rejects a semantically invalid version plan before source inspecti
 
 test('formal plan publishes missing workspaces in dependency order and never packs or consumes tarballs', () => {
   const value = fixture();
-  const plan = createSdkReleasePlan({ record: value.record, protocolState: 'missing', sdkState: 'missing' });
+  const plan = createSdkReleasePlan({ record: value.record, protocolState: 'missing', sdkState: 'missing', release: releaseSettings });
   expect(plan.map(step => step.name)).toEqual(['build-protocol', 'publish-protocol', 'build-sdk', 'publish-sdk']);
   expect(plan.map(step => step.command.args)).toEqual([
     ['--filter', '@daqian/payment-protocol', 'run', 'build'],
-    ['--filter', '@daqian/payment-protocol', 'publish', '--no-git-checks', '--registry', releaseRegistry, `--@daqian:registry=${releaseRegistry}`],
+    ['--filter', '@daqian/payment-protocol', 'publish', '--no-git-checks', '--registry', registryUrl, `--@daqian:registry=${registryUrl}`],
     ['--filter', '@daqian/payment-sdk', 'run', 'build'],
-    ['--filter', '@daqian/payment-sdk', 'publish', '--no-git-checks', '--registry', releaseRegistry, `--@daqian:registry=${releaseRegistry}`],
+    ['--filter', '@daqian/payment-sdk', 'publish', '--no-git-checks', '--registry', registryUrl, `--@daqian:registry=${registryUrl}`],
   ]);
   expect(plan.flatMap(step => step.command.args)).not.toEqual(expect.arrayContaining(['pack', 'check:package']));
   expect(plan.flatMap(step => step.command.args).join(' ')).not.toMatch(/\.tgz|sha256/);
-  expect(createSdkReleasePlan({ record: value.record, protocolState: 'existing', sdkState: 'missing' }).map(step => step.name)).toEqual(['build-sdk', 'publish-sdk']);
-  expect(createSdkReleasePlan({ record: value.record, protocolState: 'existing', sdkState: 'existing' })).toEqual([]);
+  expect(createSdkReleasePlan({ record: value.record, protocolState: 'existing', sdkState: 'missing', release: releaseSettings }).map(step => step.name)).toEqual(['build-sdk', 'publish-sdk']);
+  expect(createSdkReleasePlan({ record: value.record, protocolState: 'existing', sdkState: 'existing', release: releaseSettings })).toEqual([]);
+});
+
+test('release plan rejects a template placeholder registry before building commands', () => {
+  const value = fixture();
+  expect(() => createSdkReleasePlan({
+    record: value.record,
+    release: { registry: 'https://gitlab.example.invalid/api/v4/projects/<PROJECT_ID>/packages/npm/', tagPrefix: 'payment-sdk-v' },
+  })).toThrow(/template placeholder/);
+});
+
+test('release refuses a manifest without release settings before touching the registry', async () => {
+  const value = fixture();
+  const manifest = JSON.parse(readFileSync(join(value.root, 'project.manifest.json'), 'utf8')) as Record<string, unknown>;
+  delete manifest.release;
+  writeFileSync(join(value.root, 'project.manifest.json'), JSON.stringify(manifest));
+  const inspector = vi.fn<RegistryInspector>();
+  await expect(runSdkRelease(value, 'fixture-token', vi.fn(), {
+    root: value.root,
+    sourceInspector: cleanSource,
+    registryInspector: inspector,
+  })).rejects.toThrow(/release settings are missing from project.manifest.json/);
+  expect(inspector).not.toHaveBeenCalled();
 });
 
 test('a product build failure blocks publication and leaves no success result', async () => {
@@ -204,7 +240,7 @@ process.stdout.write(JSON.stringify(packageSpec.slice(packageSpec.lastIndexOf('@
   });
   const invocations = readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line) as string[]);
   expect(invocations).toHaveLength(4);
-  expect(invocations.every(args => args.includes(`--@daqian:registry=${releaseRegistry}`))).toBe(true);
+  expect(invocations.every(args => args.includes(`--@daqian:registry=${registryUrl}`))).toBe(true);
 });
 
 test('release publishes protocol before SDK, verifies both, and promotes the result last', async () => {

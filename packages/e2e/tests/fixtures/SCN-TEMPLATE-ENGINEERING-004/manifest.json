@@ -11,11 +11,13 @@
   "cases": {
     "preflight-valid-plan": "preflight-valid-plan.json",
     "preflight-rejects-drift": "preflight-rejects-drift.json",
+    "preflight-rejects-placeholder": "preflight-rejects-placeholder.json",
     "publish-order": "publish-order.json"
   },
   "sha256": {
     "preflight-valid-plan.json": "de367a53ab9bc72d7815ddaeee6f54fe009bbbd8a1df0d078c71a06341205211",
     "preflight-rejects-drift.json": "af3d589ecee67f730d52ffe315ded83ce41b31e55aaf753a0374096abbeff69c",
+    "preflight-rejects-placeholder.json": "5a35132b2a1aa24482e0404b686afe8dafcfa8a4b567b94e1833f2693bbb7179",
     "publish-order.json": "b8ace6cfd922d70eca5bbe73c804e0316382c31bc2785ea1ca1ccf3af72d74e1"
   }
 }

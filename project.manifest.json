@@ -1,0 +1,65 @@
+{
+  "packages": [
+    {
+      "directory": "payment-sdk",
+      "name": "@daqian/payment-sdk",
+      "role": "product",
+      "private": false,
+      "allowedDirectories": ["src", "dist", "node_modules"]
+    },
+    {
+      "directory": "payment-protocol",
+      "name": "@daqian/payment-protocol",
+      "role": "protocol",
+      "private": false,
+      "allowedDirectories": ["src", "testing", "dist", "node_modules"]
+    },
+    {
+      "directory": "e2e",
+      "name": "@daqian/payment-e2e",
+      "role": "test",
+      "private": true,
+      "allowedDirectories": ["src", "host", "tests", "node_modules"]
+    }
+  ],
+  "requiredCommands": [
+    "proto:version",
+    "proto:validate",
+    "proto:status",
+    "proto:sync",
+    "lint",
+    "typecheck",
+    "build",
+    "test:unit",
+    "test:integration",
+    "test:e2e:weapp",
+    "check:architecture",
+    "check:fixtures",
+    "check:scenarios",
+    "check:package",
+    "check:fast",
+    "check"
+  ],
+  "testProjects": [
+    { "name": "sdk-unit", "class": "unit" },
+    { "name": "protocol-unit", "class": "unit" },
+    { "name": "test-tools-unit", "class": "unit" },
+    { "name": "integration", "class": "integration" },
+    { "name": "weapp", "class": "platform" }
+  ],
+  "fingerprints": {
+    "sourceRoots": [
+      "packages/payment-sdk/src",
+      "packages/payment-protocol/src",
+      "packages/payment-protocol/testing",
+      "packages/e2e/src",
+      "packages/e2e/tests",
+      "scripts"
+    ],
+    "hostRoots": ["packages/e2e/host"]
+  },
+  "release": {
+    "registry": "https://gitlab.daqian369.com/api/v4/projects/245/packages/npm/",
+    "tagPrefix": "payment-sdk-v"
+  }
+}

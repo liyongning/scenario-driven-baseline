@@ -1,11 +1,17 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const schemaPaths = [
+/** 4 条硬规则依赖的格式 schema，由 SCN-SCENARIO-GATE-008 守护。 */
+const hardRuleSchemas = [
   'scenario-gate.config.schema.json',
   'scripts/verification.schema.json',
   'scripts/flow.schema.json',
 ] as const;
+
+/** 项目清单 schema，由 ENG-05 守护。 */
+const projectSchemas = ['project.manifest.schema.json'] as const;
+
+const schemaPaths = [...hardRuleSchemas, ...projectSchemas] as const;
 
 type SchemaNode = Readonly<Record<string, unknown>>;
 
@@ -39,23 +45,24 @@ function walkSchema(node: unknown, path: string, issues: string[]): void {
 /** Check schema field documentation and the root AGENTS references. */
 export function checkSchemaDocumentation(root: string): string[] {
   const issues: string[] = [];
-  const present = schemaPaths.filter(path => existsSync(join(root, path)));
-  // Small architecture fixtures predate the format schemas; there is nothing
-  // to document until at least one schema is present in that fixture.
-  if (present.length === 0) return issues;
-  for (const relative of present) {
-    const path = join(root, relative);
-    let parsed: unknown;
-    try { parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown; }
-    catch (error) { issues.push(`${relative}: schema cannot be parsed: ${String(error)}`); continue; }
-    walkSchema(parsed, relative, issues);
-  }
-  const agentsPath = join(root, 'AGENTS.md');
-  const agents = existsSync(agentsPath) ? readFileSync(agentsPath, 'utf8') : '';
-  for (const relative of schemaPaths) {
-    if (present.includes(relative) && !agents.includes(relative)) issues.push(`AGENTS.md does not reference ${relative}`);
+  // 两组 schema 各自独立：某一组在该 root 中完全缺失时（例如仅覆盖硬规则的旧 fixture），跳过该组。
+  for (const group of [hardRuleSchemas, projectSchemas] as const) {
+    const present = group.filter(path => existsSync(join(root, path)));
+    if (present.length === 0) continue;
+    for (const relative of present) {
+      const path = join(root, relative);
+      let parsed: unknown;
+      try { parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown; }
+      catch (error) { issues.push(`${relative}: schema cannot be parsed: ${String(error)}`); continue; }
+      walkSchema(parsed, relative, issues);
+    }
+    const agentsPath = join(root, 'AGENTS.md');
+    const agents = existsSync(agentsPath) ? readFileSync(agentsPath, 'utf8') : '';
+    for (const relative of present) {
+      if (!agents.includes(relative)) issues.push(`AGENTS.md does not reference ${relative}`);
+    }
   }
   return issues;
 }
 
-export { schemaPaths };
+export { hardRuleSchemas, projectSchemas, schemaPaths };

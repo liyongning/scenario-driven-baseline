@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { checkReleaseRecord, parseReleaseInput, readReleaseWorkspaceFacts, type ReleaseInput } from './check-release';
+import { checkReleaseRecord, parseReleaseInput, readReleaseWorkspaceFacts, releaseMissingMessage, type ReleaseInput } from './check-release';
+import { loadProjectManifest, type ReleaseSettings } from './lib/project-manifest';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,6 +25,7 @@ export type ReleasePlanDescriptionInput = Readonly<{
   record: ReleaseInput;
   protocolState?: RegistryState;
   sdkState?: RegistryState;
+  release: ReleaseSettings;
 }>;
 export type ReleaseSource = Readonly<{ headRevision: string; tagRevision: string; clean: boolean }>;
 
@@ -38,25 +40,29 @@ export async function inspectReleaseSource(root: string, tag: string): Promise<R
   return { headRevision, tagRevision, clean: status.length === 0 };
 }
 
-const registryArguments = (registry: string) => ['--registry', registry, `--@daqian:registry=${registry}`] as const;
+const scopeOf = (packageName: string) => packageName.slice(0, packageName.indexOf('/'));
+const registryArguments = (registry: string, packageName: string) => ['--registry', registry, `--${scopeOf(packageName)}:registry=${registry}`] as const;
 
 /** 正式发布构建后调用两个产品 workspace 的正常 publish；本地 pack/check:package 不属于该计划。 */
 export function createSdkReleasePlan(input: ReleasePlanDescriptionInput): SdkReleaseStep[] {
-  const registry = input.record.registry;
+  if (input.release.registry.includes('<PROJECT_ID>')) {
+    throw new Error('release registry is a template placeholder; set release.registry in project.manifest.json');
+  }
+  const registry = input.release.registry;
   return [
     ...(input.protocolState === 'existing' ? [] : [{
       name: 'build-protocol' as const,
       command: { file: 'pnpm', args: ['--filter', input.record.protocol.name, 'run', 'build'] },
     }, {
       name: 'publish-protocol' as const,
-      command: { file: 'pnpm', args: ['--filter', input.record.protocol.name, 'publish', '--no-git-checks', ...registryArguments(registry)] },
+      command: { file: 'pnpm', args: ['--filter', input.record.protocol.name, 'publish', '--no-git-checks', ...registryArguments(registry, input.record.protocol.name)] },
     }]),
     ...(input.sdkState === 'existing' ? [] : [{
       name: 'build-sdk' as const,
       command: { file: 'pnpm', args: ['--filter', input.record.sdk.name, 'run', 'build'] },
     }, {
       name: 'publish-sdk' as const,
-      command: { file: 'pnpm', args: ['--filter', input.record.sdk.name, 'publish', '--no-git-checks', ...registryArguments(registry)] },
+      command: { file: 'pnpm', args: ['--filter', input.record.sdk.name, 'publish', '--no-git-checks', ...registryArguments(registry, input.record.sdk.name)] },
     }]),
   ];
 }
@@ -64,7 +70,7 @@ export function createSdkReleasePlan(input: ReleasePlanDescriptionInput): SdkRel
 export type CommandExecutor = (command: ReleaseCommand, env: NodeJS.ProcessEnv) => Promise<void>;
 export type RegistryInspection = Readonly<{ state: RegistryState }>;
 export type RegistryInspectionRequest = Readonly<{
-  name: '@daqian/payment-sdk' | '@daqian/payment-protocol';
+  name: string;
   version: string;
   registry: string;
 }>;
@@ -87,7 +93,7 @@ const execute: CommandExecutor = async (command, env) => {
 const inspectRegistry: RegistryInspector = async (request, env) => {
   try {
     const { stdout } = await execFileAsync('npm', [
-      'view', `${request.name}@${request.version}`, 'version', '--json', ...registryArguments(request.registry),
+      'view', `${request.name}@${request.version}`, 'version', '--json', ...registryArguments(request.registry, request.name),
     ], { env, encoding: 'utf8' });
     const version = JSON.parse(stdout) as unknown;
     if (version !== request.version) throw new Error(`registry returned unexpected version ${String(version)}`);
@@ -181,8 +187,10 @@ export async function runSdkRelease(
   const record = parseReleaseInput(input.record);
   const requestedRoot = resolve(options.root);
   const root = await realpath(requestedRoot);
+  const manifest = loadProjectManifest(root);
+  if (!manifest.release) throw new Error(releaseMissingMessage);
   const facts = await readReleaseWorkspaceFacts(root);
-  const recordIssues = checkReleaseRecord(record, facts);
+  const recordIssues = checkReleaseRecord(record, facts, manifest.release);
   if (recordIssues.length > 0) throw new Error(`invalid release record: ${recordIssues.join('; ')}`);
 
   const [resultPath, checkpointPath] = await Promise.all([
@@ -190,7 +198,7 @@ export async function runSdkRelease(
     pathInside(requestedRoot, input.checkpointPath, 'release checkpoint'),
   ]);
   await Promise.all([mkdir(dirname(resultPath), { recursive: true }), mkdir(dirname(checkpointPath), { recursive: true })]);
-  const stagingDir = await mkdtemp(join(tmpdir(), 'payment-sdk-release-'));
+  const stagingDir = await mkdtemp(join(tmpdir(), 'template-sdk-release-'));
   const snapshotPath = join(stagingDir, 'release-record.json');
   const resultTemporaryPath = `${resultPath}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(snapshotPath, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
@@ -207,9 +215,10 @@ export async function runSdkRelease(
   const registryPath = new URL(record.registry).pathname;
   const registryEnvironment = async () => {
     if (!npmrc) {
-      authDir = await mkdtemp(join(tmpdir(), 'payment-sdk-release-auth-'));
+      authDir = await mkdtemp(join(tmpdir(), 'template-sdk-release-auth-'));
       npmrc = join(authDir, 'npmrc');
-      await writeFile(npmrc, `@daqian:registry=${record.registry}\n//gitlab.daqian369.com${registryPath}:_authToken=${token}\nalways-auth=true\n`, { mode: 0o600, flag: 'wx' });
+      const registryHost = new URL(record.registry).host;
+      await writeFile(npmrc, `${scopeOf(record.sdk.name)}:registry=${record.registry}\n//${registryHost}${registryPath}:_authToken=${token}\nalways-auth=true\n`, { mode: 0o600, flag: 'wx' });
     }
     return { ...baseEnv, NPM_CONFIG_USERCONFIG: npmrc };
   };
@@ -264,7 +273,7 @@ export async function runSdkRelease(
     const protocolInitial = await inspectPackage(record.protocol.name, record.protocol.version);
     completedSteps.push({ name: 'inspect-protocol', result: protocolInitial.state });
     await checkpoint('running');
-    const protocolPlan = createSdkReleasePlan({ record, protocolState: protocolInitial.state, sdkState: 'existing' });
+    const protocolPlan = createSdkReleasePlan({ record, protocolState: protocolInitial.state, sdkState: 'existing', release: manifest.release });
     for (const step of protocolPlan) await executeStep(step);
     const protocolFinal = await inspectPackage(record.protocol.name, record.protocol.version);
     if (protocolFinal.state !== 'existing') throw new Error('protocol package is not readable after publication');
@@ -274,7 +283,7 @@ export async function runSdkRelease(
     const sdkInitial = await inspectPackage(record.sdk.name, record.sdk.version);
     completedSteps.push({ name: 'inspect-sdk', result: sdkInitial.state });
     await checkpoint('running');
-    const sdkPlan = createSdkReleasePlan({ record, protocolState: 'existing', sdkState: sdkInitial.state });
+    const sdkPlan = createSdkReleasePlan({ record, protocolState: 'existing', sdkState: sdkInitial.state, release: manifest.release });
     for (const step of sdkPlan) await executeStep(step);
     const sdkFinal = await inspectPackage(record.sdk.name, record.sdk.version);
     if (sdkFinal.state !== 'existing') throw new Error('SDK package is not readable after publication');
