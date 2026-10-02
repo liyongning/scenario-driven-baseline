@@ -37,3 +37,9 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 ## 版本与发布
 
 产品包与协议包按依赖顺序发布，目标是使用方自己的 registry：清单 `manifest.release` 是 registry 与 tag 前缀的唯一来源，模板占位值含 `<PROJECT_ID>`，预检会拒绝占位值，避免复制模板后误发。
+
+## 项目初始化（给 Agent 的内容）
+
+以 sdk-template 为基线初始化本项目：先按 docs/template-guide.md 的"初始化方式"做适配评估，产品方案与前后端方案在 <路径>。使用过程中的发现记入 docs/template-feedback.md。
+
+

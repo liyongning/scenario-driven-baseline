@@ -46,14 +46,15 @@
 
 1. **复制模板（不带历史）**：以本仓库内容为基线创建使用方仓库，不带原仓库的历史与远端。
 2. **安装工作流**：安装 Change Skill 或等价的 `openspec-workflow` 工作流。工作流 schema 不随模板提交，需要在使用方安装；本模板只要求 OpenSpec 根与 4 条硬规则。
-3. **新建第一个 Change**：在使用方仓库里用一个 Change 完成改造：
+3. **适配评估**（项目形态不是 SDK，或协议来源、运行平台与模板不同时必做；例如 Web 应用、跨端应用、非 IDL 接口）：先读本指南与使用方自己的产品方案、技术方案，只出结论、不改代码。对"能力地图"的每一行与"替换点地图"的每一项给出结论：保留、替换、删除或新增；同时列出项目需要而模板没有的能力（例如应用骨架、路由、UI、浏览器端到端测试、部署）。技术选型在这一步一并确定。输出一张表（能力或替换点 / 结论 / 理由 / 涉及文件）加一份"模板缺失能力"清单，作为第一个 Change 规划的输入。
+4. **新建第一个 Change**：在使用方仓库里用一个 Change 完成改造（依据适配评估的结论）：
    - 改根 [project.manifest.json](../project.manifest.json)：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许目录、必需命令、测试项目与摘要目录；发布能力仍在时还要改 `manifest.release` 的项（如 `tagPrefix`）。改名范围自定：只改产品包，或连 protocol/e2e 包一起改，改后都要让清单、锁文件与门禁一致。
    - 包名或目录改动后同步：各包 `package.json` 与 `publishConfig`、[pnpm-lock.yaml](../pnpm-lock.yaml)（跑一次 `pnpm install` 更新软链与锁文件）；根 [package.json](../package.json) 的 build 过滤与脚本；[tsconfig.base.json](../tsconfig.base.json)、[tsconfig.test.json](../tsconfig.test.json)、[vitest.config.ts](../vitest.config.ts)、[eslint.config.js](../eslint.config.js)、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 中含旧包名或旧路径的 glob（注意 `(sdk|e2e)` 这类交替组，按字面替换会漏改）；以及 [AGENTS.md](../AGENTS.md)、[README.md](../README.md) 中作为示例出现的包路径。
    - 按"替换点地图"替换或删除可替换点：协议来源、运行平台、包发布。
    - 以 [packages/sdk/src/example](../packages/sdk/src/example) 与 [packages/e2e/tests/example](../packages/e2e/tests/example) 为样板新增自己的业务模块：按工厂 → 核心 → 端口 → 适配器分层，业务目录之间不得互相导入，就近单测覆盖新代码以满足手写代码 100% 阈值。
    - 分层守卫按目录模式自动覆盖 `src/` 下除 `runtime/` 外的全部业务模块，新增模块无需修改配置：[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `domain-core-no-generated`（core/ports 不得导入 generated）、`core-no-platform-or-node`（不得依赖 Node 内置模块）、`domain-isolation`（业务模块互不导入），以及 [eslint.config.js](../eslint.config.js) 的 `no-restricted-globals: wx`。业务模块须使用 `core/`、`ports/` 目录名才受约束。需要对外时在 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 导出。
-4. **先加后删**：自己的业务覆盖到示例承担的能力后，再删除示例；删除时对应的 Scenario、FLOW、Fixture 与用例一并处理。
-5. **验收**：用"从方案到验收"的三项证明收尾：`pnpm check:fast`、逐文件 weapp、场景门禁。
+5. **先加后删**：自己的业务覆盖到示例承担的能力后，再删除示例；删除时对应的 Scenario、FLOW、Fixture 与用例一并处理。
+6. **验收**：用"从方案到验收"的三项证明收尾：`pnpm check:fast`、逐文件 weapp、场景门禁。
 
 五条维护规则：
 
@@ -63,9 +64,11 @@
 - 仓库里还有未归档 Change 时，主 Spec 与它的 Spec delta 必须一致：删除主 Spec 的 Requirement 会让引用它的 `MODIFIED`/`REMOVED` delta 失效，`pnpm check:fast` 的 Spec 清单校验随之失败；先同步处理或先归档该 Change。
 - 删除能力后同步更新 [README.md](../README.md) 与各 `AGENTS.md` 中声明该能力的句子，以及根 [package.json](../package.json)、[vitest.config.ts](../vitest.config.ts)、[.gitignore](../.gitignore) 等引用已删文件的工程配置。
 
+**模板反馈日志**：使用方在使用方仓库的 `docs/template-feedback.md` 中持续记录使用模板时的发现，每条写明位置、现象、处理方式与类别：1 阻塞（不越过指南边界就无法完成，或门禁不稳定）、2 指引错误或误导（照字面执行会出错）、3 需要额外理解（指南未逐项列出，靠 `git grep`、读代码或门禁报错补全）、4 模板缺失能力（项目需要、模板没有）。第 1、2、4 类由模板维护者汇总回本模板，以新的 Change 迭代；第 3 类不要求修复。
+
 **扩展更多包**：清单 schema 与读取方当前认定 product、protocol、test 三种角色各一个包；角色、包数量与允许目录由 [project.manifest.schema.json](../project.manifest.schema.json) 与 [scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts) 共同约束，扩展时同步修改两处与对应门禁。
 
-**已知限制**：小程序自动化仍不稳定，开发者工具在同一主进程上重复 `launch` 可能挂起，预热约 25 秒只能消除冷启动超时；平台能力替身目前只有文字标准（[packages/e2e/src/drivers](../packages/e2e/src/drivers)），没有代码样例；替换点地图列出主要接缝，完整影响范围以 `git grep` 与门禁报错为准（例如写死旧包名的测试、平台删除后失去覆盖来源的单测、依赖清单内容的单测），照着改即可；替换点地图只经过模拟演练，尚未在真实使用方验证，首次真实使用前请把发现登记为新 Change。
+**已知限制**：小程序自动化仍不稳定，开发者工具在同一主进程上重复 `launch` 可能挂起，预热约 25 秒只能消除冷启动超时；平台能力替身目前只有文字标准（[packages/e2e/src/drivers](../packages/e2e/src/drivers)），没有代码样例；替换点地图列出主要接缝，完整影响范围以 `git grep` 与门禁报错为准（例如写死旧包名的测试、平台删除后失去覆盖来源的单测、依赖清单内容的单测），照着改即可；替换点地图只经过模拟演练，尚未在真实使用方验证，真实使用中的发现请记入上面的模板反馈日志。
 
 ## 替换点地图
 
