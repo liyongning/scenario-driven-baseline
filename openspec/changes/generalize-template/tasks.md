@@ -229,7 +229,7 @@
   **Commit**
   - `docs(template): add template guide and replacement-point map`
 
-- [ ] 6. 指南演练验收
+- [x] 6. 指南演练验收
 
   **Files**
   - 前置条件：任务 1～5 已在 Apply 分支上提交；否则在本任务开始前停止并请用户决定（Design"指南演练验收"）。

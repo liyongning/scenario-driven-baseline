@@ -47,17 +47,21 @@
 1. **复制模板（不带历史）**：以本仓库内容为基线创建使用方仓库，不带原仓库的历史与远端。
 2. **安装工作流**：安装 Change Skill 或等价的 `openspec-workflow` 工作流。工作流 schema 不随模板提交，需要在使用方安装；本模板只要求 OpenSpec 根与 4 条硬规则。
 3. **新建第一个 Change**：在使用方仓库里用一个 Change 完成改造：
-   - 改根 [project.manifest.json](../project.manifest.json)：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许目录、必需命令、测试项目与摘要目录。
-   - 包名改动后同步各包 `package.json`、`publishConfig` 与 [pnpm-lock.yaml](../pnpm-lock.yaml)。
+   - 改根 [project.manifest.json](../project.manifest.json)：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许目录、必需命令、测试项目与摘要目录；发布能力仍在时还要改 `manifest.release` 的项（如 `tagPrefix`）。改名范围自定：只改产品包，或连 protocol/e2e 包一起改，改后都要让清单、锁文件与门禁一致。
+   - 包名或目录改动后同步：各包 `package.json` 与 `publishConfig`、[pnpm-lock.yaml](../pnpm-lock.yaml)（跑一次 `pnpm install` 更新软链与锁文件）；根 [package.json](../package.json) 的 build 过滤与脚本；[tsconfig.base.json](../tsconfig.base.json)、[tsconfig.test.json](../tsconfig.test.json)、[vitest.config.ts](../vitest.config.ts)、[eslint.config.js](../eslint.config.js)、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 中含旧包名或旧路径的 glob（注意 `(sdk|e2e)` 这类交替组，按字面替换会漏改）；以及 [AGENTS.md](../AGENTS.md)、[README.md](../README.md) 中作为示例出现的包路径。
    - 按"替换点地图"替换或删除可替换点：协议来源、运行平台、包发布。
-   - 以 [packages/sdk/src/example](../packages/sdk/src/example) 与 [packages/e2e/tests/example](../packages/e2e/tests/example) 为样板新增自己的业务模块。
+   - 以 [packages/sdk/src/example](../packages/sdk/src/example) 与 [packages/e2e/tests/example](../packages/e2e/tests/example) 为样板新增自己的业务模块：按工厂 → 核心 → 端口 → 适配器分层，业务目录之间不得互相导入，就近单测覆盖新代码以满足手写代码 100% 阈值。
+   - 新增业务目录后，把分层守卫扩展到新目录：[eslint.config.js](../eslint.config.js) 的 `no-restricted-globals: wx`、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `core-no-platform-or-node`/`example-core-no-generated` 当前只匹配 `example/`；`domain-isolation` 自动覆盖产品包内所有业务目录。需要对外时在 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 导出。
 4. **先加后删**：自己的业务覆盖到示例承担的能力后，再删除示例；删除时对应的 Scenario、FLOW、Fixture 与用例一并处理。
 5. **验收**：用"从方案到验收"的三项证明收尾：`pnpm check:fast`、逐文件 weapp、场景门禁。
 
-两条维护规则：
+五条维护规则：
 
 - 删除或替换"替换点地图"中的某一项后，对应的三级标题仍要保留，正文改写为"本项目已删除……"或"本项目已替换为……"，不要删掉标题本身。
-- 指南中引用、但已随该项删除的 Scenario ID 必须同时删除，否则事实一致性检查会报"未登记的 Scenario ID"。
+- 指南中引用、但已随该项删除的 Scenario ID 必须同时删除，否则事实一致性检查会报"未登记的 Scenario ID"；能力地图中对应行的承载文件与验证方式也要同步。
+- 删除代码常会让"手写代码 100% 覆盖"失去覆盖来源，`pnpm test:unit` 的覆盖率阈值会失败；删除后同步处理受影响的单测与用例，不要靠豁免覆盖率。
+- 仓库里还有未归档 Change 时，主 Spec 与它的 Spec delta 必须一致：删除主 Spec 的 Requirement 会让引用它的 `MODIFIED`/`REMOVED` delta 失效，`pnpm check:fast` 的 Spec 清单校验随之失败；先同步处理或先归档该 Change。
+- 删除能力后同步更新 [README.md](../README.md) 与各 `AGENTS.md` 中声明该能力的句子，以及根 [package.json](../package.json)、[vitest.config.ts](../vitest.config.ts)、[.gitignore](../.gitignore) 等引用已删文件的工程配置。
 
 **扩展更多包**：清单 schema 与读取方当前认定 product、protocol、test 三种角色各一个包；角色、包数量与允许目录由 [project.manifest.schema.json](../project.manifest.schema.json) 与 [scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts) 共同约束，扩展时同步修改两处与对应门禁。
 
@@ -71,7 +75,7 @@
 
 当前实现：IDL + ProtoGen。
 
-- **涉及文件**：[proto-gen.yaml](../proto-gen.yaml)、[proto-gen.lock](../proto-gen.lock)、[packages/protocol/src/generated](../packages/protocol/src/generated)、[packages/protocol/testing/shadow/idl-routes.ts](../packages/protocol/testing/shadow/idl-routes.ts)、[packages/protocol/testing/shadow/example/routes.ts](../packages/protocol/testing/shadow/example/routes.ts)、[scripts/lib/contract-inventory.ts](../scripts/lib/contract-inventory.ts)、[packages/protocol/src/errors](../packages/protocol/src/errors)、[packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003](../packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003)、[openspec/specs/protocol-contract/spec.md](../openspec/specs/protocol-contract/spec.md)。
+- **涉及文件**：配置 [proto-gen.yaml](../proto-gen.yaml)、[proto-gen.lock](../proto-gen.lock) 与根 [package.json](../package.json) 的 `proto:*` 脚本/devDependency；生成代码 [packages/protocol/src/generated](../packages/protocol/src/generated) 及其消费方 [packages/protocol/src/client.ts](../packages/protocol/src/client.ts)（`RpcMethodMeta`）、[packages/protocol/testing/index.ts](../packages/protocol/testing/index.ts)、[packages/protocol/testing/shadow/idl-routes.ts](../packages/protocol/testing/shadow/idl-routes.ts)、[packages/protocol/testing/shadow/example/routes.ts](../packages/protocol/testing/shadow/example/routes.ts)、[scripts/lib/contract-inventory.ts](../scripts/lib/contract-inventory.ts)、[packages/protocol/src/errors](../packages/protocol/src/errors)（Go 来源校验）、[packages/sdk/src/example/adapters/trade-backend.ts](../packages/sdk/src/example/adapters/trade-backend.ts)、[packages/e2e/host/weapp/protocol-runner.ts](../packages/e2e/host/weapp/protocol-runner.ts)，以及引用生成类型的 e2e 用例（`SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-003`、`SCN-PROTOCOL-CONTRACT-004`、`SCN-TEMPLATE-EXAMPLE-008`）；工程接线 [packages/protocol/package.json](../packages/protocol/package.json) 的 `./generated/*` 导出、[packages/protocol/vite.config.ts](../packages/protocol/vite.config.ts)、[vitest.shared.ts](../vitest.shared.ts) 的 `generated` 别名、[vitest.config.ts](../vitest.config.ts) 的覆盖率排除、[eslint.config.js](../eslint.config.js) 的忽略与 [.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `sdk-cross-package-exports-only`/`*-no-generated` 规则；证据 [packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003](../packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003) 的来源摘要；Spec [openspec/specs/protocol-contract/spec.md](../openspec/specs/protocol-contract/spec.md) 与文档 [AGENTS.md](../AGENTS.md)、[packages/protocol/AGENTS.md](../packages/protocol/AGENTS.md)。
 - **清单需要修改的项**：`manifest.requiredCommands` 中的 `proto:validate`、`proto:status`、`proto:sync`；`manifest.fingerprints.sourceRoots`（覆盖新来源的源码目录）。换 IDL 时改 ProtoGen Consumer 登记（不在清单内）；换 OpenAPI 时新增路由来源，并替换协议义务派生与错误码来源校验，或明确不启用并修改 `protocol-contract` Spec。
 - **验收门禁**：`SCN-PROTOCOL-CONTRACT-001`、`SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-003`、`SCN-PROTOCOL-CONTRACT-004`，以及 `pnpm proto:validate`、`pnpm proto:status` 与 `pnpm check:fast`。
 
@@ -79,14 +83,15 @@
 
 当前实现：微信小程序。
 
-- **涉及文件**：[packages/protocol/src/adapters/network/wechat-miniapp.ts](../packages/protocol/src/adapters/network/wechat-miniapp.ts)、[packages/e2e/src/drivers](../packages/e2e/src/drivers)、[packages/e2e/host/weapp](../packages/e2e/host/weapp)、[packages/e2e/tests/weapp](../packages/e2e/tests/weapp)、[packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts)。
-- **清单需要修改的项**：`manifest.testProjects`（删除 platform 类项目或替换为新平台项目）、`manifest.fingerprints.hostRoots`、`manifest.requiredCommands` 中的 `test:e2e:weapp`、e2e 包 `manifest.packages[].allowedDirectories` 中的 `host`；Spec 中 `requiredIn` 含 `weapp` 的 case 随之调整。
+- **涉及文件（测试侧）**：[packages/e2e/src/drivers](../packages/e2e/src/drivers)、[packages/e2e/host/weapp](../packages/e2e/host/weapp)、[packages/e2e/tests/weapp](../packages/e2e/tests/weapp)、[packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts)、根 [package.json](../package.json) 的 `test:e2e:weapp` 脚本与 `check` 串联、[vitest.config.ts](../vitest.config.ts) 的 projects 列表。
+- **涉及文件（生产侧）**：[packages/protocol/src/adapters/network/wechat-miniapp.ts](../packages/protocol/src/adapters/network/wechat-miniapp.ts) 与协议包根导出。生产网络工厂是 SDK 工厂与全部集成用例唯一的 `HttpPort`，根 `AGENTS.md` 硬规则 7 要求它具名导出；只去掉平台测试项目时保留它。替换或删除生产适配器属于更大的改动：要改公共 API、协议导出、Fixture 与多条 Spec（`SCN-TEMPLATE-ENGINEERING-001` 等），先决定目标再动手。
+- **清单需要修改的项**：`manifest.testProjects`（删除 platform 类项目或替换为新平台项目）、`manifest.fingerprints.hostRoots`、`manifest.requiredCommands` 中的 `test:e2e:weapp`、e2e 包 `manifest.packages[].allowedDirectories` 中的 `host`；Spec 中 `requiredIn` 含 `weapp` 的 case 与正文表述随之调整。
 - **验收门禁**：`pnpm check:fast` 与替代平台项目的报告；保留小程序时按逐文件约定运行 weapp 用例。
 
 ### 包发布
 
 当前实现：可删除模块。
 
-- **涉及文件**：[scripts/sdk-release.ts](../scripts/sdk-release.ts)、[scripts/check-release.ts](../scripts/check-release.ts)、[scripts/check-package.ts](../scripts/check-package.ts)、`template-engineering` ENG-04、[SCN-TEMPLATE-ENGINEERING-004 Fixture](../packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-004)、根 [package.json](../package.json) 的 `release:preflight` 与 `sdk-release` 脚本、各包 `publishConfig`。
-- **清单需要修改的项**：删除 `manifest.release`。清单中只需删这一项：`release:preflight` 与 `sdk-release` 不在 `manifest.requiredCommands` 里，删除脚本后无需改其它清单字段。
-- **验收门禁**：`pnpm check:fast`；删除后同步删去指南与 Spec 中引用的 `SCN-TEMPLATE-ENGINEERING-004`。
+- **涉及文件**：[scripts/sdk-release.ts](../scripts/sdk-release.ts)、[scripts/check-release.ts](../scripts/check-release.ts)、`template-engineering` ENG-04、[SCN-TEMPLATE-ENGINEERING-004 Fixture](../packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-004)、根 [package.json](../package.json) 的 `release:preflight` 与 `sdk-release` 脚本、各包 `publishConfig`，以及 [README.md](../README.md) 与各 `AGENTS.md` 声明发布能力的句子。注意 [scripts/check-package.ts](../scripts/check-package.ts) 只做打包产物与依赖边界检查，承载 `SCN-TEMPLATE-ENGINEERING-001`，不属于发布模块，不要删除。
+- **清单需要修改的项**：删除 `manifest.release`。清单中只需删这一项：`release:preflight` 与 `sdk-release` 不在 `manifest.requiredCommands` 里，删除脚本后无需改其它清单字段；清单 schema 与读取类型保留可选 `manifest.release`，缺省即表示不再发布。
+- **验收门禁**：`pnpm check:fast`；删除后同步删去指南、能力地图与 Spec 中引用的 `SCN-TEMPLATE-ENGINEERING-004`，并把本三级标题正文改写为"本项目已删除……"。

@@ -20,3 +20,4 @@
 ### 依赖规则与平台限制
 
 `example-core-no-generated` 防止核心和端口绑定传输模型，`domain-isolation` 防止产品包内不同业务模块目录互相导入。`eslint.config.js` 中 core/ports 的 `wx` 限制防止平台全局穿透核心层；平台调用必须留在适配器边界。
+- 新增业务目录后，把只匹配 `example/` 的分层守卫扩展到新目录：`eslint.config.js` 的 `no-restricted-globals: wx` 与 `.dependency-cruiser.cjs` 的 `core-no-platform-or-node`、`example-core-no-generated`；`domain-isolation` 已按产品包内所有业务目录生效。
