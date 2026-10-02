@@ -264,7 +264,7 @@
   **Commit**
   - `docs(template): refine template guide from guided drills`
 
-- [ ] 7. 最终验收
+- [x] 7. 最终验收
 
   **Files**
   - 无代码改动；验收索引 `artifacts/<run-id>/tasks/task-7.md`。
