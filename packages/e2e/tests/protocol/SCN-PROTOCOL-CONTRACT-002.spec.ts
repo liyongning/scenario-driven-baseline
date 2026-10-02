@@ -1,13 +1,13 @@
 // @SCN-PROTOCOL-CONTRACT-002: 示例接口的协议义务逐项由公共协议客户端与 Shadow 执行。
 import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
-import { createProtocolClient } from '@daqian/payment-protocol';
-import type { HttpPort } from '@daqian/payment-protocol';
+import { createProtocolClient } from '@daqian/template-protocol';
+import type { HttpPort } from '@daqian/template-protocol';
 import {
   CreateTrade, CreateTradeRequest, CreateTradeResponse,
   QueryTrade, QueryTradeRequest, QueryTradeResponse,
-} from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
-import { createShadowServer, discoverExampleRoutes, type RunningShadowServer } from '@payment-test/protocol';
+} from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { createShadowServer, discoverExampleRoutes, type RunningShadowServer } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { createNodeHttpDriver } from '../../src/drivers/node.ts';

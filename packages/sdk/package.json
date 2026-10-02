@@ -1,5 +1,5 @@
 {
-  "name": "@daqian/payment-sdk",
+  "name": "@daqian/template-sdk",
   "version": "0.1.0",
   "type": "module",
   "files": [
@@ -21,9 +21,9 @@
     "build": "vite build"
   },
   "publishConfig": {
-    "registry": "https://gitlab.daqian369.com/api/v4/projects/245/packages/npm/"
+    "registry": "https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/"
   },
   "dependencies": {
-    "@daqian/payment-protocol": "workspace:*"
+    "@daqian/template-protocol": "workspace:*"
   }
 }

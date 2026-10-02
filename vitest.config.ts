@@ -12,7 +12,7 @@ const reportFile = process.env.PAYMENT_REPORT_FILE
   : resolve(repositoryRoot, `artifacts/${runId}/reports/scenarios.json`);
 
 export default defineConfig({ test: {
-  projects: ['packages/payment-sdk/vitest.config.ts', 'packages/payment-protocol/vitest.config.ts', 'packages/e2e/vitest.config.unit.ts', 'packages/e2e/vitest.config.integration.ts', 'packages/e2e/vitest.config.weapp.ts'],
+  projects: ['packages/sdk/vitest.config.ts', 'packages/protocol/vitest.config.ts', 'packages/e2e/vitest.config.unit.ts', 'packages/e2e/vitest.config.integration.ts', 'packages/e2e/vitest.config.weapp.ts'],
   reporters: ['default', new ScenarioReporter({
     outputFile: reportFile,
     runId,
@@ -20,12 +20,12 @@ export default defineConfig({ test: {
   })],
   coverage: {
     provider: 'v8',
-    include: ['packages/payment-sdk/src/**/*.ts', 'packages/payment-protocol/src/**/*.ts', 'packages/payment-protocol/testing/**/*.ts', 'packages/e2e/src/**/*.ts', 'packages/e2e/host/**/*.js', 'scripts/**/*.ts'],
+    include: ['packages/sdk/src/**/*.ts', 'packages/protocol/src/**/*.ts', 'packages/protocol/testing/**/*.ts', 'packages/e2e/src/**/*.ts', 'packages/e2e/host/**/*.js', 'scripts/**/*.ts'],
     exclude: [
       '**/*.test.ts',
       '**/*.d.ts',
       '**/.generated/**',
-      'packages/payment-protocol/src/generated/**',
+      'packages/protocol/src/generated/**',
     ],
     thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     reporter: ['text', 'json', 'html'],

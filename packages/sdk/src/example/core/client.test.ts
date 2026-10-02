@@ -1,5 +1,5 @@
 import { expect, test, vi, type TestContext } from 'vitest';
-import type { Cancellation } from '@daqian/payment-protocol';
+import type { Cancellation } from '@daqian/template-protocol';
 import type { ExampleBackend, ExampleRuntimePort } from '../ports/backend';
 import type { ExampleCreateInput, ExampleResourceRef } from '../contracts';
 import { createExampleCore, exampleError } from './client';

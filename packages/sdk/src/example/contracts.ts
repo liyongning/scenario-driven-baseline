@@ -1,4 +1,4 @@
-import type { Cancellation } from '@daqian/payment-protocol';
+import type { Cancellation } from '@daqian/template-protocol';
 
 /** 示例客户端运行环境；示例只演示微信小程序宿主。 */
 export type ExampleRuntime = 'wechat-miniapp';

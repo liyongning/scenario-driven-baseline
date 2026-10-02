@@ -9,7 +9,7 @@ cliEvidence('SCN-SCENARIO-GATE-008', 'schema-documentation-cli', ['schema-descri
     writeFileSync(join(fixture.root, 'package.json'), readFileSync(join(process.cwd(), 'package.json')));
     writeProjectManifest(fixture.root);
     writeFileSync(join(fixture.root, 'AGENTS.md'), 'scenario-gate.config.schema.json');
-    for (const name of ['payment-sdk', 'payment-protocol', 'e2e']) {
+    for (const name of ['sdk', 'protocol', 'e2e']) {
       mkdirSync(join(fixture.root, 'packages', name), { recursive: true });
       writeFileSync(join(fixture.root, 'packages', name, 'AGENTS.md'), '[root](../../AGENTS.md)');
       writeFileSync(join(fixture.root, 'packages', name, 'package.json'), readFileSync(join(process.cwd(), 'packages', name, 'package.json')));

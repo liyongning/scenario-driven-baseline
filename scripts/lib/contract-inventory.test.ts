@@ -6,7 +6,7 @@ import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 
-const generated = join(process.cwd(), 'packages/payment-protocol/src/generated');
+const generated = join(process.cwd(), 'packages/protocol/src/generated');
 const tradeFile = 'generated/idl/infra/trade/v1/trade.ts';
 
 async function copyGenerated(prefix: string) {

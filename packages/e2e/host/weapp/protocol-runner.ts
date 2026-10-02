@@ -1,4 +1,4 @@
-import { createProtocolClient, createWechatMiniappHttp, type Cancellation } from '@daqian/payment-protocol';
+import { createProtocolClient, createWechatMiniappHttp, type Cancellation } from '@daqian/template-protocol';
 import {
   CreateTrade,
   CreateTradeRequest,
@@ -6,7 +6,7 @@ import {
   QueryTrade,
   QueryTradeRequest,
   QueryTradeResponse,
-} from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
+} from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
 
 type ProtocolMethod = 'CreateTrade' | 'QueryTrade';
 

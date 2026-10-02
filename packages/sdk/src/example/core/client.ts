@@ -1,4 +1,4 @@
-import type { Cancellation, OperationContext } from '@daqian/payment-protocol';
+import type { Cancellation, OperationContext } from '@daqian/template-protocol';
 import type {
   ExampleClient, ExampleCreateInput, ExampleCreateResult, ExampleError, ExampleOutcome,
   ExamplePolicyOverrides, ExampleResourceRef, ExampleRunOptions,

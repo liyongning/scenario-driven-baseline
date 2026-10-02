@@ -1,5 +1,5 @@
-import { createExampleClient } from '@daqian/payment-sdk';
-import { createShadowServer, discoverExampleRoutes, type RunningShadowServer, type ShadowStep } from '@payment-test/protocol';
+import { createExampleClient } from '@daqian/template-sdk';
+import { createShadowServer, discoverExampleRoutes, type RunningShadowServer, type ShadowStep } from '@template-test/protocol';
 
 export function installWx(onAbort?: () => void) {
   const original = (globalThis as Record<string, unknown>).wx;

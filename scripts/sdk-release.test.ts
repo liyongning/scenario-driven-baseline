@@ -21,16 +21,16 @@ afterEach(() => { vi.unstubAllEnvs(); for (const root of roots.splice(0)) rmSync
 const cleanSource = async () => ({ headRevision: 'a'.repeat(40), tagRevision: 'a'.repeat(40), clean: true });
 
 const registryUrl = 'https://registry.test.invalid/api/v4/projects/9/packages/npm/';
-const releaseSettings: ReleaseSettings = { registry: registryUrl, tagPrefix: 'payment-sdk-v' };
+const releaseSettings: ReleaseSettings = { registry: registryUrl, tagPrefix: 'template-sdk-v' };
 
 function record(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
   return {
     registry: registryUrl,
     execution: 'local',
-    tag: 'payment-sdk-v0.1.0-alpha.1',
+    tag: 'template-sdk-v0.1.0-alpha.1',
     sourceRevision: 'a'.repeat(40),
-    sdk: { name: '@daqian/payment-sdk', version: '0.1.0-alpha.1', changed: true },
-    protocol: { name: '@daqian/payment-protocol', version: '0.1.0', changed: false },
+    sdk: { name: '@daqian/template-sdk', version: '0.1.0-alpha.1', changed: true },
+    protocol: { name: '@daqian/template-protocol', version: '0.1.0', changed: false },
     ...overrides,
   };
 }
@@ -38,26 +38,26 @@ function record(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'sdk-release-test-'));
   roots.push(root);
-  mkdirSync(join(root, 'packages/payment-sdk'), { recursive: true });
-  mkdirSync(join(root, 'packages/payment-protocol'), { recursive: true });
+  mkdirSync(join(root, 'packages/sdk'), { recursive: true });
+  mkdirSync(join(root, 'packages/protocol'), { recursive: true });
   writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
     packages: [
-      { directory: 'payment-sdk', name: '@daqian/payment-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
-      { directory: 'payment-protocol', name: '@daqian/payment-protocol', role: 'protocol', private: false, allowedDirectories: ['src'] },
-      { directory: 'e2e', name: '@daqian/payment-e2e', role: 'test', private: true, allowedDirectories: ['src'] },
+      { directory: 'sdk', name: '@daqian/template-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
+      { directory: 'protocol', name: '@daqian/template-protocol', role: 'protocol', private: false, allowedDirectories: ['src'] },
+      { directory: 'e2e', name: '@daqian/template-e2e', role: 'test', private: true, allowedDirectories: ['src'] },
     ],
     requiredCommands: ['check:fast'],
     testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
     fingerprints: { sourceRoots: ['scripts'], hostRoots: [] },
     release: releaseSettings,
   }));
-  writeFileSync(join(root, 'packages/payment-sdk/package.json'), JSON.stringify({
-    name: '@daqian/payment-sdk',
+  writeFileSync(join(root, 'packages/sdk/package.json'), JSON.stringify({
+    name: '@daqian/template-sdk',
     version: '0.1.0-alpha.1',
-    dependencies: { '@daqian/payment-protocol': 'workspace:*' },
+    dependencies: { '@daqian/template-protocol': 'workspace:*' },
   }));
-  writeFileSync(join(root, 'packages/payment-protocol/package.json'), JSON.stringify({
-    name: '@daqian/payment-protocol',
+  writeFileSync(join(root, 'packages/protocol/package.json'), JSON.stringify({
+    name: '@daqian/template-protocol',
     version: '0.1.0',
   }));
   return {
@@ -68,10 +68,10 @@ function fixture() {
   };
 }
 
-function registry(initial: Partial<Record<'@daqian/payment-sdk' | '@daqian/payment-protocol', 'missing' | 'existing'>> = {}) {
+function registry(initial: Partial<Record<'@daqian/template-sdk' | '@daqian/template-protocol', 'missing' | 'existing'>> = {}) {
   const states = new Map<string, 'missing' | 'existing'>([
-    ['@daqian/payment-protocol', initial['@daqian/payment-protocol'] ?? 'missing'],
-    ['@daqian/payment-sdk', initial['@daqian/payment-sdk'] ?? 'missing'],
+    ['@daqian/template-protocol', initial['@daqian/template-protocol'] ?? 'missing'],
+    ['@daqian/template-sdk', initial['@daqian/template-sdk'] ?? 'missing'],
   ]);
   const inspections: Array<{ name: string; config?: string }> = [];
   const inspector: RegistryInspector = async (request, env) => {
@@ -80,7 +80,7 @@ function registry(initial: Partial<Record<'@daqian/payment-sdk' | '@daqian/payme
   };
   const executor: CommandExecutor = async command => {
     if (!command.args.includes('publish')) return;
-    const name = command.args[1] as '@daqian/payment-sdk' | '@daqian/payment-protocol';
+    const name = command.args[1] as '@daqian/template-sdk' | '@daqian/template-protocol';
     states.set(name, 'existing');
   };
   return { states, inspections, inspector, executor };
@@ -169,10 +169,10 @@ test('formal plan publishes missing workspaces in dependency order and never pac
   const plan = createSdkReleasePlan({ record: value.record, protocolState: 'missing', sdkState: 'missing', release: releaseSettings });
   expect(plan.map(step => step.name)).toEqual(['build-protocol', 'publish-protocol', 'build-sdk', 'publish-sdk']);
   expect(plan.map(step => step.command.args)).toEqual([
-    ['--filter', '@daqian/payment-protocol', 'run', 'build'],
-    ['--filter', '@daqian/payment-protocol', 'publish', '--no-git-checks', '--registry', registryUrl, `--@daqian:registry=${registryUrl}`],
-    ['--filter', '@daqian/payment-sdk', 'run', 'build'],
-    ['--filter', '@daqian/payment-sdk', 'publish', '--no-git-checks', '--registry', registryUrl, `--@daqian:registry=${registryUrl}`],
+    ['--filter', '@daqian/template-protocol', 'run', 'build'],
+    ['--filter', '@daqian/template-protocol', 'publish', '--no-git-checks', '--registry', registryUrl, `--@daqian:registry=${registryUrl}`],
+    ['--filter', '@daqian/template-sdk', 'run', 'build'],
+    ['--filter', '@daqian/template-sdk', 'publish', '--no-git-checks', '--registry', registryUrl, `--@daqian:registry=${registryUrl}`],
   ]);
   expect(plan.flatMap(step => step.command.args)).not.toEqual(expect.arrayContaining(['pack', 'check:package']));
   expect(plan.flatMap(step => step.command.args).join(' ')).not.toMatch(/\.tgz|sha256/);
@@ -184,7 +184,7 @@ test('release plan rejects a template placeholder registry before building comma
   const value = fixture();
   expect(() => createSdkReleasePlan({
     record: value.record,
-    release: { registry: 'https://gitlab.example.invalid/api/v4/projects/<PROJECT_ID>/packages/npm/', tagPrefix: 'payment-sdk-v' },
+    release: { registry: 'https://gitlab.example.invalid/api/v4/projects/<PROJECT_ID>/packages/npm/', tagPrefix: 'template-sdk-v' },
   })).toThrow(/template placeholder/);
 });
 
@@ -212,7 +212,7 @@ test('a product build failure blocks publication and leaves no success result', 
     await controlled.executor(command, {});
   }, { root: value.root, sourceInspector: cleanSource, registryInspector: controlled.inspector })).rejects.toThrow('product build failed');
   expect(calls.map(command => command.args)).toEqual([
-    ['--filter', '@daqian/payment-protocol', 'run', 'build'],
+    ['--filter', '@daqian/template-protocol', 'run', 'build'],
   ]);
   expect(existsSync(value.resultPath)).toBe(false);
   expect(JSON.parse(readFileSync(value.checkpointPath, 'utf8'))).toMatchObject({ status: 'failed', error: 'product build failed' });
@@ -252,13 +252,13 @@ test('release publishes protocol before SDK, verifies both, and promotes the res
     await controlled.executor(command, env);
   }, { root: value.root, sourceInspector: cleanSource, registryInspector: controlled.inspector });
   expect(calls.map(command => [command.args[1], command.args[2], command.args[3]])).toEqual([
-    ['@daqian/payment-protocol', 'run', 'build'],
-    ['@daqian/payment-protocol', 'publish', '--no-git-checks'],
-    ['@daqian/payment-sdk', 'run', 'build'],
-    ['@daqian/payment-sdk', 'publish', '--no-git-checks'],
+    ['@daqian/template-protocol', 'run', 'build'],
+    ['@daqian/template-protocol', 'publish', '--no-git-checks'],
+    ['@daqian/template-sdk', 'run', 'build'],
+    ['@daqian/template-sdk', 'publish', '--no-git-checks'],
   ]);
   expect(controlled.inspections.map(item => item.name)).toEqual([
-    '@daqian/payment-protocol', '@daqian/payment-protocol', '@daqian/payment-sdk', '@daqian/payment-sdk',
+    '@daqian/template-protocol', '@daqian/template-protocol', '@daqian/template-sdk', '@daqian/template-sdk',
   ]);
   const result = JSON.parse(readFileSync(value.resultPath, 'utf8')) as { sdk: { releaseAction: string }; protocol: { releaseAction: string }; steps: Array<{ name: string }> };
   expect(result.protocol.releaseAction).toBe('published');
@@ -271,7 +271,7 @@ test('release publishes protocol before SDK, verifies both, and promotes the res
 
 test('release reuses readable versions without republishing or comparing artifact bytes', async () => {
   const value = fixture();
-  const controlled = registry({ '@daqian/payment-protocol': 'existing', '@daqian/payment-sdk': 'existing' });
+  const controlled = registry({ '@daqian/template-protocol': 'existing', '@daqian/template-sdk': 'existing' });
   const executor = vi.fn<CommandExecutor>();
   await runSdkRelease(value, 'fixture-token', executor, { root: value.root, sourceInspector: cleanSource, registryInspector: controlled.inspector });
   expect(executor).not.toHaveBeenCalled();
@@ -331,8 +331,8 @@ test('protocol publication failure blocks SDK publication and leaves only a fail
     if (command.args.includes('publish')) throw new Error('protocol upload failed');
   }, { root: value.root, sourceInspector: cleanSource, registryInspector: controlled.inspector })).rejects.toThrow('protocol upload failed');
   expect(calls.map(command => [command.args[1], command.args[2]])).toEqual([
-    ['@daqian/payment-protocol', 'run'],
-    ['@daqian/payment-protocol', 'publish'],
+    ['@daqian/template-protocol', 'run'],
+    ['@daqian/template-protocol', 'publish'],
   ]);
   expect(existsSync(value.resultPath)).toBe(false);
   expect(JSON.parse(readFileSync(value.checkpointPath, 'utf8'))).toMatchObject({ status: 'failed', error: 'protocol upload failed' });
@@ -348,8 +348,8 @@ test('an unreadable protocol after publish blocks the SDK', async () => {
     registryInspector: inspector,
   })).rejects.toThrow(/protocol package is not readable/);
   expect(calls.map(command => [command.args[1], command.args[2]])).toEqual([
-    ['@daqian/payment-protocol', 'run'],
-    ['@daqian/payment-protocol', 'publish'],
+    ['@daqian/template-protocol', 'run'],
+    ['@daqian/template-protocol', 'publish'],
   ]);
   expect(existsSync(value.resultPath)).toBe(false);
 });
@@ -358,10 +358,10 @@ test('a retry reuses the published protocol after a partial SDK failure', async 
   const value = fixture();
   const controlled = registry();
   await expect(runSdkRelease(value, 'fixture-token', async (command, env) => {
-    if (command.args[1] === '@daqian/payment-sdk') throw new Error('SDK upload failed');
+    if (command.args[1] === '@daqian/template-sdk') throw new Error('SDK upload failed');
     await controlled.executor(command, env);
   }, { root: value.root, sourceInspector: cleanSource, registryInspector: controlled.inspector })).rejects.toThrow('SDK upload failed');
-  expect(controlled.states.get('@daqian/payment-protocol')).toBe('existing');
+  expect(controlled.states.get('@daqian/template-protocol')).toBe('existing');
   expect(existsSync(value.resultPath)).toBe(false);
 
   const retryCalls: ReleaseCommand[] = [];
@@ -370,8 +370,8 @@ test('a retry reuses the published protocol after a partial SDK failure', async 
     await controlled.executor(command, env);
   }, { root: value.root, sourceInspector: cleanSource, registryInspector: controlled.inspector });
   expect(retryCalls.map(command => [command.args[1], command.args[2]])).toEqual([
-    ['@daqian/payment-sdk', 'run'],
-    ['@daqian/payment-sdk', 'publish'],
+    ['@daqian/template-sdk', 'run'],
+    ['@daqian/template-sdk', 'publish'],
   ]);
 });
 
@@ -380,7 +380,7 @@ test('late checkpoint failure cannot leave a formal success result', async () =>
   const controlled = registry();
   const inspector: RegistryInspector = async (request, env) => {
     const result = await controlled.inspector(request, env);
-    if (request.name === '@daqian/payment-sdk' && result.state === 'existing') {
+    if (request.name === '@daqian/template-sdk' && result.state === 'existing') {
       rmSync(value.checkpointPath, { force: true });
       mkdirSync(value.checkpointPath);
     }
@@ -464,9 +464,9 @@ test('release propagates filesystem errors while validating output components', 
 
 test('an unreadable SDK after publish leaves no success result', async () => {
   const value = fixture();
-  const states = registry({ '@daqian/payment-protocol': 'existing' });
+  const states = registry({ '@daqian/template-protocol': 'existing' });
   const inspector: RegistryInspector = async request => ({
-    state: request.name === '@daqian/payment-protocol' ? 'existing' : 'missing',
+    state: request.name === '@daqian/template-protocol' ? 'existing' : 'missing',
   });
   await expect(runSdkRelease(value, 'fixture-token', states.executor, {
     root: value.root,
@@ -490,7 +490,7 @@ test('release rejects absent credentials and preserves non-Error failures in the
 
 test('release uses the real Git inspector when no source override is supplied', async () => {
   const value = gitFixture();
-  const controlled = registry({ '@daqian/payment-protocol': 'existing', '@daqian/payment-sdk': 'existing' });
+  const controlled = registry({ '@daqian/template-protocol': 'existing', '@daqian/template-sdk': 'existing' });
   await runSdkRelease(value, 'fixture-token', vi.fn(), { root: value.root, registryInspector: controlled.inspector });
   expect(existsSync(value.resultPath)).toBe(true);
 });

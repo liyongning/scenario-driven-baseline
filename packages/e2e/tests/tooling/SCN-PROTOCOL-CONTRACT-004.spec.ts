@@ -19,21 +19,21 @@ test('SCN-PROTOCOL-CONTRACT-004 engine-no-generated-cli', { meta: { paymentCase:
     cpSync(resolve('package.json'), join(root, 'package.json'));
     cpSync(resolve('tsconfig.base.json'), join(root, 'tsconfig.base.json'));
     cpSync(resolve('.dependency-cruiser.cjs'), join(root, '.dependency-cruiser.cjs'));
-    mkdirSync(join(root, 'packages/payment-protocol'), { recursive: true });
+    mkdirSync(join(root, 'packages/protocol'), { recursive: true });
     // 真实复制协议包源码与测试设施：依赖检查按相对路径前缀匹配规则，符号链接会让路径变成仓库绝对路径。
-    cpSync(resolve('packages/payment-protocol/testing'), join(root, 'packages/payment-protocol/testing'), { recursive: true });
-    cpSync(resolve('packages/payment-protocol/src'), join(root, 'packages/payment-protocol/src'), { recursive: true });
-    cpSync(resolve('packages/payment-protocol/package.json'), join(root, 'packages/payment-protocol/package.json'));
+    cpSync(resolve('packages/protocol/testing'), join(root, 'packages/protocol/testing'), { recursive: true });
+    cpSync(resolve('packages/protocol/src'), join(root, 'packages/protocol/src'), { recursive: true });
+    cpSync(resolve('packages/protocol/package.json'), join(root, 'packages/protocol/package.json'));
     symlinkSync(resolve('node_modules'), join(root, 'node_modules'), 'dir');
 
-    const engine = join(root, 'packages/payment-protocol/testing/shadow/server.ts');
+    const engine = join(root, 'packages/protocol/testing/shadow/server.ts');
     writeFileSync(engine, `${readFileSync(engine, 'utf8')}\nimport type { RpcMethodMeta } from '../../src/generated/std.ts';\nvoid (null as unknown as RpcMethodMeta<unknown, unknown>);\n`);
-    const violated = depcruise(root, 'packages/payment-protocol/testing/shadow/server.ts');
+    const violated = depcruise(root, 'packages/protocol/testing/shadow/server.ts');
     context.expect(violated.status).not.toBe(0);
     context.expect(violated.stdout + violated.stderr).toContain('shadow-engine-no-generated');
 
     // 未修改的仓库中协议包源码通过依赖检查。
-    const restored = depcruise(process.cwd(), 'packages/payment-protocol/src');
+    const restored = depcruise(process.cwd(), 'packages/protocol/src');
     context.expect(restored.status).toBe(0);
 
     await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['engine-no-generated'] }), 'payment-evidence');

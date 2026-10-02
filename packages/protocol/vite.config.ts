@@ -18,7 +18,7 @@ export default defineConfig({
     entryRoot: 'src',
     bundleTypes: true,
     outDirs: ['dist', { dir: 'dist', moduleFormat: 'cjs' }],
-    aliasesExclude: ['@daqian/payment-protocol'],
+    aliasesExclude: ['@daqian/template-protocol'],
   })],
   build: {
     target: 'es2020',
@@ -27,6 +27,6 @@ export default defineConfig({
       formats: ['es', 'cjs'],
       fileName: (format, entry) => `${entry}.${format === 'es' ? 'js' : 'cjs'}`,
     },
-    rolldownOptions: { external: ['@daqian/payment-protocol'] },
+    rolldownOptions: { external: ['@daqian/template-protocol'] },
   },
 });

@@ -1,5 +1,5 @@
 import { afterEach } from 'vitest';
-import { discoverExampleRoutes } from '@payment-test/protocol';
+import { discoverExampleRoutes } from '@template-test/protocol';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { exampleClient, exampleServer, installWx, type ExampleServer } from './example-harness.ts';
 

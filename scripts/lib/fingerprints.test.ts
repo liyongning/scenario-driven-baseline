@@ -9,9 +9,9 @@ import { buildVerificationFingerprints, collectFiles, digestFiles } from './fing
 function writeFingerprintManifest(root: string, sourceRoots: ReadonlyArray<string>, hostRoots: ReadonlyArray<string>) {
   writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
     packages: [
-      { directory: 'payment-sdk', name: '@daqian/payment-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
-      { directory: 'payment-protocol', name: '@daqian/payment-protocol', role: 'protocol', private: false, allowedDirectories: ['src', 'testing'] },
-      { directory: 'e2e', name: '@daqian/payment-e2e', role: 'test', private: true, allowedDirectories: ['src', 'host', 'tests'] },
+      { directory: 'sdk', name: '@daqian/template-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
+      { directory: 'protocol', name: '@daqian/template-protocol', role: 'protocol', private: false, allowedDirectories: ['src', 'testing'] },
+      { directory: 'e2e', name: '@daqian/template-e2e', role: 'test', private: true, allowedDirectories: ['src', 'host', 'tests'] },
     ],
     requiredCommands: ['check:fast'],
     testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
@@ -36,14 +36,14 @@ describe('verification fingerprints', () => {
   it('builds source, Spec, IDL, and Fixture digests from the reviewed repository inputs', () => {
     const root = mkdtempSync(join(tmpdir(), 'payment-fingerprint-tree-'));
     for (const directory of [
-      'packages/payment-sdk/src', 'packages/payment-protocol/src', 'packages/payment-protocol/testing',
+      'packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing',
       'packages/e2e/src', 'packages/e2e/host/weapp', 'packages/e2e/tests/fixtures', 'scripts',
       'openspec/changes/archive/2026-01-01-template-example/specs/template-example',
       'openspec/changes/archive/2026-01-01-template-example/specs/template-engineering',
     ]) mkdirSync(join(root, directory), { recursive: true });
-    writeFileSync(join(root, 'packages/payment-sdk/src/index.ts'), 'sdk');
-    writeFileSync(join(root, 'packages/payment-protocol/src/index.ts'), 'protocol');
-    writeFileSync(join(root, 'packages/payment-protocol/testing/index.ts'), 'shadow');
+    writeFileSync(join(root, 'packages/sdk/src/index.ts'), 'sdk');
+    writeFileSync(join(root, 'packages/protocol/src/index.ts'), 'protocol');
+    writeFileSync(join(root, 'packages/protocol/testing/index.ts'), 'shadow');
     writeFileSync(join(root, 'packages/e2e/src/index.ts'), 'e2e');
     writeFileSync(join(root, 'packages/e2e/host/weapp/app.js'), 'App({});');
     writeFileSync(join(root, 'packages/e2e/host/weapp/app.json'), '{"pages":["pages/index/index"]}');
@@ -62,7 +62,7 @@ describe('verification fingerprints', () => {
     writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'delta spec');
     writeFileSync(join(root, 'proto-gen.lock'), 'idl');
     writeFingerprintManifest(root, [
-      'packages/payment-sdk/src', 'packages/payment-protocol/src', 'packages/payment-protocol/testing',
+      'packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing',
       'packages/e2e/src', 'packages/e2e/tests', 'scripts',
     ], ['packages/e2e/host']);
 

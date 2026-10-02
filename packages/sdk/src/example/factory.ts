@@ -1,4 +1,4 @@
-import { createProtocolClient, createWechatMiniappHttp } from '@daqian/payment-protocol';
+import { createProtocolClient, createWechatMiniappHttp } from '@daqian/template-protocol';
 import type { ExampleClient, ExampleClientOptions, ExamplePolicyOverrides } from './contracts';
 import { createExampleTradeBackend } from './adapters/trade-backend';
 import { createExampleCore } from './core/client';

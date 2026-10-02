@@ -40,9 +40,9 @@ export function writeSpec(root: string, content: string, relative = 'openspec/sp
 }
 
 export function enableInventory(root: string) {
-  const generated = join(root, 'packages/payment-protocol/src/generated');
+  const generated = join(root, 'packages/protocol/src/generated');
   mkdirSync(dirname(generated), { recursive: true });
-  symlinkSync(resolve(repositoryRoot, 'packages/payment-protocol/src/generated'), generated, 'dir');
+  symlinkSync(resolve(repositoryRoot, 'packages/protocol/src/generated'), generated, 'dir');
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
   for (const [relative, source] of [
     ['packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json', 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'],

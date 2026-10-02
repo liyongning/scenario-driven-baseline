@@ -1,4 +1,4 @@
-import type { Cancellation, OperationContext, ProtocolClient } from '@daqian/payment-protocol';
+import type { Cancellation, OperationContext, ProtocolClient } from '@daqian/template-protocol';
 import type { ExampleCreateInput, ExampleError, ExampleResourceRef, ExampleState } from '../contracts';
 
 /** 示例客户端使用的内部运行时端口。 */

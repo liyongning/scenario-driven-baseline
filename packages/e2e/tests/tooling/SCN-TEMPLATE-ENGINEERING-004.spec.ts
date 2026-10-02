@@ -15,28 +15,28 @@ afterAll(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: t
 
 const concreteRegistry = 'https://registry.example.invalid/api/v4/projects/9/packages/npm/';
 const placeholderRegistry = 'https://gitlab.example.invalid/api/v4/projects/<PROJECT_ID>/packages/npm/';
-const tagPrefix = 'payment-sdk-v';
+const tagPrefix = 'template-sdk-v';
 
 /** 预检读取门禁根目录的清单与 workspace 事实；临时根只写清单与两个包的 package.json。 */
 function releaseFixture(registry: string) {
   const root = mkdtempSync(join(tmpdir(), 'payment-release-cli-'));
   roots.push(root);
-  mkdirSync(join(root, 'packages/payment-sdk'), { recursive: true });
-  mkdirSync(join(root, 'packages/payment-protocol'), { recursive: true });
-  writeFileSync(join(root, 'packages/payment-sdk/package.json'), JSON.stringify({
-    name: '@daqian/payment-sdk',
+  mkdirSync(join(root, 'packages/sdk'), { recursive: true });
+  mkdirSync(join(root, 'packages/protocol'), { recursive: true });
+  writeFileSync(join(root, 'packages/sdk/package.json'), JSON.stringify({
+    name: '@daqian/template-sdk',
     version: '0.1.0',
-    dependencies: { '@daqian/payment-protocol': 'workspace:*' },
+    dependencies: { '@daqian/template-protocol': 'workspace:*' },
   }));
-  writeFileSync(join(root, 'packages/payment-protocol/package.json'), JSON.stringify({
-    name: '@daqian/payment-protocol',
+  writeFileSync(join(root, 'packages/protocol/package.json'), JSON.stringify({
+    name: '@daqian/template-protocol',
     version: '0.1.0',
   }));
   writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
     packages: [
-      { directory: 'payment-sdk', name: '@daqian/payment-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
-      { directory: 'payment-protocol', name: '@daqian/payment-protocol', role: 'protocol', private: false, allowedDirectories: ['src'] },
-      { directory: 'e2e', name: '@daqian/payment-e2e', role: 'test', private: true, allowedDirectories: ['src'] },
+      { directory: 'sdk', name: '@daqian/template-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
+      { directory: 'protocol', name: '@daqian/template-protocol', role: 'protocol', private: false, allowedDirectories: ['src'] },
+      { directory: 'e2e', name: '@daqian/template-e2e', role: 'test', private: true, allowedDirectories: ['src'] },
     ],
     requiredCommands: ['check:fast'],
     testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
@@ -52,8 +52,8 @@ function base(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
     execution: 'local',
     tag: `${tagPrefix}0.1.0`,
     sourceRevision: 'a'.repeat(40),
-    sdk: { name: '@daqian/payment-sdk', version: '0.1.0', changed: true },
-    protocol: { name: '@daqian/payment-protocol', version: '0.1.0', changed: false },
+    sdk: { name: '@daqian/template-sdk', version: '0.1.0', changed: true },
+    protocol: { name: '@daqian/template-protocol', version: '0.1.0', changed: false },
     ...overrides,
   };
 }
@@ -113,19 +113,19 @@ defineCase({
     expect(plan.map(step => step.name)).toEqual(['build-protocol', 'publish-protocol', 'build-sdk', 'publish-sdk']);
     expect(plan[0]?.command).toEqual({
       file: 'pnpm',
-      args: ['--filter', '@daqian/payment-protocol', 'run', 'build'],
+      args: ['--filter', '@daqian/template-protocol', 'run', 'build'],
     });
     expect(plan[1]?.command).toEqual({
       file: 'pnpm',
-      args: ['--filter', '@daqian/payment-protocol', 'publish', '--no-git-checks', '--registry', concreteRegistry, `--@daqian:registry=${concreteRegistry}`],
+      args: ['--filter', '@daqian/template-protocol', 'publish', '--no-git-checks', '--registry', concreteRegistry, `--@daqian:registry=${concreteRegistry}`],
     });
     expect(plan[2]?.command).toEqual({
       file: 'pnpm',
-      args: ['--filter', '@daqian/payment-sdk', 'run', 'build'],
+      args: ['--filter', '@daqian/template-sdk', 'run', 'build'],
     });
     expect(plan[3]?.command).toEqual({
       file: 'pnpm',
-      args: ['--filter', '@daqian/payment-sdk', 'publish', '--no-git-checks', '--registry', concreteRegistry, `--@daqian:registry=${concreteRegistry}`],
+      args: ['--filter', '@daqian/template-sdk', 'publish', '--no-git-checks', '--registry', concreteRegistry, `--@daqian:registry=${concreteRegistry}`],
     });
     expect(plan.flatMap(step => step.command.args)).not.toEqual(expect.arrayContaining(['pack', 'check:package']));
     expect(() => createSdkReleasePlan({ record: base({ registry: placeholderRegistry }), release: { registry: placeholderRegistry, tagPrefix } }))

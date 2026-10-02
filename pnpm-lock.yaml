@@ -80,20 +80,20 @@ importers:
 
   packages/e2e:
     devDependencies:
-      '@daqian/payment-protocol':
+      '@daqian/template-protocol':
         specifier: workspace:*
-        version: link:../payment-protocol
-      '@daqian/payment-sdk':
+        version: link:../protocol
+      '@daqian/template-sdk':
         specifier: workspace:*
-        version: link:../payment-sdk
+        version: link:../sdk
 
-  packages/payment-protocol: {}
+  packages/protocol: {}
 
-  packages/payment-sdk:
+  packages/sdk:
     dependencies:
-      '@daqian/payment-protocol':
+      '@daqian/template-protocol':
         specifier: workspace:*
-        version: link:../payment-protocol
+        version: link:../protocol
 
 packages:
 

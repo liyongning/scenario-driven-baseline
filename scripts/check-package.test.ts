@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { checkPackageArtifacts, runPackageCli } from './check-package.ts';
 
-const protocol = { name: '@daqian/payment-protocol', version: '0.1.0', files: ['dist'] };
-const sdk = { name: '@daqian/payment-sdk', version: '0.2.0', files: ['dist'], dependencies: { '@daqian/payment-protocol': '0.1.0' } };
+const protocol = { name: '@daqian/template-protocol', version: '0.1.0', files: ['dist'] };
+const sdk = { name: '@daqian/template-sdk', version: '0.2.0', files: ['dist'], dependencies: { '@daqian/template-protocol': '0.1.0' } };
 
 describe('checkPackageArtifacts', () => {
   it('accepts production-only package files and an exact recorded protocol version', () => {
@@ -18,7 +18,7 @@ describe('checkPackageArtifacts', () => {
 
   it('rejects Shadow leakage, floating dependencies, version drift, and a publishable E2E package', () => {
     expect(checkPackageArtifacts({
-      sdkManifest: { ...sdk, dependencies: { '@daqian/payment-protocol': 'latest' } }, protocolManifest: protocol,
+      sdkManifest: { ...sdk, dependencies: { '@daqian/template-protocol': 'latest' } }, protocolManifest: protocol,
       sdkFiles: ['package/testing/shadow.js'], protocolFiles: ['package/tests/fixture.json'],
       record: { sdkVersion: '0.1.0', protocolVersion: '0.9.0' }, e2eManifest: { private: false },
     }, protocol.name)).toEqual(expect.arrayContaining([
@@ -40,7 +40,7 @@ describe('checkPackageArtifacts', () => {
 
     const spawn = vi.fn((command: string, args: ReadonlyArray<string>) => {
       if (command === 'pnpm') {
-        const name = args[1]!.endsWith('protocol') ? 'daqian-payment-protocol-0.1.0.tgz' : 'daqian-payment-sdk-0.2.0.tgz';
+        const name = args[1]!.endsWith('protocol') ? 'daqian-template-protocol-0.1.0.tgz' : 'daqian-template-sdk-0.2.0.tgz';
         return { status: 0, stdout: `${name}\n`, stderr: '' };
       }
       const isProtocol = args[1]!.includes('protocol');
@@ -49,7 +49,7 @@ describe('checkPackageArtifacts', () => {
     });
     expect(await runPackageCli([], process.cwd(), spawn)).toMatchObject({
       sdkVersion: '0.2.0', protocolVersion: '0.1.0', issues: [], exitCode: 0,
-      commands: [{ command: expect.stringContaining('@daqian/payment-protocol'), exitCode: 0 }, { command: expect.stringContaining('@daqian/payment-sdk'), exitCode: 0 }],
+      commands: [{ command: expect.stringContaining('@daqian/template-protocol'), exitCode: 0 }, { command: expect.stringContaining('@daqian/template-sdk'), exitCode: 0 }],
     });
   });
 

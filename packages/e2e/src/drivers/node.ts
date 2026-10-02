@@ -1,4 +1,4 @@
-import type { HttpPort } from '@daqian/payment-protocol';
+import type { HttpPort } from '@daqian/template-protocol';
 
 /** Node 集成网络桥；仅替换平台 HTTP，保留协议执行器与 codec。 */
 export function createNodeHttpDriver(): HttpPort {

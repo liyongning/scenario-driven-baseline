@@ -1,4 +1,4 @@
-import { createExampleClient, type ExampleResourceRef } from '@daqian/payment-sdk';
+import { createExampleClient, type ExampleResourceRef } from '@daqian/template-sdk';
 
 type Input = Readonly<{
   action: 'create-success' | 'observe-completed' | 'normal';

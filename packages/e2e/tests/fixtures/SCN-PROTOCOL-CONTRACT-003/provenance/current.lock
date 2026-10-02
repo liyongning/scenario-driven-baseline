@@ -80,10 +80,10 @@ sources:
                       id: idl/infra/trade/v1/trade.proto
         outputs:
             payment-ts:
-                path: packages/payment-protocol/src/generated
+                path: packages/protocol/src/generated
                 generator: ts-client
                 generatorVersion: 6
                 profile: generated-idl2-compatible/v1
                 profileDigest: sha256:fd20d068a2a5480bdbeb6d6e1802a0c5ac7a94b25b9c043f90f20ab514521246
-                configDigest: sha256:0cfb0044040d0d15a3faae863a04a96bdaf1c09bb4492a2b51339f9431996622
+                configDigest: sha256:1d14a161ce75c566aabb58ebe1539ba566eb09651a4a17a0ea04db6f3dc7a348
                 treeDigest: sha256:fe03782ff04128bc4538cdd3f5d156d5daae536aa60315d75927a43cc449f8ad

@@ -23,7 +23,7 @@ function architectureFixture() {
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md)\n');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
   writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  for (const name of ['payment-sdk', 'payment-protocol', 'e2e']) {
+  for (const name of ['sdk', 'protocol', 'e2e']) {
     const directory = join(root, 'packages', name);
     mkdirSync(directory);
     writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
@@ -38,8 +38,8 @@ function runArchitecture(root: string) {
 
 function packageInput() {
   return {
-    sdkManifest: { name: '@daqian/payment-sdk', version: '0.1.0', files: ['dist'], dependencies: { '@daqian/payment-protocol': '0.1.0' } },
-    protocolManifest: { name: '@daqian/payment-protocol', version: '0.1.0', files: ['dist'] },
+    sdkManifest: { name: '@daqian/template-sdk', version: '0.1.0', files: ['dist'], dependencies: { '@daqian/template-protocol': '0.1.0' } },
+    protocolManifest: { name: '@daqian/template-protocol', version: '0.1.0', files: ['dist'] },
     sdkFiles: ['package/package.json', 'package/dist/index.js'],
     protocolFiles: ['package/package.json', 'package/dist/index.js'],
     record: { sdkVersion: '0.1.0', protocolVersion: '0.1.0' },
@@ -78,8 +78,8 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<[keyof t
         result = runArchitecture(root); break;
       }
       case 'reverse-dependency': {
-        const root = architectureFixture(); const path = join(root, 'packages/payment-protocol/package.json');
-        const manifest = JSON.parse(readFileSync(path, 'utf8')); manifest.dependencies = { '@daqian/payment-sdk': '0.1.0' };
+        const root = architectureFixture(); const path = join(root, 'packages/protocol/package.json');
+        const manifest = JSON.parse(readFileSync(path, 'utf8')); manifest.dependencies = { '@daqian/template-sdk': '0.1.0' };
         writeFileSync(path, JSON.stringify(manifest)); result = runArchitecture(root); break;
       }
       case 'shadow-in-production': {

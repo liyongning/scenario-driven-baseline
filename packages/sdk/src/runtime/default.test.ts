@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import type { Cancellation } from '@daqian/payment-protocol';
+import type { Cancellation } from '@daqian/template-protocol';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.resetModules(); });
 

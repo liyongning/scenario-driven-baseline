@@ -14,7 +14,7 @@ function fixture() {
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md) [external](https://example.invalid)');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
   writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  for (const name of ['payment-sdk', 'payment-protocol', 'e2e']) {
+  for (const name of ['sdk', 'protocol', 'e2e']) {
     const dir = join(root, 'packages', name); mkdirSync(dir);
     writeFileSync(join(dir, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
     writeFileSync(join(dir, 'package.json'), readFileSync(`packages/${name}/package.json`));
@@ -50,21 +50,21 @@ test('清单登记但缺失的包目录被报告', () => {
 
 test('第四个包、未知职责目录及产品测试导出被拒绝', () => {
   const root = fixture(); mkdirSync(join(root, 'packages/fourth'));
-  mkdirSync(join(root, 'packages/payment-sdk/ui'));
-  const p = join(root, 'packages/payment-sdk/package.json'); const manifest = JSON.parse(readFileSync(p, 'utf8'));
+  mkdirSync(join(root, 'packages/sdk/ui'));
+  const p = join(root, 'packages/sdk/package.json'); const manifest = JSON.parse(readFileSync(p, 'utf8'));
   manifest.exports['./testing'] = './testing/index.ts'; writeFileSync(p, JSON.stringify(manifest));
-  expect(checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['unexpected package fourth', 'unexpected directory packages/payment-sdk/ui', 'private entry exported by payment-sdk']));
+  expect(checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['unexpected package fourth', 'unexpected directory packages/sdk/ui', 'private entry exported by sdk']));
 });
 
 test('包名、private 标识、反向依赖与必需命令错误被拒绝', () => {
   const root = fixture();
-  const p = join(root, 'packages/payment-protocol/package.json'); const manifest = JSON.parse(readFileSync(p, 'utf8'));
-  manifest.name = 'wrong'; manifest.dependencies = { '@daqian/payment-sdk': 'workspace:*' };
+  const p = join(root, 'packages/protocol/package.json'); const manifest = JSON.parse(readFileSync(p, 'utf8'));
+  manifest.name = 'wrong'; manifest.dependencies = { '@daqian/template-sdk': 'workspace:*' };
   writeFileSync(p, JSON.stringify(manifest));
-  writeFileSync(join(root, 'packages/e2e/package.json'), JSON.stringify({ name: '@daqian/payment-e2e', private: false }));
+  writeFileSync(join(root, 'packages/e2e/package.json'), JSON.stringify({ name: '@daqian/template-e2e', private: false }));
   writeFileSync(join(root, 'package.json'), JSON.stringify({}));
   const errors = checkArchitecture(root, 0);
-  expect(errors).toContain('wrong package name payment-protocol');
+  expect(errors).toContain('wrong package name protocol');
   expect(errors).toContain('protocol cannot depend on SDK/E2E');
   expect(errors).toContain('e2e must be private');
   expect(errors).toContain('missing command typecheck');
@@ -75,8 +75,8 @@ function importFixture(source: string) {
   const root = fixture();
   writeFileSync(join(root, '.dependency-cruiser.cjs'), readFileSync('.dependency-cruiser.cjs'));
   writeFileSync(join(root, 'tsconfig.base.json'), readFileSync('tsconfig.base.json'));
-  for (const name of ['payment-sdk', 'payment-protocol']) mkdirSync(join(root, 'packages', name, 'src'), { recursive: true });
-  const protocol = join(root, 'packages/payment-protocol');
+  for (const name of ['sdk', 'protocol']) mkdirSync(join(root, 'packages', name, 'src'), { recursive: true });
+  const protocol = join(root, 'packages/protocol');
   mkdirSync(join(protocol, 'src/generated'));
   writeFileSync(join(protocol, 'src/index.ts'), 'export type PublicType = string;');
   writeFileSync(join(protocol, 'src/generated/std.ts'), 'export const config = 1;');
@@ -84,22 +84,22 @@ function importFixture(source: string) {
   mkdirSync(join(protocol, 'dist/generated'), { recursive: true });
   writeFileSync(join(protocol, 'dist/index.d.ts'), 'export type PublicType = string;');
   writeFileSync(join(protocol, 'dist/generated/std.d.ts'), 'export declare const config: number;');
-  const modules = join(root, 'packages/payment-sdk/node_modules/@daqian');
+  const modules = join(root, 'packages/sdk/node_modules/@daqian');
   mkdirSync(modules, { recursive: true });
-  symlinkSync(protocol, join(modules, 'payment-protocol'), 'dir');
-  writeFileSync(join(root, 'packages/payment-sdk/src/export-bypass.ts'), source);
+  symlinkSync(protocol, join(modules, 'template-protocol'), 'dir');
+  writeFileSync(join(root, 'packages/sdk/src/export-bypass.ts'), source);
   return spawnSync(resolve('node_modules/.bin/depcruise'), [
     '--config', '.dependency-cruiser.cjs', '--output-type', 'err-long',
-    'packages/payment-sdk/src/export-bypass.ts',
+    'packages/sdk/src/export-bypass.ts',
   ], { cwd: root, encoding: 'utf8' });
 }
 
 test.each([
-  "export { config } from '../../payment-protocol/src/generated/std';",
-  "export type { PublicType } from '../../payment-protocol/src/index';",
-  "export const load = () => import('../../payment-protocol/src/generated/std');",
-  "export { config } from '../../payment-protocol/dist/generated/std.d.ts';",
-  "export { config } from 'packages/payment-protocol/src/generated/std';",
+  "export { config } from '../../protocol/src/generated/std';",
+  "export type { PublicType } from '../../protocol/src/index';",
+  "export const load = () => import('../../protocol/src/generated/std');",
+  "export { config } from '../../protocol/dist/generated/std.d.ts';",
+  "export { config } from 'packages/protocol/src/generated/std';",
 ])('真实 CLI 拒绝绕过 exports 的跨包源文件导入：%s', source => {
   const result = importFixture(source);
   expect(result.status).toBe(1);
@@ -107,6 +107,6 @@ test.each([
 });
 
 test('真实 CLI 接受完整 npm 名称的 root 和 generated 公开子入口', () => {
-  const result = importFixture("export type { PublicType } from '@daqian/payment-protocol';\nexport { config } from '@daqian/payment-protocol/generated/std';");
+  const result = importFixture("export type { PublicType } from '@daqian/template-protocol';\nexport { config } from '@daqian/template-protocol/generated/std';");
   expect(result.status, result.stdout + result.stderr).toBe(0);
 });

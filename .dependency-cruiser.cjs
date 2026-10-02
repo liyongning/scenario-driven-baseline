@@ -1,18 +1,18 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
-    { name: 'protocol-no-reverse-import', severity: 'error', from: { path: '^packages/payment-protocol/src/' }, to: { path: '^packages/(payment-sdk|e2e)/' } },
-    { name: 'production-no-test', severity: 'error', from: { path: '^packages/(payment-sdk|payment-protocol)/src/', pathNot: '[.]test[.]ts$' }, to: { path: '(^packages/e2e/|/testing/|[.]test[.]ts$|^@payment-test/)' } },
+    { name: 'protocol-no-reverse-import', severity: 'error', from: { path: '^packages/protocol/src/' }, to: { path: '^packages/(sdk|e2e)/' } },
+    { name: 'production-no-test', severity: 'error', from: { path: '^packages/(sdk|protocol)/src/', pathNot: '[.]test[.]ts$' }, to: { path: '(^packages/e2e/|/testing/|[.]test[.]ts$|^@template-test/)' } },
     // 本地路径即便指向公开入口，也必须通过 npm 名称消费；仅放行已配置的 npm 名称别名。
-    { name: 'cross-workspace-no-direct-files', severity: 'error', from: { path: '^packages/(payment-sdk|payment-protocol)/src/' }, to: { path: '^packages/(?!$1/)(payment-sdk|payment-protocol|e2e)/', dependencyTypes: ['local'], dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'] } },
-    { name: 'sdk-cross-package-exports-only', severity: 'error', from: { path: '^packages/payment-sdk/src/' }, to: { path: '^packages/payment-protocol/', pathNot: '^packages/payment-protocol/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))' } },
-    { name: 'core-no-platform-or-node', severity: 'error', from: { path: '^packages/payment-sdk/src/(runtime|example/(core|ports))/', pathNot: '[.]test[.]ts$' }, to: { dependencyTypes: ['core'] } },
-    // 示例分层约定见 packages/payment-sdk/AGENTS.md「按示例扩展新业务」。
-    { name: 'example-core-no-generated', severity: 'error', from: { path: '^packages/payment-sdk/src/example/(core|ports)/' }, to: { path: '^packages/payment-protocol/(src/|dist/)?generated/' } },
+    { name: 'cross-workspace-no-direct-files', severity: 'error', from: { path: '^packages/(sdk|protocol)/src/' }, to: { path: '^packages/(?!$1/)(sdk|protocol|e2e)/', dependencyTypes: ['local'], dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'] } },
+    { name: 'sdk-cross-package-exports-only', severity: 'error', from: { path: '^packages/sdk/src/' }, to: { path: '^packages/protocol/', pathNot: '^packages/protocol/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))' } },
+    { name: 'core-no-platform-or-node', severity: 'error', from: { path: '^packages/sdk/src/(runtime|example/(core|ports))/', pathNot: '[.]test[.]ts$' }, to: { dependencyTypes: ['core'] } },
+    // 示例分层约定见 packages/sdk/AGENTS.md「按示例扩展新业务」。
+    { name: 'example-core-no-generated', severity: 'error', from: { path: '^packages/sdk/src/example/(core|ports)/' }, to: { path: '^packages/protocol/(src/|dist/)?generated/' } },
     // Shadow 引擎只接收中立路由（PC-03）；协议来源经 testing/shadow/idl-routes.ts 与 testing/shadow/example/ 接入，引擎文件不得导入 ProtoGen 生成代码。
-    { name: 'shadow-engine-no-generated', severity: 'error', comment: 'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。', from: { path: '^packages/payment-protocol/testing/shadow/', pathNot: '(^packages/payment-protocol/testing/shadow/(idl-routes[.]ts|example/)|[.]test[.]ts$)' }, to: { path: '^packages/payment-protocol/src/generated/' } },
+    { name: 'shadow-engine-no-generated', severity: 'error', comment: 'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。', from: { path: '^packages/protocol/testing/shadow/', pathNot: '(^packages/protocol/testing/shadow/(idl-routes[.]ts|example/)|[.]test[.]ts$)' }, to: { path: '^packages/protocol/src/generated/' } },
     // 产品包内各业务模块目录互不导入；可共用的只有 runtime/ 与协议包公开入口，index.ts 作为装配入口豁免。
-    { name: 'domain-isolation', severity: 'error', from: { path: '^packages/payment-sdk/src/([^/]+)/', pathNot: '^packages/payment-sdk/src/runtime/' }, to: { path: '^packages/payment-sdk/src/([^/]+)/', pathNot: ['^packages/payment-sdk/src/runtime/', '^packages/payment-sdk/src/$1/'] } },
+    { name: 'domain-isolation', severity: 'error', from: { path: '^packages/sdk/src/([^/]+)/', pathNot: '^packages/sdk/src/runtime/' }, to: { path: '^packages/sdk/src/([^/]+)/', pathNot: ['^packages/sdk/src/runtime/', '^packages/sdk/src/$1/'] } },
     {
       name: 'no-circular',
       severity: 'warn',

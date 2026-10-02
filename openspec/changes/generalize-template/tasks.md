@@ -113,7 +113,7 @@
   **Commit**
   - `refactor(protocol): decouple shadow routes from generated metadata`
 
-- [ ] 3. 包与项目改名，ProtoGen 输出路径迁移
+- [x] 3. 包与项目改名，ProtoGen 输出路径迁移
 
   **Files**
   - Modify：`proto-gen.yaml`（输出路径改为 `packages/protocol/src/generated`）；运行 `pnpm proto:sync` 生成新的 `proto-gen.lock`（按 Design"中立命名与 ProtoGen 输出路径迁移"的顺序：先改配置、旧目录仍在原位时同步）。

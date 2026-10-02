@@ -1,22 +1,22 @@
 {
   "packages": [
     {
-      "directory": "payment-sdk",
-      "name": "@daqian/payment-sdk",
+      "directory": "sdk",
+      "name": "@daqian/template-sdk",
       "role": "product",
       "private": false,
       "allowedDirectories": ["src", "dist", "node_modules"]
     },
     {
-      "directory": "payment-protocol",
-      "name": "@daqian/payment-protocol",
+      "directory": "protocol",
+      "name": "@daqian/template-protocol",
       "role": "protocol",
       "private": false,
       "allowedDirectories": ["src", "testing", "dist", "node_modules"]
     },
     {
       "directory": "e2e",
-      "name": "@daqian/payment-e2e",
+      "name": "@daqian/template-e2e",
       "role": "test",
       "private": true,
       "allowedDirectories": ["src", "host", "tests", "node_modules"]
@@ -49,9 +49,9 @@
   ],
   "fingerprints": {
     "sourceRoots": [
-      "packages/payment-sdk/src",
-      "packages/payment-protocol/src",
-      "packages/payment-protocol/testing",
+      "packages/sdk/src",
+      "packages/protocol/src",
+      "packages/protocol/testing",
       "packages/e2e/src",
       "packages/e2e/tests",
       "scripts"
@@ -59,7 +59,7 @@
     "hostRoots": ["packages/e2e/host"]
   },
   "release": {
-    "registry": "https://gitlab.daqian369.com/api/v4/projects/245/packages/npm/",
-    "tagPrefix": "payment-sdk-v"
+    "registry": "https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/",
+    "tagPrefix": "template-sdk-v"
   }
 }

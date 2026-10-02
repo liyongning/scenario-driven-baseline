@@ -1,6 +1,6 @@
 import { expect, test, type TestContext } from 'vitest';
-import { CreateTradeResponse, QueryTradeResponse, TradeStatus } from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
-import { GoodsType } from '@daqian/payment-protocol/generated/idl/infra/pay/v1/pay';
+import { CreateTradeResponse, QueryTradeResponse, TradeStatus } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { GoodsType } from '@daqian/template-protocol/generated/idl/infra/pay/v1/pay';
 import { createExampleTradeBackend } from './trade-backend';
 
 const catalog = { kind: 'fixture', itemId: 'sku-1', itemName: 'Fixture', unitValue: 125n };

@@ -11,4 +11,4 @@ sources:
       - id: payment-ts
         generator: ts-client
         profile: generated-idl2-compatible/v1
-        path: packages/payment-protocol/src/generated
+        path: packages/protocol/src/generated

@@ -359,12 +359,12 @@
         }
       },
       "output": {
-        "path": "packages/payment-protocol/src/generated",
+        "path": "packages/protocol/src/generated",
         "generator": "ts-client",
         "generatorVersion": 6,
         "profile": "generated-idl2-compatible/v1",
         "profileDigest": "sha256:fd20d068a2a5480bdbeb6d6e1802a0c5ac7a94b25b9c043f90f20ab514521246",
-        "configDigest": "sha256:0cfb0044040d0d15a3faae863a04a96bdaf1c09bb4492a2b51339f9431996622",
+        "configDigest": "sha256:1d14a161ce75c566aabb58ebe1539ba566eb09651a4a17a0ea04db6f3dc7a348",
         "treeDigest": "sha256:fe03782ff04128bc4538cdd3f5d156d5daae536aa60315d75927a43cc449f8ad"
       }
     }
@@ -401,7 +401,7 @@
     "baselineSha256": "ecb8b02b9d7c85602e40a1207b8dfed3eef6b52a27456c7546717bf0aef8d716",
     "refreshScriptSha256": "7589d0e6408e71de84c2995e8ef5f4ca0a16fa696c3f3baf301989776a30f3a1",
     "currentBaseline": "SCN-PROTOCOL-CONTRACT-003/provenance/current.lock",
-    "currentBaselineSha256": "9652f6a678d03447eaa389cc40b05d7ef095433acf8f2cf4332a19b624efb999"
+    "currentBaselineSha256": "c8e2578bde1db3a29292be389fc3d9721f7968b9848799bb33ace9bd89ecb8ab"
   },
   "provenance": {
     "commands": {
@@ -414,7 +414,7 @@
       "before.lock": "ecb8b02b9d7c85602e40a1207b8dfed3eef6b52a27456c7546717bf0aef8d716",
       "status.json": "cc50ef70eaf5cf5923beced4b6b6754a92c6efade62ab83ddc6d5765d0cefb3d",
       "sync.json": "f38d69434b0e90fd354bb23686f69a62eb98c9120e8cf7c59b24aa015e28fa01",
-      "current.lock": "28e0dd3d6b71d535db7ffe1369c352211dd41233f0f54e74074a9c7cf9b1e6a3"
+      "current.lock": "c8e2578bde1db3a29292be389fc3d9721f7968b9848799bb33ace9bd89ecb8ab"
     },
     "origin": "Historical 2026-09-09 sync/status remains fixed; current.lock records the reviewed 2026-09-10 CreateTrade projection independently."
   }

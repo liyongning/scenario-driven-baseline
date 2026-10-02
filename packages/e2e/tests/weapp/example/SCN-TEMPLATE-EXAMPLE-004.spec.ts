@@ -1,6 +1,6 @@
 import automator from 'miniprogram-automator';
 import { afterEach } from 'vitest';
-import { createShadowServer, discoverExampleRoutes, type RunningShadowServer } from '@payment-test/protocol';
+import { createShadowServer, discoverExampleRoutes, type RunningShadowServer } from '@template-test/protocol';
 import { defineCase } from '../../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../../src/drivers/weapp.ts';
 

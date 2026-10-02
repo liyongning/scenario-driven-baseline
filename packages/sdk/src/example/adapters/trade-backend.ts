@@ -1,9 +1,9 @@
-import { getPaymentBusinessError, paymentBusinessErrors } from '@daqian/payment-protocol';
-import type { CommunicationError, DecodedHttpResponse } from '@daqian/payment-protocol';
-import { GoodsType } from '@daqian/payment-protocol/generated/idl/infra/pay/v1/pay';
-import { CreateTrade, CreateTradeRequest, QueryTrade, QueryTradeRequest, TradeStatus } from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
-import { CanonicalErrorCode } from '@daqian/payment-protocol/generated/idl/common/v1/enums';
-import type { CreateTradeResponse, QueryTradeResponse } from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
+import { getPaymentBusinessError, paymentBusinessErrors } from '@daqian/template-protocol';
+import type { CommunicationError, DecodedHttpResponse } from '@daqian/template-protocol';
+import { GoodsType } from '@daqian/template-protocol/generated/idl/infra/pay/v1/pay';
+import { CreateTrade, CreateTradeRequest, QueryTrade, QueryTradeRequest, TradeStatus } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { CanonicalErrorCode } from '@daqian/template-protocol/generated/idl/common/v1/enums';
+import type { CreateTradeResponse, QueryTradeResponse } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
 import type { ExampleBackend, ExampleBackendResult, ExampleCreated, ExampleObserved, ExampleTradeBackendOptions } from '../ports/backend';
 
 const errorMessages = {

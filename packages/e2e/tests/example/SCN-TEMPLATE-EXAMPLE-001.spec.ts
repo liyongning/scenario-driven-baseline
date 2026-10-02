@@ -1,5 +1,5 @@
 import { afterEach } from 'vitest';
-import { createExampleClient, ExampleConfigurationError } from '@daqian/payment-sdk';
+import { createExampleClient, ExampleConfigurationError } from '@daqian/template-sdk';
 import { defineCase } from '../../src/cases/define-case.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;

@@ -1,4 +1,4 @@
-import type { Cancellation } from '@daqian/payment-protocol';
+import type { Cancellation } from '@daqian/template-protocol';
 import type { RuntimePort } from './port';
 
 // 只声明跨宿主定时器能力，核心不引入 DOM 或 Node 全局类型。

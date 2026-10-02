@@ -3,8 +3,8 @@ import ts from 'typescript';
 import { defineCase } from '../../src/cases/define-case.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
-const contractsUrl = new URL('../../../payment-sdk/src/example/contracts.ts', import.meta.url);
-const declarationUrls = ['index.d.ts', 'index.d.cts'].map(file => new URL(`../../../payment-sdk/dist/${file}`, import.meta.url));
+const contractsUrl = new URL('../../../sdk/src/example/contracts.ts', import.meta.url);
+const declarationUrls = ['index.d.ts', 'index.d.cts'].map(file => new URL(`../../../sdk/dist/${file}`, import.meta.url));
 type DocRequirement = Readonly<{ name: string; fields?: readonly string[]; values?: readonly string[] }>;
 
 function chineseJsDoc(source: string, file: ts.SourceFile, node: ts.Node): boolean {

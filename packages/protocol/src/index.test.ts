@@ -68,7 +68,7 @@ describe('协议包生产根入口', () => {
       exports: Record<string, unknown>;
     };
     expect(Object.keys(manifest.exports)).toEqual(['.', './generated/*']);
-    const sdkEntry = readFileSync(new URL('../../payment-sdk/src/index.ts', import.meta.url), 'utf8');
+    const sdkEntry = readFileSync(new URL('../../sdk/src/index.ts', import.meta.url), 'utf8');
     expect(sdkEntry).not.toContain('createWechatMiniappHttp');
   });
 });

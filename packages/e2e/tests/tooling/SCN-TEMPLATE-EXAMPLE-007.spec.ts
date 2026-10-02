@@ -8,12 +8,12 @@ test('SCN-TEMPLATE-EXAMPLE-007 core-neutrality', { meta: { paymentCase: {
 } } }, async context => {
   const before = context.expect.getState().assertionCalls;
   const root = process.cwd();
-  const core = readFileSync(resolve(root, 'packages/payment-sdk/src/example/core/client.ts'), 'utf8');
-  const ports = readFileSync(resolve(root, 'packages/payment-sdk/src/example/ports/backend.ts'), 'utf8');
+  const core = readFileSync(resolve(root, 'packages/sdk/src/example/core/client.ts'), 'utf8');
+  const ports = readFileSync(resolve(root, 'packages/sdk/src/example/ports/backend.ts'), 'utf8');
   context.expect(core).not.toMatch(/TradeStatus|CreateTrade|QueryTrade|GoodsType|generated/);
   const imports = [...core.matchAll(/from ['"]([^'"]+)['"]/g)].map(match => match[1]);
-  context.expect(imports).toEqual(context.expect.arrayContaining(['../contracts', '../ports/backend', '@daqian/payment-protocol']));
-  context.expect(imports?.every(path => path === '../contracts' || path === '../ports/backend' || path === '@daqian/payment-protocol')).toBe(true);
+  context.expect(imports).toEqual(context.expect.arrayContaining(['../contracts', '../ports/backend', '@daqian/template-protocol']));
+  context.expect(imports?.every(path => path === '../contracts' || path === '../ports/backend' || path === '@daqian/template-protocol')).toBe(true);
   context.expect(ports).not.toMatch(/TradeStatus|CreateTrade|QueryTrade|GoodsType|generated|\bwx\b/);
   await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['core-neutral'] }), 'payment-evidence');
 });

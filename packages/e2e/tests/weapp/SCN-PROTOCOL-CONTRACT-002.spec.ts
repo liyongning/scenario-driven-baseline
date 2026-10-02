@@ -2,8 +2,8 @@
 import automator from 'miniprogram-automator';
 import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
-import { CreateTradeResponse, QueryTradeResponse } from '@daqian/payment-protocol/generated/idl/infra/trade/v1/trade';
-import { createShadowServer, discoverExampleRoutes, type RunningShadowServer } from '@payment-test/protocol';
+import { CreateTradeResponse, QueryTradeResponse } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { createShadowServer, discoverExampleRoutes, type RunningShadowServer } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../src/drivers/weapp.ts';

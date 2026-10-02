@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type TestContext } from 'vitest';
 import { parse } from 'yaml';
-import * as protocol from '@daqian/payment-protocol';
-import { canonicalErrorCodeToJSON } from '@daqian/payment-protocol/generated/idl/common/v1/enums';
+import * as protocol from '@daqian/template-protocol';
+import { canonicalErrorCodeToJSON } from '@daqian/template-protocol/generated/idl/common/v1/enums';
 import expected from '../fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json';
 import manifest from '../fixtures/SCN-PROTOCOL-CONTRACT-003/manifest.json';
 

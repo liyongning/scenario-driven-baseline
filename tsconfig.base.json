@@ -17,11 +17,11 @@
     "removeComments": false,
     "baseUrl": ".",
     "paths": {
-      "@daqian/payment-protocol": [
-        "packages/payment-protocol/src/index.ts"
+      "@daqian/template-protocol": [
+        "packages/protocol/src/index.ts"
       ],
-      "@daqian/payment-sdk": [
-        "packages/payment-sdk/src/index.ts"
+      "@daqian/template-sdk": [
+        "packages/sdk/src/index.ts"
       ]
     },
     "allowImportingTsExtensions": true
