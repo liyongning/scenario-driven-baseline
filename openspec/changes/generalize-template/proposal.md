@@ -12,7 +12,7 @@
 ### 1. 项目清单驱动门禁
 
 - 新增根目录 `project.manifest.json` 与其格式 schema `project.manifest.schema.json`（每个字段带中文说明）。清单登记：三个包（目录、包名、角色、是否私有、允许目录）、必需命令、测试项目及其类别（unit / integration / platform）、源码摘要目录、发布设置（registry、tag 前缀）。
-- 上述门禁脚本改为从清单读取；`verification.schema.json`、`flow.schema.json` 不再枚举具体项目名，`requiredIn` 的合法取值与 kind 的匹配由门禁按清单中的项目类别校验；IDL 协议义务的运行环境由清单中 integration 与 platform 类项目推出。
+- 上述门禁脚本改为从清单读取；`verification.schema.json`、`flow.schema.json` 不再枚举具体项目名，`requiredIn` 的合法取值与 kind 的匹配由门禁按清单中的项目类别校验；IDL 协议义务的运行环境由清单推出（路由、字段与共享方法义务取 integration 与 platform 类项目，错误码义务取 integration 类项目，与现状一致）。
 - 使用方改名、去掉 weapp、去掉发布时，只改清单与对应文件，不改门禁代码。
 
 ### 2. 中立化
@@ -35,7 +35,7 @@
 - 新增 `docs/template-guide.md`：能力地图（每项能力的承载文件与验证方式）、从方案到验收的流程、初始化方式（使用方在自己仓库中以第一个 Change 完成删改增，并由同一套门禁验收），以及**替换点地图**：可替换的实现点"协议来源"（当前为 IDL + ProtoGen）、"运行平台"（当前为微信小程序），可删除模块"包发布"。每项列出涉及文件、清单需改的项与验收门禁。
 - 根 AGENTS.md 与 README 链接指南；架构门禁检查指南存在、被链接、链接可解析且包含规定章节，并核对指南中可机械核对的事实（引用的 Scenario ID 已登记、`pnpm` 命令存在、清单字段存在），防止代码改了而指南没跟着改。
 - **指南演练验收**：由不带本次规划上下文的 Agent 扮演使用方，在一次性副本中照指南完成删除发布模块、去掉小程序平台、包改名、新增业务模块，以及"换成 OpenAPI"的纸面推演；以 `check:fast` 通过、未改门禁逻辑为判定，按"需要猜测"的记录修订指南。
-- 根与各包 AGENTS.md、README 去掉支付身份与本机路径；修正两份主 Spec 的 Purpose 占位文字。
+- 根与各包 AGENTS.md、README 去掉支付身份与本机路径；修正四份主 Spec 的 Purpose 占位文字。
 
 ### 6. 上一步遗留的小项
 

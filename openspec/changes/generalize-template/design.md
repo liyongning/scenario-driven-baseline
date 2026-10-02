@@ -20,7 +20,7 @@
 | 发布 registry（GitLab 项目 245）与 tag 前缀 `payment-sdk-v` | `scripts/check-release.ts:5,15,86-90`；`scripts/sdk-release.ts:41,212` |
 | Shadow 路由类型依赖生成的 `RpcMethodMeta` | `packages/payment-protocol/testing/shadow/routes.ts:1-9`；服务器实际只用 `httpMethod`、`path`（`server.ts:67-68`） |
 
-此外仍带支付身份：包目录与包名、根包名与描述、测试别名 `@payment-test/*`、环境变量 `PAYMENT_RUN_ID`/`PAYMENT_REPORT_FILE`、用例元数据 `paymentCase`、注解 `payment-evidence`/`payment-flow`、摘要键 `paymentBehavior`、导出 `paymentBusinessErrors*`、全局 `__PAYMENT_TEST_RUNNER__`、weapp 宿主标题与 `projectname`、临时目录前缀、README 中的本机路径与支付链接；两份主 Spec 的 Purpose 仍是归档生成的 "TBD" 占位。
+此外仍带支付身份：包目录与包名、根包名与描述、测试别名 `@payment-test/*`、环境变量 `PAYMENT_RUN_ID`/`PAYMENT_REPORT_FILE`、用例元数据 `paymentCase`、注解 `payment-evidence`/`payment-flow`、摘要键 `paymentBehavior`、导出 `paymentBusinessErrors*`、全局 `__PAYMENT_TEST_RUNNER__`、weapp 宿主标题与 `projectname`、临时目录前缀、README 中的本机路径与支付链接；四份主 Spec 的 Purpose 仍是归档生成的 "TBD" 占位。
 
 ```mermaid
 flowchart LR
@@ -71,7 +71,7 @@ flowchart LR
 
 ### Decision: 项目清单的格式与读取方
 
-新增根目录 `project.manifest.json` 与 `project.manifest.schema.json`（JSON Schema draft 2020-12，`additionalProperties: false`，每个属性带非空中文 `description`），并由新模块 `scripts/lib/project-manifest.ts` 统一加载：读取、用 Ajv 校验、返回只读对象；文件缺失或校验失败时抛出带路径的错误，调用方把它作为门禁问题输出，不得回退到默认值。
+新增根目录 `project.manifest.json` 与 `project.manifest.schema.json`（JSON Schema draft 2020-12，`additionalProperties: false`，每个属性带非空中文 `description`），并由新模块 `scripts/lib/project-manifest.ts` 统一加载：读取、用 Ajv 校验、返回只读对象；文件缺失或校验失败时抛出带路径的错误，调用方把它作为门禁问题输出，不得回退到默认值。清单 schema 总是从**仓库**位置加载（相对 `import.meta.url` 解析），清单本身从**门禁根目录**加载；因此临时根目录只需提供 `project.manifest.json`，不需要复制 schema。
 
 清单字段（schema 为唯一权威，此处只说明意图）：
 
@@ -88,27 +88,38 @@ flowchart LR
 | 读取方 | 现状 | 改为 |
 | --- | --- | --- |
 | `check-architecture.ts` | 写死三包、允许目录、包名、私有、协议包依赖、必需命令、AGENTS 路径 | 全部取自清单；协议包不得依赖 product 与 test 角色的包；AGENTS 路径为根与每个登记包 |
+| `scripts/lib/schema-docs.ts` | `schemaPaths` 只列 3 份硬规则 schema（GATE-06） | 拆成两组：`hardRuleSchemas`（原 3 份，GATE-06 不变，`SCN-SCENARIO-GATE-008` 与 `schema-docs.test.ts` 的枚举不变）与 `projectSchemas`（`project.manifest.schema.json`，属 ENG-05）；两组都检查中文说明与根 AGENTS.md 引用。任务 1 同时在根 AGENTS.md 增加"项目清单"一节的最小引用，使检查保持通过 |
 | `verification.schema.json`、`flow.schema.json` | `requiredIn` 枚举具体项目名，kind 规则写在 `allOf` | `requiredIn` 项改为 `{"type":"string","pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$"}`，说明写明"取值必须是 project.manifest.json 登记的测试项目"；删除按 kind 枚举项目的 `allOf` |
-| `spec-inventory.ts` | 依赖 schema 枚举 | schema 校验之后按清单再校验：`requiredIn` 未登记 → `requiredIn project <x> is not registered in project.manifest.json`；kind 与类别不符（behavior ∉ integration/platform，module ∉ unit，engineering ∉ integration）→ `kind <k> cannot run in <class> project <x>`；FLOW 行同样只允许 integration/platform 类 |
+| `spec-inventory.ts` | 依赖 schema 枚举 | `readSpecInventory(sources, config?, projects?)` 新增可选参数 `projects`（`ReadonlyArray<{ name; class }>`），缺省时加载仓库根的 `project.manifest.json`；`check-scenarios.ts` 的 CLI 传入门禁根目录清单中的项目。schema 校验之后按项目再校验，问题文本**保留现有前缀**，使已有断言不变：case 的 `requiredIn` 未登记 → `<scenarioId>: invalid verification metadata: requiredIn project <x> is not registered in project.manifest.json`；kind 与类别不符（behavior ∉ integration/platform，module ∉ unit，engineering ∉ integration）→ `<scenarioId>: invalid verification metadata: kind <k> cannot run in <class> project <x>`；FLOW 行的 `requiredIn` 未登记或不属于 integration/platform 类 → `<source>: invalid FLOW row <flowId>: requiredIn project <x> is not an integration or platform project`。因此 `spec-inventory.test.ts:72-87,127`、`scenario-gate.evidence.test.ts:95-96`、`SCN-SCENARIO-GATE-007.spec.ts:7` 中按前缀与问题数的断言保持成立 |
 | `check-scenarios.ts` | `Project` 字面量联合类型 | 改为 `string`；运行环境集合来自清单 |
-| `contract-inventory.ts` | `requiredIn: ['integration','weapp']`；错误码义务 `['integration']` | 字段/路由/共享义务的环境 = 清单中全部 integration 与 platform 类项目；错误码义务 = 全部 integration 类项目 |
+| `contract-inventory.ts` | `requiredIn: ['integration','weapp']`；错误码义务 `['integration']`；静态导入 `packages/payment-protocol/testing/...` 与写死生成目录 | 字段/路由/共享义务的环境 = 清单中全部 integration 与 platform 类项目；错误码义务 = 全部 integration 类项目；示例方法描述模块按**仓库**清单中 protocol 角色的目录、相对仓库位置解析（`buildContractInventory` 已是 async，改为 `await import(new URL('../../packages/' + protocolDir + '/testing/shadow/example/routes.ts', import.meta.url).href)`），不随门禁根目录变化，临时根目录无需提供 `testing/`；生成目录仍相对门禁根目录，取门禁根清单中 protocol 角色目录下的 `src/generated`（临时根由 `enableInventory` 链接）；错误码 Fixture 路径属于测试包，保持不变 |
 | `fingerprints.ts` | 写死摘要目录与 `packages/e2e/host` | 取 `fingerprints.sourceRoots` 与 `hostRoots`；`openspec/`、Fixture 目录与 `proto-gen.lock` 的摘要规则不变 |
-| `check-package.ts` | 写死两个包名 | 按角色取 product 与 protocol 的名称与目录 |
+| `check-package.ts` 与 `packages/e2e/src/package-consumer.ts` | 写死两个包名 | 按角色取 product 与 protocol 的名称与目录；`package-consumer.ts` 不再写死 `@daqian/payment-protocol`，改由调用方传入协议包名（其单测同步）；对测试包的导入与 `packages/e2e/package.json` 读取保持不变 |
 | `check-release.ts`、`sdk-release.ts` | 写死包名、245、tag 前缀、registry 主机 | 见"发布目标来自清单" |
 
 不纳入清单、作为普通配置由使用方直接编辑并在替换点地图中列出的文件：`vitest.config.ts` 与各包 Vitest 配置、`vitest.shared.ts`、`tsconfig.*.json`、`eslint.config.js`、`.dependency-cruiser.cjs`、根 `package.json` 脚本。理由：它们本身就是声明式配置，再从清单生成会增加一层间接，且这些工具不能直接读 JSON 清单的部分需要额外胶水代码；门禁的问题在于"代码写死"，而不是"配置存在"。
 
-守护规则（ENG-05 的 `no-hardcoded-topology`）：测试遍历 `scripts/**/*.ts`（排除 `*.test.ts`），断言不含以下字面量：每个登记包的 `packages/<directory>`、每个包名、`release.registry`，以及与类别名不同的测试项目名（当前为 `sdk-unit`、`protocol-unit`、`test-tools-unit`、`weapp`）。与类别同名的项目名（`integration`）是类别概念，不在检查之列。
+守护规则（ENG-05 的 `no-hardcoded-topology`）：测试遍历 `scripts/**/*.ts`（排除 `*.test.ts`），逐文件按以下匹配规则断言零命中：
 
-兼容性：清单是新增文件，旧报告与 Fixture 格式不变；`scenario-gate.config.json` 继续只管 ID 格式。工具测试在临时根目录运行门禁时，`packages/e2e/tests/tooling/scenario-gate-helpers.ts` 与相关测试 helper 写入一份最小清单。
+| 对象 | 匹配规则 |
+| --- | --- |
+| product 与 protocol 角色的目录 | 正则 `packages/<directory>(?=[/'"\x60])`（目录名后紧跟 `/` 或引号） |
+| product 与 protocol 角色的包名 | 子串匹配 |
+| `release.registry` | 子串匹配 |
+| 与类别名不同的测试项目名（当前 `sdk-unit`、`protocol-unit`、`test-tools-unit`、`weapp`） | 只匹配完整的引号字面量 `'<name>'`、`"<name>"`、`` `<name>` ``；`'weapp.json'` 之类的文件名不算 |
+
+不在检查之列：测试包（test 角色）的路径 `packages/e2e/...` 与包名——它是门禁运行所依赖的测试基础设施，`scripts/check-package.ts:6` 静态导入 `packages/e2e/src/package-consumer.ts`，`scripts/check-fixtures.ts:19,66`、`scripts/lib/fingerprints.ts:58`、`scripts/lib/contract-inventory.ts:228` 读取 `packages/e2e/tests/fixtures`；测试包不作为可改名的替换点，指南如此说明。与类别同名的项目名（`integration`）是类别概念，不检查。`check-scenarios.ts` 的默认报告文件名 `unit.json`、`integration.json`、`weapp.json` 来自根 `package.json` 脚本中 `VERIFY_REPORT_FILE` 的约定，不是测试项目名，不纳入清单（去掉平台时替换点地图说明删除对应脚本与报告）。
+
+兼容性：清单是新增文件，旧报告与 Fixture 格式不变；`scenario-gate.config.json` 继续只管 ID 格式。工具测试在临时根目录运行门禁时，由 helper 把仓库的 `project.manifest.json` 原样复制到临时根（保证目录名与 `enableInventory` 链接的生成目录一致）；需要改清单的反例在复制后修改。涉及的文件以 `git grep -l "check-architecture\|checkArchitecture\|runArchitectureCli\|runGate\|runScenariosCli"` 在 `packages/e2e/tests/tooling` 与 `scripts` 中的命中为准，至少包括 `scenario-gate-helpers.ts`、`helpers.ts`、`SCN-TEMPLATE-ENGINEERING-002.spec.ts`、`SCN-SCENARIO-GATE-008.spec.ts` 与 `scripts/check-architecture.test.ts`。
 
 ### Decision: 发布目标来自清单
 
-- `ReleaseInput` 去掉 `targetProject: 245` 字面量类型；`registry` 必须等于清单 `release.registry`，`tag` 必须等于 `${release.tagPrefix}${产品包版本}`；包名按角色取自清单。
+- 发布记录的字段改为：`registry`、`execution`、`tag`、`sourceRevision`、`sdk`、`protocol`；**删除 `targetProject` 字段**（它与 `registry` 重复，项目由 registry 决定）。`check-release.ts:68-71` 的"未知字段"校验随之更新，含 `targetProject` 的旧记录被拒绝；`SCN-TEMPLATE-ENGINEERING-004` 的用例记录与 Fixture 同步去掉该字段。`registry` 必须等于清单 `release.registry`，`tag` 必须等于 `${release.tagPrefix}${产品包版本}`；包名按角色取自清单。
+- 计划生成沿用对象参数形式，输入新增字段 `release`（清单的发布设置）：`createSdkReleasePlan({ record, protocolState, sdkState, release })`；CLI 从 `cwd` 的清单读取后传入，`scripts/sdk-release.ts` 中现有的两处调用与测试同步；`publish-order` 用例传入登记具体 registry 的发布设置，不读取仓库清单。
 - 清单 `release.registry` 含 `<PROJECT_ID>` 时，预检返回 `release registry is a template placeholder; set release.registry in project.manifest.json` 并拒绝，计划生成同样拒绝。
 - `sdk-release.ts` 写临时 `.npmrc` 时，scope 与主机从包名和 registry URL 解析，不再写死 `@daqian` 与 `gitlab.daqian369.com`。
 - 清单缺少 `release` 时，`release:preflight` 与 `sdk-release` 以"发布模块已删除"退出非零（使用方删除发布模块时应同时删除这两个命令，见替换点地图）。
-- 任务 1 中清单仍登记 245 与 `payment-sdk-v`，现有发布用例不变；任务 3 改为占位值 `https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/` 与 `template-sdk-v`。此后 ENG-004 的正例在临时根目录中写入登记具体 registry 的清单运行；新增 `preflight-rejects-placeholder` 用仓库真实清单验证拒绝。
+- 任务 1 中清单仍登记 245 与 `payment-sdk-v`，现有发布用例不变；任务 3 改为占位值 `https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/` 与 `template-sdk-v`。任务 3 之后仓库清单为占位值，因此 ENG-004 中所有依赖"预检只报告特定问题"的用例（`preflight-valid-plan`、`preflight-rejects-drift`、`publish-order`）都在临时根目录中运行，只有 `preflight-rejects-placeholder` 读取仓库真实清单；占位值问题与其他问题一并报告（不提前返回），使漂移类断言在任何清单下都成立。临时根的做法是：复制根与各包 `package.json`，写入登记具体 registry 的清单，以 `cwd` 为该临时根启动预检子进程（`check-release.ts` 从 `cwd` 读取 workspace 事实，不新增 `--root`）；新增 `preflight-rejects-placeholder` 用仓库真实清单验证拒绝。
 - `.npmrc` 中安装 ProtoGen 的 `@daqian:registry`（项目 216）不变。
 
 ### Decision: Shadow 路由中立化
@@ -118,8 +129,9 @@ flowchart LR
 - `testing/shadow/example/routes.ts`：导出 `exampleRpcMethods`（`[CreateTrade.meta, QueryTrade.meta]`）与 `discoverExampleRoutes()`（调用 `routesFromRpcMethods`）。
 - `scripts/lib/contract-inventory.ts` 改用 `exampleRpcMethods` 读取 `requestType`/`responseType`/路径，不再依赖 `ShadowRoute.meta`。
 - `.dependency-cruiser.cjs` 新增规则 `shadow-engine-no-generated`：`testing/shadow/` 下除 `idl-routes.ts` 与 `example/` 外的非测试文件不得导入协议包 `src/generated/`。
+- 根 `package.json` 的 `check:architecture` 把协议包 `testing` 目录加入 depcruise 的扫描目标，使该规则在真实门禁中生效（现有命令只扫描两个包的 `src`）。加入后若已有规则对 `testing/` 误报（例如 `not-to-dev-dep` 因 `express` 是根 devDependency 而报错），在该规则的 `from.pathNot` 中排除 `/testing/` 并在配置中注明理由：`testing/` 只供测试，已由 `production-no-test` 禁止生产代码导入；不得为此放宽 `shadow-engine-no-generated` 或其他针对生产代码的规则。
 - `testing/index.ts` 增加导出 `routesFromRpcMethods` 与 `ShadowRoute` 类型；`bootstrap.test.ts` 的导出清单断言同步。
-- 现有 `example/routes.test.ts` 与 `server.test.ts` 的断言语义不变，只适配类型；新增 PC-04 的 module 用例放在 `testing/shadow/routes.test.ts`（中立路由）与 `testing/shadow/idl-routes.test.ts`（IDL 来源）；engineering 反例放在 `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts`，在临时副本中让 `server.ts` 导入 generated 并运行 dependency-cruiser，断言违规被报告（沿用 `SCN-TEMPLATE-EXAMPLE-008.spec.ts` 的做法）。
+- 现有 `example/routes.test.ts` 与 `server.test.ts` 的断言语义不变，只适配类型；新增 PC-03（SCN-PROTOCOL-CONTRACT-004）的 module 用例放在 `testing/shadow/routes.test.ts`（中立路由）与 `testing/shadow/idl-routes.test.ts`（IDL 来源）；engineering 反例放在 `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts`，在临时副本中让 `server.ts` 导入 generated 并运行 dependency-cruiser，断言违规被报告（沿用 `SCN-TEMPLATE-EXAMPLE-008.spec.ts` 的做法）。
 
 ### Decision: 中立命名与 ProtoGen 输出路径迁移
 
@@ -133,10 +145,11 @@ flowchart LR
 | 用例元数据 `meta.paymentCase` | `meta.scenarioCase` |
 | 注解 `payment-evidence`、`payment-flow` | `scenario-evidence`、`scenario-flow` |
 | 门禁摘要 `summaries.paymentBehavior` | `summaries.publicBehavior` |
-| `paymentBusinessErrors`、`paymentBusinessErrorsIdlCommit`、`PaymentBusinessErrorDescriptor` | `businessErrors`、`businessErrorsIdlCommit`、`BusinessErrorDescriptor` |
+| `paymentBusinessErrors`、`paymentBusinessErrorsIdlCommit`、`PaymentBusinessErrorDescriptor`、`getPaymentBusinessError` | `businessErrors`、`businessErrorsIdlCommit`、`BusinessErrorDescriptor`、`getBusinessError` |
 | `__PAYMENT_TEST_RUNNER__` | `__TEMPLATE_TEST_RUNNER__` |
-| weapp `projectname: payment-sdk-test-host`、标题 "Payment SDK Test Host" | `sdk-template-test-host`、"SDK Template Test Host" |
-| 临时目录前缀 `payment-*`（如 `payment-sdk-release-`、`payment-release-cli-`） | `template-*` |
+| schema `$id`：`https://daqian.example/payment-verification.schema.json`（`scripts/verification.schema.json:3`）、`https://daqian.example/payment-fixture.schema.json`（`packages/e2e/tests/fixtures/fixture.schema.json:3`） | `https://daqian.example/verification.schema.json`、`https://daqian.example/fixture.schema.json` |
+| weapp `projectname: payment-sdk-test-host`；`app.json` 与 `pages/index/index.json` 的标题 "Payment SDK Test Host"；`pages/index/index.wxml` 的 "Payment SDK protocol test host" | `sdk-template-test-host`；"SDK Template Test Host"；"SDK template protocol test host" |
+| 临时目录前缀 `payment-*`（如 `payment-sdk-release-`、`payment-release-cli-`） | `template-*`；其中 `scripts/sdk-release.ts` 的两处前缀在任务 1 改（该文件已在任务 1 改动范围内），其余在任务 4 改 |
 | 测试辅助函数 `paymentSource` 等局部名 | `generatedSource` 等中立名 |
 
 ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen.yaml` 的 `path` 改为 `packages/protocol/src/generated`，此时旧目录 `packages/payment-protocol/src/generated` 必须仍在原位；执行 `pnpm proto:sync`，工具把输出迁到新路径；锁文件只变化 `outputs.*.path` 与 `configDigest`，生成文件逐字节不变，`proto:status` 为 `up_to_date`。若先移动目录再同步，会报 `output_conflict`。因此任务 3 的顺序是：改 `proto-gen.yaml` → `proto:sync` → 再 `git mv` 其余协议包文件到 `packages/protocol`（生成目录已由工具迁移）。`consumerId: infra-payment-sdk`、source id `payment-idl`、output id `payment-ts` 保持不变（用户决定保留 Consumer 身份；改 id 需要重新采纳输出，收益为零）。
@@ -153,7 +166,11 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 3. `proto-gen.yaml`、`proto-gen.lock`：Consumer 身份 `infra-payment-sdk`、`payment-idl`、`payment-ts`。
 4. `packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/**`：借用 IDL 的来源事实（Go 文件名、历史工具输出、`paymentSemanticCommit` 等字段）。
 5. 直接引用 IDL 生成名称的代码：从 generated 导入的类型/枚举名（如 `XpayEnv`、`PayParams`、`CreateTradePay*`）及 IDL 路径 `idl/infra/pay/...`，仅限 import 语句与使用这些名称的位置。
-6. `.npmrc` 无 payment 字样，不在清单内。
+6. `openspec/changes/generalize-template/**`：本 Change 自身的规划文本（描述旧名称）；归档后进入第 1 类。
+7. Fixture manifest 中 `sources.spec.path` 指向已归档 Change 路径（例如 `openspec/changes/archive/2026-10-02-remove-payment-business/...`）的值：归档路径不可改。
+8. 文档（根与各包 `AGENTS.md`、`README.md`、`docs/**`）中说明保留的 ProtoGen Consumer 身份或借用 IDL 的句子：只允许字面量 `infra-payment-sdk`、`payment-idl`、`payment-ts` 与 IDL 路径 `idl/infra/pay/...`、`idl/infra/trade/...`，且所在句子的内容是说明"这是借用的 Consumer/IDL 身份、使用方替换时改哪里"；其他支付表述仍为遗漏。
+
+任务 3、4 的残留检查排除根与各包 `AGENTS.md`、`README.md`、`docs/**` 与 `openspec/specs/**`（主 Spec 中只有 Purpose 占位行 "TBD - created by archiving change remove-payment-business" 会命中），这些内容由任务 5 改写，命中归属到任务 5；任务 5 之后与任务 7 的检查不再排除。
 
 ### Decision: 工作流 schema 不随模板提交
 
@@ -171,17 +188,22 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 4. `## 替换点地图`，含三个三级标题：
    - `### 协议来源`：当前 IDL + ProtoGen。涉及 `proto-gen.yaml`/`.lock`、`packages/protocol/src/generated`、`testing/shadow/idl-routes.ts` 与 `example/routes.ts`、`scripts/lib/contract-inventory.ts`、错误码目录与 `SCN-PROTOCOL-CONTRACT-003` Fixture、`protocol-contract` Spec；换 IDL 时改 Consumer；换 OpenAPI 时新增路由来源并替换义务派生与错误码来源校验（或明确不启用并修改 Spec）。验收：`SCN-PROTOCOL-CONTRACT-001～004`。
    - `### 运行平台`：当前微信小程序。涉及协议包 `src/adapters/network/wechat-miniapp.ts` 与根导出、`packages/e2e/src/drivers/weapp*.ts`、`packages/e2e/host/weapp/`、`tests/weapp/`、`packages/e2e/vitest.config.weapp.ts`、清单 `testProjects`（platform 类）、`fingerprints.hostRoots`、`requiredCommands` 中的 `test:e2e:weapp`、e2e 包 `allowedDirectories` 中的 `host`、Spec 中 `requiredIn` 含 `weapp` 的 case；换 Web/Node 时新增对应网络适配器与驱动。验收：`check:fast` 与新平台项目的报告。
-   - `### 包发布`：可删除模块。涉及 `scripts/sdk-release.ts`、`check-release.ts` 及测试、`SCN-TEMPLATE-ENGINEERING-004` 用例与 Fixture、`template-engineering` ENG-04、清单 `release` 与 `requiredCommands` 中的 `release:preflight`、`sdk-release`、各包 `publishConfig`。验收：`check:fast`。
-   每项都写"清单需要修改的项"与"验收所用门禁"。
+   - `### 包发布`：可删除模块。涉及 `scripts/sdk-release.ts`、`check-release.ts` 及测试、`SCN-TEMPLATE-ENGINEERING-004` 用例与 Fixture、`template-engineering` ENG-04、清单 `manifest.release`、根 `package.json` 的 `release:preflight` 与 `sdk-release` 脚本（它们不在 `manifest.requiredCommands` 中，清单只需删除 `release`）、各包 `publishConfig`。验收：`check:fast`。
+   每项都写"清单需要修改的项"与"验收所用门禁"。删除或替换某一项后，对应的三级标题仍须保留（架构检查要求章节齐全），正文改为说明"本项目已删除/已替换为……"；指南中引用的、随之删除的 Scenario ID（例如删除发布模块后的 `SCN-TEMPLATE-ENGINEERING-004`）必须同时删去，否则事实一致性检查会报"未登记"。这两点写进指南"初始化方式"一节。
 5. 附加说明（非规定章节）：扩展更多包（扩展清单 schema 与读取方）、已知限制（weapp 不稳定与预热约 25 秒、平台能力替身只有文字标准、首次真实使用前地图未经验证）。
 
 架构检查新增（`scripts/check-architecture.ts` 的 `checkTemplateGuide`），分两类，缺失或不一致项逐条报告：
 
+- **执行方式**：Scenario ID 的登记核对需要读取有效 Spec 清单，而现有读取接口是异步的，因此 `checkArchitecture` 与 `runArchitectureCli` 改为 async，CLI 入口 `await` 其结果；`scripts/check-architecture.test.ts` 与在临时根运行架构检查的测试改为 `await`（断言内容不变）。
 - **结构**：文件存在；根 `AGENTS.md` 与 `README.md` 中存在指向 `docs/template-guide.md` 的链接；上述 4 个二级标题与 3 个三级标题齐全；指南中的相对链接都能解析（复用现有链接解析逻辑）。
 - **事实一致性**（防止代码改了而指南没跟着改）：
   - 指南全文中匹配 `scenario-gate.config.json` 场景 ID 格式的词，都必须在有效 Spec 清单中登记；
   - 行内代码中的 `pnpm <命令>` 与 `pnpm run <命令>`，除 pnpm 内置命令（`install`、`add`、`remove`、`exec`、`dlx`）外，`<命令>` 都必须存在于根 `package.json` 的 scripts；
   - 行内代码 `manifest.<字段路径>`（点号分隔，数组元素字段写作 `manifest.packages[].directory`）必须能在 `project.manifest.schema.json` 的 `properties`/`items` 中逐段解析。指南引用清单字段时一律使用这一写法。
+
+事实一致性检查中，`pnpm` 命令只检查紧跟在 `pnpm` 或 `pnpm run` 之后、不以 `-` 开头的那个词；以参数开头的写法（如 `pnpm --filter <包> build`、`pnpm -C <目录> test`）不检查。Scenario ID 的登记依据是门禁根目录的有效 Spec 清单；根目录中没有 Spec 时，指南中出现的任何 Scenario ID 都视为未登记。
+
+临时根目录：指南检查对每次架构检查都生效，因此任务 5 新增共享 helper `writeTemplateGuideFixture(root)`（放在 `packages/e2e/tests/tooling/helpers.ts`，`scripts/check-architecture.test.ts` 从同一位置导入），写入一份最小合法指南（4 个二级标题与 3 个三级标题，不含 Scenario ID、`pnpm` 命令与 `manifest.` 引用）并在临时根的 `AGENTS.md` 与 `README.md` 中加入指向它的链接。所有在临时根运行架构检查、并期望"无问题"或"只有特定问题"的测试都改用该 helper，断言不变；测试在运行前改写临时根 `AGENTS.md` 或 `README.md` 时（例如 `SCN-SCENARIO-GATE-008.spec.ts:26` 在 `restored-passes` 之前覆盖 `AGENTS.md`），改写后须再次调用该 helper 或在改写内容中保留指南链接：至少包括 `SCN-TEMPLATE-ENGINEERING-005.spec.ts`（`rename-by-manifest-cli` 期望临时根架构检查通过）、`SCN-SCENARIO-GATE-008.spec.ts`（`restored-passes`）、`SCN-TEMPLATE-ENGINEERING-002.spec.ts`、`scenario-gate-helpers.ts` 与 `scripts/check-architecture.test.ts` 的 fixture 根。
 
 文字描述是否准确、照着能否完成操作，机器无法判断，由任务 5 的评审与任务 6 的指南演练负责。
 
@@ -190,16 +212,16 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 - 根 `AGENTS.md`：标题改为"SDK 模板 Agent 入口"；"必读"增加指南与清单；硬规则 1 与执行规则 1 按"工作流 schema 不随模板提交"改写；执行规则 10 改为"ProtoGen Consumer 按产品实际依赖登记"；外部交互替身标准中 Shadow 一条改为"路由来自协议来源（当前由 IDL 生成描述转换）"；新增"项目清单"一节（作用、schema 路径、最小示例、哪些事实必须改清单）。
 - 各包 `AGENTS.md`：目录与包名、`@template-test/protocol` 别名、依赖规则路径同步；协议包补充 Shadow 中立路由与 `shadow-engine-no-generated`；e2e 包"微信开发者工具自动化的注意事项"把预热改为"约 25 秒"。
 - `README.md`：改写为模板简介（定位、三包、示例、常用命令、指向指南），删除本机路径、支付链接与项目 245；`docs/engineering/bootstrap.md` 中包名与路径同步。
-- 两份主 Spec（`template-engineering`、`protocol-contract`）的 `## Purpose` 由 "TBD - created by archiving…" 改为一句话说明。OpenSpec 的 delta 不能修改 Purpose，因此直接编辑主 Spec，属于有意例外，在验收索引中记录。
+- 四份主 Spec（`scenario-gate`、`template-example`、`template-engineering`、`protocol-contract`）的 `## Purpose` 都由 "TBD - created by archiving…" 改为一句话说明。OpenSpec 的 delta 不能修改 Purpose，因此直接编辑主 Spec，属于有意例外，在验收索引中记录。
 
 ### Decision: 上一步遗留小项
 
-- `SCN-TEMPLATE-ENGINEERING-003` 的 `source-and-dual-declarations.json` 中 `ExampleClientOptions` 增加 `requestContext` 子字段 `productId`、`lane`、`appVersion`（检查器已能遍历嵌套属性签名；如不能，扩展检查器以支持嵌套类型字面量）。
+- `SCN-TEMPLATE-ENGINEERING-003` 的 `source-and-dual-declarations.json` 中 `ExampleClientOptions` 的 `fields` 追加平铺名 `productId`、`lane`、`appVersion`。检查器的 `visit` 递归遍历类型节点下全部 `PropertySignature`，按名称收集，因此嵌套类型字面量中的字段可直接以平铺名登记，无需扩展检查器。
 - 删除 `wechat-miniapp.test.ts` 第 6 行引用已删除支付场景的注释。
 
 ### Decision: 验证方式
 
-- 每个任务：`pnpm check:fast` 退出码 0；以 unit、integration 与本任务受影响的 weapp 文件报告运行场景门禁，问题逐条归属到后续任务或判为回归；任务 3 起使用 `VERIFY_RUN_ID`（任务 3 之前仍为 `PAYMENT_RUN_ID`）。
+- 每个任务：`pnpm check:fast` 退出码 0；以 unit、integration 与本任务受影响的 weapp 文件报告运行场景门禁，问题逐条归属到后续任务或判为回归；任务 4 起使用 `VERIFY_RUN_ID`（任务 1～3 仍为 `PAYMENT_RUN_ID`，环境变量在任务 4 改名）。
 - 任务 3 改动宿主与包路径后，4 个 weapp 文件逐文件运行（每文件前退出开发者工具主进程并预热约 25 秒）。
 - 指南的验收分三层：
   1. 结构与事实一致性由架构检查守护（ENG-06），每次 `check:fast` 都运行；
@@ -211,7 +233,9 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 
 文字是否"照着能用"只能靠真实使用来证明。在真实使用方出现之前，用一个**不带本次规划上下文**的 Agent 扮演使用方，在一次性副本中照指南完成代表性操作。
 
-- **隔离**：每个演练在任务 5 提交之上新建一个独立的临时 git worktree（放在 scratch 目录，detached），`pnpm install --frozen-lockfile` 后进行；演练结束删除 worktree，演练产生的改动不进入任何提交。
+- **前置条件**：任务 1～5 已在 Apply 分支上逐任务提交（Apply 以 `--commit` 运行）。未获得提交授权时，在任务 6 之前停止并请用户决定，不用未提交的工作区做演练。
+- **隔离**：每个演练在任务 5 的提交之上新建一个独立的临时 git worktree（放在 scratch 目录，detached），`pnpm install --frozen-lockfile` 后进行；演练结束删除 worktree，演练产生的改动不进入任何提交。
+- **本 Change 仍处于 active 状态**：演练副本中 `openspec/changes/generalize-template/` 的 delta 仍然生效（例如 MODIFIED ENG-04）。演练的通过标准只看 `check:fast`，不运行场景门禁；提示词说明演练 Agent 无需处理 `openspec/changes/` 下的内容。
 - **执行者**：每个演练派发一个全新的 Agent。提示词只包含：worktree 路径、"先读根 `AGENTS.md` 与 `docs/template-guide.md`，按指南完成下述操作"、操作目标与规则；不包含本 Change 的规划内容，并要求不得读取 `openspec/changes/` 下的规划文件。
 - **规则**：只依据仓库内的文档与代码完成；不得修改门禁逻辑（`scripts/` 下的非测试文件，除非替换点地图明确要求删除某些文件）；每遇到需要猜测、指南与代码不符、指南缺步骤的地方，记入"猜测记录"，写明位置与现象。
 - **演练项与判定**：

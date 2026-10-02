@@ -4,18 +4,18 @@
 
 项目形态 MUST 由根目录 `project.manifest.json` 统一登记，格式唯一权威是 `project.manifest.schema.json`，其中每个属性（含嵌套属性）SHALL 带非空中文 `description`。清单登记：各包的目录、包名、角色（product、protocol、test 各一个）、是否私有与允许的目录；必需命令；测试项目及其类别（unit、integration、platform）；参与源码摘要的目录；发布设置。
 
-工程门禁 SHALL 从清单读取上述事实，门禁脚本（`scripts/` 下的非测试文件）MUST NOT 以字面量写死清单登记的包目录名、包名、测试项目名（与测试项目类别同名者除外，类别名是门禁概念）或发布 registry。具体要求：
+工程门禁 SHALL 从清单读取上述事实，门禁脚本（`scripts/` 下的非测试文件）MUST NOT 以字面量写死产品包与协议包的目录名和包名、与测试项目类别不同名的测试项目名，以及发布 registry。测试包是门禁赖以运行的测试基础设施（门禁导入它的工具代码、读取它的 Fixture 目录），其固定路径 `packages/e2e/` 不在此限，测试包也不作为可改名的替换点。具体要求：
 - 架构检查按清单校验包目录集合、包名、私有标记、协议包不得依赖产品包与测试包、允许目录与必需命令；
 - 场景门禁按清单校验 `requiredIn` 只引用已登记的测试项目，`verification.schema.json` 与 `flow.schema.json` 不枚举具体项目名；
-- IDL 协议义务的运行环境取清单中全部 integration 与 platform 类项目；
+- IDL 协议义务的运行环境取自清单：路由、字段与共享方法义务取全部 integration 与 platform 类项目，错误码义务取全部 integration 类项目；
 - 源码摘要的输入目录取自清单；
-- 包消费检查与发布脚本按角色从清单取包名。
+- 包消费检查（含测试包中的包消费工具）与发布脚本按角色从清单取包名。
 
 使用方按清单改名、删除 platform 类项目或删除发布设置后，只需同步清单与相应文件，门禁无需修改即可工作。
 
 #### Scenario: SCN-TEMPLATE-ENGINEERING-005 门禁按项目清单工作
 - **WHEN** 在临时副本中分别：按清单把某个包改名并同步目录与 package.json；放入清单未登记的包目录；让 package.json 包名与清单不一致；删除清单要求的命令；让某个 case 的 `requiredIn` 引用清单未登记的测试项目；从清单删除 platform 类项目；检查门禁脚本中是否残留清单登记的名称字面量
-- **THEN** 改名后的副本门禁通过；未登记目录、包名不一致、缺少命令、未登记的测试项目被逐项指出并非零退出；删除 platform 类项目后协议义务只要求 integration 类环境；门禁脚本中没有清单登记名称的字面量；清单 schema 的每个属性都有中文说明。
+- **THEN** 改名后的副本门禁通过；未登记目录、包名不一致、缺少命令、未登记的测试项目被逐项指出并非零退出；删除 platform 类项目后全部协议义务只要求 integration 类环境；门禁脚本中没有清单登记名称的字面量；清单 schema 的每个属性都有中文说明。
 
 ```json verification
 {
@@ -25,9 +25,9 @@
     "rename-by-manifest": "只按清单与对应文件改名后，架构检查通过，无需修改门禁代码",
     "architecture-violations": "未登记目录、包名不一致、缺少必需命令被逐项指出并非零退出",
     "projects-by-manifest": "requiredIn 只能引用清单登记的测试项目，未登记的项目被指出",
-    "obligation-environments": "协议义务的运行环境等于清单中 integration 与 platform 类项目",
+    "obligation-environments": "路由、字段与共享方法义务的运行环境等于清单中全部 integration 与 platform 类项目，错误码义务等于全部 integration 类项目",
     "source-roots-by-manifest": "源码摘要只覆盖清单登记的目录",
-    "no-hardcoded-topology": "门禁脚本的非测试文件中不含清单登记的包目录名、包名、与类别不同名的测试项目名和 registry 字面量"
+    "no-hardcoded-topology": "门禁脚本的非测试文件中不含产品包与协议包的目录名和包名、与类别不同名的测试项目名和 registry 字面量"
   },
   "cases": [
     {"key": "manifest-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["manifest-schema", "projects-by-manifest", "obligation-environments", "source-roots-by-manifest"]},
