@@ -6,8 +6,8 @@ import { createShadowServer } from '../server.ts';
 describe('discoverExampleRoutes', () => {
   it('discovers CreateTrade and QueryTrade from generated metadata', () => {
     expect(discoverExampleRoutes()).toEqual([
-      { methodName: 'CreateTrade', httpMethod: 'POST', path: '/api/base/trade/create', meta: CreateTrade.meta },
-      { methodName: 'QueryTrade', httpMethod: 'POST', path: '/api/base/trade/query', meta: QueryTrade.meta },
+      { methodName: 'CreateTrade', httpMethod: 'POST', path: '/api/base/trade/create' },
+      { methodName: 'QueryTrade', httpMethod: 'POST', path: '/api/base/trade/query' },
     ]);
   });
 
@@ -22,7 +22,7 @@ describe('discoverExampleRoutes', () => {
   } } }, async context => {
     const assertionsBefore = context.expect.getState().assertionCalls;
     context.expect(discoverExampleRoutes().find(route => route.methodName === 'CreateTrade')).toMatchObject({
-      httpMethod: 'POST', path: CreateTrade.meta.path, meta: CreateTrade.meta,
+      httpMethod: 'POST', path: CreateTrade.meta.path,
     });
     const server = await createShadowServer({ routes: discoverExampleRoutes(), scenarios: [{ id: 'example-route-faults', routes: {
       CreateTrade: { expectedRequests: [{ recordOnly: true }, { recordOnly: true }, { recordOnly: true }], steps: [

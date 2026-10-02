@@ -14,7 +14,7 @@
     "test:unit": "PAYMENT_REPORT_FILE=artifacts/${PAYMENT_RUN_ID:-local}/reports/unit.json vitest run --project sdk-unit --project protocol-unit --project test-tools-unit --coverage",
     "test:integration": "PAYMENT_REPORT_FILE=artifacts/${PAYMENT_RUN_ID:-local}/reports/integration.json vitest run --project integration",
     "test:e2e:weapp": "PAYMENT_REPORT_FILE=artifacts/${PAYMENT_RUN_ID:-local}/reports/weapp.json vitest run --project weapp",
-    "check:architecture": "depcruise --config .dependency-cruiser.cjs --output-type err-long packages/payment-sdk/src packages/payment-protocol/src && tsx scripts/check-architecture.ts",
+    "check:architecture": "depcruise --config .dependency-cruiser.cjs --output-type err-long packages/payment-sdk/src packages/payment-protocol/src packages/payment-protocol/testing && tsx scripts/check-architecture.ts",
     "check:fixtures": "tsx scripts/check-fixtures.ts",
     "check:scenarios": "tsx scripts/check-scenarios.ts",
     "check:package": "tsx scripts/check-package.ts",

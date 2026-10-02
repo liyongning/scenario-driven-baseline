@@ -9,6 +9,8 @@ module.exports = {
     { name: 'core-no-platform-or-node', severity: 'error', from: { path: '^packages/payment-sdk/src/(runtime|example/(core|ports))/', pathNot: '[.]test[.]ts$' }, to: { dependencyTypes: ['core'] } },
     // 示例分层约定见 packages/payment-sdk/AGENTS.md「按示例扩展新业务」。
     { name: 'example-core-no-generated', severity: 'error', from: { path: '^packages/payment-sdk/src/example/(core|ports)/' }, to: { path: '^packages/payment-protocol/(src/|dist/)?generated/' } },
+    // Shadow 引擎只接收中立路由（PC-03）；协议来源经 testing/shadow/idl-routes.ts 与 testing/shadow/example/ 接入，引擎文件不得导入 ProtoGen 生成代码。
+    { name: 'shadow-engine-no-generated', severity: 'error', comment: 'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。', from: { path: '^packages/payment-protocol/testing/shadow/', pathNot: '(^packages/payment-protocol/testing/shadow/(idl-routes[.]ts|example/)|[.]test[.]ts$)' }, to: { path: '^packages/payment-protocol/src/generated/' } },
     // 产品包内各业务模块目录互不导入；可共用的只有 runtime/ 与协议包公开入口，index.ts 作为装配入口豁免。
     { name: 'domain-isolation', severity: 'error', from: { path: '^packages/payment-sdk/src/([^/]+)/', pathNot: '^packages/payment-sdk/src/runtime/' }, to: { path: '^packages/payment-sdk/src/([^/]+)/', pathNot: ['^packages/payment-sdk/src/runtime/', '^packages/payment-sdk/src/$1/'] } },
     {
@@ -139,7 +141,9 @@ module.exports = {
         'from.pathNot re of the not-to-dev-dep rule in the dependency-cruiser configuration',
       from: {
         path: '^(packages)',
-        pathNot: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$'
+        // `testing/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
+        // 因此允许它使用根 devDependency，如 express。
+        pathNot: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/'
       },
       to: {
         dependencyTypes: [

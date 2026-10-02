@@ -77,7 +77,7 @@
   **Commit**
   - `feat(template): drive engineering gates from the project manifest`
 
-- [ ] 2. Shadow 路由中立化
+- [x] 2. Shadow 路由中立化
 
   **Files**
   - Modify：`packages/payment-protocol/testing/shadow/routes.ts`（中立 `ShadowRoute`）；`testing/shadow/example/routes.ts`（导出 `exampleRpcMethods` 与 `discoverExampleRoutes`）；`testing/index.ts`（导出 `routesFromRpcMethods`、`ShadowRoute`）；`testing/shadow/bootstrap.test.ts`、`example/routes.test.ts`、`server.test.ts`（类型适配，断言语义不变）。

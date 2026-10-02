@@ -229,31 +229,31 @@ export async function buildContractInventory(root: string, options: InventoryOpt
   // 示例方法描述模块按仓库清单的 protocol 角色目录定位，不随门禁根目录变化；临时根无需提供 testing/。
   const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
   const repositoryProtocol = packageByRole(loadProjectManifest(repositoryRoot), 'protocol').directory;
-  const { discoverExampleRoutes } = await import(`../../packages/${repositoryProtocol}/testing/shadow/example/routes.ts`) as {
-    discoverExampleRoutes(): ReadonlyArray<{ methodName: string; httpMethod: string; path: string; meta: Readonly<{ requestType: string; responseType: string }> }>;
+  // 直接读取生成的方法描述，不依赖 Shadow 路由类型（PC-03：派生与路由中立解耦）。
+  const { exampleRpcMethods: routes } = await import(`../../packages/${repositoryProtocol}/testing/shadow/example/routes.ts`) as {
+    exampleRpcMethods: ReadonlyArray<{ name: string; method: string; path: string; requestType: string; responseType: string }>;
   };
-  const routes = discoverExampleRoutes();
   const generatedRoot = options.generatedRoot ?? resolve(root, 'packages', protocolDirectory, 'src/generated');
-  const typeNames = routes.flatMap(route => [route.meta.requestType, route.meta.responseType]);
+  const typeNames = routes.flatMap(route => [route.requestType, route.responseType]);
   const fields = deriveFields(generatedRoot, typeNames);
   const errors = JSON.parse(await readFile(join(root, 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'), 'utf8')) as Array<{ name: string }>;
   const issues: string[] = [];
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const route of routes) {
-    obligations.push({ id: `infra.trade.v1.${route.methodName}#http-route#$`, cases: [route.methodName], requiredIn: [...requiredIn] });
-    for (const [direction, typeName] of [['request', route.meta.requestType], ['response', route.meta.responseType]] as const) {
-      const derived = fieldObligations(route.methodName, direction, typeName, fields.get(typeName)!, requiredIn, issues);
+    obligations.push({ id: `infra.trade.v1.${route.name}#http-route#$`, cases: [route.name], requiredIn: [...requiredIn] });
+    for (const [direction, typeName] of [['request', route.requestType], ['response', route.responseType]] as const) {
+      const derived = fieldObligations(route.name, direction, typeName, fields.get(typeName)!, requiredIn, issues);
       obligations.push(...derived.obligations);
       discoveries.push(...derived.discoveries);
     }
-    obligations.push(...sharedMethodObligations(route.methodName, requiredIn));
+    obligations.push(...sharedMethodObligations(route.name, requiredIn));
   }
   obligations.push(
     { id: 'idl.error-contract#business-error#$', cases: errors.map(item => item.name), requiredIn: [...integrationOnly] },
   );
   return {
-    methods: routes.map(route => ({ name: route.methodName, method: route.httpMethod, path: route.path })),
+    methods: routes.map(route => ({ name: route.name, method: route.method, path: route.path })),
     discoveries,
     obligations,
     issues,
