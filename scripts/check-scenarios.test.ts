@@ -72,7 +72,7 @@ describe('evaluateCoverage', () => {
     ]));
   });
 
-  it('keeps all-Spec, payment behavior, protocol, and FLOW summaries independent', () => {
+  it('keeps all-Spec, public behavior, protocol, and FLOW summaries independent', () => {
     const input = base();
     const moduleScenario = {
       id: 'SCN-SAMPLE-CORE-002',
@@ -94,7 +94,7 @@ describe('evaluateCoverage', () => {
     });
 
     expect(result.summaries.allSpec).toMatchObject({ required: 2, executed: 1, passed: 1 });
-    expect(result.summaries.paymentBehavior).toMatchObject({ required: 1, executed: 0, passed: 0 });
+    expect(result.summaries.publicBehavior).toMatchObject({ required: 1, executed: 0, passed: 0 });
     expect(result.summaries.byKind.module).toMatchObject({ required: 1, executed: 1, passed: 1 });
     expect(result.summaries.protocol.required).toBeGreaterThan(0);
     expect(result.summaries.flows.required).toBeGreaterThan(0);
@@ -124,7 +124,7 @@ describe('evaluateCoverage', () => {
   });
 
   it('loads bindings and execution facts from saved reporter outputs without changing their project or fingerprints', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'payment-reports-'));
+    const directory = await mkdtemp(join(tmpdir(), 'template-reports-'));
     const file = join(directory, 'integration.json');
     const binding = base().bindings[0]!;
     await writeFile(file, JSON.stringify({
@@ -138,7 +138,7 @@ describe('evaluateCoverage', () => {
   });
 
   it('reports malformed reporter envelopes, missing bindings, and record mismatches', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'payment-reports-bad-'));
+    const directory = await mkdtemp(join(tmpdir(), 'template-reports-bad-'));
     const malformed = join(directory, 'malformed.json');
     const noTests = join(directory, 'no-tests.json');
     const mismatched = join(directory, 'mismatched.json');
@@ -155,7 +155,7 @@ describe('evaluateCoverage', () => {
     const loaded = await loadReporterOutputs([join(directory, 'missing.json'), malformed, noTests, mismatched]);
     expect(loaded.issues).toEqual(expect.arrayContaining([
       expect.stringContaining('cannot be read'), expect.stringContaining('has no tests array'),
-      expect.stringContaining('missing paymentCase binding'), expect.stringContaining('report project does not match'),
+      expect.stringContaining('missing scenarioCase binding'), expect.stringContaining('report project does not match'),
       expect.stringContaining('record runId differs'), expect.stringContaining('record sourceDigest differs'),
       expect.stringContaining('record specDigest differs'), expect.stringContaining('record idlDigest differs'),
       expect.stringContaining('record fixtureDigest differs'),
@@ -201,14 +201,14 @@ describe('evaluateCoverage', () => {
   });
 
   it('runs both controlled-input and live-inventory CLI composition paths', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'payment-scenario-cli-'));
+    const directory = await mkdtemp(join(tmpdir(), 'template-scenario-cli-'));
     const inputFile = join(directory, 'input.json');
     await writeFile(inputFile, JSON.stringify(base()));
-    expect(await runScenariosCli(['node', 'script', '--input', inputFile], process.cwd(), { PAYMENT_RUN_ID: 'run-1' })).toMatchObject({ exitCode: 1, output: { issues: expect.any(Array) } });
+    expect(await runScenariosCli(['node', 'script', '--input', inputFile], process.cwd(), { VERIFY_RUN_ID: 'run-1' })).toMatchObject({ exitCode: 1, output: { issues: expect.any(Array) } });
 
     const reportFile = join(directory, 'report.json');
     await writeFile(reportFile, JSON.stringify({ runId: 'run-1', sourceDigest: 'source', specDigest: 'spec', idlDigest: 'idl', fixtureDigest: 'fixture', tests: [{ ...base().reports[0], binding: base().bindings[0] }] }));
-    const inventory = await runScenariosCli(['node', 'script', '--inventory', '--report', reportFile], process.cwd(), { PAYMENT_RUN_ID: 'run-1' });
+    const inventory = await runScenariosCli(['node', 'script', '--inventory', '--report', reportFile], process.cwd(), { VERIFY_RUN_ID: 'run-1' });
     expect(inventory).toMatchObject({ exitCode: 1, output: { mode: 'inventory', scenarios: expect.any(Array), contracts: expect.any(Array) } });
     const complete = await runScenariosCli([], process.cwd(), {});
     expect(complete).toMatchObject({ exitCode: 1, output: { mode: 'complete', issues: expect.any(Array) } });
@@ -224,7 +224,7 @@ describe('evaluateCoverage', () => {
   });
 
   it('runs OpenSpec prechecks before report loading and keeps --input pure', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-precheck-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-precheck-'));
     try {
       const calls: string[] = [];
       const command = (name: string) => { calls.push(name); return { status: 1 }; };

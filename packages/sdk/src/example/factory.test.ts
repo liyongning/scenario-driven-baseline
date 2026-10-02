@@ -6,10 +6,10 @@ function valid(): ExampleClientOptions {
   return { runtime: 'wechat-miniapp', gatewayBaseUrl: 'https://fixture.invalid', getAccessToken: () => 'token', catalog: { kind: 'fixture', itemId: 'item-1', itemName: 'Fixture item', unitValue: 120n } };
 }
 async function annotate(context: TestContext, before: number) {
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['config-validated-first'] }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['config-validated-first'] }), 'scenario-evidence');
 }
 
-test('SCN-TEMPLATE-EXAMPLE-001 factory-validation', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-001 factory-validation', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-001', caseId: 'factory-validation', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-001', caseKey: 'factory-validation', checks: ['config-validated-first'] }],
 } } }, async context => {

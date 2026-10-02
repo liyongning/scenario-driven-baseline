@@ -21,7 +21,7 @@ function writeFingerprintManifest(root: string, sourceRoots: ReadonlyArray<strin
 
 describe('verification fingerprints', () => {
   it('is stable across input order and changes when a relative path or content changes', () => {
-    const root = mkdtempSync(join(tmpdir(), 'payment-fingerprint-'));
+    const root = mkdtempSync(join(tmpdir(), 'template-fingerprint-'));
     writeFileSync(join(root, 'a'), 'one');
     writeFileSync(join(root, 'b'), 'two');
     expect(digestFiles(root, [join(root, 'a'), join(root, 'b')]))
@@ -34,7 +34,7 @@ describe('verification fingerprints', () => {
   });
 
   it('builds source, Spec, IDL, and Fixture digests from the reviewed repository inputs', () => {
-    const root = mkdtempSync(join(tmpdir(), 'payment-fingerprint-tree-'));
+    const root = mkdtempSync(join(tmpdir(), 'template-fingerprint-tree-'));
     for (const directory of [
       'packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing',
       'packages/e2e/src', 'packages/e2e/host/weapp', 'packages/e2e/tests/fixtures', 'scripts',
@@ -111,7 +111,7 @@ describe('verification fingerprints', () => {
   });
 
   it('returns no files for missing roots and skips generated/output directories and rejected files', () => {
-    const root = mkdtempSync(join(tmpdir(), 'payment-collect-'));
+    const root = mkdtempSync(join(tmpdir(), 'template-collect-'));
     expect(collectFiles(join(root, 'missing'), () => true)).toEqual([]);
     for (const name of ['dist', 'generated', '.generated', 'node_modules']) {
       mkdirSync(join(root, name)); writeFileSync(join(root, name, 'hidden.ts'), 'hidden');

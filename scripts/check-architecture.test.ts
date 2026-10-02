@@ -8,7 +8,7 @@ import { checkArchitecture, runArchitectureCli } from './check-architecture';
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'payment-architecture-')); roots.push(root);
+  const root = mkdtempSync(join(tmpdir(), 'template-architecture-')); roots.push(root);
   mkdirSync(join(root, 'packages'));
   writeFileSync(join(root, 'README.md'), '# facts');
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md) [external](https://example.invalid)');

@@ -16,7 +16,7 @@ function run(command: string, args: string[], cwd = root): string {
 }
 
 beforeAll(async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'payment-template-engineering-consumer-'));
+  const directory = await mkdtemp(join(tmpdir(), 'template-engineering-consumer-'));
   const packDir = join(directory, 'packs');
   await mkdir(packDir);
   const protocolTar = resolve(packDir, run('pnpm', ['--filter', '@daqian/template-protocol', 'pack', '--pack-destination', packDir]).split('\n').at(-1)!);

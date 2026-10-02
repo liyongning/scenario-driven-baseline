@@ -36,7 +36,7 @@ const facts = (overrides: Partial<ReleaseWorkspaceFacts> = {}): ReleaseWorkspace
 });
 
 function workspace() {
-  const root = mkdtempSync(join(tmpdir(), 'payment-release-check-'));
+  const root = mkdtempSync(join(tmpdir(), 'template-release-check-'));
   roots.push(root);
   mkdirSync(join(root, 'packages/sdk'), { recursive: true });
   mkdirSync(join(root, 'packages/protocol'), { recursive: true });

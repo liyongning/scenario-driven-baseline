@@ -3,8 +3,8 @@ export type * from './ports/http';
 export type * from './transport/errors';
 export type * from './client';
 import { createWechatMiniappHttp as createWechatMiniappHttpImplementation } from './adapters/network/wechat-miniapp';
-export { paymentBusinessErrors, paymentBusinessErrorsIdlCommit, getPaymentBusinessError } from './errors/business-codes';
-export type { PaymentBusinessErrorDescriptor } from './errors/business-codes';
+export { businessErrors, businessErrorsIdlCommit, getBusinessError } from './errors/business-codes';
+export type { BusinessErrorDescriptor } from './errors/business-codes';
 export { createProtocolClient } from './client';
 
 /**

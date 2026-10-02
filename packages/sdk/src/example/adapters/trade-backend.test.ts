@@ -6,9 +6,9 @@ import { createExampleTradeBackend } from './trade-backend';
 const catalog = { kind: 'fixture', itemId: 'sku-1', itemName: 'Fixture', unitValue: 125n };
 const context = { deadlineAtMs: 1000 } as const;
 async function annotate(context: TestContext, before: number, checkpoints: string[]) {
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints }), 'scenario-evidence');
 }
-test('SCN-TEMPLATE-EXAMPLE-002 create-mapping', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-002 create-mapping', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-002', caseId: 'create-mapping', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-002', caseKey: 'create-mapping', checks: ['neutral-reference'] }],
 } } }, async testContext => {
@@ -19,7 +19,7 @@ test('SCN-TEMPLATE-EXAMPLE-002 create-mapping', { meta: { paymentCase: {
   await annotate(testContext, before, ['neutral-reference']);
 });
 
-test('SCN-TEMPLATE-EXAMPLE-007 status-mapping-table', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-007 status-mapping-table', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-007', caseId: 'status-mapping-table', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-007', caseKey: 'status-mapping-table', checks: ['status-mapping', 'reference-mismatch'] }],
 } } }, async testContext => {
@@ -35,7 +35,7 @@ test('SCN-TEMPLATE-EXAMPLE-007 status-mapping-table', { meta: { paymentCase: {
   await annotate(testContext, before, ['status-mapping', 'reference-mismatch']);
 });
 
-test('SCN-TEMPLATE-EXAMPLE-003 create-error-mapping', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-003 create-error-mapping', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-003', caseId: 'create-error-mapping', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-003', caseKey: 'create-error-mapping', checks: ['error-category', 'server-code-preserved'] }],
 } } }, async testContext => {

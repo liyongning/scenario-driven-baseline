@@ -8,7 +8,7 @@ import { loadFixtureCase, resolveFixtureFile } from './fixture-loader.ts';
 const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 
 async function fixture(overrides: Record<string, unknown> = {}) {
-  const root = await mkdtemp(join(tmpdir(), 'payment-fixture-'));
+  const root = await mkdtemp(join(tmpdir(), 'template-fixture-'));
   const ownerId = 'SCN-SAMPLE-CONTRACT-023';
   const directory = join(root, ownerId);
   await mkdir(directory);

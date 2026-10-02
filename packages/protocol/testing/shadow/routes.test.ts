@@ -5,7 +5,7 @@ import { createShadowServer, type RunningShadowServer } from './server.ts';
 const running: RunningShadowServer[] = [];
 afterEach(async () => Promise.all(running.splice(0).map(server => server.close())));
 
-test('SCN-PROTOCOL-CONTRACT-004 neutral-route', { meta: { paymentCase: {
+test('SCN-PROTOCOL-CONTRACT-004 neutral-route', { meta: { scenarioCase: {
   ownerId: 'SCN-PROTOCOL-CONTRACT-004', caseId: 'neutral-route', environment: 'protocol-unit', fixtureCase: null,
   covers: [{ id: 'SCN-PROTOCOL-CONTRACT-004', caseKey: 'neutral-route', checks: ['neutral-route-served'] }],
 } } }, async context => {
@@ -34,5 +34,5 @@ test('SCN-PROTOCOL-CONTRACT-004 neutral-route', { meta: { paymentCase: {
   context.expect(Date.now() - before).toBeGreaterThanOrEqual(4);
   context.expect(server.records().map(record => record.methodName)).toEqual(['NeutralTrade', 'NeutralTrade']);
   context.expect(server.verify()).toEqual([]);
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['neutral-route-served'] }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['neutral-route-served'] }), 'scenario-evidence');
 });

@@ -41,7 +41,7 @@ export function defineCase(
 ) {
   const issues = validateCaseBinding(binding);
   if (issues.length > 0) throw new Error(issues.join('; '));
-  test(`${binding.ownerId} ${binding.caseId}`, { meta: { paymentCase: binding } }, async (context: TestContext) => {
+  test(`${binding.ownerId} ${binding.caseId}`, { meta: { scenarioCase: binding } }, async (context: TestContext) => {
     const before = context.expect.getState().assertionCalls;
     const executed = new Set<string>();
     const loaded = await loadFixtureCase({
@@ -55,13 +55,13 @@ export function defineCase(
       async checkpoint(name, assertion) { await assertion(); executed.add(name); },
       async flow(continuityId, stages) {
         if (!binding.flowId || !binding.flowCase) throw new Error('flow evidence requires a FLOW binding');
-        await context.annotate(JSON.stringify({ id: binding.flowId, caseKey: binding.flowCase, continuityId, stages }), 'payment-flow');
+        await context.annotate(JSON.stringify({ id: binding.flowId, caseKey: binding.flowCase, continuityId, stages }), 'scenario-flow');
       },
     });
     const assertions = context.expect.getState().assertionCalls - before;
     if (assertions <= 0) throw new Error(`${binding.caseId} executed no assertions`);
     const required = new Set(binding.covers.flatMap(cover => cover.checks));
     for (const checkpoint of required) if (!executed.has(checkpoint)) throw new Error(`${binding.caseId} did not execute checkpoint ${checkpoint}`);
-    await context.annotate(JSON.stringify({ assertions, checkpoints: [...executed] }), 'payment-evidence');
+    await context.annotate(JSON.stringify({ assertions, checkpoints: [...executed] }), 'scenario-evidence');
   });
 }

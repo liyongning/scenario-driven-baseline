@@ -19,10 +19,10 @@ type LockedSource = GeneratedBaseline['source'] & {
 };
 type Lock = { lockVersion: number; tool: GeneratedBaseline['tool']; sources: Record<string, LockedSource> };
 function readLock(path: string): Lock { return parse(readFileSync(path, 'utf8')) as Lock; }
-function paymentSource(lock: Lock, baseline: GeneratedBaseline): LockedSource { return lock.sources[baseline.sourceId]!; }
+function generatedSource(lock: Lock, baseline: GeneratedBaseline): LockedSource { return lock.sources[baseline.sourceId]!; }
 function verifyGenerated(lock: Lock, baseline: GeneratedBaseline) {
   // 仅两个来源元数据字段可刷新；其余完整锁定结构（含 source/output ID）必须匹配已验收基线。
-  const source = paymentSource(lock, baseline);
+  const source = generatedSource(lock, baseline);
   expect(source).toBeDefined();
   expect(source.resolvedCommit).toMatch(/^[0-9a-f]{40}$/);
   expect(source.producerInputDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
@@ -36,7 +36,7 @@ function verifyGenerated(lock: Lock, baseline: GeneratedBaseline) {
   });
 }
 
-type Catalog = Record<string, protocol.PaymentBusinessErrorDescriptor>;
+type Catalog = Record<string, protocol.BusinessErrorDescriptor>;
 function verify(catalog: Catalog, commit: string) {
   expect(manifest.sources.idlCommit).toBe('5539be8f09323709fa65f6568efe22896ec35d24');
   expect(commit).toBe(manifest.sources.idlCommit);
@@ -44,7 +44,7 @@ function verify(catalog: Catalog, commit: string) {
   expect(Object.entries(catalog).map(([name, d]) => ({ name, ...d, statusCode: d.statusCode.toString(), canonicalCode: canonicalErrorCodeToJSON(d.canonicalCode) })).sort((a,b) => a.name.localeCompare(b.name)))
     .toEqual([...expected].sort((a,b) => a.name.localeCompare(b.name)));
 }
-function copy(): Catalog { expect(protocol).toHaveProperty('paymentBusinessErrors'); return structuredClone(protocol.paymentBusinessErrors); }
+function copy(): Catalog { expect(protocol).toHaveProperty('businessErrors'); return structuredClone(protocol.businessErrors); }
 
 const scenarioChecks = {
   'all-errors': ['catalog-parity', 'source-alignment'],
@@ -61,7 +61,7 @@ function contractTest(caseKey: keyof typeof scenarioChecks, body: () => void | P
   const idlCovers = caseKey === 'all-errors'
     ? expected.map(item => ({ id: 'idl.error-contract#business-error#$', caseKey: item.name, checks: ['catalog-parity'] }))
     : [];
-  test(`SCN-PROTOCOL-CONTRACT-003/${caseKey}`, { meta: { paymentCase: {
+  test(`SCN-PROTOCOL-CONTRACT-003/${caseKey}`, { meta: { scenarioCase: {
     ownerId: 'SCN-PROTOCOL-CONTRACT-003', caseId: caseKey, environment: 'integration', fixtureCase: caseKey,
     covers: [{ id: 'SCN-PROTOCOL-CONTRACT-003', caseKey, checks: [...checks] }, ...idlCovers],
   } } }, async (context: TestContext) => {
@@ -69,13 +69,13 @@ function contractTest(caseKey: keyof typeof scenarioChecks, body: () => void | P
     await body();
     const assertions = expect.getState().assertionCalls - before;
     if (assertions <= 0) throw new Error(`${caseKey} executed no assertions`);
-    await context.annotate(JSON.stringify({ assertions, checkpoints: [...checks] }), 'payment-evidence');
+    await context.annotate(JSON.stringify({ assertions, checkpoints: [...checks] }), 'scenario-evidence');
   });
 }
 
 contractTest('all-errors', () => {
-  expect(protocol).toHaveProperty('paymentBusinessErrors');
-  verify(protocol.paymentBusinessErrors, protocol.paymentBusinessErrorsIdlCommit);
+  expect(protocol).toHaveProperty('businessErrors');
+  verify(protocol.businessErrors, protocol.businessErrorsIdlCommit);
   verifyGenerated(readLock('proto-gen.lock'), currentBaseline);
   expect(expected).toHaveLength(7);
   for (const file of ['idl-errors.json', 'extract.go'] as const) {
@@ -86,17 +86,17 @@ contractTest('all-errors', () => {
 contractTest('wrong-code', () => {
   const catalog = copy(); const key = expected[0]!.name;
   catalog[key] = { ...catalog[key]!, statusCode: 1n };
-  expect(() => verify(catalog, protocol.paymentBusinessErrorsIdlCommit)).toThrow();
+  expect(() => verify(catalog, protocol.businessErrorsIdlCommit)).toThrow();
 });
 contractTest('wrong-description', () => {
   for (const field of ['bizCodeName','source','canonicalCode','retryable'] as const) {
     const catalog = copy(); const key = expected[0]!.name;
     catalog[key] = { ...catalog[key]!, [field]: field === 'retryable' ? true : 'INVALID' };
-    expect(() => verify(catalog, protocol.paymentBusinessErrorsIdlCommit)).toThrow();
+    expect(() => verify(catalog, protocol.businessErrorsIdlCommit)).toThrow();
   }
 });
 contractTest('missing-error', () => {
-  for (const {name} of expected) { const catalog = copy(); delete catalog[name]; expect(() => verify(catalog, protocol.paymentBusinessErrorsIdlCommit)).toThrow(); }
+  for (const {name} of expected) { const catalog = copy(); delete catalog[name]; expect(() => verify(catalog, protocol.businessErrorsIdlCommit)).toThrow(); }
 });
 contractTest('source-mismatch', () => {
   const catalog = copy();
@@ -108,12 +108,12 @@ contractTest('source-mismatch', () => {
 contractTest('metadata-only-sync', () => {
   const before = readLock(`${fixtureRoot}/provenance/before.lock`);
   const after = readLock(`${fixtureRoot}/provenance/after.lock`);
-  expect(paymentSource(before, historicalBaseline).resolvedCommit).toBe(manifest.sources.idlCommit);
-  expect(paymentSource(after, historicalBaseline).resolvedCommit).toBe('fa352692de4577bd1538a4175fa835b51d52dd92');
-  expect(paymentSource(after, historicalBaseline).producerInputDigest).not.toBe(paymentSource(before, historicalBaseline).producerInputDigest);
+  expect(generatedSource(before, historicalBaseline).resolvedCommit).toBe(manifest.sources.idlCommit);
+  expect(generatedSource(after, historicalBaseline).resolvedCommit).toBe('fa352692de4577bd1538a4175fa835b51d52dd92');
+  expect(generatedSource(after, historicalBaseline).producerInputDigest).not.toBe(generatedSource(before, historicalBaseline).producerInputDigest);
   for (const lock of [before, after]) verifyGenerated(lock, historicalBaseline);
   verifyGenerated(readLock('proto-gen.lock'), currentBaseline);
-  verify(protocol.paymentBusinessErrors, protocol.paymentBusinessErrorsIdlCommit);
+  verify(protocol.businessErrors, protocol.businessErrorsIdlCommit);
   expect(createHash('sha256').update(readFileSync(`${fixtureRoot}/idl-errors.json`)).digest('hex')).toBe(manifest.sha256['idl-errors.json']);
   for (const [name, digest] of Object.entries(manifest.provenance.sha256)) {
     expect(createHash('sha256').update(readFileSync(`${fixtureRoot}/provenance/${name}`)).digest('hex')).toBe(digest);
@@ -140,10 +140,10 @@ contractTest('metadata-only-sync', () => {
     expect(actual.projectionRoots).toEqual(historicalBaseline.source.projection.roots);
     expect(actual.files).toEqual(historicalBaseline.source.projection.files);
     expect(actual.outputs).toEqual([{ ...historicalBaseline.output, outputId: historicalBaseline.outputId, present: true }]);
-    expect(actual.producerInputDigest).toBe(paymentSource(after, historicalBaseline).producerInputDigest);
+    expect(actual.producerInputDigest).toBe(generatedSource(after, historicalBaseline).producerInputDigest);
     expect(actual.provenance).toMatchObject({
       requestedBranch: historicalBaseline.source.requestedBranch, resolvedBranch: historicalBaseline.source.resolvedBranch,
-      fallbackUsed: false, resolvedCommit: paymentSource(after, historicalBaseline).resolvedCommit,
+      fallbackUsed: false, resolvedCommit: generatedSource(after, historicalBaseline).resolvedCommit,
     });
   }
 });
@@ -156,40 +156,40 @@ contractTest('projection-mismatch', () => {
     ['lockVersion', lock => { lock.lockVersion++; }],
     ['tool.version', lock => { lock.tool.version = 'invalid'; }],
     ['tool.projectionVersion', lock => { lock.tool.projectionVersion++; }],
-    ['sourceId', lock => { lock.sources.wrong = paymentSource(lock, currentBaseline); delete lock.sources[currentBaseline.sourceId]; }],
-    ['extra source', lock => { lock.sources.extra = structuredClone(paymentSource(lock, currentBaseline)); }],
-    ['consumerId', lock => { paymentSource(lock, currentBaseline).consumerId = 'wrong'; }],
-    ['contractDigest', lock => { paymentSource(lock, currentBaseline).contractDigest = 'wrong'; }],
-    ['requestedBranch', lock => { paymentSource(lock, currentBaseline).requestedBranch = 'wrong'; }],
-    ['resolvedBranch', lock => { paymentSource(lock, currentBaseline).resolvedBranch = 'wrong'; }],
-    ['fallbackUsed', lock => { paymentSource(lock, currentBaseline).fallbackUsed = true; }],
-    ['projection.digest', lock => { paymentSource(lock, currentBaseline).projection.digest = 'wrong'; }],
-    ['extra root', lock => { paymentSource(lock, currentBaseline).projection.roots.push(structuredClone(currentBaseline.source.projection.roots[0]!)); }],
-    ['extra file', lock => { paymentSource(lock, currentBaseline).projection.files.push(structuredClone(currentBaseline.source.projection.files[0]!)); }],
-    ['outputId', lock => { const s = paymentSource(lock, currentBaseline); s.outputs.wrong = s.outputs[currentBaseline.outputId]!; delete s.outputs[currentBaseline.outputId]; }],
-    ['extra output', lock => { paymentSource(lock, currentBaseline).outputs.extra = structuredClone(currentBaseline.output); }],
-    ['missing output', lock => { delete paymentSource(lock, currentBaseline).outputs[currentBaseline.outputId]; }],
+    ['sourceId', lock => { lock.sources.wrong = generatedSource(lock, currentBaseline); delete lock.sources[currentBaseline.sourceId]; }],
+    ['extra source', lock => { lock.sources.extra = structuredClone(generatedSource(lock, currentBaseline)); }],
+    ['consumerId', lock => { generatedSource(lock, currentBaseline).consumerId = 'wrong'; }],
+    ['contractDigest', lock => { generatedSource(lock, currentBaseline).contractDigest = 'wrong'; }],
+    ['requestedBranch', lock => { generatedSource(lock, currentBaseline).requestedBranch = 'wrong'; }],
+    ['resolvedBranch', lock => { generatedSource(lock, currentBaseline).resolvedBranch = 'wrong'; }],
+    ['fallbackUsed', lock => { generatedSource(lock, currentBaseline).fallbackUsed = true; }],
+    ['projection.digest', lock => { generatedSource(lock, currentBaseline).projection.digest = 'wrong'; }],
+    ['extra root', lock => { generatedSource(lock, currentBaseline).projection.roots.push(structuredClone(currentBaseline.source.projection.roots[0]!)); }],
+    ['extra file', lock => { generatedSource(lock, currentBaseline).projection.files.push(structuredClone(currentBaseline.source.projection.files[0]!)); }],
+    ['outputId', lock => { const s = generatedSource(lock, currentBaseline); s.outputs.wrong = s.outputs[currentBaseline.outputId]!; delete s.outputs[currentBaseline.outputId]; }],
+    ['extra output', lock => { generatedSource(lock, currentBaseline).outputs.extra = structuredClone(currentBaseline.output); }],
+    ['missing output', lock => { delete generatedSource(lock, currentBaseline).outputs[currentBaseline.outputId]; }],
   ];
   for (const field of ['path', 'generator', 'profile', 'profileDigest', 'configDigest', 'treeDigest'] as const) {
-    mutations.push([`output.${field}`, lock => { paymentSource(lock, currentBaseline).outputs[currentBaseline.outputId]![field] = 'wrong'; }]);
+    mutations.push([`output.${field}`, lock => { generatedSource(lock, currentBaseline).outputs[currentBaseline.outputId]![field] = 'wrong'; }]);
   }
-  mutations.push(['output.generatorVersion', lock => { paymentSource(lock, currentBaseline).outputs[currentBaseline.outputId]!.generatorVersion++; }]);
+  mutations.push(['output.generatorVersion', lock => { generatedSource(lock, currentBaseline).outputs[currentBaseline.outputId]!.generatorVersion++; }]);
   currentBaseline.source.projection.roots.forEach((_, index) => {
-    mutations.push([`missing root ${index}`, lock => { paymentSource(lock, currentBaseline).projection.roots.splice(index, 1); }]);
+    mutations.push([`missing root ${index}`, lock => { generatedSource(lock, currentBaseline).projection.roots.splice(index, 1); }]);
     for (const field of ['id', 'kind', 'closureDigest'] as const) {
-      mutations.push([`root ${index}.${field}`, lock => { paymentSource(lock, currentBaseline).projection.roots[index]![field] = 'wrong'; }]);
+      mutations.push([`root ${index}.${field}`, lock => { generatedSource(lock, currentBaseline).projection.roots[index]![field] = 'wrong'; }]);
     }
   });
   currentBaseline.source.projection.files.forEach((file, index) => {
-    mutations.push([`missing ${file.path}`, lock => { paymentSource(lock, currentBaseline).projection.files.splice(index, 1); }]);
+    mutations.push([`missing ${file.path}`, lock => { generatedSource(lock, currentBaseline).projection.files.splice(index, 1); }]);
     for (const field of ['path', 'descriptorDigest'] as const) {
-      mutations.push([`${file.path}.${field}`, lock => { paymentSource(lock, currentBaseline).projection.files[index]![field] = 'wrong'; }]);
+      mutations.push([`${file.path}.${field}`, lock => { generatedSource(lock, currentBaseline).projection.files[index]![field] = 'wrong'; }]);
     }
-    mutations.push([`${file.path} extra selectedBy`, lock => { paymentSource(lock, currentBaseline).projection.files[index]!.selectedBy.push({ kind: 'proto_file', id: 'wrong' }); }]);
+    mutations.push([`${file.path} extra selectedBy`, lock => { generatedSource(lock, currentBaseline).projection.files[index]!.selectedBy.push({ kind: 'proto_file', id: 'wrong' }); }]);
     file.selectedBy.forEach((_, selectedIndex) => {
-      mutations.push([`${file.path} missing selectedBy`, lock => { paymentSource(lock, currentBaseline).projection.files[index]!.selectedBy.splice(selectedIndex, 1); }]);
+      mutations.push([`${file.path} missing selectedBy`, lock => { generatedSource(lock, currentBaseline).projection.files[index]!.selectedBy.splice(selectedIndex, 1); }]);
       for (const field of ['id', 'kind'] as const) {
-        mutations.push([`${file.path} selectedBy.${field}`, lock => { paymentSource(lock, currentBaseline).projection.files[index]!.selectedBy[selectedIndex]![field] = 'wrong'; }]);
+        mutations.push([`${file.path} selectedBy.${field}`, lock => { generatedSource(lock, currentBaseline).projection.files[index]!.selectedBy[selectedIndex]![field] = 'wrong'; }]);
       }
     });
   });

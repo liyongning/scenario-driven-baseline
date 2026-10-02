@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://daqian.example/payment-fixture.schema.json",
+  "$id": "https://daqian.example/fixture.schema.json",
   "type": "object",
   "required": ["formatVersion", "ownerId", "sources", "cases", "sha256"],
   "properties": {

@@ -54,7 +54,7 @@ describe('buildContractInventory', () => {
   });
 
   it('derives a newly reachable field and leaves it missing without a binding', async () => {
-    const { root, file } = await copyGenerated('payment-contract-added-field-');
+    const { root, file } = await copyGenerated('template-contract-added-field-');
     const original = await readFile(file, 'utf8');
     await writeFile(file, original.replace('export interface QueryTradeResponse {', 'export interface QueryTradeResponse {\n  reviewProbe: string;'));
     const inventory = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
@@ -70,7 +70,7 @@ describe('buildContractInventory', () => {
   });
 
   it('keeps unreviewed request fields and unknown encodings visible as pending issues', async () => {
-    const { root, file } = await copyGenerated('payment-contract-pending-field-');
+    const { root, file } = await copyGenerated('template-contract-pending-field-');
     const original = await readFile(file, 'utf8');
     await writeFile(file, original
       .replace('export interface QueryTradeRequest {', 'export interface QueryTradeRequest {\n  reviewProbe: string;')
@@ -89,7 +89,7 @@ describe('buildContractInventory', () => {
   });
 
   it('treats a single-params union as oneof branches and rejects malformed shapes', async () => {
-    const { root, file } = await copyGenerated('payment-contract-oneof-');
+    const { root, file } = await copyGenerated('template-contract-oneof-');
     const original = await readFile(file, 'utf8');
     const probes = [
       'interface OneofProbe { params: { $case: "alpha"; alpha: string } | { $case: "beta"; beta: string } | { $case: "gamma"; gamma: { nested: string } } }',
@@ -113,17 +113,17 @@ describe('buildContractInventory', () => {
     ]));
     expect(inventory.issues).toEqual([]);
 
-    const malformed = await copyGenerated('payment-contract-malformed-oneof-');
+    const malformed = await copyGenerated('template-contract-malformed-oneof-');
     await writeFile(malformed.file, patched.replace('alpha: string }', 'alpha: string; unexpected: string }'));
     const malformedInventory = await buildContractInventory(process.cwd(), { generatedRoot: join(malformed.root, 'generated') });
     expect(malformedInventory.issues).toContain('QueryTrade response field probe.params has no approved encoding rule');
   });
 
   it('fails loudly when the generated Consumer output is missing or incomplete', async () => {
-    const missing = await mkdtemp(join(tmpdir(), 'payment-contract-missing-generated-'));
+    const missing = await mkdtemp(join(tmpdir(), 'template-contract-missing-generated-'));
     await expect(buildContractInventory(process.cwd(), { generatedRoot: missing })).rejects.toThrow('generated Consumer trade output is missing');
 
-    const { root, file } = await copyGenerated('payment-contract-missing-type-');
+    const { root, file } = await copyGenerated('template-contract-missing-type-');
     const trade = await readFile(file, 'utf8');
     await writeFile(file, trade
       .replace('export interface QueryTradeResponse {', 'export interface MissingQueryTradeResponse {')
@@ -132,7 +132,7 @@ describe('buildContractInventory', () => {
   });
 });
 
-test('SCN-PROTOCOL-CONTRACT-001 derivation-rules', { meta: { paymentCase: {
+test('SCN-PROTOCOL-CONTRACT-001 derivation-rules', { meta: { scenarioCase: {
   ownerId: 'SCN-PROTOCOL-CONTRACT-001', caseId: 'derivation-rules', fixtureCase: null, environment: 'test-tools-unit',
   covers: [{ id: 'SCN-PROTOCOL-CONTRACT-001', caseKey: 'derivation-rules', checks: ['consumed-methods-only', 'complete-obligations', 'pending-reported'] }],
 } } }, async (context: TestContext) => {
@@ -162,7 +162,7 @@ test('SCN-PROTOCOL-CONTRACT-001 derivation-rules', { meta: { paymentCase: {
     context.expect(inventory.discoveries.filter(item => item.applicability === 'pending')).toEqual([]);
   });
   await check('pending-reported', async () => {
-    const { root, file } = await copyGenerated('payment-contract-derivation-');
+    const { root, file } = await copyGenerated('template-contract-derivation-');
     const original = await readFile(file, 'utf8');
     await writeFile(file, original.replace('export interface QueryTradeRequest {', 'export interface QueryTradeRequest {\n  reviewProbe: string;'));
     const mutated = await buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') });
@@ -174,5 +174,5 @@ test('SCN-PROTOCOL-CONTRACT-001 derivation-rules', { meta: { paymentCase: {
   });
 
   context.expect(executed.sort()).toEqual(['complete-obligations', 'consumed-methods-only', 'pending-reported']);
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'scenario-evidence');
 });

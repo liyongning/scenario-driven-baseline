@@ -14,7 +14,7 @@ describe('readSpecInventory', () => {
     expect(nodeText({ children: [{ value: 'nested' }, {}] })).toBe('nested');
   });
   it('uses remark AST to extract scenario verification and the authoritative FLOW table', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-spec-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-spec-'));
     const path = join(root, 'spec.md');
     await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | SCN-SAMPLE-CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`);
     const inventory = await readSpecInventory([path]);
@@ -24,7 +24,7 @@ describe('readSpecInventory', () => {
   });
 
   it('keeps missing/invalid metadata and duplicate IDs in the denominator as explicit issues', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-spec-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-spec-'));
     const first = join(root, 'one.md');
     const second = join(root, 'two.md');
     await writeFile(first, '#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n');
@@ -38,7 +38,7 @@ describe('readSpecInventory', () => {
   });
 
   it('reports malformed JSON, duplicate case keys/checkpoints, invalid FLOW IDs, and duplicate FLOW IDs', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-spec-errors-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-spec-errors-'));
     const path = join(root, 'spec.md');
     const duplicateCases = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["x"]},{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["missing"]}],"blockedBy":[]}';
     await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 Broken JSON
@@ -70,7 +70,7 @@ ${duplicateCases}
   });
 
   it('rejects missing/unknown kinds and project categories that do not match the case kind', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-spec-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-spec-'));
     const path = join(root, 'spec.md');
     const blocks = [
       '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","requiredIn":["integration"],"checks":["x"]}],"blockedBy":[]}',
@@ -88,7 +88,7 @@ ${duplicateCases}
   });
 
   it('rejects more than one verification block instead of selecting one', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-spec-multiple-verification-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-spec-multiple-verification-'));
     const path = join(root, 'spec.md');
     const block = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["integration"],"checks":["x"]}],"blockedBy":[]}';
     await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-009 Multiple
@@ -108,7 +108,7 @@ ${block}
   });
 
   it('keeps malformed Scenario headings in the inventory and reports them', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'payment-spec-malformed-scenario-'));
+    const root = await mkdtemp(join(tmpdir(), 'template-spec-malformed-scenario-'));
     const path = join(root, 'spec.md');
     await writeFile(path, '#### Scenario:\n\nA malformed scenario\n');
     const inventory = await readSpecInventory([path]);

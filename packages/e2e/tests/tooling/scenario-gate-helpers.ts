@@ -67,7 +67,7 @@ export function runArchitecture(root: string) {
 }
 
 export function cliEvidence(id: string, caseId: string, checks: string[], body: (context: TestContext, check: (name: string, assertion: () => void | Promise<void>) => Promise<void>) => void | Promise<void>) {
-  test(`${id} ${caseId}`, { timeout: 30_000, meta: { paymentCase: {
+  test(`${id} ${caseId}`, { timeout: 30_000, meta: { scenarioCase: {
     ownerId: id, caseId, fixtureCase: caseId, environment: 'integration',
     covers: [{ id, caseKey: caseId, checks }],
   } } }, async (context: TestContext) => {
@@ -75,6 +75,6 @@ export function cliEvidence(id: string, caseId: string, checks: string[], body: 
     const executed: string[] = [];
     await body(context, async (name, assertion) => { await assertion(); executed.push(name); });
     context.expect(executed.sort()).toEqual([...checks].sort());
-    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'payment-evidence');
+    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'scenario-evidence');
   });
 }

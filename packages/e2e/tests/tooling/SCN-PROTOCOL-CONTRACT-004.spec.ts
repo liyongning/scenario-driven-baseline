@@ -8,7 +8,7 @@ function depcruise(root: string, target: string) {
   return spawnSync(resolve('node_modules/.bin/depcruise'), ['--config', '.dependency-cruiser.cjs', '--output-type', 'err-long', target], { cwd: root, encoding: 'utf8' });
 }
 
-test('SCN-PROTOCOL-CONTRACT-004 engine-no-generated-cli', { meta: { paymentCase: {
+test('SCN-PROTOCOL-CONTRACT-004 engine-no-generated-cli', { meta: { scenarioCase: {
   ownerId: 'SCN-PROTOCOL-CONTRACT-004', caseId: 'engine-no-generated-cli', environment: 'integration', fixtureCase: 'engine-no-generated',
   covers: [{ id: 'SCN-PROTOCOL-CONTRACT-004', caseKey: 'engine-no-generated-cli', checks: ['engine-no-generated'] }],
 } } }, async context => {
@@ -36,7 +36,7 @@ test('SCN-PROTOCOL-CONTRACT-004 engine-no-generated-cli', { meta: { paymentCase:
     const restored = depcruise(process.cwd(), 'packages/protocol/src');
     context.expect(restored.status).toBe(0);
 
-    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['engine-no-generated'] }), 'payment-evidence');
+    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['engine-no-generated'] }), 'scenario-evidence');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

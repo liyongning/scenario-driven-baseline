@@ -16,7 +16,7 @@ describe('discoverExampleRoutes', () => {
     expect(() => discoverExampleRoutes([{ ...CreateTrade.meta, path: '' } as never, QueryTrade.meta])).toThrow(/not an HTTP method/);
   });
 
-  test('SCN-TEMPLATE-EXAMPLE-009 shadow-create-route', { meta: { paymentCase: {
+  test('SCN-TEMPLATE-EXAMPLE-009 shadow-create-route', { meta: { scenarioCase: {
     ownerId: 'SCN-TEMPLATE-EXAMPLE-009', caseId: 'shadow-create-route', environment: 'protocol-unit', fixtureCase: null,
     covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-009', caseKey: 'shadow-create-route', checks: ['generated-route', 'fixture-driven'] }],
   } } }, async context => {
@@ -40,7 +40,7 @@ describe('discoverExampleRoutes', () => {
       await context.expect(post()).rejects.toThrow();
       context.expect(server.records().map(record => record.methodName)).toEqual(['CreateTrade', 'CreateTrade', 'CreateTrade']);
       context.expect(server.verify()).toEqual([]);
-      await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['generated-route', 'fixture-driven'] }), 'payment-evidence');
+      await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['generated-route', 'fixture-driven'] }), 'scenario-evidence');
     } finally { await server.close(); }
   });
 });

@@ -153,7 +153,7 @@
   **Commit**
   - `refactor(template): rename packages to neutral template names`
 
-- [ ] 4. 内部标识中立化与遗留代码小项
+- [x] 4. 内部标识中立化与遗留代码小项
 
   **Files**
   - Modify：按 Design"中立命名与 ProtoGen 输出路径迁移"表中的内部标识逐项改名（含 `getPaymentBusinessError` 及其调用方 `example/adapters/trade-backend.ts`、宿主 `pages/index/index.wxml` 与 `pages/index/index.json`）：`package.json` 脚本与 `vitest.config.ts`、`scripts/check-scenarios.ts` 及测试中的 `PAYMENT_RUN_ID`/`PAYMENT_REPORT_FILE`；`packages/e2e/src/cases/define-case.ts`、`packages/e2e/src/reporters/scenario-reporter.ts`、`scripts/check-scenarios.ts` 及全部用例中的 `paymentCase`、`payment-evidence`、`payment-flow`；`scripts/check-scenarios.ts` 的 `paymentBehavior`；协议包 `src/errors/business-codes.ts`、`src/index.ts` 及用例中的 `paymentBusinessErrors*`、`PaymentBusinessErrorDescriptor`；`packages/e2e/host/weapp/app.js`、`app.json` 与 `src/drivers/weapp-host.test.ts` 中的 `__PAYMENT_TEST_RUNNER__` 与标题；脚本与测试中的临时目录前缀与局部名；测试标题、注释与测试数据中的支付字样（例如 `define-case.test.ts:25`、`check-scenarios.test.ts:70`、`contract-inventory.test.ts` 中传给 `copyGenerated` 的 `payment-contract-*` 前缀，以 Task 4 Verification 的残留检查命中为准）。

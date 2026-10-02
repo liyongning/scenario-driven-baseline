@@ -4,11 +4,11 @@ import { ScenarioReporter } from './packages/e2e/src/reporters/scenario-reporter
 import { buildVerificationFingerprints } from './scripts/lib/fingerprints.ts';
 
 const repositoryRoot = import.meta.dirname;
-const runId = process.env.PAYMENT_RUN_ID ?? 'local';
+const runId = process.env.VERIFY_RUN_ID ?? 'local';
 
 const fingerprints = buildVerificationFingerprints(repositoryRoot);
-const reportFile = process.env.PAYMENT_REPORT_FILE
-  ? resolve(repositoryRoot, process.env.PAYMENT_REPORT_FILE)
+const reportFile = process.env.VERIFY_REPORT_FILE
+  ? resolve(repositoryRoot, process.env.VERIFY_REPORT_FILE)
   : resolve(repositoryRoot, `artifacts/${runId}/reports/scenarios.json`);
 
 export default defineConfig({ test: {

@@ -42,7 +42,7 @@ describe('defineCase execution', () => {
     const testContext = context();
     await state.registered!(testContext);
     expect(state.fixtureRoots).toEqual(['/fixtures']);
-    expect(testContext.annotate).toHaveBeenCalledWith(JSON.stringify({ assertions: 1, checkpoints: ['wire'] }), 'payment-evidence');
+    expect(testContext.annotate).toHaveBeenCalledWith(JSON.stringify({ assertions: 1, checkpoints: ['wire'] }), 'scenario-evidence');
   });
 
   it('records continuous FLOW stages only for a FLOW binding', async () => {
@@ -52,7 +52,7 @@ describe('defineCase execution', () => {
     });
     const testContext = context();
     await state.registered!(testContext);
-    expect(testContext.annotate).toHaveBeenCalledWith(JSON.stringify({ id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'attempt-one', stages: ['prepare', 'invoke', 'result'] }), 'payment-flow');
+    expect(testContext.annotate).toHaveBeenCalledWith(JSON.stringify({ id: 'FLOW-SAMPLE-001', caseKey: 'normal', continuityId: 'attempt-one', stages: ['prepare', 'invoke', 'result'] }), 'scenario-flow');
 
     defineCase(binding, async ({ flow, expect: localExpect, checkpoint }) => {
       await checkpoint('wire', () => localExpect(true).toBe(true));

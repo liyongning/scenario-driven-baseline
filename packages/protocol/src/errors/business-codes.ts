@@ -1,26 +1,26 @@
 import { CanonicalErrorCode as C } from '../generated/idl/common/v1/enums';
 
 /** 原始 IDL 错误描述，不包含 SDK 的结果分类或恢复动作。 */
-export type PaymentBusinessErrorDescriptor = Readonly<{
+export type BusinessErrorDescriptor = Readonly<{
   /** 完整服务端业务错误码，保留 int64 精度。 */
   statusCode: bigint;
   /** IDL 通用错误分类；不能代替完整错误码识别具体场景。 */
   canonicalCode: C;
   /** IDL DescribeErrorCode 给出的业务错误名称。 */
   bizCodeName: string;
-  /** 原始描述中的服务来源；不同于 SDK PaymentError.source。 */
+  /** 原始描述中的服务来源；不同于 SDK 结果错误对象的 source。 */
   source: string;
   /** 服务端描述的重试属性；不授权 SDK 自动重放。 */
   retryable: boolean;
 }>;
 /** 本副本直接核对 error_code.go / error_contract.go 的完整来源提交。 */
-export const paymentBusinessErrorsIdlCommit = '5539be8f09323709fa65f6568efe22896ec35d24';
+export const businessErrorsIdlCommit = '5539be8f09323709fa65f6568efe22896ec35d24';
 
-function entry(statusCode: bigint, canonicalCode: C, bizCodeName: string, source: string, retryable: boolean): PaymentBusinessErrorDescriptor {
+function entry(statusCode: bigint, canonicalCode: C, bizCodeName: string, source: string, retryable: boolean): BusinessErrorDescriptor {
   return Object.freeze({ statusCode, canonicalCode, bizCodeName, source, retryable });
 }
 /** 手写维护的 7 项 Go 原始错误；目录及记录冻结，跨客户端不可改写。 */
-export const paymentBusinessErrors = Object.freeze({
+export const businessErrors = Object.freeze({
   /** 网关参数拒绝，不推断业务登录态。 */
   ErrGatewayProxyInvalidParameter: entry(20200002001010n, C.CANONICAL_ERROR_CODE_INVALID_PARAMETER, 'BIZ_GATEWAY_INVALID_PARAMETER', 'infra-gateway', false),
   /** 网关业务鉴权失败。 */
@@ -38,6 +38,6 @@ export const paymentBusinessErrors = Object.freeze({
 });
 
 /** 按完整 int64 查找原始描述；未知码不按位段、文案或通用类别猜测。 */
-export function getPaymentBusinessError(statusCode: bigint): PaymentBusinessErrorDescriptor | undefined {
-  return Object.values(paymentBusinessErrors).find(error => error.statusCode === statusCode);
+export function getBusinessError(statusCode: bigint): BusinessErrorDescriptor | undefined {
+  return Object.values(businessErrors).find(error => error.statusCode === statusCode);
 }

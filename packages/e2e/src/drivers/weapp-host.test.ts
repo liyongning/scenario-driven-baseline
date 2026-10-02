@@ -18,7 +18,7 @@ describe('official minimal weapp host', () => {
     const runProtocolCase = vi.fn(async (input: unknown) => ({ input }));
     const runProtocolSuite = vi.fn(async (input: unknown) => ({ suite: input }));
     const runExampleCase = vi.fn(async (input: unknown) => ({ example: input }));
-    vi.stubGlobal('__PAYMENT_TEST_RUNNER__', { runProtocolCase, runProtocolSuite });
+    vi.stubGlobal('__TEMPLATE_TEST_RUNNER__', { runProtocolCase, runProtocolSuite });
     vi.stubGlobal('__EXAMPLE_TEST_RUNNER__', { runExampleCase });
     vi.stubGlobal('App', (value: typeof definition) => { definition = value; });
 
@@ -48,7 +48,7 @@ describe('official minimal weapp host', () => {
     await mkdir(dirname(generatedRunner), { recursive: true });
     await writeFile(generatedRunner, 'export const runProtocolCase = async input => input;\n');
     await writeFile(new URL('../../host/weapp/.generated/example-runner.js', import.meta.url), 'export const runExampleCase = async input => input;\n');
-    vi.stubGlobal('__PAYMENT_TEST_RUNNER__', undefined);
+    vi.stubGlobal('__TEMPLATE_TEST_RUNNER__', undefined);
     vi.stubGlobal('__EXAMPLE_TEST_RUNNER__', undefined);
     vi.stubGlobal('App', (value: typeof definition) => { definition = value; });
 

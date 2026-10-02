@@ -170,7 +170,7 @@ export async function loadReporterOutputs(paths: ReadonlyArray<string>) {
     catch (error) { issues.push(`${path}: reporter output cannot be read: ${String(error)}`); continue; }
     if (!Array.isArray(output.tests)) { issues.push(`${path}: reporter output has no tests array`); continue; }
     for (const test of output.tests) {
-      if (!test.binding) { issues.push(`${path}/${test.caseId}: missing paymentCase binding`); continue; }
+      if (!test.binding) { issues.push(`${path}/${test.caseId}: missing scenarioCase binding`); continue; }
       if (test.project !== test.binding.environment) issues.push(`${path}/${test.caseId}: report project does not match binding environment`);
       for (const key of ['runId', 'sourceDigest', 'specDigest', 'idlDigest'] as const) {
         if (test[key] !== output[key]) issues.push(`${path}/${test.caseId}: record ${key} differs from report envelope`);
@@ -346,7 +346,7 @@ export function evaluateCoverage(input: CoverageInput) {
   ])) as Record<VerificationKind, Summary>;
   const summaries = {
     allSpec: scenarioSummary(),
-    paymentBehavior: scenarioSummary('behavior'),
+    publicBehavior: scenarioSummary('behavior'),
     byKind,
     protocol: summarize(contractStates),
     flows: summarize(flowStates),
@@ -385,11 +385,11 @@ export async function runScenariosCli(
   const fingerprints = buildVerificationFingerprints(root);
   const reportArguments = argv.flatMap((value, index) => value === '--report' && argv[index + 1] ? [resolve(root, argv[index + 1]!)] : []);
   const defaultReports = ['unit.json', 'integration.json', 'weapp.json']
-    .map(name => resolve(root, `artifacts/${environment.PAYMENT_RUN_ID ?? 'local'}/reports/${name}`))
+    .map(name => resolve(root, `artifacts/${environment.VERIFY_RUN_ID ?? 'local'}/reports/${name}`))
     .filter(path => existsSync(path));
   const loaded = await loadReporterOutputs(reportArguments.length > 0 ? reportArguments : defaultReports);
   const coverage = evaluateCoverage({
-    current: { runId: environment.PAYMENT_RUN_ID ?? 'local', ...fingerprints },
+    current: { runId: environment.VERIFY_RUN_ID ?? 'local', ...fingerprints },
     scenarios: specs.scenarios.map(scenarioCoverageDefinition),
     contracts: contracts.obligations.map(obligation => ({ ...obligation, requiredIn: obligation.requiredIn })),
     flows: specs.flows.map(flow => ({

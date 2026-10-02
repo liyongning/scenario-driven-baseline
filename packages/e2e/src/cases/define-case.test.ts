@@ -22,7 +22,7 @@ describe('validateCaseBinding', () => {
     expect(validateCaseBinding({ ...valid, flowCase: 'normal' })).toContain('flowId and flowCase must be provided together');
   });
 
-  it('accepts generic uppercase owner IDs for non-payment scenarios', () => {
+  it('accepts generic uppercase owner IDs for non-template scenarios', () => {
     expect(validateCaseBinding({ ...valid, ownerId: 'SCN-TEMPLATE-EXAMPLE-001' })).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@ import { CreateTrade, QueryTrade } from '../../src/generated/idl/infra/trade/v1/
 import { exampleRpcMethods } from './example/routes.ts';
 import { routesFromRpcMethods } from './idl-routes.ts';
 
-test('SCN-PROTOCOL-CONTRACT-004 idl-route-source', { meta: { paymentCase: {
+test('SCN-PROTOCOL-CONTRACT-004 idl-route-source', { meta: { scenarioCase: {
   ownerId: 'SCN-PROTOCOL-CONTRACT-004', caseId: 'idl-route-source', environment: 'protocol-unit', fixtureCase: null,
   covers: [{ id: 'SCN-PROTOCOL-CONTRACT-004', caseKey: 'idl-route-source', checks: ['idl-route-source'] }],
 } } }, async context => {
@@ -21,5 +21,5 @@ test('SCN-PROTOCOL-CONTRACT-004 idl-route-source', { meta: { paymentCase: {
   context.expect(() => routesFromRpcMethods([CreateTrade.meta], [{ ...CreateTrade.meta, path: '' }])).toThrow(/not an HTTP method/);
   context.expect(() => routesFromRpcMethods([CreateTrade.meta], [{ ...CreateTrade.meta, method: '' }])).toThrow(/not an HTTP method/);
   context.expect(() => routesFromRpcMethods([CreateTrade.meta], [withoutCodec as never])).toThrow(/not an HTTP method/);
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['idl-route-source'] }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['idl-route-source'] }), 'scenario-evidence');
 });

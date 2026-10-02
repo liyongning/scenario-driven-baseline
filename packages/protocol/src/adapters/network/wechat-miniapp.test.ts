@@ -3,7 +3,6 @@ import type { Cancellation, OperationContext } from '../../ports/context';
 import type { HttpRequest } from '../../ports/http';
 import { createWechatMiniappHttp } from './wechat-miniapp';
 
-// SDK-09/10、CONTRACT-08/10 的网络部分；不证明 CreateTradePay/QueryTrade 或真实微信联调。
 // 捕捉的错误：改写请求、以 HTTP 状态判业务失败、重放、漏 abort/清理、旧回调覆盖本次结果。
 type PlatformOptions = {
   url: string;
@@ -53,7 +52,7 @@ function cancellationSource() {
 }
 
 const request: HttpRequest = {
-  url: 'https://gateway.invalid/payment?unchanged=1', method: 'POST',
+  url: 'https://gateway.invalid/resource?unchanged=1', method: 'POST',
   headers: { lane: 'test-lane', 'Content-Type': 'application/json', 'X-Test': '  unchanged  ' },
   body: '{ "signData": "  raw ", "xpayEnv": "XPAY_ENV_SANDBOX" }', timeoutMs: 125,
 };
@@ -81,7 +80,7 @@ describe('微信网络适配器', () => {
     const source = cancellationSource();
     const pending = createWechatMiniappHttp().send({ ...request, cancellation: source.cancellation });
     expect(wx.sent[0]).toMatchObject({
-      url: 'https://gateway.invalid/payment?unchanged=1', method: 'POST',
+      url: 'https://gateway.invalid/resource?unchanged=1', method: 'POST',
       header: { lane: 'test-lane', 'Content-Type': 'application/json', 'X-Test': '  unchanged  ' },
       data: '{ "signData": "  raw ", "xpayEnv": "XPAY_ENV_SANDBOX" }', timeout: 125,
       dataType: 'text', responseType: 'text',

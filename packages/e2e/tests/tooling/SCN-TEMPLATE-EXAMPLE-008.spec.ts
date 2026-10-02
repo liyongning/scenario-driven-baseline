@@ -7,7 +7,7 @@ function execute(command: string, args: string[]) {
   return spawnSync(resolve('node_modules/.bin', command), args, { cwd: process.cwd(), encoding: 'utf8' });
 }
 
-test('SCN-TEMPLATE-EXAMPLE-008 dependency-violations', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-008 dependency-violations', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-008', caseId: 'dependency-violations', environment: 'integration', fixtureCase: 'dependency-violations',
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-008', caseKey: 'dependency-violations', checks: ['example-core-isolated', 'no-cross-domain-import', 'restored-passes'] }],
 } } }, async context => {
@@ -44,7 +44,7 @@ test('SCN-TEMPLATE-EXAMPLE-008 dependency-violations', { meta: { paymentCase: {
     rmSync(sampleDomain, { recursive: true, force: true });
     const restored = execute('depcruise', ['--config', '.dependency-cruiser.cjs', '--output-type', 'err-long', 'packages/sdk/src', 'packages/protocol/src']);
     context.expect(restored.status).toBe(0);
-    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['example-core-isolated', 'no-cross-domain-import', 'restored-passes'] }), 'payment-evidence');
+    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['example-core-isolated', 'no-cross-domain-import', 'restored-passes'] }), 'scenario-evidence');
   } finally {
     for (const path of temporaryFiles) rmSync(path, { force: true });
     rmSync(sampleDomain, { recursive: true, force: true });

@@ -2,7 +2,7 @@ import 'vitest';
 
 declare module 'vitest' {
   interface TaskMeta {
-    paymentCase?: Readonly<{
+    scenarioCase?: Readonly<{
       ownerId: string;
       caseId: string;
       environment: string;

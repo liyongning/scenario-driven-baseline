@@ -1,4 +1,4 @@
-import { getPaymentBusinessError, paymentBusinessErrors } from '@daqian/template-protocol';
+import { getBusinessError, businessErrors } from '@daqian/template-protocol';
 import type { CommunicationError, DecodedHttpResponse } from '@daqian/template-protocol';
 import { GoodsType } from '@daqian/template-protocol/generated/idl/infra/pay/v1/pay';
 import { CreateTrade, CreateTradeRequest, QueryTrade, QueryTradeRequest, TradeStatus } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
@@ -36,12 +36,12 @@ function communication(error: CommunicationError): ExampleBackendResult<never> {
   }
 }
 function business(statusCode: bigint, operation: 'create' | 'query'): ExampleBackendFailure {
-  const descriptor = getPaymentBusinessError(statusCode);
+  const descriptor = getBusinessError(statusCode);
   const category = descriptor?.canonicalCode === CanonicalErrorCode.CANONICAL_ERROR_CODE_UNAUTHORIZED ? 'unauthorized' : 'server';
   return {
     ok: false,
     error: exampleError(category, { serverCode: statusCode.toString(), ...(descriptor ? { serverDescription: descriptor.bizCodeName } : {}) }),
-    ...(operation === 'query' && descriptor?.statusCode === paymentBusinessErrors.ErrInfraTradeQueryTradeUnavailable.statusCode && descriptor.retryable ? { retryable: true } : {}),
+    ...(operation === 'query' && descriptor?.statusCode === businessErrors.ErrInfraTradeQueryTradeUnavailable.statusCode && descriptor.retryable ? { retryable: true } : {}),
   };
 }
 type ExampleBackendFailure = Extract<ExampleBackendResult<never>, { ok: false }>;

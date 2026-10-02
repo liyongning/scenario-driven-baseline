@@ -17,7 +17,7 @@ function run(command: string, args: string[], input?: string) {
 }
 
 function architectureFixture() {
-  const root = tempRoot('payment-architecture-cli-');
+  const root = tempRoot('template-architecture-cli-');
   mkdirSync(join(root, 'packages'));
   writeFileSync(join(root, 'README.md'), '# facts\n');
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md)\n');
@@ -48,7 +48,7 @@ function packageInput() {
 }
 
 function runPackageCli(input: ReturnType<typeof packageInput>) {
-  const root = tempRoot('payment-package-cli-');
+  const root = tempRoot('template-package-cli-');
   const path = join(root, 'input.json');
   writeFileSync(path, JSON.stringify(input));
   return run(resolve('node_modules/.bin/tsx'), ['scripts/check-package.ts', '--input', path]);
@@ -93,13 +93,13 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<[keyof t
       case 'lint-violation':
         result = run(resolve('node_modules/.bin/eslint'), ['--stdin', '--stdin-filename', 'packages/e2e/src/lint-probe.ts'], 'const value: any = 1;\n'); break;
       case 'type-violation': {
-        const root = tempRoot('payment-type-cli-');
+        const root = tempRoot('template-type-cli-');
         writeFileSync(join(root, 'bad.ts'), 'const value: string = 1;\n');
         writeFileSync(join(root, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, noEmit: true }, files: ['bad.ts'] }));
         result = run(resolve('node_modules/.bin/tsc'), ['-p', join(root, 'tsconfig.json')]); break;
       }
       case 'untested-handwritten-file': {
-        const root = tempRoot('payment-coverage-cli-');
+        const root = tempRoot('template-coverage-cli-');
         symlinkSync(resolve('node_modules'), join(root, 'node_modules'), 'dir');
         writeFileSync(join(root, 'source.ts'), 'export function uncovered(value: boolean) { return value ? 1 : 0; }\n');
         writeFileSync(join(root, 'probe.test.ts'), "import { expect, test } from 'vitest'; test('probe', () => expect(1).toBe(1));\n");

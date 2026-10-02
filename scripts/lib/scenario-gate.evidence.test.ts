@@ -29,7 +29,7 @@ async function temporaryRoot(name: string, body: (root: string) => Promise<void>
 }
 
 function evidence(id: string, caseId: string, checks: string[], body: (context: TestContext, check: (name: string, assertion: () => void | Promise<void>) => Promise<void>) => Promise<void>) {
-  test(`${id} ${caseId}`, { meta: { paymentCase: {
+  test(`${id} ${caseId}`, { meta: { scenarioCase: {
     ownerId: id, caseId, fixtureCase: null, environment: 'test-tools-unit',
     covers: [{ id, caseKey: caseId, checks }],
   } } }, async (context: TestContext) => {
@@ -37,7 +37,7 @@ function evidence(id: string, caseId: string, checks: string[], body: (context: 
     const executed: string[] = [];
     await body(context, async (name, assertion) => { await assertion(); executed.push(name); });
     context.expect(executed.sort()).toEqual([...checks].sort());
-    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'payment-evidence');
+    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'scenario-evidence');
   });
 }
 

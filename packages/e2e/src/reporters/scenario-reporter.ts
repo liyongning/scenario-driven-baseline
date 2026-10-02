@@ -34,16 +34,16 @@ export class ScenarioReporter implements Reporter {
   onTestCaseResult(testCase: TestCase): void {
     const metadata = (typeof testCase.meta === 'function'
       ? testCase.meta()
-      : (testCase.options as unknown as { meta?: { paymentCase?: unknown } }).meta) as { paymentCase?: unknown } | undefined;
-    const binding = metadata?.paymentCase as { caseId?: string; fixtureCase?: string | null } | undefined;
+      : (testCase.options as unknown as { meta?: { scenarioCase?: unknown } }).meta) as { scenarioCase?: unknown } | undefined;
+    const binding = metadata?.scenarioCase as { caseId?: string; fixtureCase?: string | null } | undefined;
     if (!binding?.caseId) return;
     const annotations = testCase.annotations();
-    const annotation = annotations.find(item => item.type === 'payment-evidence');
+    const annotation = annotations.find(item => item.type === 'scenario-evidence');
     let evidence: { assertions: number; checkpoints: string[] } = { assertions: 0, checkpoints: [] };
     if (annotation) {
       try { evidence = JSON.parse(annotation.message) as typeof evidence; } catch { /* 解析失败保留零断言，完整门禁会阻断。 */ }
     }
-    const flowAnnotation = annotations.find(item => item.type === 'payment-flow');
+    const flowAnnotation = annotations.find(item => item.type === 'scenario-flow');
     let flow: ScenarioRecord['flow'];
     if (flowAnnotation) {
       try { flow = JSON.parse(flowAnnotation.message) as ScenarioRecord['flow']; } catch { /* 无效连续性证据不写入报告，FLOW 门禁会阻断。 */ }
@@ -63,7 +63,7 @@ export class ScenarioReporter implements Reporter {
       assertions: evidence.assertions,
       checkpoints: evidence.checkpoints,
       ...(flow ? { flow } : {}),
-      binding: metadata?.paymentCase,
+      binding: metadata?.scenarioCase,
     });
   }
 

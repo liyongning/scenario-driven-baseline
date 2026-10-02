@@ -19,7 +19,7 @@ const tagPrefix = 'template-sdk-v';
 
 /** 预检读取门禁根目录的清单与 workspace 事实；临时根只写清单与两个包的 package.json。 */
 function releaseFixture(registry: string) {
-  const root = mkdtempSync(join(tmpdir(), 'payment-release-cli-'));
+  const root = mkdtempSync(join(tmpdir(), 'template-release-cli-'));
   roots.push(root);
   mkdirSync(join(root, 'packages/sdk'), { recursive: true });
   mkdirSync(join(root, 'packages/protocol'), { recursive: true });

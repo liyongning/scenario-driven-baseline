@@ -31,7 +31,7 @@ const client: ExampleClient = {
 };
 void client;
 
-test('SCN-TEMPLATE-EXAMPLE-001 public-type-contract', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-001 public-type-contract', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-001', caseId: 'public-type-contract', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-001', caseKey: 'public-type-contract', checks: ['public-type-contract'] }],
 } } }, async (context: TestContext) => {
@@ -45,5 +45,5 @@ test('SCN-TEMPLATE-EXAMPLE-001 public-type-contract', { meta: { paymentCase: {
   const options: ExampleRunOptions = { policy: { windowMs: 10 } };
   context.expect(options.policy?.windowMs).toBe(10);
   context.expect(await client.observe({ id: 'resource-1', externalRef: 'ref-1' })).toMatchObject({ end: 'cancelled', lastState: 'pending' });
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['public-type-contract'] }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: ['public-type-contract'] }), 'scenario-evidence');
 });

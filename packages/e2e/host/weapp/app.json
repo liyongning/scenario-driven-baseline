@@ -1,6 +1,6 @@
 {
   "pages": ["pages/index/index"],
   "window": {
-    "navigationBarTitleText": "Payment SDK Test Host"
+    "navigationBarTitleText": "SDK Template Test Host"
   }
 }

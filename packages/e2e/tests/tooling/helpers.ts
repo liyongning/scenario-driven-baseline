@@ -31,7 +31,7 @@ export function baseCoverage(): CoverageInput {
 }
 
 export function runScenarioCli(input: CoverageInput) {
-  const directory = mkdtempSync(`${tmpdir()}/payment-scenario-cli-`);
+  const directory = mkdtempSync(`${tmpdir()}/template-scenario-cli-`);
   const inputPath = resolve(directory, 'input.json');
   writeFileSync(inputPath, JSON.stringify(input));
   try {

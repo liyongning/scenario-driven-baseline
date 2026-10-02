@@ -44,7 +44,7 @@ export async function runPackageCli(
   if (inputIndex >= 0 && argv[inputIndex + 1]) {
     input = JSON.parse(await readFile(resolve(argv[inputIndex + 1]!), 'utf8')) as PackageInput;
   } else {
-    const directory = await mkdtemp(resolve(tmpdir(), 'payment-pack-'));
+    const directory = await mkdtemp(resolve(tmpdir(), 'template-pack-'));
     try {
       const packed = (name: string) => {
         const result = spawn('pnpm', ['--filter', name, 'pack', '--pack-destination', directory], { cwd: root, encoding: 'utf8' });

@@ -15,10 +15,10 @@ function backend(overrides: Partial<ExampleBackend> = {}): ExampleBackend {
   return { create: async () => ({ ok: true, value: { reference } }), query: async () => ({ ok: true, value: { reference, state: 'completed' } }), ...overrides };
 }
 async function annotate(context: TestContext, before: number, checkpoints: string[]) {
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints }), 'payment-evidence');
+  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints }), 'scenario-evidence');
 }
 
-test('SCN-TEMPLATE-EXAMPLE-002 core-create-mapping', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-002 core-create-mapping', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-002', caseId: 'core-create-mapping', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-002', caseKey: 'create-mapping', checks: ['neutral-reference'] }],
 } } }, async context => {
@@ -28,7 +28,7 @@ test('SCN-TEMPLATE-EXAMPLE-002 core-create-mapping', { meta: { paymentCase: {
   await annotate(context, before, ['neutral-reference']);
 });
 
-test('SCN-TEMPLATE-EXAMPLE-003 core-create-error-mapping', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-003 core-create-error-mapping', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-003', caseId: 'core-create-error-mapping', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-003', caseKey: 'create-error-mapping', checks: ['error-category', 'server-code-preserved'] }],
 } } }, async context => {
@@ -41,7 +41,7 @@ test('SCN-TEMPLATE-EXAMPLE-003 core-create-error-mapping', { meta: { paymentCase
   await annotate(context, before, ['error-category', 'server-code-preserved']);
 });
 
-test('SCN-TEMPLATE-EXAMPLE-005 observation-budget', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-005 observation-budget', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-005', caseId: 'observation-budget', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-005', caseKey: 'observation-budget', checks: ['request-timeout-local', 'window-elapsed', 'no-request-after-end'] }],
 } } }, async context => {
@@ -54,7 +54,7 @@ test('SCN-TEMPLATE-EXAMPLE-005 observation-budget', { meta: { paymentCase: {
   await annotate(context, before, ['request-timeout-local', 'window-elapsed', 'no-request-after-end']);
 });
 
-test('SCN-TEMPLATE-EXAMPLE-006 cancellation-rules', { meta: { paymentCase: {
+test('SCN-TEMPLATE-EXAMPLE-006 cancellation-rules', { meta: { scenarioCase: {
   ownerId: 'SCN-TEMPLATE-EXAMPLE-006', caseId: 'cancellation-rules', environment: 'sdk-unit', fixtureCase: null,
   covers: [{ id: 'SCN-TEMPLATE-EXAMPLE-006', caseKey: 'cancellation-rules', checks: ['cancel-while-waiting', 'cancel-in-flight', 'no-request-after-cancel'] }],
 } } }, async context => {
