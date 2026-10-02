@@ -2,7 +2,7 @@
 
 **Goal:** 让门禁只依赖项目清单，去掉全部支付身份，Shadow 与协议来源解耦，并交付使用指南与替换点地图，使仓库成为使用方可直接演进的 SDK 领域模板。最终验收三项（`check:fast`、逐文件 weapp、以全部报告运行的场景门禁）退出码 0，门禁问题数 0。
 
-**Architecture:** 先用项目清单收拢门禁中写死的形态（任务 1），再做 Shadow 中立化（任务 2）、改名（任务 3、4），最后交付文档与指南检查（任务 5）和最终验收（任务 6）。见 Design"执行顺序"。
+**Architecture:** 先用项目清单收拢门禁中写死的形态（任务 1），再做 Shadow 中立化（任务 2）、改名（任务 3、4），再交付文档与指南检查（任务 5），用指南演练验证文档照着能用（任务 6），最后最终验收（任务 7）。见 Design"执行顺序"。
 
 **Tech Stack:** 沿用现有工具链（pnpm、Vite、Vitest、Ajv、dependency-cruiser、ProtoGen 0.1.2），不新增依赖。
 
@@ -23,7 +23,7 @@
 1. Files 中的产物齐全，行为与所列 Requirement/Scenario 及 Design 决定一致。
 2. `pnpm check:fast` 退出码为 0。
 3. RED 已先失败、GREEN 后通过；Verification 中的命令与反例符合预期。
-4. 实际运行一次场景门禁（unit、integration 报告，加本任务受影响的 weapp 文件报告；任务 6 用全部 weapp 报告），每个问题写明归属的后续任务，无法归属即为回归。
+4. 实际运行一次场景门禁（unit、integration 报告，加本任务受影响的 weapp 文件报告；任务 7 用全部 weapp 报告），每个问题写明归属的后续任务，无法归属即为回归。
 5. 在 `artifacts/<run-id>/tasks/task-<n>.md` 保存验收索引：实际命令与退出码、报告路径、方案与实际的差异、预期失败的反例、weapp 重跑记录。
 6. 任务评审确认职责边界、断言与 Spec 一致后才勾选。
 
@@ -187,8 +187,8 @@
 
   **Files**
   - Create：`docs/template-guide.md`（按 Design"使用指南与替换点地图"的规定章节与内容）。
-  - Modify：`scripts/check-architecture.ts` 与测试（新增 `checkTemplateGuide`；module case `guide-rules` 绑定 SCN-TEMPLATE-ENGINEERING-006）。
-  - Create：`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`（`guide-violations-cli`：临时副本中分别删除指南、删除 AGENTS/README 链接、删除一个规定章节、加入断链，逐项报告；恢复后通过）。
+  - Modify：`scripts/check-architecture.ts` 与测试（新增 `checkTemplateGuide`，含 Design"使用指南与替换点地图"中的结构与事实一致性两类检查；module case `guide-rules` 绑定 SCN-TEMPLATE-ENGINEERING-006）。
+  - Create：`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`（`guide-violations-cli`：临时副本中分别删除指南、删除 AGENTS/README 链接、删除一个规定章节、加入断链、引用未登记的 Scenario ID、引用不存在的 `pnpm` 命令、引用不存在的 `manifest.` 字段，逐项报告；恢复后通过）。
   - Modify：`AGENTS.md`、`packages/sdk/AGENTS.md`、`packages/protocol/AGENTS.md`、`packages/e2e/AGENTS.md`、`README.md`、`docs/engineering/bootstrap.md`（按 Design"文档改写"）。
   - Modify：`.gitignore`（加入 `openspec/schemas/`）；执行 `git rm -r --cached openspec/schemas/openspec-workflow`（本地副本保留）。
   - Modify：`openspec/specs/template-engineering/spec.md`、`openspec/specs/protocol-contract/spec.md` 的 `## Purpose`（直接编辑，验收索引记录为有意例外）。
@@ -221,7 +221,41 @@
   **Commit**
   - `docs(template): add template guide and replacement-point map`
 
-- [ ] 6. 最终验收
+- [ ] 6. 指南演练验收
+
+  **Files**
+  - Modify（按演练发现）：`docs/template-guide.md`、根与各包 `AGENTS.md`。
+  - Create：验收索引 `artifacts/<run-id>/tasks/task-6-drill.md`。
+  - 演练用的临时 worktree 与其中的改动不进入提交。
+
+  **Requirements / Scenarios**
+  - template-engineering：ENG-06 / SCN-TEMPLATE-ENGINEERING-006（修订后的指南仍通过结构与事实一致性检查）
+
+  **Design Decisions**
+  - Decision: 指南演练验收；Decision: 使用指南与替换点地图
+
+  **Interfaces**
+  - Consumes: 任务 5 提交后的仓库。
+  - Produces: 演练报告（D1～D5 的步骤摘要、改动文件、`check:fast` 结果、猜测记录及处理）；修订后的指南。
+
+  **RED**
+  - N/A — 本任务以演练暴露文档缺口代替测试；首轮演练的猜测记录即为待修复项。
+
+  **GREEN**
+  - 每条猜测记录已修订关闭或写明原因接受；受修订影响的演练用新 worktree 与新 Agent 重做通过。
+
+  **Verification**
+  - D1～D4 各自在独立 worktree 中 `pnpm check:fast` 退出码 0，且 `git diff` 显示未修改门禁逻辑（`scripts/` 下非测试文件只有替换点地图要求的删除）。
+  - D5 的文件清单经评审对照 `git grep` 结果确认完整。
+  - 修订指南后，本仓库 `pnpm check:fast` 退出码 0。
+
+  **Review / Acceptance**
+  - 评审逐条核对猜测记录的处理；确认演练提示词未包含本 Change 规划内容；OI-01 状态与指南"已知限制"一致。
+
+  **Commit**
+  - `docs(template): refine template guide from guided drills`
+
+- [ ] 7. 最终验收
 
   **Files**
   - 无代码改动；验收索引 `artifacts/<run-id>/tasks/task-6.md`。
@@ -233,7 +267,7 @@
   - Decision: 验证方式
 
   **Interfaces**
-  - Consumes: 任务 1～5 的产物。
+  - Consumes: 任务 1～6 的产物。
   - Produces: 最终验收证据。
 
   **RED**
@@ -250,7 +284,7 @@
   - 逐项核对指南"能力地图"中每项能力的承载文件存在且其验证场景或命令在本次运行中通过。
 
   **Review / Acceptance**
-  - 汇总 6 个任务的证据；确认 OI-01 登记与指南"已知限制"一致。
+  - 汇总 7 个任务的证据；确认 OI-01 登记与指南"已知限制"一致。
 
   **Commit**
   - `test(template): record final template acceptance`

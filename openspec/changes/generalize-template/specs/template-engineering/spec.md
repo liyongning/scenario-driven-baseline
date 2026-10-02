@@ -42,11 +42,11 @@
 
 ### Requirement: ENG-06 使用指南与替换点地图
 
-模板 MUST 提供使用指南 `docs/template-guide.md`，作为使用方（含 Agent）基于模板演进的入口。指南 SHALL 包含以下章节：能力地图（每项能力的承载文件与验证方式）、从方案到验收的流程、初始化方式（使用方在自己仓库中以第一个 Change 完成删改增，并以同一套门禁验收）、替换点地图。替换点地图 SHALL 覆盖可替换的实现点"协议来源"与"运行平台"，以及可删除模块"包发布"；每项列出涉及的文件、清单中需要修改的项与验收所用门禁。根 AGENTS.md 与 README.md SHALL 链接该指南。架构检查 MUST 校验：指南存在；根 AGENTS.md 与 README.md 都链接它；规定章节齐全；指南中的相对链接都能解析。章节内容是否准确由评审负责。
+模板 MUST 提供使用指南 `docs/template-guide.md`，作为使用方（含 Agent）基于模板演进的入口。指南 SHALL 包含以下章节：能力地图（每项能力的承载文件与验证方式）、从方案到验收的流程、初始化方式（使用方在自己仓库中以第一个 Change 完成删改增，并以同一套门禁验收）、替换点地图。替换点地图 SHALL 覆盖可替换的实现点"协议来源"与"运行平台"，以及可删除模块"包发布"；每项列出涉及的文件、清单中需要修改的项与验收所用门禁。根 AGENTS.md 与 README.md SHALL 链接该指南。架构检查 MUST 校验：指南存在；根 AGENTS.md 与 README.md 都链接它；规定章节齐全；指南中的相对链接都能解析。指南中可机械核对的事实 MUST 与仓库一致：出现的 Scenario ID 都已在有效 Spec 中登记；以行内代码书写的 `pnpm <命令>` 中，非 pnpm 内置命令都存在于根 `package.json` 的 scripts；以行内代码 `manifest.<字段路径>` 引用的清单字段都存在于 `project.manifest.schema.json`。描述是否准确、照着能否完成操作，由评审与指南演练验收负责。
 
 #### Scenario: SCN-TEMPLATE-ENGINEERING-006 使用指南缺失或不完整
-- **WHEN** 在临时副本中分别删除指南、删除根 AGENTS.md 或 README.md 中指向指南的链接、删除某个规定章节、在指南中加入无法解析的相对链接
-- **THEN** 架构检查逐项指出缺失或断链并非零退出；恢复后检查通过。
+- **WHEN** 在临时副本中分别删除指南、删除根 AGENTS.md 或 README.md 中指向指南的链接、删除某个规定章节、在指南中加入无法解析的相对链接、引用未登记的 Scenario ID、引用不存在的 `pnpm` 命令、引用不存在的清单字段
+- **THEN** 架构检查逐项指出缺失、断链或不一致的事实并非零退出；恢复后检查通过。
 
 ```json verification
 {
@@ -55,11 +55,12 @@
     "guide-present-and-linked": "指南存在，且根 AGENTS.md 与 README.md 都链接它",
     "guide-sections": "指南包含能力地图、从方案到验收、初始化方式、替换点地图（协议来源、运行平台、包发布）全部章节",
     "guide-links-resolve": "指南中的相对链接都能解析",
+    "guide-facts-consistent": "指南引用的 Scenario ID 已登记、pnpm 命令存在于根 package.json、清单字段存在于清单 schema",
     "guide-restorable": "恢复合法输入后检查通过"
   },
   "cases": [
-    {"key": "guide-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["guide-present-and-linked", "guide-sections", "guide-links-resolve"]},
-    {"key": "guide-violations-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["guide-present-and-linked", "guide-sections", "guide-links-resolve", "guide-restorable"]}
+    {"key": "guide-rules", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["guide-present-and-linked", "guide-sections", "guide-links-resolve", "guide-facts-consistent"]},
+    {"key": "guide-violations-cli", "kind": "engineering", "requiredIn": ["integration"], "checks": ["guide-present-and-linked", "guide-sections", "guide-links-resolve", "guide-facts-consistent", "guide-restorable"]}
   ],
   "blockedBy": []
 }
