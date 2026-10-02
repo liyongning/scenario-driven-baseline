@@ -369,7 +369,7 @@
   **Commit**
   - `docs(template): refine template guide from independent re-drills`
 
-- [ ] 10. 最终验收（重新执行）
+- [x] 10. 最终验收（重新执行）
 
   **Files**
   - 无代码改动；验收索引 `artifacts/generalize-template-20261002-r2/tasks/task-10.md`（`git add -f`）；全部报告写在 `VERIFY_RUN_ID=generalize-template-20261002-r2` 下，不写入首轮目录。
