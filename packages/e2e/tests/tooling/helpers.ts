@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { CoverageInput } from '../../../../scripts/check-scenarios.ts';
 
@@ -39,5 +39,48 @@ export function runScenarioCli(input: CoverageInput) {
     return { status: result.status, stdout: result.stdout, stderr: result.stderr };
   } finally {
     rmSync(directory, { force: true, recursive: true });
+  }
+}
+
+
+/** 临时架构根的合法使用指南：规定章节齐全，且不含 Scenario ID、pnpm 命令与清单字段引用。 */
+export function writeTemplateGuideFixture(root: string) {
+  const guide = [
+    '# 模板使用指南',
+    '',
+    '## 能力地图',
+    '',
+    '（临时根占位）',
+    '',
+    '## 从方案到验收',
+    '',
+    '（临时根占位）',
+    '',
+    '## 初始化方式',
+    '',
+    '（临时根占位）',
+    '',
+    '## 替换点地图',
+    '',
+    '### 协议来源',
+    '',
+    '（临时根占位）',
+    '',
+    '### 运行平台',
+    '',
+    '（临时根占位）',
+    '',
+    '### 包发布',
+    '',
+    '（临时根占位）',
+    '',
+  ].join('\n');
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs/template-guide.md'), guide);
+  const link = '[模板使用指南](docs/template-guide.md)';
+  for (const file of ['AGENTS.md', 'README.md']) {
+    const path = join(root, file);
+    const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
+    if (!current.includes(link)) writeFileSync(path, `${current.trimEnd()}\n\n${link}\n`.trimStart());
   }
 }

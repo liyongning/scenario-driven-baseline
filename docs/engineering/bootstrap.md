@@ -36,7 +36,7 @@ TypeScript 采用 5.9.3，满足 typescript-eslint `>=4.8.4 <6.1.0`，未使用�
 | CLI 报告 | 0.1.2，commit 9f706d4811a8ffaffeabcfa6fbaedff8670f1c89 |
 | bundled buf | 1.58.0 |
 
-根 `.npmrc` 指定工具依赖所在项目 216，无写入凭据；产品包 `publishConfig` 指向项目 245，两者职责见 README。
+根 `.npmrc` 指定工具依赖所在项目 216，无写入凭据；产品包 `publishConfig` 的 registry 由清单 `manifest.release` 给出，两者职责见 README。
 
 ### 初始化与限定修改
 
@@ -61,7 +61,7 @@ TypeScript 采用 5.9.3，满足 typescript-eslint `>=4.8.4 <6.1.0`，未使用�
 - ESLint：`pnpm create @eslint/config@2.0.0`，选择 JavaScript、检查语法及问题、ESM、无框架、TypeScript、Node、JavaScript 配置；拒绝自动浮动安装，沿用精确依赖。生成的 flat config 把 Node globals 限制在测试/工具，产品纯类型配置无 DOM/Node，runtime 只声明跨宿主计时器。
 - dependency-cruiser：`pnpm exec depcruise --init`，monorepo=yes、ESM=yes、packages、允许根依赖、`tsconfig.base.json`、JSDoc=yes、getBuiltinModule=yes、编译前 TS 依赖=yes。保留官方规则并补充产品包依赖方向规则；关闭初始化孤儿提示，循环提示只分析非 type-only 依赖。
 - 薄架构检查使用 unified 11.0.5、remark-parse 11.0.0、unist-util-visit 5.1.0 解析规则链接，dependency-cruiser 是导入图的唯一解析器；没有增加第四包或自研解析器。
-- 产品包从 0.1.0 起独立维护，SDK 的协议依赖使用 `workspace:*`；两包 `publishConfig` 指向项目 245，根 `@daqian` registry 仍指工具项目 216，无凭据写入。
+- 产品包从 0.1.0 起独立维护，SDK 的协议依赖使用 `workspace:*`；两包 `publishConfig` 的 registry 由清单 `manifest.release` 给出，根 `@daqian` registry 仍指工具项目 216，无凭据写入。
 
 ### 验证范围
 
@@ -89,6 +89,6 @@ dependency-cruiser 的 `cross-workspace-no-direct-files` 拒绝跨产品 workspa
 
 ## 本地包测试与正式发布解耦
 
-本地 `pnpm pack`/`pnpm check:package` 仅服务于用户显式发起的包内容、安装、ESM/CommonJS 和声明消费测试；测试 tarball 与摘要不会进入正式发布记录，也不与 registry 产物比较。正式 `release:preflight` 只核对固定项目 245、当前 workspace 包名/版本、SDK 的 `workspace:*` 协议依赖、tag 和源码提交。用户通过 `pnpm sdk-release -- --input <record> --token-env <TOKEN_ENV>` 显式启动正式发布；入口可在本地或其他受控执行器运行，先校验当前 HEAD、tag 与包含未跟踪文件在内的 clean checkout，再从指定环境变量读取 Token。
+本地 `pnpm pack`/`pnpm check:package` 仅服务于用户显式发起的包内容、安装、ESM/CommonJS 和声明消费测试；测试 tarball 与摘要不会进入正式发布记录，也不与 registry 产物比较。正式 `release:preflight` 只核对清单 registry、当前 workspace 包名/版本、SDK 的 `workspace:*` 协议依赖、tag 和源码提交。用户通过 `pnpm sdk-release -- --input <record> --token-env <TOKEN_ENV>` 显式启动正式发布；入口可在本地或其他受控执行器运行，先校验当前 HEAD、tag 与包含未跟踪文件在内的 clean checkout，再从指定环境变量读取 Token。
 
-正式流程只使用产品 workspace 的构建与正常 `pnpm publish`：先检查协议版本，缺失时构建并发布 `@daqian/payment-protocol`，确认可读后再检查、构建和发布 `@daqian/payment-sdk`。构建仅准备当前源码对应的产品 `dist`，不执行或消费本地 `pack/check:package`；已可读取的同版本直接复用，不覆盖，也不与本地 tarball 建立文件身份关系。Token 只进入权限为 0600 的临时 npm 配置，查询与发布命令另以高优先级 scoped 参数固定项目 245，避免仓库工具 `.npmrc` 的项目 216 配置覆盖正式目标。来源预检开始即失效旧成功结果，任一失败只保留 failed checkpoint；所有发布动作、registry 确认及最终完整性检查结束后，才把临时结果原子提升为 `release-result.json`，因此晚期失败不会留下正式成功记录。Pipeline/Runner 与合并保护属于仓库治理，不是该发布能力的前置或交付物。
+正式流程只使用产品 workspace 的构建与正常 `pnpm publish`：先检查协议版本，缺失时构建并发布协议包，确认可读后再检查、构建和发布产品包。构建仅准备当前源码对应的产品 `dist`，不执行或消费本地 `pack/check:package`；已可读取的同版本直接复用，不覆盖，也不与本地 tarball 建立文件身份关系。Token 只进入权限为 0600 的临时 npm 配置，查询与发布命令另以高优先级 scoped 参数固定清单 registry，避免仓库工具 `.npmrc` 的项目 216 配置覆盖正式目标。来源预检开始即失效旧成功结果，任一失败只保留 failed checkpoint；所有发布动作、registry 确认及最终完整性检查结束后，才把临时结果原子提升为 `release-result.json`，因此晚期失败不会留下正式成功记录。Pipeline/Runner 与合并保护属于仓库治理，不是该发布能力的前置或交付物。

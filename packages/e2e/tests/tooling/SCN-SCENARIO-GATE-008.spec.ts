@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cliEvidence, fixtureRoot, runArchitecture, writeProjectManifest } from './scenario-gate-helpers.ts';
+import { writeTemplateGuideFixture } from './helpers.ts';
 
 cliEvidence('SCN-SCENARIO-GATE-008', 'schema-documentation-cli', ['schema-descriptions', 'agents-references-schemas', 'restored-passes'], async (context, check) => {
   const fixture = fixtureRoot();
@@ -9,6 +10,7 @@ cliEvidence('SCN-SCENARIO-GATE-008', 'schema-documentation-cli', ['schema-descri
     writeFileSync(join(fixture.root, 'package.json'), readFileSync(join(process.cwd(), 'package.json')));
     writeProjectManifest(fixture.root);
     writeFileSync(join(fixture.root, 'AGENTS.md'), 'scenario-gate.config.schema.json');
+    writeTemplateGuideFixture(fixture.root);
     for (const name of ['sdk', 'protocol', 'e2e']) {
       mkdirSync(join(fixture.root, 'packages', name), { recursive: true });
       writeFileSync(join(fixture.root, 'packages', name, 'AGENTS.md'), '[root](../../AGENTS.md)');
@@ -25,6 +27,7 @@ cliEvidence('SCN-SCENARIO-GATE-008', 'schema-documentation-cli', ['schema-descri
     writeFileSync(join(fixture.root, 'scripts/verification.schema.json'), JSON.stringify({ properties: { missing: { type: 'string', description: '字段说明' } } }));
     writeFileSync(join(fixture.root, 'scripts/flow.schema.json'), JSON.stringify({ properties: { missing: { type: 'string', description: '字段说明' } } }));
     writeFileSync(join(fixture.root, 'AGENTS.md'), 'scenario-gate.config.schema.json scripts/verification.schema.json scripts/flow.schema.json');
+    writeTemplateGuideFixture(fixture.root);
     const restored = runArchitecture(fixture.root);
     await check('restored-passes', () => { context.expect(restored.status).toBe(0); context.expect(restored.output?.issues).toEqual([]); });
   } finally { fixture.cleanup(); }

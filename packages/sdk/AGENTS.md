@@ -1,10 +1,10 @@
-# packages/payment-sdk/AGENTS.md
+# packages/sdk/AGENTS.md
 
 ## 模板通用规则
 
 ### 必读
 
-- [根 AGENTS](../../AGENTS.md)、[有效能力 Spec](../../openspec/specs/)、[仓库与跨仓库参考](../../README.md)。
+- [根 AGENTS](../../AGENTS.md)、[有效能力 Spec](../../openspec/specs/)、[仓库与跨仓库参考](../../README.md)、[模板使用指南](../../docs/template-guide.md)。
 
 ### 按示例扩展新业务
 

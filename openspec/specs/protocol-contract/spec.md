@@ -1,7 +1,7 @@
 # protocol-contract Specification
 
 ## Purpose
-TBD - created by archiving change remove-payment-business. Update Purpose after archive.
+协议契约能力描述如何从 IDL 派生协议义务、生成 codec 并校验手写错误码事实，使协议实现与来源保持一致。
 ## Requirements
 ### Requirement: PC-01 基于 IDL 的协议义务派生
 

@@ -189,7 +189,7 @@
   **Commit**
   - `refactor(template): neutralize internal identifiers`
 
-- [ ] 5. 使用指南、替换点地图与文档
+- [x] 5. 使用指南、替换点地图与文档
 
   **Files**
   - Create：`docs/template-guide.md`（按 Design"使用指南与替换点地图"的规定章节与内容）。

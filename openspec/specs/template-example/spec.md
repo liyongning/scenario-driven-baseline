@@ -1,7 +1,7 @@
 # template-example Specification
 
 ## Purpose
-TBD - created by archiving change template-example. Update Purpose after archive.
+示例能力展示模板的分层扩展方式：公共入口装配、核心编排端口、适配器映射外部协议，并提供可复制的行为与协议证据。
 ## Requirements
 ### Requirement: EX-01 示例公共入口与装配
 

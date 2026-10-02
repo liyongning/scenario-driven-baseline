@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
+import { writeTemplateGuideFixture } from './helpers.ts';
 
 const repositoryRoot = process.cwd();
 const gateScript = resolve(repositoryRoot, 'scripts/check-scenarios.ts');
@@ -30,6 +31,7 @@ export function fixtureRoot() {
   mkdirSync(join(root, 'openspec/specs/sample'), { recursive: true });
   writeFileSync(join(root, 'scenario-gate.config.json'), JSON.stringify(config));
   writeProjectManifest(root);
+  writeTemplateGuideFixture(root);
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 

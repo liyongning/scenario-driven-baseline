@@ -1,10 +1,10 @@
-# packages/payment-protocol/AGENTS.md
+# packages/protocol/AGENTS.md
 
 ## 模板通用规则
 
 ### 必读
 
-- [根 AGENTS](../../AGENTS.md)、[有效能力 Spec](../../openspec/specs/)、[仓库与跨仓库参考](../../README.md)。
+- [根 AGENTS](../../AGENTS.md)、[有效能力 Spec](../../openspec/specs/)、[仓库与跨仓库参考](../../README.md)、[模板使用指南](../../docs/template-guide.md)。
 
 ### 按示例扩展新业务
 
@@ -14,7 +14,7 @@
 - ProtoGen 是项目根 devDependency，经项目 `pnpm proto:*` 命令或 `pnpm exec` 执行；安装/升级查私有 registry 最新正式版并保存精确版本与锁文件，不使用全局工具。生成顺序为 proto:version → proto:validate → proto:status；需要更新时 proto:sync → proto:status。
 - 客户端按实例绑定配置/provider/transport，消费 generated method.meta 与 codec；`transport/` 维护公共 Header/BaseReq 与通信错误；网络适配只封装平台 HTTP。不配置全局 handler、不刷新登录态、不自动重放请求。
 - 协议包不引用 SDK/E2E 类型，不解释业务结果；返回 decoded 协议、只供校验的 wire 与 HTTP 上下文供上层映射，且不得把原文输出到诊断。生成契约保留 optional 字段的 presence，codec 区分省略与显式值；不手写数字常量、DTO 或 codec，不在网络层选择环境。
-- `testing/` 只供测试：测试依赖不得进入生产导入图和 tarball；Shadow 引擎只执行 E2E 提供的步骤与故障，不保存业务场景。新增 Shadow 业务路由时在 `testing/shadow/<业务>/routes.ts` 从 generated metadata 发现方法，并通过 `createShadowServer({ routes })` 注入。
+- `testing/` 只供测试：测试依赖不得进入生产导入图和 tarball；Shadow 引擎只执行 E2E 提供的步骤与故障，不保存业务场景。Shadow 路由来自协议来源（当前由 IDL 生成描述转换）：新增业务路由时在 `testing/shadow/<业务>/routes.ts` 从该来源发现方法，并通过 `createShadowServer({ routes })` 注入；依赖规则 `shadow-engine-no-generated` 保证引擎文件不导入 ProtoGen 生成代码，生成描述只出现在 `idl-routes.ts` 与 `example/`。
 - `src/` 与 `testing/` 内手写逻辑就近维护单测；协议集成与 Fixture 在 E2E。修改本包执行 protocol-unit、生成状态、类型/构建及受影响协议/流程测试；交付前执行根 `pnpm check:fast`。
 - generated lock 来源与手写错误目录的事实来源分别验收：`src/errors/*.ts` 以 IDL Go 原文为唯一来源，并配 E2E 的独立 Go 样例与一致性/漂移校验；不得从 canonical 名称、文案或位段推断细分码，也不得反向改写固定样例。
 

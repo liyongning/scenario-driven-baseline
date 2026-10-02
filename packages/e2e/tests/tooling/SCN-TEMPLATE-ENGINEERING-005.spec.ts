@@ -4,6 +4,7 @@ import { join, relative, resolve } from 'node:path';
 import { afterEach } from 'vitest';
 import { loadProjectManifest, packageByRole, type TestProjectClass } from '../../../../scripts/lib/project-manifest.ts';
 import { cliEvidence, fixtureRoot, runArchitecture, runGate, verification, writeSpec } from './scenario-gate-helpers.ts';
+import { writeTemplateGuideFixture } from './helpers.ts';
 
 const repositoryRoot = process.cwd();
 const roots: string[] = [];
@@ -44,6 +45,7 @@ function architectureFixture(manifest: FixtureManifest) {
     writeFileSync(join(root, 'packages', pkg.directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
     writeFileSync(join(root, 'packages', pkg.directory, 'package.json'), JSON.stringify({ name: pkg.name, version: '0.0.0', ...(pkg.private ? { private: true } : {}) }));
   }
+  writeTemplateGuideFixture(root);
   return root;
 }
 

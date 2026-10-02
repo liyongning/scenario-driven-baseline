@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { expect as globalExpect, test } from 'vitest';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { baseCoverage, current, runScenarioCli, type MutableCoverageInput } from './helpers.ts';
+import { baseCoverage, current, runScenarioCli, writeTemplateGuideFixture, type MutableCoverageInput } from './helpers.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const roots: string[] = [];
@@ -29,6 +29,7 @@ function architectureFixture() {
     writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
     writeFileSync(join(directory, 'package.json'), readFileSync(`packages/${name}/package.json`));
   }
+  writeTemplateGuideFixture(root);
   return root;
 }
 

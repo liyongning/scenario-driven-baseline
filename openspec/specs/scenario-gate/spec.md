@@ -1,7 +1,7 @@
 # scenario-gate Specification
 
 ## Purpose
-TBD - created by archiving change template-example. Update Purpose after archive.
+门禁以 OpenSpec Spec 为唯一场景来源，校验 Scenario/FLOW 格式、验证元数据、绑定与证据有效性，使规划、实现与验收保持一致。
 ## Requirements
 ### Requirement: GATE-01 OpenSpec 驱动前置检查
 

@@ -1,7 +1,7 @@
 # template-engineering Specification
 
 ## Purpose
-TBD - created by archiving change remove-payment-business. Update Purpose after archive.
+工程能力约定三包边界、架构与质量门禁、公共类型注释、统一发布入口与使用指南，使模板可被使用方机械验收。
 ## Requirements
 ### Requirement: ENG-01 三包边界与产品交付
 

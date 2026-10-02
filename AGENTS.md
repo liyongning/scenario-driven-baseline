@@ -1,4 +1,4 @@
-# infra-payment-sdk Agent 入口
+# SDK 模板 Agent 入口
 
 ## 模板通用规则
 
@@ -7,14 +7,24 @@
 - [有效能力 Spec](openspec/specs/)
 - 使用 `openspec list` 查看当前 Change；生命周期状态以当前物理仓库为根。
 - [仓库与跨仓库参考](README.md)
+- [模板使用指南](docs/template-guide.md)
+- [项目清单](project.manifest.json)
 
 ### 项目清单
 
-工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，字段与约束的唯一权威是 [project.manifest.schema.json](project.manifest.schema.json)；架构检查、场景门禁、协议义务、源码摘要与包发布都只从清单读取包、必需命令、测试项目与发布设置。
+工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，字段与约束的唯一权威是 [project.manifest.schema.json](project.manifest.schema.json)；架构检查、场景门禁、协议义务、源码摘要与包发布都只从清单读取包、必需命令、测试项目与发布设置，不在门禁脚本里写死。
+
+最小示例：
+
+```json
+{"packages":[{"directory":"sdk","name":"@scope/sdk","role":"product","private":false,"allowedDirectories":["src"]}],"requiredCommands":["check:fast"],"testProjects":[{"name":"sdk-unit","class":"unit"}],"fingerprints":{"sourceRoots":["packages/sdk/src"],"hostRoots":[]}}
+```
+
+以下事实必须改清单：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许的一级子目录、根 `package.json` 的必需命令、测试项目名与类别、源码摘要目录，以及可选的发布设置 `manifest.release`。改代码前先改清单，再让门禁按清单核对。
 
 ### OpenSpec 硬规则
 
-1. 所有规划、状态与归档必须使用当前仓库的 OpenSpec 根和 `openspec-workflow`；不要把另一个仓库的路径当作事实。
+1. 工作流由使用方提供（例如 Change Skill 安装的 `openspec-workflow`），模板只要求 OpenSpec 根与本节 4 条硬规则；所有规划、状态与归档以当前物理仓库为根，不要把另一个仓库的路径当作事实。
 2. 每个 Scenario/FLOW ID 必须匹配项目配置；格式唯一权威是 [scenario-gate.config.schema.json](scenario-gate.config.schema.json)，最小示例为 `{"scenarioIdPatterns":["^SCN-[A-Z]+-\\d+$"]}`。本条格式约定沿用 Change Skill。
 3. 每个 Scenario 必须带一个 `json verification` 元数据块；字段唯一权威是 [scripts/verification.schema.json](scripts/verification.schema.json)，最小示例为 `{"formatVersion":2,"checkpoints":{"result":"结果"},"cases":[{"key":"normal","kind":"behavior","requiredIn":["integration"],"checks":["result"]}],"blockedBy":[]}`。这是项目扩展规则。
 4. Requirement 内登记的 FLOW 行必须符合 [scripts/flow.schema.json](scripts/flow.schema.json)，最小示例为 `{"id":"FLOW-EXAMPLE-001","relatedScenarios":[],"stages":"create → observe","cases":["normal"],"requiredIn":["integration"],"notes":""}`。"关联 Scenario"的每一项必须是完整、且已在有效 Spec 中登记的 Scenario ID。这是项目扩展规则。
@@ -25,7 +35,7 @@
 
 ### 执行规则
 
-1. 规划只在本仓库维护，不以其他仓库的规格替代本仓库契约。延续 Change skill 的 openspec-workflow；schema/status/instructions 以当前物理仓库为根。Plan Review 与 Apply 按对应流程执行，不将文件齐全或 validate 通过当作获准实施。
+1. 规划只在本仓库维护，不以其他仓库的规格替代本仓库契约。工作流 schema 不随模板提交，由使用方安装（例如 Change Skill 的 `openspec-workflow`）；schema/status/instructions 以当前物理仓库为根。Plan Review 与 Apply 按对应流程执行，不将文件齐全或 validate 通过当作获准实施。
 2. 修改行为或接口先维护 Spec/Design/Tasks；已评审输入发生语义变更后重新评审。工程实现依据 Design 与各包 AGENTS.md，不重选架构或自研通用基建。
 3. 汇报给出已确认方案与实际变更、执行命令及结果、未解决项；任务状态、工程验收、真实外部环境与业务验收、发布分别判定，不以其中一项代替其他。
 4. 手写公共类型、字段、状态值及关键映射必须维护中文注释，声明保留公共 JSDoc；更新语义时同步 Spec、注释、受影响测试与验收记录。
@@ -34,14 +44,14 @@
 7. 协议包根入口具名导出平台网络工厂（`HttpPort`），SDK 工厂与测试消费同一生产实现；SDK 根入口不转导出该工厂，也不要求宿主另行提供请求实现。复用现有根 entry、双格式声明与 dist 清单，不新增平台子路径或测试出口。
 8. 密钥、Token 与会话凭据不写入规划、日志或代码。
 9. 发布由用户显式触发的统一入口完成，可在本地或其他受控执行器运行，不依赖或交付 Pipeline/Runner。
-10. ProtoGen Consumer 在 IDL 仓库按 SDK 实际依赖登记；项目内使用根 devDependency，通过 `pnpm proto:*` 或 `pnpm exec` 调用，安装/升级时核对私有 registry 的最新正式版本并保存精确版本与锁文件。
+10. ProtoGen Consumer 按产品实际依赖在 IDL 仓库登记；项目内使用根 devDependency，通过 `pnpm proto:*` 或 `pnpm exec` 调用，安装/升级时核对私有 registry 的最新正式版本并保存精确版本与锁文件。
 11. 小程序自动化复用本机微信开发者工具与 miniprogram-automator，不开发 UI 自动化框架或工具控制器，不以 CI 环境缺失阻断本地运行。
 
 ### 外部交互替身的设计标准
 
 凡 SDK 需要与外部交互的地方，测试都在仓库内用替身闭环：
 
-- 服务端接口由 Shadow 网关承载：路由从 generated metadata 发现，按 Fixture 编排响应与故障。Shadow 只服务测试，不进入生产产物。
+- 服务端接口由 Shadow 网关承载：路由来自协议来源（当前由 IDL 生成描述转换），按 Fixture 编排响应与故障。Shadow 只服务测试，不进入生产产物。
 - 平台或第三方能力（例如小程序收银台、系统能力）由平台能力替身承载：在产品包中定义端口，适配器调用真实平台 API，替身放在 `packages/e2e/src/drivers/`，经用例注入。
 - 不提供“真实服务端 + 替身”或“替身服务端 + 真实平台能力”的混合模式；真实外部验收由真实消费方项目承担，不在本仓库进行。
 - weapp 用例仍通过真实 `wx.request` 访问 Shadow，证明平台网络适配的真实性。

@@ -1,8 +1,10 @@
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, type TestContext } from 'vitest';
+import type {} from '../packages/e2e/src/vitest.d.ts';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { writeTemplateGuideFixture } from '../packages/e2e/tests/tooling/helpers.ts';
 import { checkArchitecture, runArchitectureCli } from './check-architecture';
 
 const roots: string[] = [];
@@ -19,55 +21,129 @@ function fixture() {
     writeFileSync(join(dir, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
     writeFileSync(join(dir, 'package.json'), readFileSync(`packages/${name}/package.json`));
   }
+  writeTemplateGuideFixture(root);
   return root;
 }
 
-test('完整三包和可解析规则链接通过；依赖工具失败传递', () => {
+test('完整三包和可解析规则链接通过；依赖工具失败传递', async () => {
   const root = fixture();
-  expect(checkArchitecture(root, 0)).toEqual([]);
-  expect(checkArchitecture(root, 1)).toContain('dependency-cruiser failed');
-  expect(runArchitectureCli(['node', 'script', '--root', root, '--dependency-exit-code', '0'])).toMatchObject({ issues: [], exitCode: 0 });
-  expect(runArchitectureCli([], root)).toMatchObject({ issues: [], exitCode: 0 });
-  expect(() => runArchitectureCli(['node', 'script', '--dependency-exit-code', '-1'], root)).toThrow(/non-negative integer/);
-  expect(() => runArchitectureCli(['node', 'script', '--dependency-exit-code', 'bad'], root)).toThrow(/non-negative integer/);
+  expect(await checkArchitecture(root, 0)).toEqual([]);
+  expect(await checkArchitecture(root, 1)).toContain('dependency-cruiser failed');
+  expect(await runArchitectureCli(['node', 'script', '--root', root, '--dependency-exit-code', '0'])).toMatchObject({ issues: [], exitCode: 0 });
+  expect(await runArchitectureCli([], root)).toMatchObject({ issues: [], exitCode: 0 });
+  await expect(runArchitectureCli(['node', 'script', '--dependency-exit-code', '-1'], root)).rejects.toThrow(/non-negative integer/);
+  await expect(runArchitectureCli(['node', 'script', '--dependency-exit-code', 'bad'], root)).rejects.toThrow(/non-negative integer/);
 });
 
-test('缺失 AGENTS 和断链被拒绝', () => {
+test('缺失 AGENTS 和断链被拒绝', async () => {
   const root = fixture(); rmSync(join(root, 'packages/e2e/AGENTS.md'));
   writeFileSync(join(root, 'AGENTS.md'), '[missing](missing.md)');
-  expect(checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['missing packages/e2e/AGENTS.md', 'broken link AGENTS.md -> missing.md']));
+  expect(await checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['missing packages/e2e/AGENTS.md', 'broken link AGENTS.md -> missing.md']));
 });
 
-test('缺少项目清单时直接报告清单错误', () => {
+test('缺少项目清单时直接报告清单错误', async () => {
   const root = fixture(); rmSync(join(root, 'project.manifest.json'));
-  expect(checkArchitecture(root, 1).join('\n')).toContain('project.manifest.json cannot be read');
+  expect((await checkArchitecture(root, 1)).join('\n')).toContain('project.manifest.json cannot be read');
 });
 
-test('清单登记但缺失的包目录被报告', () => {
+test('清单登记但缺失的包目录被报告', async () => {
   const root = fixture(); rmSync(join(root, 'packages/e2e'), { recursive: true });
-  expect(checkArchitecture(root, 0)).toContain('missing package directory packages/e2e');
+  expect(await checkArchitecture(root, 0)).toContain('missing package directory packages/e2e');
 });
 
-test('第四个包、未知职责目录及产品测试导出被拒绝', () => {
+test('第四个包、未知职责目录及产品测试导出被拒绝', async () => {
   const root = fixture(); mkdirSync(join(root, 'packages/fourth'));
   mkdirSync(join(root, 'packages/sdk/ui'));
   const p = join(root, 'packages/sdk/package.json'); const manifest = JSON.parse(readFileSync(p, 'utf8'));
   manifest.exports['./testing'] = './testing/index.ts'; writeFileSync(p, JSON.stringify(manifest));
-  expect(checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['unexpected package fourth', 'unexpected directory packages/sdk/ui', 'private entry exported by sdk']));
+  expect(await checkArchitecture(root, 0)).toEqual(expect.arrayContaining(['unexpected package fourth', 'unexpected directory packages/sdk/ui', 'private entry exported by sdk']));
 });
 
-test('包名、private 标识、反向依赖与必需命令错误被拒绝', () => {
+test('包名、private 标识、反向依赖与必需命令错误被拒绝', async () => {
   const root = fixture();
   const p = join(root, 'packages/protocol/package.json'); const manifest = JSON.parse(readFileSync(p, 'utf8'));
   manifest.name = 'wrong'; manifest.dependencies = { '@daqian/template-sdk': 'workspace:*' };
   writeFileSync(p, JSON.stringify(manifest));
   writeFileSync(join(root, 'packages/e2e/package.json'), JSON.stringify({ name: '@daqian/template-e2e', private: false }));
   writeFileSync(join(root, 'package.json'), JSON.stringify({}));
-  const errors = checkArchitecture(root, 0);
+  const errors = await checkArchitecture(root, 0);
   expect(errors).toContain('wrong package name protocol');
   expect(errors).toContain('protocol cannot depend on SDK/E2E');
   expect(errors).toContain('e2e must be private');
   expect(errors).toContain('missing command typecheck');
+});
+
+function evidence(
+  id: string,
+  caseId: string,
+  checks: string[],
+  body: (context: TestContext, check: (name: string, assertion: () => void | Promise<void>) => Promise<void>) => Promise<void>,
+) {
+  test(`${id} ${caseId}`, { meta: { scenarioCase: {
+    ownerId: id, caseId, fixtureCase: null, environment: 'test-tools-unit',
+    covers: [{ id, caseKey: caseId, checks }],
+  } } }, async (context: TestContext) => {
+    const before = context.expect.getState().assertionCalls;
+    const executed: string[] = [];
+    await body(context, async (name, assertion) => { await assertion(); executed.push(name); });
+    context.expect(executed.sort()).toEqual([...checks].sort());
+    await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - before, checkpoints: executed }), 'scenario-evidence');
+  });
+}
+
+evidence('SCN-TEMPLATE-ENGINEERING-006', 'guide-rules', ['guide-present-and-linked', 'guide-sections', 'guide-links-resolve', 'guide-facts-consistent'], async (context, check) => {
+  await check('guide-present-and-linked', async () => {
+    const missing = fixture(); rmSync(join(missing, 'docs/template-guide.md'));
+    context.expect(await checkArchitecture(missing, 0)).toContain('missing docs/template-guide.md');
+    const unlinked = fixture();
+    writeFileSync(join(unlinked, 'AGENTS.md'), '# facts\n');
+    writeFileSync(join(unlinked, 'README.md'), '# facts\n');
+    const unlinkedErrors = await checkArchitecture(unlinked, 0);
+    context.expect(unlinkedErrors).toContain('AGENTS.md does not link docs/template-guide.md');
+    context.expect(unlinkedErrors).toContain('README.md does not link docs/template-guide.md');
+    rmSync(join(unlinked, 'README.md'));
+    context.expect(await checkArchitecture(unlinked, 0)).toContain('README.md does not link docs/template-guide.md');
+  });
+
+  await check('guide-sections', async () => {
+    const root = fixture();
+    writeFileSync(join(root, 'docs/template-guide.md'), '# guide\n\n## 能力地图\n');
+    const errors = await checkArchitecture(root, 0);
+    context.expect(errors).toContain('missing guide section ## 从方案到验收');
+    context.expect(errors).toContain('missing guide section ### 包发布');
+  });
+
+  await check('guide-links-resolve', async () => {
+    const root = fixture();
+    writeFileSync(join(root, 'docs/template-guide.md'), '# guide\n\n## 能力地图\n\n## 从方案到验收\n\n## 初始化方式\n\n## 替换点地图\n\n### 协议来源\n\n### 运行平台\n\n### 包发布\n\n[外部](https://example.invalid)、[锚点](#能力地图)、[存在](../README.md)、[缺失](missing.md)\n');
+    const errors = await checkArchitecture(root, 0);
+    context.expect(errors.filter(error => error.startsWith('broken link'))).toEqual(['broken link docs/template-guide.md -> missing.md']);
+  });
+
+  await check('guide-facts-consistent', async () => {
+    const root = fixture();
+    mkdirSync(join(root, 'openspec/specs/sample'), { recursive: true });
+    writeFileSync(join(root, 'openspec/specs/sample/spec.md'), '### Requirement: sample\n\n#### Scenario: SCN-SAMPLE-001 sample\n');
+    writeFileSync(join(root, 'docs/template-guide.md'), [
+      '# guide', '',
+      '## 能力地图', '', '`SCN-SAMPLE-001`、`SCN-SAMPLE-999`', '',
+      '## 从方案到验收', '', '`pnpm check:fast`、`pnpm install`、`pnpm --filter x build`、`pnpm nope`', '',
+      '## 初始化方式', '', '`manifest.packages[].directory`、`manifest.nope.deeper`、`manifest.fingerprints.sourceRoots.x`', '',
+      '## 替换点地图', '', '### 协议来源', '', '### 运行平台', '', '### 包发布', '',
+    ].join('\n'));
+    const errors = await checkArchitecture(root, 0);
+    context.expect(errors).toEqual(expect.arrayContaining([
+      'unregistered Scenario ID SCN-SAMPLE-999',
+      'unknown pnpm command nope',
+      'unknown manifest field manifest.nope.deeper',
+      'unknown manifest field manifest.fingerprints.sourceRoots.x',
+    ]));
+    context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-001');
+    context.expect(errors).not.toContain('unknown pnpm command check:fast');
+    context.expect(errors).not.toContain('unknown pnpm command install');
+    context.expect(errors.some(error => error.includes('--filter'))).toBe(false);
+    context.expect(errors).not.toContain('unknown manifest field manifest.packages[].directory');
+  });
 });
 
 // 运行真实 dependency-cruiser CLI；不以手造依赖图代替解析/退出码验证。
