@@ -1,5 +1,7 @@
 # Task 9 验收索引：重新演练
 
+- 逐演练记录（提示词、执行者、步骤、改动文件、`check:fast`、每条猜测记录与判定、依据文件）见附录 [task-9-redrill-records.md](task-9-redrill-records.md)（Final Code Review F1 后补齐）。
+
 - run-id: `generalize-template-20261002-r2`；执行者：Bridge 派发全新 Agent（每个演练一个，提示词不含本 Change 规划）
 - plan-review: PASS（digest `33f91c45…`，attempt 12）
 - 场景门禁：演练副本中不运行（按"指南演练验收"决策）。
@@ -27,7 +29,7 @@
 
 ## 重做（基线 `f742844`，不带历史的快照）
 
-副本准备（`task-9-copy-prep.log`）：`git archive f742844` → `openspec archive generalize-template -y`（4 份均退出 0）→ 删除归档的本 Change 规划与 `artifacts/generalize-template-20261002*` → `git init` 单次提交 → `pnpm install --offline`。核对：每份 `git log` 1 次提交、无残留目录、`git grep` 无本 Change 相关内容。提示词禁止读取 `openspec/changes/` 与 `artifacts/`，要求每条记录自行标注类别。
+副本准备（`task-9-copy-prep.log`）：`git archive f742844` → `openspec archive generalize-template -y`（4 份均退出 0）→ 删除归档的本 Change 规划与 `artifacts/generalize-template-20261002*` → `git init` 单次提交 → `pnpm install --frozen-lockfile --offline`。核对：每份 `git log` 1 次提交、无残留目录、`git grep` 无本 Change 相关内容。提示词禁止读取 `openspec/changes/` 与 `artifacts/`，要求每条记录自行标注类别。
 
 | 演练 | `check:fast` | 门禁逻辑 | 猜测记录与分类 |
 |---|---|---|---|
@@ -38,3 +40,9 @@
 | D5 OpenAPI 纸面推演 | — | — | Bridge 核对：首轮唯一第 2 类问题（SCN-003 Fixture 表述）已修正；其余为第 3 类 |
 
 结论：重做未出现新的第 1、2 类问题，按 Design"重新演练"收口。第 3 类记录汇总于上，由指南"已知限制"一句覆盖；OI-01（真实使用方验证）保持开放。
+
+## Final Code Review 后的补充（F1～F3）
+
+- F1：补齐逐演练记录（附录）。
+- F2：指南"运行平台 → 产品侧绑定"改为指向实际写死 `runtime: 'wechat-miniapp'` 的测试（`factory.test.ts`、`example-harness.ts`、`SCN-TEMPLATE-EXAMPLE-001` 用例），不再指向 `contracts.test.ts`。
+- F3：副本安装命令实为 `pnpm install --frozen-lockfile --offline`（见 `task-9-copy-prep.log` 所用脚本），原文漏写 `--frozen-lockfile`，已更正。
