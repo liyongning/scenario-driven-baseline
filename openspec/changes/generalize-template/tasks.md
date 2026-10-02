@@ -297,3 +297,104 @@
 
   **Commit**
   - `test(template): record final template acceptance`
+
+- [ ] 8. 分层守卫覆盖全部业务模块，补齐运行平台的产品侧绑定
+
+  **Files**
+  - Modify：`.dependency-cruiser.cjs`（`core-no-platform-or-node` 与 `domain-core-no-generated` 按目录模式匹配全部业务模块）；`eslint.config.js`（`wx` 限制按 `packages/sdk/src/*/core|ports/**`）。
+  - Modify：`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`（`sample-domain/core/` 下三个探针；规则名改为 `domain-core-no-generated`；绑定新增 checkpoint `new-domain-guarded`；该场景没有 Fixture 目录）。
+  - Modify：`.dependency-cruiser.cjs` 第 10 行的分层约定注释。
+  - 本任务起 `VERIFY_RUN_ID=generalize-template-20261002-r2`；验收索引 `artifacts/generalize-template-20261002-r2/tasks/task-8.md`（`git add -f`）。
+  - Modify：`docs/template-guide.md`（删除手动扩展守卫的步骤，改为自动覆盖说明；运行平台补充产品侧绑定）；`packages/sdk/AGENTS.md`（规则名与说明同步）；其他引用 `example-core-no-generated` 的文档。
+
+  **Requirements / Scenarios**
+  - template-example：EX-05 / SCN-TEMPLATE-EXAMPLE-008
+  - template-engineering：ENG-06 / SCN-TEMPLATE-ENGINEERING-006（指南修订后仍通过结构与事实一致性检查）
+
+  **Design Decisions**
+  - Decision: 分层守卫覆盖全部业务模块；Decision: 运行平台的产品侧绑定（PR-501）
+
+  **Interfaces**
+  - Consumes: 任务 1～7 的仓库。
+  - Produces: 规则 `domain-core-no-generated`（替代 `example-core-no-generated`）；按目录模式生效的 `core-no-platform-or-node` 与 eslint `wx` 限制。
+
+  **RED**
+  - 先改 `SCN-TEMPLATE-EXAMPLE-008.spec.ts` 加入 `sample-domain/core/` 三个探针与新规则名，运行 `pnpm test:integration`：探针未被阻断，用例失败。
+
+  **GREEN**
+  - 修改两份配置后 `pnpm check:fast` 通过。
+
+  **Verification**
+  - `git grep -n "example-core-no-generated\|扩展到新目录\|扩展守卫"` 在 `archive`、`artifacts` 与本 Change 规划之外零命中。
+  - 场景门禁对 SCN-TEMPLATE-EXAMPLE-008、SCN-TEMPLATE-ENGINEERING-006 无问题。
+
+  **Review / Acceptance**
+  - 确认未修改任何门禁脚本（`scripts/` 非测试文件）；守卫只靠目录模式生效。
+
+  **Commit**
+  - `fix(template): guard every business module by directory pattern`
+
+- [ ] 9. 重新演练
+
+  **Files**
+  - Modify（按演练发现）：`docs/template-guide.md`、根与各包 `AGENTS.md`。
+  - Create：`artifacts/generalize-template-20261002-r2/tasks/task-9-redrill.md`（`git add -f`）。
+  - 修订后的重做基于中间提交（Design"重新演练"的重做基线）。
+  - 演练用的临时 worktree 与其中改动不进入提交。
+
+  **Requirements / Scenarios**
+  - template-engineering：ENG-06 / SCN-TEMPLATE-ENGINEERING-006；template-example：EX-05 / SCN-TEMPLATE-EXAMPLE-008（D4 的守卫自动生效判定）
+
+  **Design Decisions**
+  - Decision: 重新演练；Decision: 指南演练验收
+
+  **Interfaces**
+  - Consumes: 任务 8 的提交。
+  - Produces: 重新演练报告与修订后的指南。
+
+  **RED**
+  - N/A — 以演练暴露文档缺口代替测试。
+
+  **GREEN**
+  - D1～D5 全部由全新 Agent 完成并通过各自判定；每条猜测记录已修订关闭或写明原因接受；受修订影响的演练由全新 Agent 重做通过。
+
+  **Verification**
+  - D1～D4 各自 worktree 中 `pnpm check:fast` 退出码 0，`git diff` 显示未修改门禁逻辑；D4 的 `wx` 探针被 `pnpm lint` 拒绝且未改 lint/depcruise 配置。
+  - D5 文件清单经评审对照 `git grep` 确认完整。
+  - 修订后本仓库 `pnpm check:fast` 退出码 0。
+
+  **Review / Acceptance**
+  - 报告逐条给出首轮修订规则的有效性与合理性结论；确认所有演练执行者都是全新 Agent、提示词不含规划内容。
+
+  **Commit**
+  - `docs(template): refine template guide from independent re-drills`
+
+- [ ] 10. 最终验收（重新执行）
+
+  **Files**
+  - 无代码改动；验收索引 `artifacts/generalize-template-20261002-r2/tasks/task-10.md`（`git add -f`）；全部报告写在 `VERIFY_RUN_ID=generalize-template-20261002-r2` 下，不写入首轮目录。
+
+  **Requirements / Scenarios**
+  - 本 Change 全部场景（含 SCN-TEMPLATE-EXAMPLE-008 的新 checkpoint）；全部既有场景不回归。
+
+  **Design Decisions**
+  - Decision: 验证方式
+
+  **Interfaces**
+  - Consumes: 任务 1～9 的产物。
+  - Produces: 最终验收证据。
+
+  **RED**
+  - N/A — 验收任务。
+
+  **GREEN**
+  - N/A — 同上。
+
+  **Verification**
+  - 与任务 7 相同的五项检查：`check:fast`；逐文件运行全部 weapp；以 unit、integration 与全部 weapp 报告运行场景门禁（退出码 0、问题数 0）；残留检查按允许清单归属；能力地图逐项核对。
+
+  **Review / Acceptance**
+  - 汇总 10 个任务的证据；在 `task-10.md` 中说明首轮演练独立性不足已由任务 9 的全新 Agent 演练取代，并确认 Design OI-01 与指南"已知限制"的表述一致（指南如仍写"首轮由主 Agent 执行"则在任务 9 修订）。
+
+  **Commit**
+  - `test(template): record final acceptance after re-drills`

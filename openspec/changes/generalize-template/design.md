@@ -65,7 +65,12 @@ flowchart LR
 | 4 | 内部标识中立化与上一步遗留的代码小项 | 3 |
 | 5 | 使用指南与替换点地图、指南检查（结构与事实一致性）；AGENTS/README/bootstrap 改写；工作流 schema 不再提交；Spec Purpose 修正 | 1–4 |
 | 6 | 指南演练验收：由不带上下文的 Agent 照指南在临时副本中完成代表性操作，按发现修订指南 | 5 |
-| 7 | 最终验收 | 1–6 |
+| 7 | 最终验收（首轮） | 1–6 |
+| 8 | 分层守卫覆盖全部业务模块；替换点地图补齐运行平台的产品侧绑定 | 7 |
+| 9 | 重新演练：Bridge 派发全新 Agent 在任务 8 提交之上完整重做 D1～D5，按发现修订 | 8 |
+| 10 | 最终验收（重新执行） | 8、9 |
+
+任务 8～10 统一使用新的 run-id `generalize-template-20261002-r2`（`VERIFY_RUN_ID` 取该值）：全部 `check:fast`、逐文件 weapp 报告、场景门禁输出、`task-8.md`、`task-9-redrill.md`、`task-10.md` 都写在 `artifacts/generalize-template-20261002-r2/` 下，首轮目录 `artifacts/generalize-template-20261002/` 不再写入。任务 8～10 来自 Apply 复核：首轮演练暴露守卫只覆盖示例目录、指南漏列运行平台的产品侧绑定，且部分演练由带上下文的主 Agent 执行。用户决定在本 Change 内闭环。
 
 先做清单（任务 1），后续改名只需改清单与文件，门禁本身在改名任务中不再变化，便于用门禁验证改名是否完整。Shadow 中立化（任务 2）在改名前完成，使改名任务只做机械替换。
 
@@ -229,6 +234,33 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
   3. 任务 6 的指南演练验证"照着指南能否完成操作"，见"指南演练验收"。
 - 最终（任务 7）：`check:fast`；逐文件运行全部 weapp；以全部报告运行场景门禁；三者退出码 0、问题数 0。残留检查：`git grep -niE "payment|PAYMENT_|paysdk"`，每处命中归属到"残留允许清单"的某一类，否则为遗漏。逐项核对指南能力地图中每项能力的承载文件与运行证据。
 
+### Decision: 分层守卫覆盖全部业务模块
+
+- `.dependency-cruiser.cjs`：
+  - `core-no-platform-or-node` 的 `from.path` 改为 `^packages/sdk/src/(runtime|[^/]+/(core|ports))/`；
+  - `example-core-no-generated` 改名为 `domain-core-no-generated`，`from.path` 改为 `^packages/sdk/src/[^/]+/(core|ports)/`；
+  - `runtime/` 不是业务模块；它目前没有 `core/`、`ports/` 子目录，因此不会被 `domain-core-no-generated` 匹配。约定 `runtime/` 不建立这两个子目录（写入 `packages/sdk/AGENTS.md`）。
+- `eslint.config.js`：`no-restricted-globals: wx` 的 `files` 改为 `packages/sdk/src/*/core/**/*.ts` 与 `packages/sdk/src/*/ports/**/*.ts`。
+- 这些路径里的 `packages/sdk` 是普通配置（见"项目清单的格式与读取方"），改名时按替换点地图同步；门禁脚本不受影响。
+- `SCN-TEMPLATE-EXAMPLE-008.spec.ts` 已经临时创建 `src/sample-domain/`；扩展为在其中另写 `core/` 下的三个探针文件（导入 generated、使用 `wx`、导入 `node:fs`），分别断言 depcruise 报告 `domain-core-no-generated`、`core-no-platform-or-node`，eslint 报告 `no-restricted-globals`；不修改任何门禁配置。原有对 `example-core-no-generated` 的断言改为新规则名。
+- 同步更新 `.dependency-cruiser.cjs` 中指向示例分层约定的注释（第 10 行）。
+- 删除 `docs/template-guide.md` 与 `packages/sdk/AGENTS.md` 中"新增业务目录后手动扩展守卫"的步骤，改为说明"守卫按目录模式自动覆盖 `src/` 下除 `runtime/` 外的全部业务模块"；规则名引用同步改为 `domain-core-no-generated`。
+
+### Decision: 运行平台的产品侧绑定（PR-501）
+
+替换点地图"运行平台"一节的"涉及文件（生产侧）"补充产品包对平台的绑定：`packages/sdk/src/example/factory.ts`（导入 `createWechatMiniappHttp`、按 `runtime === 'wechat-miniapp'` 装配）、`packages/sdk/src/example/contracts.ts` 的 `ExampleRuntime`，以及 `SCN-TEMPLATE-ENGINEERING-003` Fixture 中 `ExampleRuntime` 的取值；说明换平台时要同时调整这三处与对应的公共类型契约测试。
+
+### Decision: 重新演练
+
+- **原因**：首轮 D4、D5 与修订后的重做由带上下文的主 Agent 执行；需要验证首轮修订的规则是否有效、合理。
+- **执行者**：由 Bridge（复核本 Change 的会话）派发 Agent，每个演练一个全新 Agent，提示词规则与"指南演练验收"相同。
+- **基线**：任务 8 的提交。D1～D5 全部重做，不沿用首轮结论。
+- **重做基线**：本轮修订指南后，先把修订作为中间提交（提交信息 `docs(template): revise guide after re-drill round <n>`）提交到 Apply 分支，再基于该提交新建重做用的 worktree；任务 9 结束时的最终提交使用 tasks.md 中的 Commit。
+- **D4 追加判定**：新增模块后，在其 `core/` 中临时写入使用 `wx` 的语句，`pnpm lint` 必须报错（证明守卫自动生效）；撤销后 `check:fast` 退出码 0。演练不得修改 `eslint.config.js` 与 `.dependency-cruiser.cjs`。
+- **评审**：对每条猜测记录核对首轮修订的规则——是否被演练 Agent 读到并照做（有效），是否带来不必要或错误的步骤（合理）。
+- **处理发现**：同"指南演练验收"；本轮修订后的受影响演练仍由全新 Agent 重做，重做后仍有新的猜测记录时停止并报告用户。
+- **证据**：`artifacts/generalize-template-20261002-r2/tasks/task-9-redrill.md`，逐个演练记录提示词、执行者、步骤摘要、改动文件、`check:fast` 结果、猜测记录与处理，以及对首轮修订规则的有效性/合理性结论。
+
 ### Decision: 指南演练验收
 
 文字是否"照着能用"只能靠真实使用来证明。在真实使用方出现之前，用一个**不带本次规划上下文**的 Agent 扮演使用方，在一次性副本中照指南完成代表性操作。
@@ -264,4 +296,4 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 
 | ID | 状态 | 责任方 | 内容 | 关闭依据 | 影响 |
 | --- | --- | --- | --- | --- | --- |
-| OI-01 | 开放（本 Change 之后） | 用户 | 替换点地图首次真实使用验证（例如一个 Web SDK 试做或下一个真实项目）；任务 6 的模拟演练只部分覆盖 | 有真实使用方按地图完成一次替换，并把发现的遗漏补回模板 | 指南"已知限制"注明地图只经过模拟演练 |
+| OI-01 | 开放（本 Change 之后） | 用户 | 替换点地图首次真实使用验证（例如一个 Web SDK 试做或下一个真实项目）；任务 9 由全新 Agent 完成的模拟演练只部分覆盖 | 有真实使用方按地图完成一次替换，并把发现的遗漏补回模板 | 指南"已知限制"注明地图只经过模拟演练 |

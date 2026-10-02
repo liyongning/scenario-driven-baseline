@@ -4,7 +4,7 @@
 
 - Change: generalize-template
 - Schema: openspec-workflow
-- Reviewer: fresh, read-only, independent general-purpose subagent; a new reviewer per attempt (6 attempts; attempts 4-6 authorized by the user beyond the limit)
+- Reviewer: fresh, read-only, independent general-purpose subagent; a new reviewer per attempt (8 attempts; attempts 4-8 authorized; attempts 7-8 review the post-Apply additions (Tasks 8-10) by the user beyond the limit)
 - Prompt provenance: skill/change/references/plan-reviewer-prompt.md (admission per skill/change/references/review-finding-admission.md)
 - Reviewed at: 2026-10-02T00:00:00+08:00
 
@@ -12,8 +12,8 @@
 
 - Reviewed input paths: proposal.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, design.md, tasks.md (working tree on top of a1ec49d)
 - Canonicalization version: 1
-- Reviewed digest: 2bb108e6d6fdbd03f538734e00252b2ad1718172f2bb09dbee8000b9e581fabd
-- Current digest: 2bb108e6d6fdbd03f538734e00252b2ad1718172f2bb09dbee8000b9e581fabd
+- Reviewed digest: 71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0
+- Current digest: 71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0
 
 ## Review Summary
 
@@ -21,7 +21,7 @@
 - Gate: PASS
 - Critical findings: 0
 - Important findings: 0
-- Minor findings: 4 (attempt 6)
+- Minor findings: 4 (attempt 8)
 
 PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed digest.
 
@@ -59,6 +59,9 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | PR-402 | Important | specs/template-engineering/spec.md:10,28; proposal.md:15 | ENG-05 says all IDL obligations use integration+platform projects; the error-code obligation is integration-only (contract-inventory.ts:242) | Spec, checkpoint and proposal split: route/field/shared → integration+platform, error code → integration (repaired after attempt 5) | resolved (attempt 6 confirmed) |
 | PR-403..PR-405 | Minor | attempt 5 | ENG-005 spec must adopt the guide fixture; ENG-004 drift/valid/order cases must run in temp roots after the placeholder; test titles/comments in Task 4 rename | Repaired after attempt 5 | resolved (attempt 6 confirmed) |
 | PR-501..PR-504 | Minor | attempt 6 | 运行平台 map omits product-side binding (example/factory.ts, contracts.ts ExampleRuntime, ENG-003 fixture); guide must also drop `pnpm` commands and `manifest.` fields of deleted modules; engine-no-generated-cli must use a temp copy or new probe file, never edit server.ts in place; new SCN-005/006 and PC-004 integration cases bind via `cliEvidence` (no Fixture) | To be handled during Apply (Task 2, 5, 6); not repaired in the plan to keep the reviewed digest | accepted (non_blocking) |
+| PR-601 | Important | tasks.md:301-397; design.md:252-260 | Tasks 8-10 reuse the first-round run-id and would overwrite committed Task 7 evidence | New run-id `generalize-template-20261002-r2` for Tasks 8-10 | resolved (attempt 8 confirmed) |
+| PR-602 | Minor | attempt 7 | OI-01 wording location; no fixture dir for EX-008; runtime/ regex note; re-drill baseline commit; depcruise comment | Repaired | resolved |
+| PR-701..PR-704 | Minor | attempt 8 | tasks.md overview lines omit Tasks 8-10 / template-example delta; eslint.config.js:13 comment; Task 8 modifies an existing case (covered by Design); optional r2 ledger | Handled during Apply (no plan edit, keeps reviewed digest); record in task-9 that drills do not run the scenario gate | accepted (non_blocking) |
 
 ### Re-review Attempts
 
@@ -70,12 +73,14 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | 4 | 8aadefbdabafb6d0a05f951a3d499f67ceb8c71ea3544eced563d7ba44208a3f | Issues Found | 0 | 1 | 4 | Authorized by the user. Digest unchanged; PR-201/202 resolved; 2 → 1 (PR-301, residue-check exclusion). Repaired afterwards (digest 5deaca9e…). |
 | 5 | 5deaca9e97b0c094b50c9d15655ae3ab1e8abca20c17ba543958fae3217b94c5 | Issues Found | 0 | 2 | 3 | Authorized by the user. Digest unchanged; PR-301..305 resolved; 1 → 2 new narrow wording defects (PR-401 doc allow-list, PR-402 obligation environments). Repaired afterwards (current digest 2bb108e6…); re-reviewed in attempt 6. |
 | 6 | 2bb108e6d6fdbd03f538734e00252b2ad1718172f2bb09dbee8000b9e581fabd | Approved | 0 | 0 | 4 | Authorized by the user. Digest unchanged; PR-401..405 resolved; no Critical or Important findings. |
+| 7 | 7e5129ff31337b3948880cf33bb784545ac4d459a7ac7d1f46b7fec39a6a6af7 | Issues Found | 0 | 1 | 1 | After Apply review the user chose to close gaps in this Change (Tasks 8-10, EX-05 delta). PR-601 confirmed and repaired. |
+| 8 | 71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0 | Approved | 0 | 0 | 4 | Digest unchanged; PR-601/602 resolved. |
 
 ## Gate Decision
 
 - Decision: PASS
-- Blocking reason: None. Attempt 6 Approved with Critical=0 and Important=0; reviewed digest equals current digest.
-- Accepted Minor findings: PR-501..PR-504 (non-blocking; handled during Apply). Reviewer notes for Apply: give `scripts/check-scenarios.test.ts:276-286` a manifest; `checkTemplateGuide` should use only registered IDs, not surface effective-spec issues.
+- Blocking reason: None. Attempt 8 Approved with Critical=0 and Important=0; reviewed digest equals current digest.
+- Accepted Minor findings: PR-501..PR-504 (PR-501 is Task 8), PR-701..PR-704 (non-blocking; handled during Apply). Reviewer notes for Apply: give `scripts/check-scenarios.test.ts:276-286` a manifest; `checkTemplateGuide` should use only registered IDs, not surface effective-spec issues.
 - Freshness check command: `/Users/liyongning/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/generalize-template --check-review openspec/changes/generalize-template/plan-review.md`
 
 Decision rules:
@@ -92,12 +97,12 @@ Decision rules:
   "version": 1,
   "change": "generalize-template",
   "schema": "openspec-workflow",
-  "reviewer": "independent general-purpose subagent (read-only), attempt 6",
+  "reviewer": "independent general-purpose subagent (read-only), attempt 8",
   "prompt_provenance": "skill/change/references/plan-reviewer-prompt.md",
   "reviewed_at": "2026-10-02T00:00:00+08:00",
   "canonicalization_version": 1,
-  "reviewed_sha256": "2bb108e6d6fdbd03f538734e00252b2ad1718172f2bb09dbee8000b9e581fabd",
-  "current_sha256": "2bb108e6d6fdbd03f538734e00252b2ad1718172f2bb09dbee8000b9e581fabd",
+  "reviewed_sha256": "71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0",
+  "current_sha256": "71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0",
   "reviewer_status": "Approved",
   "gate": "PASS",
   "critical": 0,
