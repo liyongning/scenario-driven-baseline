@@ -1,0 +1,24 @@
+== r1
+archive exit=0
+artifacts/generalize-template-20261002
+artifacts/generalize-template-20261002-r2
+openspec/changes/archive/2026-10-02-generalize-template
+== r2
+archive exit=0
+artifacts/generalize-template-20261002
+artifacts/generalize-template-20261002-r2
+openspec/changes/archive/2026-10-02-generalize-template
+== r3
+archive exit=0
+artifacts/generalize-template-20261002
+artifacts/generalize-template-20261002-r2
+openspec/changes/archive/2026-10-02-generalize-template
+== r4
+archive exit=0
+artifacts/generalize-template-20261002
+artifacts/generalize-template-20261002-r2
+openspec/changes/archive/2026-10-02-generalize-template
+== r1 install=0 commits=1 leftovers=0 grep=0
+== r2 install=0 commits=1 leftovers=0 grep=0
+== r3 install=0 commits=1 leftovers=0 grep=0
+== r4 install=0 commits=1 leftovers=0 grep=0

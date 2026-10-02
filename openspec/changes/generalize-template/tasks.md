@@ -334,7 +334,7 @@
   **Commit**
   - `fix(template): guard every business module by directory pattern`
 
-- [ ] 9. 重新演练
+- [x] 9. 重新演练
 
   **Files**
   - Modify（按演练发现，只修第 1、2 类，见 Design"重新演练"）：`docs/template-guide.md`、根与各包 `AGENTS.md`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`（为该用例单独设置 60 秒超时，断言不变）。
