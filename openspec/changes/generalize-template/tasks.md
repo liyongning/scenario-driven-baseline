@@ -337,9 +337,9 @@
 - [ ] 9. 重新演练
 
   **Files**
-  - Modify（按演练发现）：`docs/template-guide.md`、根与各包 `AGENTS.md`。
+  - Modify（按演练发现，只修第 1、2 类，见 Design"重新演练"）：`docs/template-guide.md`、根与各包 `AGENTS.md`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`（为该用例单独设置 60 秒超时，断言不变）。
   - Create：`artifacts/generalize-template-20261002-r2/tasks/task-9-redrill.md`（`git add -f`）。
-  - 修订后的重做基于中间提交（Design"重新演练"的重做基线）。
+  - 修订后的重做基于中间提交导出的不带历史的副本（Design"重新演练"的重做基线；副本中 `git log` 只有一次初始提交），并在副本中先执行 `openspec archive generalize-template -y` 模拟交付状态，再删除副本中的 `openspec/changes/archive/*-generalize-template/` 与 `artifacts/generalize-template-20261002*/`（Design"重新演练"）。
   - 演练用的临时 worktree 与其中改动不进入提交。
 
   **Requirements / Scenarios**
@@ -356,7 +356,7 @@
   - N/A — 以演练暴露文档缺口代替测试。
 
   **GREEN**
-  - D1～D5 全部由全新 Agent 完成并通过各自判定；每条猜测记录已修订关闭或写明原因接受；受修订影响的演练由全新 Agent 重做通过。
+  - D1～D5 全部由全新 Agent 完成；每条猜测记录已归入三类之一，第 1、2 类已修复，第 3 类汇总进报告并在指南"已知限制"说明；D1～D4 由全新 Agent 在模拟归档副本上重做一次，未出现新的第 1、2 类问题。
 
   **Verification**
   - D1～D4 各自 worktree 中 `pnpm check:fast` 退出码 0，`git diff` 显示未修改门禁逻辑；D4 的 `wx` 探针被 `pnpm lint` 拒绝且未改 lint/depcruise 配置。
@@ -364,7 +364,7 @@
   - 修订后本仓库 `pnpm check:fast` 退出码 0。
 
   **Review / Acceptance**
-  - 报告逐条给出首轮修订规则的有效性与合理性结论；确认所有演练执行者都是全新 Agent、提示词不含规划内容。
+  - 报告逐条给出首轮修订规则的有效性与合理性结论；确认 D1～D4（含重做）的执行者都是全新 Agent、提示词不含规划内容，演练副本中不含本 Change 的规划（含归档副本）与证据目录 `artifacts/generalize-template-20261002*/`，且 `git log` 只有一次初始提交（无法通过历史读取规划与首轮报告）；D5 重做阶段由 Bridge 对照代码核对，属于评审而非演练。
 
   **Commit**
   - `docs(template): refine template guide from independent re-drills`

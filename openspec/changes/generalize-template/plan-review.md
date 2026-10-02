@@ -4,7 +4,7 @@
 
 - Change: generalize-template
 - Schema: openspec-workflow
-- Reviewer: fresh, read-only, independent general-purpose subagent; a new reviewer per attempt (8 attempts; attempts 4-8 authorized; attempts 7-8 review the post-Apply additions (Tasks 8-10) by the user beyond the limit)
+- Reviewer: fresh, read-only, independent general-purpose subagent; a new reviewer per attempt (12 attempts; attempts 4-12 authorized; attempts 7-8 review the post-Apply additions (Tasks 8-10) by the user beyond the limit)
 - Prompt provenance: skill/change/references/plan-reviewer-prompt.md (admission per skill/change/references/review-finding-admission.md)
 - Reviewed at: 2026-10-02T00:00:00+08:00
 
@@ -12,8 +12,8 @@
 
 - Reviewed input paths: proposal.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, design.md, tasks.md (working tree on top of a1ec49d)
 - Canonicalization version: 1
-- Reviewed digest: 71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0
-- Current digest: 71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0
+- Reviewed digest: 33f91c45068fd7f1aa83d97ac126f838815b44b7e892b206b1bc58741754cba5
+- Current digest: 33f91c45068fd7f1aa83d97ac126f838815b44b7e892b206b1bc58741754cba5
 
 ## Review Summary
 
@@ -21,7 +21,7 @@
 - Gate: PASS
 - Critical findings: 0
 - Important findings: 0
-- Minor findings: 4 (attempt 8)
+- Minor findings: 1 (attempt 12)
 
 PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed digest.
 
@@ -62,6 +62,12 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | PR-601 | Important | tasks.md:301-397; design.md:252-260 | Tasks 8-10 reuse the first-round run-id and would overwrite committed Task 7 evidence | New run-id `generalize-template-20261002-r2` for Tasks 8-10 | resolved (attempt 8 confirmed) |
 | PR-602 | Minor | attempt 7 | OI-01 wording location; no fixture dir for EX-008; runtime/ regex note; re-drill baseline commit; depcruise comment | Repaired | resolved |
 | PR-701..PR-704 | Minor | attempt 8 | tasks.md overview lines omit Tasks 8-10 / template-example delta; eslint.config.js:13 comment; Task 8 modifies an existing case (covered by Design); optional r2 ledger | Handled during Apply (no plan edit, keeps reviewed digest); record in task-9 that drills do not run the scenario gate | accepted (non_blocking) |
+| PR-801 | Important | design.md:265; tasks.md:342 | Simulated archive moves this Change's planning (incl. known answers) into the archive, which drill agents may read | Delete the archived generalize-template dir in the copy; prompts forbid `openspec/changes/` | resolved (attempt 10 confirmed) |
+| PR-802..PR-804 | Minor | attempt 9 | Intermediate commit must carry the timeout fix; timeout value; D5 check is a review | Repaired (60s; commit "…round 1") | resolved |
+| PR-901 | Important | design.md:265; tasks.md:342,367 | First-round drill evidence under `artifacts/generalize-template-20261002*/` remains readable in copies | Delete those dirs in the copy; prompts forbid `artifacts/` | resolved (attempt 11 confirmed) |
+| PR-902..PR-903 | Minor | attempt 10 | Risk entry contradicted the new rule; `round <n>` placeholder | Repaired | resolved |
+| PR-1001 | Important | design.md:258,265; tasks.md:342,367 | Drill copies were git worktrees sharing full history, exposing answers via `git log -p`/`git show` and commit subjects | History-free snapshot (git archive → simulate archive/delete → git init, single commit); acceptance checks `git log` has one commit | resolved (attempt 12 confirmed) |
+| PR-1101 | Minor | tasks.md:345,362 | Task 9 still says "worktree" for the snapshot copies | Handled during Apply (wording; no behavioral change) | accepted (non_blocking) |
 
 ### Re-review Attempts
 
@@ -75,12 +81,16 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | 6 | 2bb108e6d6fdbd03f538734e00252b2ad1718172f2bb09dbee8000b9e581fabd | Approved | 0 | 0 | 4 | Authorized by the user. Digest unchanged; PR-401..405 resolved; no Critical or Important findings. |
 | 7 | 7e5129ff31337b3948880cf33bb784545ac4d459a7ac7d1f46b7fec39a6a6af7 | Issues Found | 0 | 1 | 1 | After Apply review the user chose to close gaps in this Change (Tasks 8-10, EX-05 delta). PR-601 confirmed and repaired. |
 | 8 | 71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0 | Approved | 0 | 0 | 4 | Digest unchanged; PR-601/602 resolved. |
+| 9 | 334f21a9ceccaf94fb2c7959f49938ceba40a09a569c36517558f70ea5e67629 | Issues Found | 0 | 1 | 3 | User-approved drill rubric and bounded re-drill added; PR-801 (archived planning readable). |
+| 10 | 32743ffb7160599f980432b74a19c864d351823013c0b1111301e55b804ef5ca | Issues Found | 0 | 1 | 2 | PR-901 (first-round evidence readable). |
+| 11 | 50e92753763ad801027d789d8382ea2c0d994b748e5a70352b845ca39ccfe98f | Issues Found | 0 | 1 | 0 | PR-1001 (git history in drill copies). |
+| 12 | 33f91c45068fd7f1aa83d97ac126f838815b44b7e892b206b1bc58741754cba5 | Approved | 0 | 0 | 1 | Isolation verified by execution: history-free copy, simulated archive exits 0, no remaining path to answers. |
 
 ## Gate Decision
 
 - Decision: PASS
-- Blocking reason: None. Attempt 8 Approved with Critical=0 and Important=0; reviewed digest equals current digest.
-- Accepted Minor findings: PR-501..PR-504 (PR-501 is Task 8), PR-701..PR-704 (non-blocking; handled during Apply). Reviewer notes for Apply: give `scripts/check-scenarios.test.ts:276-286` a manifest; `checkTemplateGuide` should use only registered IDs, not surface effective-spec issues.
+- Blocking reason: None. Attempt 12 Approved with Critical=0 and Important=0; reviewed digest equals current digest.
+- Accepted Minor findings: PR-501..PR-504 (PR-501 is Task 8), PR-701..PR-704, PR-1101 (non-blocking; handled during Apply). Reviewer notes for Apply: give `scripts/check-scenarios.test.ts:276-286` a manifest; `checkTemplateGuide` should use only registered IDs, not surface effective-spec issues.
 - Freshness check command: `/Users/liyongning/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/generalize-template --check-review openspec/changes/generalize-template/plan-review.md`
 
 Decision rules:
@@ -97,16 +107,16 @@ Decision rules:
   "version": 1,
   "change": "generalize-template",
   "schema": "openspec-workflow",
-  "reviewer": "independent general-purpose subagent (read-only), attempt 8",
+  "reviewer": "independent general-purpose subagent (read-only), attempt 12",
   "prompt_provenance": "skill/change/references/plan-reviewer-prompt.md",
   "reviewed_at": "2026-10-02T00:00:00+08:00",
   "canonicalization_version": 1,
-  "reviewed_sha256": "71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0",
-  "current_sha256": "71b69495b98bd379a741e767ee575b6b3f15cd88d27c8074628dc1fd143cd3e0",
+  "reviewed_sha256": "33f91c45068fd7f1aa83d97ac126f838815b44b7e892b206b1bc58741754cba5",
+  "current_sha256": "33f91c45068fd7f1aa83d97ac126f838815b44b7e892b206b1bc58741754cba5",
   "reviewer_status": "Approved",
   "gate": "PASS",
   "critical": 0,
   "important": 0,
-  "minor": 4
+  "minor": 1
 }
 ```

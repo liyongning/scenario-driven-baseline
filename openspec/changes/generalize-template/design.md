@@ -255,10 +255,16 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 - **原因**：首轮 D4、D5 与修订后的重做由带上下文的主 Agent 执行；需要验证首轮修订的规则是否有效、合理。
 - **执行者**：由 Bridge（复核本 Change 的会话）派发 Agent，每个演练一个全新 Agent，提示词规则与"指南演练验收"相同。
 - **基线**：任务 8 的提交。D1～D5 全部重做，不沿用首轮结论。
-- **重做基线**：本轮修订指南后，先把修订作为中间提交（提交信息 `docs(template): revise guide after re-drill round <n>`）提交到 Apply 分支，再基于该提交新建重做用的 worktree；任务 9 结束时的最终提交使用 tasks.md 中的 Commit。
+- **重做基线**：本轮修订指南后，先把修订作为中间提交（提交信息 `docs(template): revise guide and test timeout after re-drill round 1`，包含指南、AGENTS 修订与 `SCN-TEMPLATE-EXAMPLE-008` 的超时改动，使重做副本带上全部修复）提交到 Apply 分支，再基于该提交制作**不带历史**的重做副本（与指南"复制模板（不带历史）"一致）：`git archive <中间提交> | tar -x` 导出到 scratch 目录，在副本中执行下述模拟归档与删除，然后 `git init` 并只做一次初始提交，最后 `pnpm install --frozen-lockfile`；副本中 `git log` 只能有这一次提交；任务 9 结束时的最终提交使用 tasks.md 中的 Commit。
 - **D4 追加判定**：新增模块后，在其 `core/` 中临时写入使用 `wx` 的语句，`pnpm lint` 必须报错（证明守卫自动生效）；撤销后 `check:fast` 退出码 0。演练不得修改 `eslint.config.js` 与 `.dependency-cruiser.cjs`。
 - **评审**：对每条猜测记录核对首轮修订的规则——是否被演练 Agent 读到并照做（有效），是否带来不必要或错误的步骤（合理）。
-- **处理发现**：同"指南演练验收"；本轮修订后的受影响演练仍由全新 Agent 重做，重做后仍有新的猜测记录时停止并报告用户。
+- **猜测记录分类（演练的通过标准，用户确认）**：演练要证明的是"照着指南能完成"，不是"一键完成"（后者属于脚手架，非目标）。每条记录归入三类之一：
+  1. **阻塞**：不越过指南边界（例如修改门禁代码）就无法完成，或门禁本身不稳定导致无法判定——必须修复；
+  2. **指引错误或误导**：照字面执行会出错，Agent 靠自行发现才完成——必须修订指南；
+  3. **需要额外理解**：指南未逐项列出，Agent 通过 `git grep`、读代码或门禁报错自行补全且未被误导——不修，汇总进验收报告，并在指南"已知限制"写明"替换点地图列出主要接缝，完整影响范围以 `git grep` 与门禁为准"。
+  本 Change 处于 active 状态导致的冲突（演练删除了被本 Change delta 修改的主 Spec Requirement）属于演练环境问题，不计入以上分类；重做时先在演练副本中执行 `openspec archive generalize-template -y` 模拟交付后的状态（已验证：Tasks 9–10 未勾选时 archive 给出警告并以 0 退出，之后 `check:fast` 通过），**随后删除副本中的 `openspec/changes/archive/*-generalize-template/` 目录与本 Change 的证据目录 `artifacts/generalize-template-20261002*/`**（其中的首轮演练报告等同于 D1～D5 的答案），再交给演练 Agent。删除属于模拟步骤的一部分（避免本 Change 的规划与已知答案以"归档历史"的身份被读取），不属于演练改动；演练提示词同时禁止读取 `openspec/changes/` 与 `artifacts/` 下的全部内容，演练报告列出 Agent 依据的文件。
+- **处理发现**：只修复第 1、2 类；修订后由全新 Agent 在模拟归档的副本上重做 D1～D4 一次，D5（纸面推演）由 Bridge 对照代码核对。重做中未出现新的第 1、2 类问题即收口；出现时停止并报告用户。
+- **首轮重新演练已确定的第 1、2 类问题**：`SCN-TEMPLATE-EXAMPLE-008` 在高负载下超出 5 秒默认超时（任务 8 增加子进程探针所致；首轮观测到的最坏耗时约 12.4 秒），为该用例单独设置 60 秒超时，并在 `task-9-redrill.md` 记录实测耗时；"运行平台"误写删除整个 `packages/e2e/src/drivers`（`node.ts` 为集成测试所需）；"协议来源"误称 `SCN-PROTOCOL-CONTRACT-003` Fixture 只需改来源摘要（整个目录与 IDL/Go 来源绑定，需整体替换或删除）；指南其他章节链接平台文件，删除平台后断链而指南未提示。
 - **证据**：`artifacts/generalize-template-20261002-r2/tasks/task-9-redrill.md`，逐个演练记录提示词、执行者、步骤摘要、改动文件、`check:fast` 结果、猜测记录与处理，以及对首轮修订规则的有效性/合理性结论。
 
 ### Decision: 指南演练验收
@@ -289,7 +295,7 @@ ProtoGen 输出路径迁移（已在仓库副本上验证）：先把 `proto-gen
 - **ProtoGen 迁移依赖访问 IDL 仓库**：`proto:sync` 需要网络与 IDL 仓库读权限；失败时停止任务 3 并报告，不手工改锁文件。
 - **schema 不再枚举项目名，格式错误更晚暴露**：由 `spec-inventory` 按清单报告，错误信息包含场景 ID、case 与项目名，GATE-05 的反例覆盖。
 - **替换点地图未经真实使用验证**：指南演练用模拟使用方覆盖了删除发布、删除平台、改名、新增业务与 OpenAPI 纸面推演，但真实项目仍可能发现新的遗漏，登记为 OI-01。
-- **演练 Agent 可能借助仓库中的历史资料而不是指南**：提示词禁止读取 `openspec/changes/`；归档目录中的历史规划不禁止，但猜测记录需要写明依据了哪些文件，评审据此判断指南是否自足。
+- **演练 Agent 可能借助仓库中的历史资料而不是指南**：首轮演练（任务 6）提示词禁止读取 `openspec/changes/`，归档目录中的历史规划不禁止；任务 9 的重新演练按"重新演练"决策删除本 Change 的归档规划与证据目录，并禁止读取 `openspec/changes/` 与 `artifacts/`。两轮的猜测记录都需要写明依据了哪些文件，评审据此判断指南是否自足。
 - **工作流 schema 不再提交后，新克隆需要先安装工作流**：指南"初始化方式"写明。
 
 ## Open Items
