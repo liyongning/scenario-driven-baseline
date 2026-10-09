@@ -322,7 +322,7 @@ module 类证据（手写 `annotate`）适用同一规则。
 规范来源：dq-tech-ai-plugin `dq-be-core/skills/dq-be-libs/references/common-sdk.md` 第 92–97 行，以及 `dq-be-idl-convention`、`dq-fe-troubleshooting` 中的相关条目。
 
 - **头名**：`X-Request-Id`，替代当前的 `request_id`。同一个值写入 `BaseReq.requestId`（IDL 规范要求两者相同）。
-- **格式**：`yyyyMMdd_HHmmss_SSS_abcdef`，共 26 个字符。时间按北京时间（UTC+8）计算，不依赖宿主时区；末尾是 6 位随机小写字母，用 `crypto.getRandomValues` 生成。
+- **格式**：`yyyyMMdd_HHmmss_SSS_abcdef`，共 26 个字符。时间按北京时间（UTC+8）计算，不依赖宿主时区；末尾是 6 位随机小写字母，用 `Math.random` 生成。公司规范只规定格式，未要求随机数的生成方式；请求 ID 只用于链路追踪，不是凭据，不需要密码学安全。小程序宿主没有 `crypto`（Apply 期间实测基础库 3.10.3），而 `Math.random` 在小程序、浏览器与 Node 中都可用，因此全平台使用同一实现，不设平台点位，生成器保持同步。不引入 `nanoid/non-secure` 等库：实现只有几行，而协议包要同时发布 ESM 与 CJS，不值得为此增加运行时依赖。（Apply 期间用户裁决修订，2026-10-10）
 - **生成方**：由协议包 `transport/` 中的标准生成器生成，每次请求都生成新的值。模板没有自动重试，暂不涉及重试时是否复用。
 - **公共 API 变更**：删除协议包公共选项 `ProtocolClientOptions` 中的 `runtime.nextRequestId`，同时删除 SDK `runtime` 端口中的同名能力，宿主无论经 SDK 还是直接使用协议客户端都不能覆盖。这是用户裁决"每次新生成、不可覆盖"的直接结果，属于协议包与产品包公共 API 的破坏性变更，在 Change 说明与能力地图中注明。
 - **测试确定性**：用例不再依赖可预测的请求 ID：Shadow 用 `headerPatterns` 校验格式，并比对同一请求中头与 `BaseReq.requestId` 相等；生成器单测通过内部参数注入时钟与随机源，这两个参数不进入任何包的公共导出。
