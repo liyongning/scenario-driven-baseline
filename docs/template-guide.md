@@ -36,9 +36,10 @@
 2. **Plan Review**：`/change plan-review <change>` 冻结规划 digest 并派发独立评审；digest 变化即作废本轮结论。未通过不得实施。
 3. **实现**：`/change apply <change> --commit` 在独立 worktree 中按 Task 实施；每个 Task 的验收索引写入 `artifacts/<run-id>/tasks/`。
 4. **快速门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:fast`。它依次运行 `pnpm proto:validate`、`pnpm proto:status`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm check:architecture`、`pnpm test:unit`、`pnpm check:fixtures`、`pnpm test:integration` 与 `pnpm check:package`，手写代码四项覆盖率要求 100%。
-5. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒；每个文件一份报告。
-6. **场景门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:scenarios`，用 unit、integration 与全部 weapp 报告对账 Spec、绑定与证据；退出码 0 且问题数为 0 才算通过。默认读取 `artifacts/<run-id>/reports/`，也可用 `--report` 逐个指定报告。
-7. **归档**：`/change archive <change>`。归档前确认清单、绑定、报告与来源摘要仍然一致。
+5. **按需运行（临时说明）**：Apply 期间用 `pnpm test:affected [--base <ref>] [--scenario <ID...>] [--dry-run]` 只跑受改动的 Spec、Fixture、代码与门禁模块影响的用例；改动命中清单、构建输入或工具配置时退化为全量 `pnpm check:fast` 并打印原因。按需运行的报告带 `partial` 标记，场景门禁会拒收，所以它不能替代全量证据。当前试行节奏：每个任务结束时按需运行，至少每 3 个任务与交回前、验收前全量运行；最终节奏在任务 18 依据 OI-CH-02 写定。
+6. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒；每个文件一份报告。
+7. **场景门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:scenarios`，用 unit、integration 与全部 weapp 报告对账 Spec、绑定与证据；退出码 0 且问题数为 0 才算通过。默认读取 `artifacts/<run-id>/reports/`，也可用 `--report` 逐个指定报告。
+8. **归档**：`/change archive <change>`。归档前确认清单、绑定、报告与来源摘要仍然一致。
 
 证据位置：报告、覆盖率与验收索引都在 `artifacts/<run-id>/`（`reports/`、`coverage/`、`tasks/`）。`VERIFY_RUN_ID` 决定 `artifacts/<run-id>/reports/` 下各报告的文件名，生成报告与对账必须使用同一个 run-id；未设置时回退到 `local`。
 

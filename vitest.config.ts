@@ -24,6 +24,8 @@ export default defineConfig({
         outputFile: reportFile,
         runId,
         fingerprints,
+        // 按需运行经 TEST_AFFECTED_PARTIAL 标记报告，场景门禁据此拒收（GATE-13）。
+        partial: process.env.TEST_AFFECTED_PARTIAL === '1',
       }),
     ],
     coverage: {

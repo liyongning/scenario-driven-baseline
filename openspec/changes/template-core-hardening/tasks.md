@@ -308,7 +308,7 @@
   **Commit**
   - `feat(template): add a single verify entry and explain stale reports`
 
-- [ ] 9. 按需测试入口
+- [x] 9. 按需测试入口
 
   **Files**
   - Create：`scripts/test-affected.ts` 及单测（全量触发、Spec/Fixture/代码/`scripts/` 选择规则、扩展到所有环境、`--scenario`、`--dry-run`、计划打印；run id 取 `affected-<YYYYMMDDTHHmmssZ>`）；根 `package.json` 新增 `test:affected`；清单 `requiredCommands` 加入。

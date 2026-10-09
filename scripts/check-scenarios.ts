@@ -237,6 +237,8 @@ export async function runScenarioPrechecks(
 
 type ReporterOutput = Readonly<{
   runId: string;
+  /** 按需运行写出的报告带此标记，门禁拒收（GATE-13）。 */
+  partial?: boolean;
   sourceDigest: string;
   specDigest: string;
   protocolDigest: string;
@@ -265,6 +267,7 @@ export async function loadReporterOutputs(paths: ReadonlyArray<string>) {
   const bindings: CaseBinding[] = [];
   const reports: ExecutionReport[] = [];
   const issues: string[] = [];
+  const partial: string[] = [];
   for (const path of paths) {
     let output: ReporterOutput;
     try {
@@ -272,6 +275,10 @@ export async function loadReporterOutputs(paths: ReadonlyArray<string>) {
     } catch (error) {
       issues.push(`${path}: reporter output cannot be read: ${String(error)}`);
       continue;
+    }
+    if (output.partial === true) {
+      partial.push(path);
+      issues.push(`${path}: partial 报告来自按需运行，并非零退出，不能作为验收证据`);
     }
     if (!Array.isArray(output.tests)) {
       issues.push(`${path}: reporter output has no tests array`);
@@ -299,7 +306,7 @@ export async function loadReporterOutputs(paths: ReadonlyArray<string>) {
       reports.push(output.files ? { ...report, files: output.files } : report);
     }
   }
-  return { bindings, reports, issues };
+  return { bindings, reports, issues, partial };
 }
 
 type State = Readonly<{ executed: boolean; passed: boolean }>;
@@ -699,6 +706,15 @@ export async function runScenariosCli(
   const loaded = await loadReporterOutputs(
     reportArguments.length > 0 ? reportArguments : defaultReports,
   );
+  // 任一报告带 partial 标记时不输出覆盖结论：按需结果不能冒充验收证据（GATE-13）。
+  if (loaded.partial.length > 0)
+    return {
+      output: {
+        mode: argv.includes('--inventory') ? 'inventory' : 'complete',
+        issues: loaded.issues,
+      },
+      exitCode: 1,
+    };
   const coverage = evaluateCoverage({
     current: { runId: environment.VERIFY_RUN_ID ?? 'local', ...fingerprints },
     scenarios: specs.scenarios.map(scenarioCoverageDefinition),

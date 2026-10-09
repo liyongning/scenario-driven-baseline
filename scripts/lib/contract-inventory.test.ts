@@ -25,7 +25,8 @@ async function copyGenerated(prefix: string) {
 }
 
 describe('buildContractInventory', () => {
-  it('derives obligations for the example protocol only', async () => {
+  // 副本内（SCN-SCENARIO-GATE-026）负载叠加时默认 5s 超时不够，显式放宽。
+  it('derives obligations for the example protocol only', { timeout: 30_000 }, async () => {
     const inventory = await buildContractInventory(repositoryRoot);
     expect(inventory.methods).toEqual([
       { name: 'CreateTrade', method: 'POST', path: '/api/base/trade/create' },

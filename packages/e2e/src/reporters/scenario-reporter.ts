@@ -7,6 +7,8 @@ type ReporterOptions = Readonly<{
   outputFile: string;
   runId: string;
   project?: Project;
+  /** 按需运行的报告带 partial 标记，场景门禁据此拒收（GATE-13）。 */
+  partial?: boolean;
   fingerprints: Readonly<{
     sourceDigest: string;
     specDigest: string;
@@ -95,6 +97,7 @@ export class ScenarioReporter implements Reporter {
         {
           runId: this.options.runId,
           ...this.options.fingerprints,
+          ...(this.options.partial ? { partial: true } : {}),
           tests: this.#records,
         },
         null,

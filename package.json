@@ -15,6 +15,7 @@
     "build": "tsx scripts/run-by-manifest.ts build",
     "test:unit": "tsx scripts/run-by-manifest.ts test:unit",
     "test:integration": "tsx scripts/run-by-manifest.ts test:integration",
+    "test:affected": "tsx scripts/test-affected.ts",
     "test:e2e:weapp": "tsx scripts/run-by-manifest.ts test:e2e:weapp",
     "check:architecture": "tsx scripts/check-architecture.ts",
     "check:coverage": "tsx scripts/check-coverage.ts",

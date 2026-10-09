@@ -484,3 +484,101 @@
 - 默认报告集合与过期说明复用 Task 3 的报告 `files` 明细、Task 6/7 的作用域与来源 API（`parseChangeArguments`/`resolveChangeScope`）；`check-scenarios` 只接入 `defaultReportPaths`。
 - 平台步骤替身沿用 Task 3–6 的受控根与清单复制 helper（`createControlledRoot`/`scenario-gate-helpers`/`enableInventory`），未新增框架或自研进程控制器。
 - 微信开发者工具的退出与预热复用本机 `cli` 与仓库既有约定，未自研工具控制器。
+
+### Task 9 按需测试入口
+
+**Commit message**：`feat(template): add affected-scenario test selection with partial reports`
+
+**RED（预期失败的反例，已实际执行）**
+- 入口不存在（把 `scripts/test-affected.ts` 移出工作区、已跟踪改动临时 `git stash`）时：
+  - `node_modules/.bin/vitest run scripts/test-affected.test.ts` 退出码 **1**，`Test Files 1 failed (1)`、`Tests no tests`（`Cannot find module './test-affected.ts'`，套件整体不可加载，`/tmp/t9-red-unit.log`）；
+  - `node_modules/.bin/vitest run --project integration SCN-SCENARIO-GATE-020.spec.ts SCN-SCENARIO-GATE-021.spec.ts SCN-SCENARIO-GATE-022.spec.ts` 退出码 **1**，`Test Files 3 failed (3)` / `Tests 4 failed (4)`（`/tmp/t9-red-int.log`）：020 `full-trigger-cli` 在清单情形下没有全量计划（`expected 1 to be +0`）；021 `affected-spec-fixture-cli`、`affected-code-cli` 无选择输出；022 `partial-report-cli` 读不到 `affected-<时间戳>` run id 与报告。
+- 门禁拒收逻辑缺失（临时 `git stash` 回退 `scripts/check-scenarios.ts` 到 `HEAD`）：`node_modules/.bin/vitest run --project test-tools-unit scripts/check-scenarios.test.ts` 退出码 **1**，`Tests 1 failed | 23 passed (24)`，新增用例 `rejects partial reports from affected runs and keeps full reports acceptable` 报 `expected undefined to deeply equal [ Array(1) ]`（旧实现的 `loadReporterOutputs` 不返回 `partial`，也不报 partial 问题，`/tmp/t9-cs-unit-red.log`）。`git stash pop` 恢复后同文件 24 用例全绿（`/tmp/t9-cs-unit-green.log`）。
+- partial 报告被门禁接受（同输入对照新旧实现）：向 `artifacts/core-hardening-t9/reports/integration.json` 临时注入 `partial: true` 后运行 `VERIFY_RUN_ID=core-hardening-t9 pnpm check:scenarios --change template-core-hardening`：
+  - `HEAD:scripts/check-scenarios.ts`（临时 `git stash`）退出码 1，但**不含**任何 partial 专属问题、且照常打印覆盖结论（输出有 `summaries`）；其总问题数 831 中的 785 条 `is stale` 来自临时回退 `scripts/check-scenarios.ts` 造成的 source 摘要差异，与本反例的判定信号无关（`/tmp/t9-partial-old.log`）；
+  - Task 9 实现退出码 1，问题恰好 1 条：`…/reports/integration.json: partial 报告来自按需运行，并非零退出，不能作为验收证据`，输出**没有** `summaries`（`/tmp/t9-partial-new.log`）；
+  - 探针用注入前的备份还原了该报告文件；随后整份 `core-hardening-t9` 报告集合由本任务最终的 `pnpm verify` 重新生成。
+
+**GREEN**
+- `pnpm typecheck`、`pnpm lint`、`pnpm format:check` 退出 0（`/tmp/t9-typecheck2.log`、`/tmp/t9-lint2.log`）。
+- `pnpm test:unit`：**49 文件 / 344 用例**，Statements/Branches/Functions/Lines 均 100%（`/tmp/t9-unit-full5.log`、`/tmp/t9-unit-preview.log`；后者为新增 `check-scenarios` 用例后的重跑）。
+- 新增 3 个工程用例（`SCN-SCENARIO-GATE-020/021/022.spec.ts`）连续两次退出 0（3 文件 / 4 用例，`/tmp/t9-green-int1.log`、`/tmp/t9-green-int2.log`）。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration` 连续 **2 次**退出 0（48 文件 / 108 用例，`/tmp/t9-integration-full2.log`、`/tmp/t9-integration-full3.log`）。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出 0（`/tmp/t9-checkfast.log`）。
+- 真实仓库改动实验（`--dry-run`，见「按需选择结果」）：产品包 `src` 改动经 `--reaches` 选中 `SCN-TEMPLATE-EXAMPLE-*` 与 weapp 用例并先执行 `pnpm build`；清单、根 `package.json` 或 Vitest 配置改动退化为全量并逐条打印原因。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 单测（RED，入口缺失） | 1 | `/tmp/t9-red-unit.log`（`Tests no tests`） |
+| 集成 020/021/022（RED，入口缺失） | 1 | `/tmp/t9-red-int.log`（3 文件 / 4 用例失败） |
+| `scripts/check-scenarios.test.ts`（RED，回退门禁实现） | 1 | `/tmp/t9-cs-unit-red.log`（1 failed / 23 passed） |
+| `scripts/check-scenarios.test.ts`（GREEN） | 0 | `/tmp/t9-cs-unit-green.log`（24 passed） |
+| 旧门禁 + partial 报告（对照） | 1 | 无 partial 问题、有 `summaries`（`/tmp/t9-partial-old.log`） |
+| 新门禁 + partial 报告 | 1 | 恰好 1 条 partial 问题、无 `summaries`（`/tmp/t9-partial-new.log`） |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | 0 / 0 / 0 | `/tmp/t9-typecheck2.log`、`/tmp/t9-lint2.log` |
+| `pnpm test:unit` | 0 | 49 文件 / 344 用例，四项 100%（`/tmp/t9-unit-preview.log`） |
+| 020+021+022 集成用例（第 1 次 / 第 2 次） | 0 / 0 | 3 文件 / 4 用例（`/tmp/t9-green-int1.log`、`/tmp/t9-green-int2.log`） |
+| `SCENARIO_GATE_CHANGES=… pnpm test:integration`（第 1 次 / 第 2 次） | 0 / 0 | 48 文件 / 108 用例（`/tmp/t9-integration-full2.log`、`/tmp/t9-integration-full3.log`） |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fast` | 0 | `/tmp/t9-checkfast.log` |
+| `pnpm test:affected`（收尾实跑，工作区含清单改动） | 0 | 85.29s，退化为全量 `check:fast` 并全绿（`/tmp/t9-affected-real.log`） |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t9` | 1（第 3 步按预期归属后续任务，见下） | `/tmp/t9-verify-final2.log` |
+
+**报告路径**
+- `pnpm verify` 产物：`artifacts/core-hardening-t9/reports/unit.json`、`integration.json`，perFile 项目目录 `artifacts/core-hardening-t9/reports/weapp/` 下 4 份报告，覆盖率在 `artifacts/core-hardening-t9/coverage/`。
+- 收尾 `pnpm test:affected` 退化为全量，报告落默认 `artifacts/local/reports/{unit.json,integration.json}`，不带 `partial`。
+- partial 报告只出现在按需路径的 `artifacts/affected-<时间戳>/reports/`；工程用例在受控根内产出（`SCN-SCENARIO-GATE-022`）。
+
+**Task 9 Verification：`pnpm verify --change template-core-hardening --run-id core-hardening-t9`**（256.4s，在补上 `scripts/check-scenarios.test.ts` 用例后重跑，为最终证据）
+- 第 1 步 `check:fast` 退出码 **0**（83742ms，含 49 文件 / 344 单测与 48 文件 / 108 集成用例，覆盖率四项 100%）。
+- 第 2 步 `test:e2e:weapp` 退出码 **0**（170798ms，逐文件 4 个，全部首次通过）。
+- 第 3 步 `check:scenarios` 退出码 **1**（1372ms）：共 **46** 条问题，`过期报告` 0 条、`未登记 checkpoint` 0 条、没有 `SCN-SCENARIO-GATE-020/021/022` 相关项——Task 8 登记的 7 条 Task 9 缺口全部清零（53 → 46）。
+
+| 归属 | 条数 | 具体 |
+| --- | --- | --- |
+| Task 10 | 22 | `test-tools-unit/derivation-rules` 7、`SCN-PROTOCOL-CONTRACT-001/non-trade-method-cli` 1、`002/declared-routes` 1、`integration|weapp/protocol-matrix` 4、`005/call-scan-rules` 与 `005/declaration-gate-cli` 2、`SCN-TEMPLATE-ENGINEERING-003/entry-discovery-rules` 1、`integration/missing-comment-rejected` 2、`SCN-TEMPLATE-ENGINEERING-001/sdk-does-not-reexport-network` 1、`SCN-TEMPLATE-EXAMPLE-012` 2、`integration/inventory-cli` 1 |
+| Task 11 | 3 | `SCN-PROTOCOL-CONTRACT-011/request-recording`、`012/path-template`、`013/bounded-poll` |
+| Task 12 | 3 | `SCN-PROTOCOL-CONTRACT-006/idl-validator-rules`、`006/shadow-construction`、`007/malformed-claim-rules` |
+| Task 13 | 7 | `SCN-PROTOCOL-CONTRACT-008/request-id-wire`（integration + weapp）、`008/client-options-shape`、`008/runtime-port-shape`、`009/generator-non-beijing-tz`、`010/shadow-header-patterns`、`010/context-obligation` |
+| Task 14 | 3 | `SCN-TEMPLATE-ENGINEERING-010/baseline-config-rules`、`010/format-check-cli`、`010/max-lines-cli` |
+| Task 15 | 2 | `SCN-TEMPLATE-ENGINEERING-011/project-map-rules`、`011/project-map-violations-cli` |
+| Task 16 | 4 | `SCN-TEMPLATE-ENGINEERING-006/example-marker-rules`、`006/example-marker-violations-cli`、`012/architecture-doc-rules`、`012/architecture-doc-violations-cli` |
+| Task 17 | 2 | `SCN-TEMPLATE-ENGINEERING-008/example-removal-fast`、`008/example-removal-scenarios` |
+| Task 9 | 0 | 本任务交付后清零 |
+
+- 无法归属的问题 **0** 条，未触发「门禁问题无法归属」的暂停条件；续跑提示为 `pnpm verify --from check:scenarios --run-id core-hardening-t9 --change template-core-hardening`。
+
+**weapp 重跑记录**
+- 4 个文件各 1 个 case，全部首次通过、无重跑；每个文件前由 `weapp:prepare` 自动执行 `cli quit` → `pkill -f wechatwebdevtools.app` → `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（本步共 4 次 prepare）。
+- 各文件耗时：`SCN-PROTOCOL-CONTRACT-002` 11316ms、`FLOW-TEMPLATE-EXAMPLE-001` 11237ms、`SCN-TEMPLATE-EXAMPLE-002` 11213ms、`SCN-TEMPLATE-EXAMPLE-004` 11219ms；第 2 步合计 170798ms（含 4 次预热）。
+
+**按需选择结果**（`--dry-run`；工作区含本任务未提交改动，前两行先用「临时还原 + 用后恢复」的方式清掉本次改动里的全量触发文件，只保留被观察的那一个改动）
+
+| # | 改动 | 耗时 | 选择结果 |
+| --- | --- | --- | --- |
+| 1 | 产品包 `packages/sdk/src/example/adapters/trade-backend.ts` | 1.65s | 选中 8 个 ID（`FLOW-TEMPLATE-EXAMPLE-001`、`SCN-TEMPLATE-EXAMPLE-001/002/003/004/005/006/011`），11 个测试文件含 3 个 weapp 用例，第 1 步为 `pnpm build`（`/tmp/t9-affected-exp1.log`） |
+| 2 | `scripts/lib/project-manifest.ts`（`scripts/` 模块） | 1.65s | 选中 13 个 ID / 17 个测试文件（含 `SCN-SCENARIO-GATE-026` 等 tooling 用例与 4 个 weapp 用例），第 1 步为 `vitest related … --project sdk-unit protocol-unit test-tools-unit --run`，**不含** `pnpm build`（`/tmp/t9-affected-exp2.log`） |
+| 3 | `project.manifest.json` + 根 `package.json` + `vitest.config.ts` | 0.61s | 退化为全量 `pnpm check:fast`，触发原因逐条打印：`package.json 命中构建输入`、`project.manifest.json 是清单文件`、`vitest.config.ts 是工具配置`（`/tmp/t9-affected-exp3.log`） |
+
+- 耗时对比：选择阶段 0.6–1.7s（含 dependency-cruiser 分析），全量 `check:fast` 约 84s（`/tmp/t9-affected-real.log`）；选择结果与全量的差集即本次未改动的用例。
+- 计划打印包含选中 ID、各自的选中原因与全部测试文件；每个选中 ID 都扩展到其绑定的全部环境（含 weapp）。
+- 实验后被改文件已 `git checkout --` 还原，三个临时还原文件用 `shasum` 逐个比对确认与实验前逐字节一致，`git status` 与实验前相同。
+
+**方案与实际的差异**（含 Task 9 Files 之外的改动；均按契约补充或只同步受影响产物，未改规划语义）
+1. **超时偏离（沿用 Task 7 裁决 A 的同类处理，用户已预授权）**：`scripts/lib/contract-inventory.test.ts` 的 `derives obligations for the example protocol only` 加显式 `{ timeout: 30_000 }`，该文件不在 Task 9 Files 范围内。原因：`SCN-SCENARIO-GATE-026` 副本内 `pnpm test:unit` 与构建及其他项目并行时默认 5s 超时不够——同一用例在本分支单独运行 1976ms、整文件 8369ms（`/tmp/t9-unit-full5.log`），副本内为 5134ms（`/tmp/t9-integration-full.log`）；同一批补超时的还有 Files 内的 `scripts/test-affected.test.ts` 两个用例（副本内 5266ms）。只放宽超时，未改断言与语义；改后 `test:integration` 全量连续 2 次全绿。
+2. `vitest.config.ts`（Files 之外的落点）：Files 只写「报告器（`partial: true` 标记）」，而标记的产生点是根 `vitest.config.ts` 的 reporter 选项，因此同时修改 `packages/e2e/src/reporters/scenario-reporter.ts` 与 `vitest.config.ts`（按 `TEST_AFFECTED_PARTIAL === "1"` 打开）。
+3. `scripts/check-scenarios.test.ts`（Files 内「`scripts/check-scenarios.ts` 及单测」）：新增 `rejects partial reports from affected runs and keeps full reports acceptable`，断言 `loadReporterOutputs` 把 partial 信封计入 `partial` 并报出拒收问题、全量信封两项都为空；未改既有断言语义。
+4. `--reaches` 分析配置：按 GATE-13 第 4 条生成只供分析的 tsconfig（由清单把各包包名映射到其 `src` 入口）与临时 dependency-cruiser 配置（`forbidden: []`、不跟进 `node_modules`），放临时目录并在运行后删除，不写入仓库、不影响构建与测试的实际模块解析。
+5. 工程用例夹具在受控根内自带 `packages/protocol`（名 `@daqian/template-protocol`）的最小 generated 结构：Task 10 之前 `contract-inventory` 仍从 `infra/trade/v1/trade.ts` 推导，缺该文件时真实门禁会报错，故夹具提供同名最小产物；Task 10 去掉写死后该夹具可简化。
+6. 退化为全量时沿用默认报告位置（不设置 `VERIFY_RUN_ID`）：全量路径不写 partial 报告，`affected-<时间戳>` 只用于按需路径的 `artifacts/<run-id>/reports/`。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：本任务首轮全量 `test:integration` 的 1 处红是 GATE-026 副本内默认 5s 超时（`/tmp/t9-integration-full.log`），不属于「按需通过但全量失败」，已按超时偏离单独登记；补超时后全量连续 2 次全绿。
+
+**优先采用现成方案**
+- integration / platform 用例的代码改动选择按 GATE-13 用 dependency-cruiser `--reaches`，unit 类项目用 Vitest `related`，未自研导入图或影响面分析。
+- 改动文件枚举用 `git diff --name-only <base>` 与 `git ls-files --others --exclude-standard`（根 AGENTS 点名的 `git ls-files`）。
+- `defineCase` 绑定提取复用仓库既有 devDependency `typescript` 的 AST API，未写正则解析。
+- run id 时间戳复用内建 `Date#toISOString()`（UTC）。
+- 受控根、报告替身与 gate helper 沿用 Task 3–8 的既有 helper（`createRepositoryCopy`、`scenario-gate-helpers`），未新增进程控制器或测试框架。
+- 门禁拒收 partial 复用既有 `loadReporterOutputs` 装载点，未新增报告解析路径。

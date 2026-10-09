@@ -324,6 +324,31 @@ describe('evaluateCoverage', () => {
     expect(loaded.reports[1]).toEqual(expect.objectContaining({ files: { 'src/a.ts': 'hash' } }));
   });
 
+  it('rejects partial reports from affected runs and keeps full reports acceptable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'template-reports-partial-'));
+    const partial = join(directory, 'partial.json');
+    const full = join(directory, 'full.json');
+    const envelope = {
+      runId: base().reports[0]!.runId,
+      sourceDigest: 'source',
+      specDigest: 'spec',
+      protocolDigest: 'idl',
+      fixtureDigest: 'fixture',
+      tests: [{ ...base().reports[0], binding: base().bindings[0]! }],
+    };
+    await writeFile(partial, JSON.stringify({ ...envelope, partial: true }));
+    await writeFile(full, JSON.stringify(envelope));
+    const loaded = await loadReporterOutputs([partial, full]);
+    // 带 partial 标记的报告来自按需运行，不能作为验收证据（GATE-13）。
+    expect(loaded.partial).toEqual([partial]);
+    expect(loaded.issues).toEqual([
+      `${partial}: partial 报告来自按需运行，并非零退出，不能作为验收证据`,
+    ]);
+    const complete = await loadReporterOutputs([full]);
+    expect(complete.partial).toEqual([]);
+    expect(complete.issues).toEqual([]);
+  });
+
   it('reports malformed reporter envelopes, missing bindings, and record mismatches', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'template-reports-bad-'));
     const malformed = join(directory, 'malformed.json');
