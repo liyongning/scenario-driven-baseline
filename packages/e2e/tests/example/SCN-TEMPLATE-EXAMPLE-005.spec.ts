@@ -26,19 +26,23 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
+  async ({ checkpoint, expect, environmentClass }) => {
     const pending = {
       body: {
         trade: { tradeNo: 'resource-005', status: 'TRADE_STATUS_CREATED' },
         baseResp: { statusCode: '0' },
       },
     };
-    server = await exampleServer('window-and-timeout', {
-      QueryTrade: {
-        expectedRequests: Array.from({ length: 10 }, () => ({ recordOnly: true })),
-        steps: [{ ...pending, delayMs: 100 }, ...Array.from({ length: 9 }, () => pending)],
+    server = await exampleServer(
+      'window-and-timeout',
+      {
+        QueryTrade: {
+          expectedRequests: Array.from({ length: 10 }, () => ({ recordOnly: true })),
+          steps: [{ ...pending, delayMs: 100 }, ...Array.from({ length: 9 }, () => pending)],
+        },
       },
-    });
+      environmentClass,
+    );
     restore = installWx();
     const result = await exampleClient(server.url, {
       requestTimeoutMs: 50,

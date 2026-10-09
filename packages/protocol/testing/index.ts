@@ -1,4 +1,5 @@
 export { createShadowServer, type RunningShadowServer } from './shadow/server.ts';
+export type { ShadowEnvironmentClass } from './shadow/server.ts';
 // template-example:begin
 export { discoverExampleRoutes } from './shadow/example/routes.ts';
 // template-example:end

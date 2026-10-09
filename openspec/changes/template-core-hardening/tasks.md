@@ -385,7 +385,7 @@
   **Commit**
   - `feat(template): derive protocol obligations from declared consumed operations`
 
-- [ ] 11. Shadow 请求记录、路径转换与有界轮询
+- [x] 11. Shadow 请求记录、路径转换与有界轮询
 
   **Files**
   - Modify：`packages/protocol/testing/shadow/server.ts`、`routes.ts` 及单测（未编排与未注册请求的记录和报告、兜底处理器、`{x}`→`:x`、`poll.maxRequests`、`environmentClass` 约束）。

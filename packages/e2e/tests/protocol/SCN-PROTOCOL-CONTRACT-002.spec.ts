@@ -8,6 +8,7 @@ import {
   createShadowServer,
   discoverDeclaredRoutes,
   type RunningShadowServer,
+  type ShadowEnvironmentClass,
 } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
@@ -153,6 +154,7 @@ function encodingMatches(caseKey: string, value: unknown): boolean {
 async function runMatrix(
   operation: (typeof operations)[number],
   fixture: MatrixFixture,
+  environmentClass: ShadowEnvironmentClass,
 ): Promise<MatrixRun> {
   const meta = metaOf(operation);
   const name = meta.name;
@@ -170,7 +172,11 @@ async function runMatrix(
       },
     },
   };
-  const server = await createShadowServer({ routes, scenarios: [scenario] }).start();
+  const server = await createShadowServer({
+    routes,
+    scenarios: [scenario],
+    environmentClass,
+  }).start();
   running.add(server);
   const configured = communicationClient(server.url);
   const results: Result[] = [];
@@ -189,6 +195,7 @@ async function runMatrix(
 async function runSharedEvidence(
   operation: (typeof operations)[number],
   fixture: MatrixFixture,
+  environmentClass: ShadowEnvironmentClass,
 ): Promise<Record<string, boolean>> {
   const meta = metaOf(operation);
   const name = meta.name;
@@ -206,6 +213,7 @@ async function runSharedEvidence(
           routes: { [name]: { expectedRequests: [{ body: expected }], steps: [step] } },
         },
       ],
+      environmentClass,
     }).start();
     running.add(server);
     return communicationClient(server.url).request(meta, request(), { deadlineAtMs: deadline() });
@@ -292,6 +300,7 @@ async function runSharedEvidence(
         },
       },
     ],
+    environmentClass,
   }).start();
   running.add(delayedServer);
   const delayed = await communicationClient(delayedServer.url).request(meta, request(), {
@@ -357,15 +366,15 @@ defineCase(
       ...declaredObligationCases(),
     ],
   },
-  async ({ fixture: value, checkpoint, expect }) => {
+  async ({ fixture: value, checkpoint, expect, environmentClass }) => {
     const fixture = value as MatrixFixture;
     const covered = new Set<string>();
     const runs = new Map<string, MatrixRun>();
     const shared = new Map<string, Record<string, boolean>>();
     for (const operation of operations) {
       const name = nameOf(operation);
-      runs.set(name, await runMatrix(operation, fixture));
-      shared.set(name, await runSharedEvidence(operation, fixture));
+      runs.set(name, await runMatrix(operation, fixture, environmentClass));
+      shared.set(name, await runSharedEvidence(operation, fixture, environmentClass));
     }
     for (const name of declaredNames) {
       expect(runs.get(name)!.verify).toEqual([]);

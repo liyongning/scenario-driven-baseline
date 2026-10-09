@@ -3,6 +3,7 @@ import {
   createShadowServer,
   discoverExampleRoutes,
   type RunningShadowServer,
+  type ShadowEnvironmentClass,
   type ShadowStep,
 } from '@template-test/protocol';
 
@@ -69,10 +70,12 @@ export async function exampleServer(
       steps: ReadonlyArray<ShadowStep>;
     }>;
   }>,
+  environmentClass: ShadowEnvironmentClass,
 ) {
   return createShadowServer({
     routes: discoverExampleRoutes(),
     scenarios: [{ id, routes }],
+    environmentClass,
   }).start();
 }
 

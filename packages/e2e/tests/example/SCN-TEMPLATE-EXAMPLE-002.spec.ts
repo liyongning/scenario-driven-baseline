@@ -26,13 +26,17 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
-    server = await exampleServer('create-success', {
-      CreateTrade: {
-        expectedRequests: [{ recordOnly: true }],
-        steps: [{ body: { tradeNo: 'resource-002', baseResp: { statusCode: '0' } } }],
+  async ({ checkpoint, expect, environmentClass }) => {
+    server = await exampleServer(
+      'create-success',
+      {
+        CreateTrade: {
+          expectedRequests: [{ recordOnly: true }],
+          steps: [{ body: { tradeNo: 'resource-002', baseResp: { statusCode: '0' } } }],
+        },
       },
-    });
+      environmentClass,
+    );
     restore = installWx();
     const result = await exampleClient(server.url).create({
       ownerId: '42',

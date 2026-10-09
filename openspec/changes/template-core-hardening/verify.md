@@ -677,3 +677,78 @@
 - 依赖与平台规则的反例沿用 Task 4/5 的 `dependency-cruiser` 与受控副本 helper；007 的副本内构建复用仓库既有 `pnpm --filter … build`（ENG-001 已在使用），未新增构建器或进程控制器。
 - Fixture 摘要沿用既有 `pnpm fixtures:refresh`；受控根沿用 `scenario-gate-helpers`／`repository-copy`。
 - 已评估 `tsconfig` `paths` 子路径映射方案（现成的模块解析机制）并在验证其副作用（无 DOM lib 程序报 TS7017）后放弃，理由记在上面第 1 条。
+
+### Task 11 Shadow 请求记录、路径转换与有界轮询
+
+**Commit message**：`feat(template): record every shadow request and support bounded polling`
+
+**RED（预期失败的反例，已实际执行）**
+- 新增用例 `packages/protocol/testing/shadow/records-and-polling.test.ts`（011/012/013 的 protocol-unit module case）后、实现前运行
+  `node_modules/.bin/vitest run --project protocol-unit testing/shadow/records-and-polling.test.ts`：退出码 **1**，`Test Files 1 failed (1)` / `Tests 3 failed (3)`（`/tmp/t11-red-unit.log`）：
+  - `SCN-PROTOCOL-CONTRACT-011 request-recording`：`records().map(path)` 收到 `[undefined]`——旧引擎只记录命中已编排路由的请求，已注册未编排与未注册路径都不进记录，`verify()` 也不报，故断言先失败在记录缺失。
+  - `SCN-PROTOCOL-CONTRACT-012 path-template`：`/trades/{tradeId}` 原样注册，请求 `/trades/abc` 得到 **404**（期望 200）——未做 `{name}` → `:name` 转换；两条残留花括号的路径也未在构造期报错。
+  - `SCN-PROTOCOL-CONTRACT-013 bounded-poll`：第 3 次请求得到 **409**（期望 422）——旧引擎把 `index >= expectedRequests.length` 一律当"多发请求"，既不重复最后一个 step，也不按最后一个期望请求校验。
+
+**GREEN**
+- `node_modules/.bin/vitest run --project protocol-unit testing/shadow/` 退出码 **0**，`Test Files 9 passed (9)` / `Tests 23 passed (23)`（`/tmp/t11-green-unit.log`）：新增 3 个 case 通过，既有 `server.test.ts`（8）、`routes.test.ts`（1）、`example/routes.test.ts`（3）等未改动即回归通过——**不使用 `poll` 的既有 Shadow 单测无需传入 `environmentClass`**（Minor 约定）。
+- `pnpm typecheck` 退出码 **0**（`/tmp/t11-typecheck.log`）。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**（`/tmp/t11-checkfast.log`）：`test:unit` **53 文件 / 358 用例**，覆盖率 Statements/Branches/Functions/Lines 均 **100%**（2964/1969/542/2620）；`test:integration` **50 文件 / 112 用例**；`check:package` 两个 pack 命令退出码 0、`issues: []`。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` 退出码 **0**（`/tmp/t11-affected.log`）：16 个改动文件选出 12 个步骤，含 `integration` 6 个文件与 `weapp` 4 个文件，全部通过；`sdk-unit`/`protocol-unit`/`test-tools-unit` 走 `vitest related`。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 011/012/013 module case（RED：实现前） | 1 | 3 failed / 3，`/tmp/t11-red-unit.log` |
+| protocol-unit `testing/shadow/`（GREEN） | 0 | 9 文件 / 23 用例，`/tmp/t11-green-unit.log` |
+| `pnpm typecheck` | 0 | `/tmp/t11-typecheck.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | 单测 53/358、集成 50/112、覆盖率 100%，`/tmp/t11-checkfast.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` | 0 | 12 步（含 4 个 weapp 文件），`/tmp/t11-affected.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t11`（全量首跑） | 1 | check:fast 0（136020ms）；weapp 1（345985ms，FLOW-001 挂起）；check:scenarios 跳过，`/tmp/t11-verify-full.log` |
+| `pnpm verify --change template-core-hardening --from test:e2e:weapp --run-id core-hardening-t11`（weapp 整文件复跑并续跑到门禁） | 1 | weapp 0（128553ms）；check:scenarios 1（1371ms，19 条），`/tmp/t11-verify-resume.log` |
+
+**报告路径**：单测与集成报告 `artifacts/core-hardening-t11/reports/{unit.json,integration.json}`，覆盖率 `artifacts/core-hardening-t11/coverage/`，weapp 逐文件报告 `artifacts/core-hardening-t11/reports/weapp/<文件名>.json`；RED/GREEN 与复跑日志在 `/tmp/t11-*.log`。`check:scenarios` 的结论以 stdout JSON 为准（本任务未落盘 `scenarios.json`），完整输出在 `/tmp/t11-verify-resume.log`。
+
+**场景门禁剩余问题归属（19 条，22 → 19）**
+- 均为后续任务 case 的 `missing binding`：**未登记 checkpoint 0 条、过期报告 0 条、协议义务问题 0 条**。Task 10 记录中归属 Task 11 的 3 条（`SCN-PROTOCOL-CONTRACT-011/request-recording`、`012/path-template`、`013/bounded-poll`）全部清零。
+
+| 归属 | 条数 | 具体 |
+| --- | --- | --- |
+| Task 12 | 3 | `SCN-PROTOCOL-CONTRACT-006/idl-validator-rules`、`006/shadow-construction`、`007/malformed-claim-rules` |
+| Task 13 | 7 | `SCN-PROTOCOL-CONTRACT-008/request-id-wire`（integration + weapp）、`008/client-options-shape`、`008/runtime-port-shape`、`009/generator-non-beijing-tz`、`010/shadow-header-patterns`、`010/context-obligation` |
+| Task 14 | 3 | `SCN-TEMPLATE-ENGINEERING-010/baseline-config-rules`、`010/format-check-cli`、`010/max-lines-cli` |
+| Task 15 | 2 | `SCN-TEMPLATE-ENGINEERING-011/project-map-rules`、`011/project-map-violations-cli` |
+| Task 16 | 2 | `SCN-TEMPLATE-ENGINEERING-012/architecture-doc-rules`、`012/architecture-doc-violations-cli` |
+| Task 17 | 2 | `SCN-TEMPLATE-ENGINEERING-008/example-removal-fast`、`008/example-removal-scenarios` |
+
+- 无法归属的问题 **0** 条，未触发「门禁问题无法归属」的暂停条件；续跑提示为 `pnpm verify --from check:scenarios --run-id core-hardening-t11 --change template-core-hardening`。
+
+**Review / Acceptance：新记录规则在现有用例中暴露的请求**
+- **新增问题 0 条**。现有 integration（50 文件 / 112 用例）与 weapp（4 文件）在 `verify()` 断言下全绿：协议矩阵用例 `expect(run.verify()).toEqual([])`、示例用例 `expect(server.verify()).toEqual([])` 均未因"未编排/未注册请求"报错。
+- 说明现有用例没有此前被掩盖的多余请求：所有被 SDK 真实发出的请求都在当前场景的编排集合内；已注册未编排与未注册路径的请求此前既不记录也不报，本轮没有命中。
+
+**方案与实际的差异**（含 Task 11 Files 之外的改动；均为按契约补充或只同步受影响产物，未改规划语义）
+1. `packages/protocol/testing/index.ts`（Files 之外）：新增 `export type { ShadowEnvironmentClass }`（**type-only**，运行期导出集合不变，`bootstrap.test.ts` 的"精确导出名"断言未改且通过），供 e2e harness 与用例标注 `environmentClass` 参数类型。
+2. `packages/e2e/tests/example/{SCN-TEMPLATE-EXAMPLE-003,005,006,FLOW-TEMPLATE-EXAMPLE-001}.spec.ts` 与 `example-harness.ts`（Files 之外）：`exampleServer(id, routes, environmentClass)` 增加第三参数后，全部 9 处调用点同步传入 `defineCase` 上下文的 `environmentClass`。属"使用 Shadow 的 harness 与用例"范围内。
+3. `packages/e2e/tests/example/SCN-TEMPLATE-EXAMPLE-002.spec.ts` 等既有示例用例：只改 `defineCase` 解构与 `createShadowServer`/`exampleServer` 参数，断言与语义未动（`git diff` 逐条核对）。
+4. 路径转换放在 `routes.ts` 的 `toExpressRoutePath`（Files 已列 `routes.ts`）：只用正则把 `{name}` 换成 `:name`，残留花括号即抛错，复用 express 5 内建的 `:param` 与 `app.use` 兜底，不引入路由器或中间件框架。
+5. `packages/e2e/AGENTS.md` 新增"轮询用例写法"一条，措辞取自 Design「Decision: AGENTS 约定」的两类轮询，未改其他约定。
+6. **weapp 复跑**：首跑 `FLOW-TEMPLATE-EXAMPLE-001` 出现断言前 120s 挂起（详见下），按 AGENTS 约定整文件复跑取得通过证据；未改任何断言、未跳过用例、未缩小统计范围。
+
+**weapp 重跑记录**
+- 首跑（全量 `verify`，run id `core-hardening-t11`）：`SCN-PROTOCOL-CONTRACT-002` 首次通过（11377ms）；`FLOW-TEMPLATE-EXAMPLE-001` **失败**，`Error: Test timed out in 120000ms`（120013ms），统一入口自动 `weapp:prepare` 后整文件重跑仍为同一 120011ms 挂起；因该步失败，后续两个文件未执行。
+- 复跑：先手工 `pnpm weapp:prepare`（`cli quit` → `pkill -f wechatwebdevtools.app` → `cli open --project packages/e2e/host/weapp`），再 `pnpm verify --from test:e2e:weapp --run-id core-hardening-t11`，weapp 步骤退出码 **0**（128553ms）：`SCN-PROTOCOL-CONTRACT-002` 复用首跑通过报告，`FLOW-TEMPLATE-EXAMPLE-001` 11125ms、`SCN-TEMPLATE-EXAMPLE-002` 11117ms、`SCN-TEMPLATE-EXAMPLE-004` 11159ms，全部通过。
+- 失败现象是断言前的 120s 挂起（开发者工具 launch/evaluate 不返回），不是断言失败；同一改动在更早的独立 weapp 运行中 `FLOW-TEMPLATE-EXAMPLE-001` 曾 11126ms 通过，与被测行为无关（`packages/e2e/AGENTS.md` 第 2 条）。
+
+**按需选择结果**
+- 16 个改动文件被 `test:affected` 转为 12 个步骤：3 个 unit 项目走 `vitest related`（`sdk-unit` 无相关文件，退出码 0），`integration` 逐文件 6 个（示例 5 + 协议矩阵 1），`weapp` 逐文件 4 个；全部退出码 0。
+- 未退化为全量：`packages/protocol/testing/**` 与 `packages/e2e/tests/**` 不在"清单/宿主/驱动"全量触发路径上（本任务未改 `project.manifest.json`、`packages/e2e/host/`、`packages/e2e/src/`）。选择结果为精确子集，`artifacts/local/reports/` 沿用默认位置且无 partial 标记。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：全量首跑的红色来自 `FLOW-TEMPLATE-EXAMPLE-001` 的 weapp 断言前 120s 挂起（AGENTS 已登记的基础设施抖动，整文件复跑即通过），不属于"按需通过但全量发现新增失败"；`check:scenarios` 的非零是 19 条全部归属后续任务 12–17 的 `missing binding`，与按需选择无关。
+
+**优先采用现成方案**
+- 路径转换复用 express 5 内建的 `:param` 路由参数，只把 IDL 侧的 `{name}` 模板用一条正则规范化；未自研路由器、路径匹配器或协议解析器。
+- 未注册路径的兜底复用 express 内建的 `app.use` catch-all 中间件，未引入中间件框架。
+- 请求记录与有界轮询沿用 Shadow 引擎既有的"每路由 cursor + steps"执行模型（只加 `poll.maxRequests` 上限与最后一个 step 的重复语义），未新建录制层或调度器。
+- `environmentClass` 复用 Task 4 的 `defineCase` 上下文（`environmentClassOf` 按清单测试项目 `class` 解析），未新增第二套环境判定。
+- AGENTS"轮询用例写法"直接采用 Design 已确认的两类划分，未自行改写职责边界。

@@ -34,7 +34,7 @@ defineCase(
       },
     ],
   },
-  async ({ fixture: value, checkpoint, flow, expect }) => {
+  async ({ fixture: value, checkpoint, flow, expect, environmentClass }) => {
     const fixture = value as {
       ownerId: string;
       externalRef: string;
@@ -44,6 +44,7 @@ defineCase(
     };
     const server = await createShadowServer({
       routes: discoverExampleRoutes(),
+      environmentClass,
       scenarios: [
         {
           id: 'weapp-example-flow',

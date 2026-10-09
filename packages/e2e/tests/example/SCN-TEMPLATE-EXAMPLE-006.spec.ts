@@ -32,21 +32,25 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
-    server = await exampleServer('host-cancel', {
-      QueryTrade: {
-        expectedRequests: [{ recordOnly: true }],
-        steps: [
-          {
-            delayMs: 50,
-            body: {
-              trade: { tradeNo: 'resource-006', status: 'TRADE_STATUS_CREATED' },
-              baseResp: { statusCode: '0' },
+  async ({ checkpoint, expect, environmentClass }) => {
+    server = await exampleServer(
+      'host-cancel',
+      {
+        QueryTrade: {
+          expectedRequests: [{ recordOnly: true }],
+          steps: [
+            {
+              delayMs: 50,
+              body: {
+                trade: { tradeNo: 'resource-006', status: 'TRADE_STATUS_CREATED' },
+                baseResp: { statusCode: '0' },
+              },
             },
-          },
-        ],
+          ],
+        },
       },
-    });
+      environmentClass,
+    );
     let aborts = 0;
     restore = installWx(() => {
       aborts += 1;
@@ -74,19 +78,23 @@ defineCase(
       expect(aborts).toBe(1);
     });
     await checkpoint('no-request-after-cancel', () => expect(server!.records()).toHaveLength(1));
-    const waitingServer = await exampleServer('host-cancel-waiting', {
-      QueryTrade: {
-        expectedRequests: [{ recordOnly: true }],
-        steps: [
-          {
-            body: {
-              trade: { tradeNo: 'resource-006-waiting', status: 'TRADE_STATUS_CREATED' },
-              baseResp: { statusCode: '0' },
+    const waitingServer = await exampleServer(
+      'host-cancel-waiting',
+      {
+        QueryTrade: {
+          expectedRequests: [{ recordOnly: true }],
+          steps: [
+            {
+              body: {
+                trade: { tradeNo: 'resource-006-waiting', status: 'TRADE_STATUS_CREATED' },
+                baseResp: { statusCode: '0' },
+              },
             },
-          },
-        ],
+          ],
+        },
       },
-    });
+      environmentClass,
+    );
     try {
       const waiting = await exampleClient(waitingServer.url, {
         requestTimeoutMs: 500,

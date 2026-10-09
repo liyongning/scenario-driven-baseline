@@ -29,7 +29,7 @@ defineCase(
       },
     ],
   },
-  async ({ fixture: value, checkpoint, flow, expect }) => {
+  async ({ fixture: value, checkpoint, flow, expect, environmentClass }) => {
     const fixture = value as {
       ownerId: string;
       externalRef: string;
@@ -41,18 +41,22 @@ defineCase(
       'CreateTrade',
       'QueryTrade',
     ]);
-    server = await exampleServer('flow-example-normal', {
-      CreateTrade: {
-        expectedRequests: [{ recordOnly: true }],
-        steps: [{ body: { tradeNo: fixture.resourceId, baseResp: { statusCode: '0' } } }],
+    server = await exampleServer(
+      'flow-example-normal',
+      {
+        CreateTrade: {
+          expectedRequests: [{ recordOnly: true }],
+          steps: [{ body: { tradeNo: fixture.resourceId, baseResp: { statusCode: '0' } } }],
+        },
+        QueryTrade: {
+          expectedRequests: fixture.states.map(() => ({ recordOnly: true })),
+          steps: fixture.states.map((status) => ({
+            body: { trade: { tradeNo: fixture.resourceId, status }, baseResp: { statusCode: '0' } },
+          })),
+        },
       },
-      QueryTrade: {
-        expectedRequests: fixture.states.map(() => ({ recordOnly: true })),
-        steps: fixture.states.map((status) => ({
-          body: { trade: { tradeNo: fixture.resourceId, status }, baseResp: { statusCode: '0' } },
-        })),
-      },
-    });
+      environmentClass,
+    );
     restore = installWx();
     const client = exampleClient(server.url);
     expect(server.records()).toHaveLength(0);

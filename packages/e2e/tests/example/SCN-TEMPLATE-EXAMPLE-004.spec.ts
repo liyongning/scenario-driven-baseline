@@ -34,10 +34,11 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
+  async ({ checkpoint, expect, environmentClass }) => {
     server = await exampleServer(
       'observe-completed',
       responses('resource-004', ['TRADE_STATUS_CREATED', 'TRADE_STATUS_PAID']),
+      environmentClass,
     );
     restore = installWx();
     const result = await exampleClient(server.url).observe({
@@ -67,10 +68,11 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
+  async ({ checkpoint, expect, environmentClass }) => {
     server = await exampleServer(
       'observe-closed',
       responses('resource-004-closed', ['TRADE_STATUS_CLOSED']),
+      environmentClass,
     );
     restore = installWx();
     const result = await exampleClient(server.url).observe({

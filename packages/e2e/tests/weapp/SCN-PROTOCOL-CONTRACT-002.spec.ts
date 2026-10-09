@@ -154,7 +154,7 @@ defineCase(
       ...declaredObligationCases(),
     ],
   },
-  async ({ fixture: value, checkpoint, expect }) => {
+  async ({ fixture: value, checkpoint, expect, environmentClass }) => {
     const fixture = value as MatrixFixture;
     const covered = new Set<string>();
     const planned = operations.map((operation) => {
@@ -192,6 +192,7 @@ defineCase(
     });
     const server = await createShadowServer({
       routes,
+      environmentClass,
       scenarios: [
         {
           id: 'weapp-protocol-matrix',

@@ -26,8 +26,8 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
-    server = await exampleServer('invalid-input', {});
+  async ({ checkpoint, expect, environmentClass }) => {
+    server = await exampleServer('invalid-input', {}, environmentClass);
     restore = installWx();
     const result = await exampleClient(server.url).create({
       ownerId: 'not-an-int64',
@@ -56,13 +56,17 @@ defineCase(
       },
     ],
   },
-  async ({ checkpoint, expect }) => {
-    server = await exampleServer('create-failures', {
-      CreateTrade: {
-        expectedRequests: [{ recordOnly: true }],
-        steps: [{ body: { baseResp: { statusCode: '10100801003070' } } }],
+  async ({ checkpoint, expect, environmentClass }) => {
+    server = await exampleServer(
+      'create-failures',
+      {
+        CreateTrade: {
+          expectedRequests: [{ recordOnly: true }],
+          steps: [{ body: { baseResp: { statusCode: '10100801003070' } } }],
+        },
       },
-    });
+      environmentClass,
+    );
     restore = installWx();
     const result = await exampleClient(server.url).create({
       ownerId: '42',
