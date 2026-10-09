@@ -205,3 +205,69 @@
 **weapp 重跑记录**：N/A（本任务不改动 weapp 用例，`check:fast` 不含 weapp；weapp 证据在 Task 17/18 运行）。
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务 `test:integration` 全量运行）。
+
+### Task 5 门禁自测隔离
+
+**Commit message**：`test(template): isolate gate self-tests from live repository state`
+
+**RED（预期失败的反例，已实际执行）**
+- 用本任务新增的 `createRepositoryCopy()` 建立隔离副本（作用域 `template-core-hardening`，测试后已清理）：删除全部 FLOW 登记（主 Spec 与 active delta 的 FLOW 行 + `git rm` 对应 `FLOW-*` Fixture），并新增一个缺 verification 元数据块的 active Change `zz-isolation-probe`。
+- 把 HEAD（改造前）版本的 `scripts/check-scenarios.test.ts` 放回该副本运行 `pnpm test:unit`：退出码 **1**，失败点 `scripts/check-scenarios.test.ts:467`——`AssertionError: expected { output: { …(4) }, exitCode: 1 } to match object { exitCode: 1, output: { …(3) } }`，差异为 `- "contracts": Any<Array>`（改造前用例把副本实时状态（FLOW/contracts 缺失）当成期望输入，且用恒真断言）。日志 `/tmp/task5-red-unit.log`。
+- 同一副本换成迁移后的 `scripts/check-scenarios.test.ts` 再跑 `pnpm test:unit`：退出码 **0**，语句/分支/函数/行 100%。日志 `/tmp/task5-green-unit.log`。
+
+**GREEN**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**（日志 `/tmp/task5-checkfast.log`）：`format:check`、`lint`、`build`、`typecheck`、`check:architecture`、`test:unit`、`check:coverage`、`check:fixtures`、`test:integration`、`check:package` 全通过。
+- `pnpm test:unit`：47 文件 / 309 用例；`Statements 100% (2120/2120)`、`Branches 100% (1373/1373)`、`Functions 100% (398/398)`、`Lines 100% (1876/1876)`。
+- `pnpm test:integration`：34 文件 / 89 用例，含新增 `SCN-SCENARIO-GATE-026 self-test-isolation-cli`（39.3s，副本内安装/构建/多次运行）。
+- 门禁自测的恒真断言已清零：`git grep -n "expect.any" -- scripts packages/e2e` 仅剩 `packages/e2e/src/bootstrap.test.ts:22` 的 `expect.any(Function)`（函数身份断言，非门禁结果断言）与新 Fixture 的 `forbiddenAssertions` 字面量。
+
+**命令与退出码**
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 副本探针 + HEAD `check-scenarios.test.ts`：`pnpm test:unit` | 1（RED） | `/tmp/task5-red-unit.log`（失败于 `scripts/check-scenarios.test.ts:467`） |
+| 同一副本 + 迁移后 `check-scenarios.test.ts`：`pnpm test:unit` | 0（GREEN） | `/tmp/task5-green-unit.log`（100% 覆盖率） |
+| `pnpm build` | 0 | `/tmp/task5-build.log` |
+| `pnpm typecheck` | 0 | `/tmp/task5-typecheck.log` |
+| `pnpm test:unit` | 0 | 47 文件 / 309 用例，100% 覆盖率 |
+| `pnpm test:integration` | 0 | 34 文件 / 89 用例（含 GATE-026，39.3s） |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | `/tmp/task5-checkfast.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:scenarios --inventory` | 1（inventory 语义：存在问题） | `/tmp/task5-inventory.json`，395 条，全部归属后续任务（见下） |
+
+**报告路径**
+- 单测覆盖率：`artifacts/local/coverage/`；集成报告：`artifacts/local/reports/*.json`（`VERIFY_RUN_ID` 未设置时落到 `local`）。
+- weapp 报告：本任务未运行（见下）。
+
+**场景门禁剩余问题归属（395 条）**
+- 381 条 `missing binding for <project>`：分别为 test-tools-unit / integration / weapp 尚未登记的绑定，逐条对应当前或后续 Task 创建/迁移的 case（Task 6–7 的 fixture/绑定改造、Task 10–13 的协议与示例解耦、Task 14–17 的规模/地图/文档/示例用例）。
+- 13 条 `checkpoint did not execute`（`integration/*`、`test-tools-unit/*`）：属尚未交付的 checkpoint，由后续 Task 的用例补齐。
+- 1 条 `FLOW-TEMPLATE-EXAMPLE-001/normal: missing FLOW binding for weapp`：weapp 绑定在 Task 17/18 的 weapp 运行中产生。
+- 无"无法归属后续任务"的回归项。本任务新增的 `SCN-SCENARIO-GATE-026`（单元证据 `self-test-isolation-rules` 与集成 case `self-test-isolation-cli`）绑定均已登记。
+
+**Review / Acceptance：改造前依赖实时状态的用例清单与改造方式**
+- **门禁逻辑自测 → 改为受控临时根（不读仓库实时状态）**
+  - `scripts/check-scenarios.test.ts`：`writeProjectManifest` 改用 `minimalManifest()`；`runs both controlled-input and live-inventory CLI composition paths` 的 live-inventory 分支改在 `createControlledRoot`（注入仓库清单 + `enableInventory`）上运行，断言由 `expect.any(Array)` 换成具体的 `issues`/`scenarios`/`flows`/`contracts` 值；新增 `falls back to the real openspec CLI when no command is injected` 覆盖 `defaultScenarioCommand`（恢复该文件的分支覆盖率到 100%）。
+  - `scripts/lib/scenario-gate.evidence.test.ts`：`temporaryRoot` 改用 `createControlledRoot`（清单作为契约输入从真实仓库读入）；`missing-specs-dir` 反例先删除受控根的 `openspec/specs`；新增 `SCN-SCENARIO-GATE-026 self-test-isolation-rules` 证据（受控临时根 / FLOW 分支由测试输入提供 / 副本内固定版本 OpenSpec CLI 核验）。
+  - `scripts/check-package.test.ts`：`runPackageCli` 的 `process.cwd()` 改用受控根（补齐测试包 `package.json`）。
+  - 新增 `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts`：整个 case 在仓库副本内运行（删 FLOW、加缺陷 Change、跑 build/unit/integration/事实核验）。
+- **模板自身事实核验 → 保留只读真实仓库，去掉对调用方工作目录的依赖（`repositoryRoot` 由模块位置推导）**
+  - `scripts/lib/dependency-rules.test.ts`、`scripts/lib/project-manifest.test.ts`、`scripts/lib/schema-docs.test.ts`：读取真实仓库的清单 / 根 `package.json` / schema 与 AGENTS 文档（模板对外契约）。
+  - `scripts/lib/contract-inventory.test.ts`：读取真实仓库已提交的 `packages/protocol/src/generated` 产物。
+  - `packages/e2e/tests/tooling/helpers.ts`、`scenario-gate-helpers.ts`：导出模块位置推导的 `repositoryRoot`；`runScenarioCli` 与 `enableInventory`（从根清单读协议目录）不再用 `process.cwd()`。
+  - tooling 用例 `SCN-SCENARIO-GATE-008`、`SCN-TEMPLATE-ENGINEERING-002/005/006/007/009`、`SCN-TEMPLATE-EXAMPLE-007/008`、`SCN-PROTOCOL-CONTRACT-004`：`const repositoryRoot = process.cwd()` 改为从 `helpers.ts` 导入。
+  - 这些事实核验用例均按模块相对路径/真实仓库读取，不消费 Spec 来源，因此无需 `--change` 作用域；GATE-026 的 `fact-checks-scoped` checkpoint 在一个存在无关缺陷 active Change 的副本中运行它们并断言通过，证明结论不受无关 active Change 影响。
+- **仍保留 `process.cwd()` 的非测试默认参数**（不在任务 Files 的 `git grep` 范围内，函数签名默认值，由调用方显式传根）：`scripts/check-*.ts`、`scripts/lib/spec-inventory.ts`、`scripts/run-by-manifest.ts`、`scripts/sdk-release.ts`。
+- **残留（非门禁自测）**：`packages/e2e/src/cases/define-case.test.ts:57` 的 `process.cwd()`（单测 `environmentClassOf` 默认根；不在任务限定的 grep 范围 `scripts packages/e2e/tests/tooling` 内，随副本运行也成立）。
+
+**方案与实际的差异**
+- 排除项落在 `packages/e2e/vitest.config.integration.ts` 而非根 `vitest.config.ts`：实测根 `vitest.config.ts` 的 `test.exclude` 不作用于 `projects` 中的子项目，只有项目自身 config 的 `exclude` 生效；任务意图（`TEMPLATE_COPY` 存在时不运行会创建副本的用例）不变。
+- 排除清单除任务点名的 `SCN-TEMPLATE-ENGINEERING-001`、`SCN-SCENARIO-GATE-026` 外，还含 `SCN-TEMPLATE-ENGINEERING-007`、`SCN-TEMPLATE-EXAMPLE-008`：二者经 Task 4 的 `createBuildCopy` 也会创建副本，受同一"会创建副本的用例"规则覆盖；`SCN-TEMPLATE-ENGINEERING-008` 按计划留待 Task 17 加入。
+- `createRepositoryCopy` 的 `copyEnvironment()` 额外剔除 `VERIFY_REPORT_FILE`、`VERIFY_RUN_ID`：副本内运行若继承调用方的报告路径会覆盖外层报告。
+- `process.cwd()` 的隔离未给 `check-scenarios.ts` 增加作用域参数，而是统一为"显式 root + `enableInventory`"，与 Task 7 的 `--change` 作用域正交。
+- 未改任何已有用例的断言语义：仅替换输入来源（临时根/模块根）与恒真断言为具体断言。
+
+**优先采用现成方案**
+- 复用 Task 3 的 `git ls-files -co --exclude-standard` 枚举复制输入、Task 4 的最小副本 helper 收敛为仓库副本 helper；副本依赖用 `pnpm install --offline --frozen-lockfile` 从本机 pnpm store 安装（不链接原仓库 `node_modules`）；归档用任务 1 固定版本的 OpenSpec CLI（`openspec archive -y`），未自研归档实现。无自研通用基建。
+
+**weapp 重跑记录**：N/A（本任务不改动 weapp 用例，`check:fast` 不含 weapp）。
+
+**按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务 `test:integration` 全量运行）。

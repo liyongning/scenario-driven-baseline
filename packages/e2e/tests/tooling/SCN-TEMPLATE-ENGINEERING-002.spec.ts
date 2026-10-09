@@ -10,6 +10,7 @@ import {
   runScenarioCli,
   writeTemplateGuideFixture,
   type MutableCoverageInput,
+  repositoryRoot,
 } from './helpers.ts';
 import { writeRepositoryPackages } from './scenario-gate-helpers.ts';
 
@@ -26,7 +27,7 @@ test.afterEach(() => {
 
 function run(command: string, args: string[], input?: string) {
   const result = spawnSync(command, args, {
-    cwd: process.cwd(),
+    cwd: repositoryRoot,
     encoding: 'utf8',
     ...(input === undefined ? {} : { input }),
   });

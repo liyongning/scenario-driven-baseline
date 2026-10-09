@@ -25,11 +25,10 @@ import {
   verification,
   writeSpec,
 } from './scenario-gate-helpers.ts';
-import { writeTemplateGuideFixture } from './helpers.ts';
+import { writeTemplateGuideFixture, repositoryRoot } from './helpers.ts';
 import { createControlledRoot } from './controlled-root.ts';
 import { planCommand } from '../../../../scripts/run-by-manifest.ts';
 
-const repositoryRoot = process.cwd();
 const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });

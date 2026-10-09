@@ -1,12 +1,15 @@
 import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
 import { createControlledRoot } from './controlled-root.ts';
 import { writeTemplateGuideFixture } from './helpers.ts';
+import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
 
-const repositoryRoot = process.cwd();
+/** 仓库根由模块位置推导，门禁自测不依赖调用方的工作目录。 */
+const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const gateScript = resolve(repositoryRoot, 'scripts/check-scenarios.ts');
 const tsx = resolve(repositoryRoot, 'node_modules/.bin/tsx');
 const config = {
@@ -77,9 +80,14 @@ export function writeRepositoryPackages(root: string) {
 }
 
 export function enableInventory(root: string) {
-  const generated = join(root, 'packages/protocol/src/generated');
+  const protocol = packageByRole(loadProjectManifest(root), 'protocol');
+  const generated = join(root, 'packages', protocol.directory, 'src/generated');
   mkdirSync(dirname(generated), { recursive: true });
-  symlinkSync(resolve(repositoryRoot, 'packages/protocol/src/generated'), generated, 'dir');
+  symlinkSync(
+    resolve(repositoryRoot, 'packages', protocol.directory, 'src/generated'),
+    generated,
+    'dir',
+  );
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
   for (const [relative, source] of [
     [

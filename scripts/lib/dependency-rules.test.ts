@@ -1,7 +1,11 @@
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { expect, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { loadProjectManifest, type ProjectManifest } from './project-manifest.ts';
+
+/** 模板自身事实核验：只读真实仓库的清单与契约，不读取门禁实时状态。 */
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 /** 依赖规则生成函数在 CJS 中实现，供 dependency-cruiser 配置与 eslint 配置共用。 */
 type Rule = Readonly<{ name: string; from: { path: string } }>;
@@ -66,7 +70,7 @@ async function evidence(
 
 /** 把仓库清单改名成另一个包目录，用来证明规则随清单变化而不是写死。 */
 function renamedManifest(): ProjectManifest {
-  const manifest = loadProjectManifest(process.cwd());
+  const manifest = loadProjectManifest(repositoryRoot);
   return {
     ...manifest,
     packages: manifest.packages.map((pkg) =>
@@ -89,7 +93,7 @@ evidence(
   ['rules-by-role'],
   async (context, check) => {
     await check('rules-by-role', () => {
-      const repository = loadProjectManifest(process.cwd());
+      const repository = loadProjectManifest(repositoryRoot);
       const repositoryRules = rules.dependencyRules(repository);
       context
         .expect(ruleByName(repositoryRules, 'domain-core-no-generated').from.path)
@@ -133,7 +137,7 @@ test('escapeRegExp escapes regular expression metacharacters', () => {
 });
 
 test('packageByRole rejects missing roles and missing package lists', () => {
-  const manifest = loadProjectManifest(process.cwd());
+  const manifest = loadProjectManifest(repositoryRoot);
   expect(rules.packageByRole(manifest, 'product').name).toBe('@daqian/template-sdk');
   expect(() => rules.packageByRole(manifest, 'unknown')).toThrow(/no unknown package/);
   expect(() => rules.packageByRole({} as unknown as ProjectManifest, 'product')).toThrow(

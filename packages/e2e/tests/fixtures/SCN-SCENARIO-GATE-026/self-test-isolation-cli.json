@@ -1,0 +1,26 @@
+{
+  "gateSelfTestSpecs": [
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-001.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-002.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-003.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-004.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-006.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-007.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-008.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-009.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-010.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-011.spec.ts"
+  ],
+  "factCheckSpecs": [
+    "packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts",
+    "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts",
+    "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts"
+  ],
+  "defectChange": {
+    "name": "zz-isolation-probe",
+    "capability": "scenario-gate",
+    "requirement": "PROBE-999",
+    "scenario": "SCN-PROBE-999"
+  },
+  "forbiddenAssertions": ["expect.any(", "process.cwd()"]
+}

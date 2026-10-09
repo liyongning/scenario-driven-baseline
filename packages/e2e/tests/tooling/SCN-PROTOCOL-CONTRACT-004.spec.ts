@@ -11,6 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'vitest';
+import { repositoryRoot } from './helpers.ts';
 
 function depcruise(root: string, target: string) {
   return spawnSync(
@@ -78,7 +79,7 @@ test(
       context.expect(violated.stdout + violated.stderr).toContain('shadow-engine-no-generated');
 
       // 未修改的仓库中协议包源码通过依赖检查。
-      const restored = depcruise(process.cwd(), 'packages/protocol/src');
+      const restored = depcruise(repositoryRoot, 'packages/protocol/src');
       context.expect(restored.status).toBe(0);
 
       await context.annotate(

@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { CoverageInput } from '../../../../scripts/check-scenarios.ts';
+
+/** 仓库根由模块位置推导，helper 不依赖调用方的工作目录。 */
+export const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 
 export type DeepMutable<T> =
   T extends ReadonlyArray<infer Item>
@@ -80,7 +84,7 @@ export function runScenarioCli(input: CoverageInput) {
     const result = spawnSync(
       resolve('node_modules/.bin/tsx'),
       ['scripts/check-scenarios.ts', '--input', inputPath],
-      { cwd: process.cwd(), encoding: 'utf8' },
+      { cwd: repositoryRoot, encoding: 'utf8' },
     );
     return { status: result.status, stdout: result.stdout, stderr: result.stderr };
   } finally {

@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-SCENARIO-GATE-026",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/scenario-gate/spec.md",
+      "sha256": "9a0ae4c1dbb2931efcd43b0ac00e299d4a5b9d88586695cd19a895c85486405f"
+    }
+  },
+  "cases": {
+    "self-test-isolation-cli": "self-test-isolation-cli.json"
+  },
+  "sha256": {
+    "self-test-isolation-cli.json": "f0af924a6fa7c48229122c3ad1ee3365e033b6f2a276c7912bc678f6fdf46ca2"
+  }
+}

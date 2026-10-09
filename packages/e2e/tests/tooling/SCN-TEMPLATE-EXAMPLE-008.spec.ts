@@ -4,8 +4,9 @@ import { spawnSync } from 'node:child_process';
 import { afterAll, beforeAll, test } from 'vitest';
 import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
 import { createBuildCopy, type RepositoryCopy } from './repository-copy.ts';
+import { repositoryRoot } from './helpers.ts';
 
-const manifest = loadProjectManifest(process.cwd());
+const manifest = loadProjectManifest(repositoryRoot);
 const productPackage = packageByRole(manifest, 'product');
 const protocolPackage = packageByRole(manifest, 'protocol');
 const exampleCore = `packages/${productPackage.directory}/src/example/core`;

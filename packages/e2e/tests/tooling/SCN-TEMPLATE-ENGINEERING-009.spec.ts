@@ -5,8 +5,8 @@ import { cliEvidence } from './scenario-gate-helpers.ts';
 import { createControlledRoot, minimalManifest } from './controlled-root.ts';
 import { coverageExclude, coverageInclude } from '../../../../scripts/lib/coverage-scope.ts';
 import { loadProjectManifest } from '../../../../scripts/lib/project-manifest.ts';
+import { repositoryRoot } from './helpers.ts';
 
-const repositoryRoot = process.cwd();
 const tsx = resolve(repositoryRoot, 'node_modules/.bin/tsx');
 const coverageScript = resolve(repositoryRoot, 'scripts/check-coverage.ts');
 

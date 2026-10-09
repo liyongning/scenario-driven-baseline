@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
@@ -27,6 +28,10 @@ import {
 } from './project-manifest.ts';
 
 const roots: string[] = [];
+
+/** 模板自身事实核验：只读真实仓库的清单、schema 与根脚本，不读取门禁实时状态。 */
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
@@ -152,10 +157,10 @@ evidence(
   async (context, check) => {
     await check('manifest-schema', () => {
       // 仓库清单通过 schema 校验，且 schema 的每个属性都有中文说明。
-      context.expect(loadProjectManifest(process.cwd()).packages).toHaveLength(3);
+      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(3);
       context
         .expect(
-          checkSchemaDocumentation(process.cwd()).filter((issue) =>
+          checkSchemaDocumentation(repositoryRoot).filter((issue) =>
             issue.startsWith('project.manifest.schema.json'),
           ),
         )
@@ -315,10 +320,10 @@ evidence(
     });
 
     await check('obligation-environments', async () => {
-      const manifest = loadProjectManifest(process.cwd());
+      const manifest = loadProjectManifest(repositoryRoot);
       const integrationAndPlatform = testProjectsByClass(manifest, ['integration', 'platform']);
       const integrationOnly = testProjectsByClass(manifest, ['integration']);
-      const inventory = await buildContractInventory(process.cwd());
+      const inventory = await buildContractInventory(repositoryRoot);
       const obligationEnvironments = new Set(
         inventory.obligations.flatMap((item) => item.requiredIn),
       );
@@ -399,7 +404,7 @@ evidence(
     });
 
     await check('environments-by-manifest', () => {
-      const manifest = loadProjectManifest(process.cwd());
+      const manifest = loadProjectManifest(repositoryRoot);
       context.expect(environmentClassOf('integration')).toBe('integration');
       context.expect(environmentClassOf('weapp')).toBe('platform');
       context.expect(environmentClassOf('not-registered')).toBeUndefined();
@@ -407,7 +412,7 @@ evidence(
     });
 
     await check('scripts-by-manifest', () => {
-      const root = process.cwd();
+      const root = repositoryRoot;
       const manifest = loadProjectManifest(root);
       const scripts =
         (
@@ -442,7 +447,7 @@ evidence(
 );
 
 test('derives default report names from the registered test projects', () => {
-  const manifest = loadProjectManifest(process.cwd());
+  const manifest = loadProjectManifest(repositoryRoot);
   expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
   expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'weapp')!)).toBe('weapp');
   expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'sdk-unit')!)).toBe(

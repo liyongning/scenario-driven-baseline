@@ -1,16 +1,19 @@
 import { cp, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 import { loadProjectManifest, testProjectsByClass } from './project-manifest.ts';
 
-const generated = join(process.cwd(), 'packages/protocol/src/generated');
+/** 模板自身事实核验：只读真实仓库已提交的协议产物与清单，不依赖调用方工作目录。 */
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const generated = join(repositoryRoot, 'packages/protocol/src/generated');
 const tradeFile = 'generated/idl/infra/trade/v1/trade.ts';
 /** 义务运行环境由清单派生：路由、字段与共享方法要求全部 integration 与 platform 项目。 */
-const requiredIn = testProjectsByClass(loadProjectManifest(process.cwd()), [
+const requiredIn = testProjectsByClass(loadProjectManifest(repositoryRoot), [
   'integration',
   'platform',
 ]);
@@ -23,7 +26,7 @@ async function copyGenerated(prefix: string) {
 
 describe('buildContractInventory', () => {
   it('derives obligations for the example protocol only', async () => {
-    const inventory = await buildContractInventory(process.cwd());
+    const inventory = await buildContractInventory(repositoryRoot);
     expect(inventory.methods).toEqual([
       { name: 'CreateTrade', method: 'POST', path: '/api/base/trade/create' },
       { name: 'QueryTrade', method: 'POST', path: '/api/base/trade/query' },
@@ -119,7 +122,7 @@ describe('buildContractInventory', () => {
         'export interface QueryTradeResponse {\n  reviewProbe: string;',
       ),
     );
-    const inventory = await buildContractInventory(process.cwd(), {
+    const inventory = await buildContractInventory(repositoryRoot, {
       generatedRoot: join(root, 'generated'),
     });
     const obligation = inventory.obligations.find(
@@ -170,7 +173,7 @@ describe('buildContractInventory', () => {
           'export interface QueryTradeResponse {\n  cycle?: QueryTradeResponse;\n  opaqueProbe: unknown;',
         ),
     );
-    const inventory = await buildContractInventory(process.cwd(), {
+    const inventory = await buildContractInventory(repositoryRoot, {
       generatedRoot: join(root, 'generated'),
     });
     expect(inventory.discoveries).toEqual(
@@ -220,7 +223,7 @@ describe('buildContractInventory', () => {
       `${probes}\nexport interface QueryTradeResponse {\n  probe?: OneofProbe | undefined;\n  single?: SingleFieldProbe | undefined;`,
     );
     await writeFile(file, patched);
-    const inventory = await buildContractInventory(process.cwd(), {
+    const inventory = await buildContractInventory(repositoryRoot, {
       generatedRoot: join(root, 'generated'),
     });
     expect(inventory.discoveries).toEqual(
@@ -266,7 +269,7 @@ describe('buildContractInventory', () => {
       malformed.file,
       patched.replace('alpha: string }', 'alpha: string; unexpected: string }'),
     );
-    const malformedInventory = await buildContractInventory(process.cwd(), {
+    const malformedInventory = await buildContractInventory(repositoryRoot, {
       generatedRoot: join(malformed.root, 'generated'),
     });
     expect(malformedInventory.issues).toContain(
@@ -276,9 +279,9 @@ describe('buildContractInventory', () => {
 
   it('fails loudly when the generated Consumer output is missing or incomplete', async () => {
     const missing = await mkdtemp(join(tmpdir(), 'template-contract-missing-generated-'));
-    await expect(buildContractInventory(process.cwd(), { generatedRoot: missing })).rejects.toThrow(
-      'generated Consumer trade output is missing',
-    );
+    await expect(
+      buildContractInventory(repositoryRoot, { generatedRoot: missing }),
+    ).rejects.toThrow('generated Consumer trade output is missing');
 
     const { root, file } = await copyGenerated('template-contract-missing-type-');
     const trade = await readFile(file, 'utf8');
@@ -292,7 +295,7 @@ describe('buildContractInventory', () => {
         .replace('export const QueryTradeResponse:', 'export const MissingQueryTradeResponse:'),
     );
     await expect(
-      buildContractInventory(process.cwd(), { generatedRoot: join(root, 'generated') }),
+      buildContractInventory(repositoryRoot, { generatedRoot: join(root, 'generated') }),
     ).rejects.toThrow('missing type QueryTradeResponse');
   });
 });
@@ -323,7 +326,7 @@ test(
       await assertion();
       executed.push(name);
     };
-    const inventory = await buildContractInventory(process.cwd());
+    const inventory = await buildContractInventory(repositoryRoot);
 
     await check('consumed-methods-only', () => {
       context
@@ -373,7 +376,7 @@ test(
           'export interface QueryTradeRequest {\n  reviewProbe: string;',
         ),
       );
-      const mutated = await buildContractInventory(process.cwd(), {
+      const mutated = await buildContractInventory(repositoryRoot, {
         generatedRoot: join(root, 'generated'),
       });
       context.expect(mutated.discoveries).toEqual(

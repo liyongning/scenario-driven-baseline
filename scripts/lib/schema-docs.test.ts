@@ -1,10 +1,15 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, expect, test } from 'vitest';
 import { checkSchemaDocumentation } from './schema-docs.ts';
 
 const roots: string[] = [];
+
+/** 模板自身事实核验：只读真实仓库的 schema 与根文档，不读取门禁实时状态。 */
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
@@ -37,7 +42,7 @@ test('requires every schema property to carry documentation and AGENTS reference
 });
 
 test('accepts the repository schemas and root documentation', () => {
-  expect(checkSchemaDocumentation(process.cwd())).toEqual([]);
+  expect(checkSchemaDocumentation(repositoryRoot)).toEqual([]);
 });
 
 test('validates the project manifest schema group independently', () => {

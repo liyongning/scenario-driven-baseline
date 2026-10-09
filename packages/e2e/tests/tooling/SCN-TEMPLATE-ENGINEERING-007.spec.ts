@@ -9,6 +9,7 @@ import {
   type ProjectManifest,
 } from '../../../../scripts/lib/project-manifest.ts';
 import { createBuildCopy, type RepositoryCopy } from './repository-copy.ts';
+import { repositoryRoot } from './helpers.ts';
 
 /** 依赖规则生成函数在 CJS 中实现，与被验证的依赖与 lint 规则共用同一份模块。 */
 type DependencyRules = Readonly<{
@@ -21,7 +22,7 @@ const dependencyRules = createRequire(import.meta.url)(
   '../../../../scripts/lib/dependency-rules.cjs',
 ) as DependencyRules;
 
-const repositoryManifest = loadProjectManifest(process.cwd());
+const repositoryManifest = loadProjectManifest(repositoryRoot);
 const productPackage = packageByRole(repositoryManifest, 'product');
 const protocolPackage = packageByRole(repositoryManifest, 'protocol');
 const productSource = `packages/${productPackage.directory}/src`;

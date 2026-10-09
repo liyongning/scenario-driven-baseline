@@ -3,6 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  createControlledRoot,
+  minimalManifest,
+} from '../packages/e2e/tests/tooling/controlled-root.ts';
+import { enableInventory } from '../packages/e2e/tests/tooling/scenario-gate-helpers.ts';
+import {
   evaluateCoverage,
   loadReporterOutputs,
   runScenarioPrechecks,
@@ -11,12 +16,9 @@ import {
   type CoverageInput,
 } from './check-scenarios.ts';
 
-/** 门禁根目录读取 project.manifest.json；临时根复制仓库清单以获得已登记的测试项目。 */
+/** 门禁逻辑自测的受控输入：写入最小清单，不读取仓库实时状态。 */
 async function writeProjectManifest(root: string) {
-  await writeFile(
-    join(root, 'project.manifest.json'),
-    await readFile(join(process.cwd(), 'project.manifest.json')),
-  );
+  await writeFile(join(root, 'project.manifest.json'), JSON.stringify(minimalManifest(), null, 2));
 }
 
 function base(): CoverageInput {
@@ -442,10 +444,17 @@ describe('evaluateCoverage', () => {
     const inputFile = join(directory, 'input.json');
     await writeFile(inputFile, JSON.stringify(base()));
     expect(
-      await runScenariosCli(['node', 'script', '--input', inputFile], process.cwd(), {
+      await runScenariosCli(['node', 'script', '--input', inputFile], directory, {
         VERIFY_RUN_ID: 'run-1',
       }),
-    ).toMatchObject({ exitCode: 1, output: { issues: expect.any(Array) } });
+    ).toMatchObject({
+      exitCode: 1,
+      output: {
+        issues: expect.arrayContaining([
+          expect.stringContaining('SCN-SAMPLE-CORE-001/normal: missing binding for weapp'),
+        ]),
+      },
+    });
 
     const reportFile = join(directory, 'report.json');
     await writeFile(
@@ -459,20 +468,86 @@ describe('evaluateCoverage', () => {
         tests: [{ ...base().reports[0], binding: base().bindings[0] }],
       }),
     );
-    const inventory = await runScenariosCli(
-      ['node', 'script', '--inventory', '--report', reportFile],
-      process.cwd(),
-      { VERIFY_RUN_ID: 'run-1' },
-    );
-    expect(inventory).toMatchObject({
-      exitCode: 1,
-      output: { mode: 'inventory', scenarios: expect.any(Array), contracts: expect.any(Array) },
+    // live-inventory 路径在受控临时根上运行：Spec、FLOW 与协议义务全部来自测试输入，
+    // 结论不随仓库里新增/删除 Change 或 FLOW 变化。
+    const controlled = createControlledRoot({
+      manifest: JSON.parse(
+        await readFile(new URL('../project.manifest.json', import.meta.url), 'utf8'),
+      ),
+      files: {
+        'scenario-gate.config.json': JSON.stringify({
+          scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],
+          flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],
+          ownerIdPattern: '^(?:FLOW|SCN)-[A-Z0-9-]+$',
+        }),
+        'openspec/specs/tooling/spec.md': [
+          '### Requirement: GATE-TEST 受控临时根的 FLOW 登记',
+          '',
+          '| FLOW ID | Related | Stages | Cases | Environments | Notes |',
+          '| --- | --- | --- | --- | --- | --- |',
+          '| FLOW-SAMPLE-001 | SCN-SAMPLE-001 | create → observe | normal | integration | 受控输入 |',
+          '',
+          '#### Scenario: SCN-SAMPLE-001 受控输入场景',
+          '',
+          '```json verification',
+          '{"formatVersion":2,"checkpoints":{"result":"结果"},"cases":[{"key":"normal","kind":"behavior","requiredIn":["integration"],"checks":["result"]}],"blockedBy":[]}',
+          '```',
+          '',
+        ].join('\n'),
+      },
+      prefix: 'template-scenario-live-',
     });
-    const complete = await runScenariosCli([], process.cwd(), {});
-    expect(complete).toMatchObject({
-      exitCode: 1,
-      output: { mode: 'complete', issues: expect.any(Array) },
-    });
+    try {
+      enableInventory(controlled.root);
+      const successfulCommand = () => ({ status: 0 });
+      const inventory = await runScenariosCli(
+        ['node', 'script', '--inventory', '--report', reportFile],
+        controlled.root,
+        { VERIFY_RUN_ID: 'run-1' },
+        successfulCommand,
+      );
+      const inventoryOutput = inventory.output as {
+        mode: string;
+        scenarios: ReadonlyArray<{ id: string }>;
+        flows: ReadonlyArray<{ id: string; cases: ReadonlyArray<string> }>;
+        contracts: ReadonlyArray<unknown>;
+        issues: ReadonlyArray<string>;
+      };
+      expect(inventory.exitCode).toBe(1);
+      expect(inventoryOutput.mode).toBe('inventory');
+      expect(inventoryOutput.scenarios).toEqual([
+        expect.objectContaining({ id: 'SCN-SAMPLE-001' }),
+      ]);
+      expect(inventoryOutput.flows).toEqual([
+        expect.objectContaining({ id: 'FLOW-SAMPLE-001', cases: ['normal'] }),
+      ]);
+      expect(inventoryOutput.contracts.length).toBeGreaterThan(0);
+      const complete = await runScenariosCli([], controlled.root, {}, successfulCommand);
+      const completeOutput = complete.output as { mode: string; issues: ReadonlyArray<string> };
+      expect(completeOutput.mode).toBe('complete');
+      expect(completeOutput.issues).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('SCN-SAMPLE-001/normal: missing binding for integration'),
+          expect.stringContaining('FLOW-SAMPLE-001/normal: missing FLOW binding for integration'),
+        ]),
+      );
+    } finally {
+      controlled.cleanup();
+    }
+  });
+
+  it('falls back to the real openspec CLI when no command is injected', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'template-default-command-'));
+    try {
+      const result = await runScenarioPrechecks(root);
+      // 默认命令真实调用 spawnSync('openspec', ...)；缺 specs 必进 issues，且不会产出清单。
+      expect(result.issues).toEqual(
+        expect.arrayContaining([expect.stringContaining('openspec/specs directory is missing')]),
+      );
+      expect(result.inventory).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('blocks malformed project config before building inventory', async () => {
@@ -519,7 +594,11 @@ describe('evaluateCoverage', () => {
       const result = await runScenariosCli(['node', 'script', '--input', input], root, {}, () => {
         throw new Error('must not invoke openspec');
       });
-      expect(result.output.issues).toEqual(expect.any(Array));
+      expect(result.output.issues).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('SCN-SAMPLE-CORE-001/normal: missing binding for weapp'),
+        ]),
+      );
       expect(calls).toEqual(['openspec']);
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -570,10 +649,19 @@ describe('evaluateCoverage', () => {
       expect(
         (await runScenariosCli(['node', 'script', '--inventory'], root, {}, successfulCommand))
           .output,
-      ).toMatchObject({ mode: 'inventory', issues: expect.any(Array) });
+      ).toMatchObject({
+        mode: 'inventory',
+        issues: expect.arrayContaining([
+          expect.stringContaining('invalid FLOW row FLOW-OK'),
+          expect.stringContaining('unknown checkpoint other'),
+        ]),
+      });
       expect((await runScenariosCli([], root, {}, successfulCommand)).output).toMatchObject({
         mode: 'complete',
-        issues: expect.any(Array),
+        issues: expect.arrayContaining([
+          expect.stringContaining('Scenario ID BAD-ID does not match'),
+          expect.stringContaining('verification metadata missing'),
+        ]),
       });
       const thrown = await runScenarioPrechecks(root, () => {
         throw new Error('CLI unavailable');
@@ -630,7 +718,7 @@ describe('evaluateCoverage', () => {
       }),
     ).toMatchObject({
       id: 'SCN-SAMPLE-CORE-001',
-      cases: expect.any(Array),
+      cases: base().scenarios[0]!.cases,
       blockedBy: ['dependency'],
     });
   });

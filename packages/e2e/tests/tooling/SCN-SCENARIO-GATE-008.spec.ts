@@ -7,7 +7,7 @@ import {
   writeProjectManifest,
   writeRepositoryPackages,
 } from './scenario-gate-helpers.ts';
-import { writeTemplateGuideFixture } from './helpers.ts';
+import { repositoryRoot, writeTemplateGuideFixture } from './helpers.ts';
 
 cliEvidence(
   'SCN-SCENARIO-GATE-008',
@@ -19,7 +19,7 @@ cliEvidence(
       mkdirSync(join(fixture.root, 'packages'), { recursive: true });
       writeFileSync(
         join(fixture.root, 'package.json'),
-        readFileSync(join(process.cwd(), 'package.json')),
+        readFileSync(join(repositoryRoot, 'package.json')),
       );
       writeProjectManifest(fixture.root);
       writeFileSync(join(fixture.root, 'AGENTS.md'), 'scenario-gate.config.schema.json');

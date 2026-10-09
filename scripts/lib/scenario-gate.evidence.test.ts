@@ -1,13 +1,20 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
+import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
+import { baseCoverage } from '../../packages/e2e/tests/tooling/helpers.ts';
 import { evaluateCoverage, runScenarioPrechecks, runScenariosCli } from '../check-scenarios.ts';
+import { loadProjectManifest } from './project-manifest.ts';
 import { readEffectiveSpecs } from './spec-sources.ts';
 import { readSpecInventory } from './spec-inventory.ts';
 import { loadScenarioConfig, matchesAny } from './scenario-config.ts';
 import { checkSchemaDocumentation } from './schema-docs.ts';
+
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 const genericScenarioPattern = '^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$';
 const legacyScenarioPattern = '^LEGACY-[A-Z0-9]+-[0-9]{3}$';
@@ -24,16 +31,21 @@ const block = `\n\`\`\`json verification\n${metadata}\n\`\`\``;
 const flowHeader =
   '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
 
+/** 仓库清单是模板自身的契约输入（不是 Spec/Change/Fixture 实时状态），受控根沿用同一清单。 */
+const repositoryManifest = JSON.parse(
+  readFileSync(new URL('../../project.manifest.json', import.meta.url), 'utf8'),
+) as unknown;
+
 async function temporaryRoot(name: string, body: (root: string) => Promise<void>) {
-  const root = await mkdtemp(join(tmpdir(), `scenario-gate-${name}-`));
-  await writeFile(
-    join(root, 'project.manifest.json'),
-    await readFile(join(process.cwd(), 'project.manifest.json')),
-  );
+  const controlled = createControlledRoot({
+    manifest: repositoryManifest,
+    prefix: `scenario-gate-${name}-`,
+  });
+  const root = controlled.root;
   try {
     await body(root);
   } finally {
-    await rm(root, { recursive: true, force: true });
+    controlled.cleanup();
   }
 }
 
@@ -90,6 +102,8 @@ evidence(
   ],
   async (context, check) => {
     await temporaryRoot('precheck', async (root) => {
+      // 受控根本身带最小 OpenSpec 结构；这里先移除 specs 目录以构造"缺失"反例。
+      await rm(join(root, 'openspec/specs'), { recursive: true, force: true });
       const unavailable = () => ({ status: 1 });
       const missing = await runScenarioPrechecks(root, unavailable);
       await check('missing-specs-dir', () =>
@@ -443,6 +457,83 @@ evidence(
           .expect(invalid.join('\n'))
           .toContain('AGENTS.md does not reference scripts/flow.schema.json'),
       );
+    });
+  },
+);
+
+evidence(
+  'SCN-SCENARIO-GATE-026',
+  'self-test-isolation-rules',
+  ['controlled-temp-root', 'flow-branch-self-provided', 'pinned-openspec-cli'],
+  async (context, check) => {
+    await check('controlled-temp-root', () => {
+      const root = createControlledRoot({ prefix: 'gate-026-rules-' });
+      try {
+        const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
+          cwd: root.root,
+          encoding: 'utf8',
+        });
+        context.expect(inside.stdout.trim()).toBe('true');
+        const head = spawnSync('git', ['log', '-1', '--format=%s'], {
+          cwd: root.root,
+          encoding: 'utf8',
+        });
+        context.expect(head.stdout.trim()).toBe('fixture: initial state');
+        context.expect(existsSync(join(root.root, 'openspec/specs'))).toBe(true);
+        context.expect(existsSync(join(root.root, 'openspec/changes'))).toBe(true);
+        context.expect(loadProjectManifest(root.root).packages.length).toBeGreaterThan(0);
+      } finally {
+        root.cleanup();
+      }
+    });
+
+    await check('flow-branch-self-provided', () => {
+      context.expect(evaluateCoverage(baseCoverage()).issues).toEqual([]);
+      const withoutFlow = {
+        ...baseCoverage(),
+        bindings: baseCoverage().bindings.map((binding) => {
+          const clone = { ...binding };
+          delete (clone as { flowId?: unknown }).flowId;
+          delete (clone as { flowCase?: unknown }).flowCase;
+          return clone;
+        }),
+      };
+      context
+        .expect(evaluateCoverage(withoutFlow).issues)
+        .toEqual(
+          context.expect.arrayContaining([context.expect.stringContaining('missing FLOW binding')]),
+        );
+    });
+
+    await check('pinned-openspec-cli', () => {
+      const stub = createControlledRoot({ prefix: 'gate-026-stub-' });
+      try {
+        const version = spawnSync('openspec', ['--version'], {
+          env: stub.env,
+          encoding: 'utf8',
+        });
+        context.expect(version.stdout.trim()).toBe('0.0.0-test');
+      } finally {
+        stub.cleanup();
+      }
+      const real = createControlledRoot({ openspec: 'real', prefix: 'gate-026-real-' });
+      try {
+        const declared = (
+          JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
+            devDependencies?: Record<string, string>;
+          }
+        ).devDependencies?.['@fission-ai/openspec'];
+        context
+          .expect(real.env.PATH?.split(':')[0])
+          .toBe(resolve(repositoryRoot, 'node_modules/.bin'));
+        const version = spawnSync('openspec', ['--version'], {
+          env: real.env,
+          encoding: 'utf8',
+        });
+        context.expect(version.stdout.trim()).toBe(declared);
+      } finally {
+        real.cleanup();
+      }
     });
   },
 );

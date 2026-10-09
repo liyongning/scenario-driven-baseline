@@ -172,7 +172,7 @@
   **Commit**
   - `refactor(template): remove hard-coded topology from gates, configs and tooling tests`
 
-- [ ] 5. 门禁自测隔离
+- [x] 5. 门禁自测隔离
 
   **Files**
   - Modify：`scripts/*.test.ts`、`scripts/lib/*.test.ts` 与 `packages/e2e/tests/tooling/` 中对仓库实时状态运行门禁的用例（以 `git grep -n "process.cwd()" -- scripts packages/e2e/tests/tooling` 的命中为准），改为受控临时根并断言具体结果；`check-scenarios.ts` 的 FLOW 分支覆盖由测试输入提供。

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'vitest';
+import { repositoryRoot } from './helpers.ts';
 
 test(
   'SCN-TEMPLATE-EXAMPLE-007 core-neutrality',
@@ -19,7 +20,7 @@ test(
   },
   async (context) => {
     const before = context.expect.getState().assertionCalls;
-    const root = process.cwd();
+    const root = repositoryRoot;
     const core = readFileSync(resolve(root, 'packages/sdk/src/example/core/client.ts'), 'utf8');
     const ports = readFileSync(resolve(root, 'packages/sdk/src/example/ports/backend.ts'), 'utf8');
     context.expect(core).not.toMatch(/TradeStatus|CreateTrade|QueryTrade|GoodsType|generated/);
