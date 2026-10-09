@@ -417,7 +417,7 @@
   **Commit**
   - `feat(template): record every shadow request and support bounded polling`
 
-- [ ] 12. Shadow 响应与协议同形校验
+- [x] 12. Shadow 响应与协议同形校验
 
   **Files**
   - Modify：`packages/protocol/testing/shadow/routes.ts`（路由描述可选 `validateResponse`、step 的 `malformed: { reason }`）、`server.ts`（构造时校验）及单测。

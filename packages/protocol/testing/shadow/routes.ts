@@ -6,6 +6,11 @@ export type ShadowRoute = Readonly<{
   methodName: string;
   httpMethod: string;
   path: string;
+  /**
+   * 响应体结构校验函数（PC-04），由协议侧的路由构造器注入。
+   * 返回问题列表（空列表表示同形）；中立路由不携带时不做结构校验。
+   */
+  validateResponse?: (body: unknown) => string[];
 }>;
 
 /**

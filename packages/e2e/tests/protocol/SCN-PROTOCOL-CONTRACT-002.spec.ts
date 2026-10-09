@@ -486,13 +486,17 @@ defineCase(
 
     await checkpoint('routes-from-declaration', () => {
       expect(routes.map((route) => route.methodName)).toEqual([...declaredNames]);
-      expect(routes).toEqual(
+      // 中立字段与声明一致；响应结构校验器由协议来源注入（PC-04），不参与中立字段比较。
+      expect(
+        routes.map(({ methodName, httpMethod, path }) => ({ methodName, httpMethod, path })),
+      ).toEqual(
         operations.map((operation) => ({
           methodName: metaOf(operation).name,
           httpMethod: metaOf(operation).method,
           path: metaOf(operation).path,
         })),
       );
+      expect(routes.every((route) => typeof route.validateResponse === 'function')).toBe(true);
       expect(routes.length).toBe(declaredNames.length);
     });
 

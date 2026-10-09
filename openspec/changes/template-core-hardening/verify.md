@@ -752,3 +752,78 @@
 - 请求记录与有界轮询沿用 Shadow 引擎既有的"每路由 cursor + steps"执行模型（只加 `poll.maxRequests` 上限与最后一个 step 的重复语义），未新建录制层或调度器。
 - `environmentClass` 复用 Task 4 的 `defineCase` 上下文（`environmentClassOf` 按清单测试项目 `class` 解析），未新增第二套环境判定。
 - AGENTS"轮询用例写法"直接采用 Design 已确认的两类划分，未自行改写职责边界。
+
+### Task 12 Shadow 响应与协议同形校验
+
+**Commit message**：`feat(template): validate shadow responses against the protocol shape`
+
+**RED（预期失败的反例，已实际执行）**
+- **校验器模块缺失**：新增 `packages/protocol/testing/shadow/response-shape.test.ts`、把 `idl-routes.ts` 改为从 `scripts/lib/response-shape.ts` 导入后、实现前运行 `pnpm exec vitest run --project protocol-unit packages/protocol/testing/shadow/response-shape.test.ts`：退出码 **1**，`Test Files 1 failed (1)` / `Tests no tests`（`/tmp/t12-red-module.log`）——模块解析失败（`response-shape.ts` 不存在）。
+- **构造期校验未接线**：实现 `scripts/lib/response-shape.ts` 后、在 `server.ts` 加入构造期校验块前运行同一文件：退出码 **1**，`Tests 2 failed | 1 passed (3)`（`/tmp/t12-red-construction.log`）：
+  - `SCN-PROTOCOL-CONTRACT-006 shadow-construction`：非法 step（未知字段 / 编码或类型不符 / 同一 oneof 多分支 / 非法枚举名）本应在 `createShadowServer` 构造期抛错，实际构造成功——`expected [Function] to throw`。
+  - `SCN-PROTOCOL-CONTRACT-007 malformed-claim-rules`：`malformed.reason` 为空串时本应报错，实际静默放行。
+  - 同文件 `SCN-PROTOCOL-CONTRACT-006 idl-validator-rules` 已通过（派生器行为正确，仅缺构造期接线）。
+- **中立路由快照未适配**：把两处 e2e spec 的 `routes-from-declaration` 断言暂时还原为整对象 `toEqual` 后运行 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`：退出码 **1**（`/tmp/t12-red-route-shape.log`）——实际路由对象多出 `validateResponse` 函数字段，`toEqual` 因多字段失败；这是 PC-04"路由描述新增可选 `validateResponse`"的直接后果。
+- 上述 RED 用的临时改动（删除 `server.ts` 校验块、还原 spec 断言、隐藏 `scripts/lib/response-shape.ts`）全部还原；还原后 `git diff` 与 `/tmp/t12-backup/engine.patch` 逐字节一致。
+
+**GREEN**
+- `pnpm exec vitest run --project protocol-unit packages/protocol/testing/shadow/` 退出码 **0**，`Test Files 10 passed (10)` / `Tests 26 passed (26)`（`/tmp/t12b-green-unit.log`）：新增 `response-shape.test.ts` 的 006/007 case 通过，既有 `server.test.ts`、`routes.test.ts`、`example/routes.test.ts`、`idl-routes.test.ts`、`declared-routes.test.ts` 同步回归通过。
+- `pnpm lint`、`pnpm typecheck`、`pnpm format:check`、`pnpm check:architecture` 退出码均 **0**（`/tmp/t12b-{lint,typecheck,format,arch}.log`）；`check:architecture` 中 `shadow-engine-no-generated`（dependency-cruiser）通过，证明 Shadow 引擎仍不导入 generated。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**（`/tmp/t12b-verify.log` 前段）：`test:unit` **54 文件 / 361 用例**，覆盖率 Statements/Branches/Functions/Lines 均 **100%**；`test:integration` **50 文件 / 112 用例**；`check:package` 两个 pack 命令退出码 0、`issues: []`。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` 退出码 **0**（`/tmp/t12b-affected.log`）：12 个改动文件选出 3 步，全部通过（详见下"按需选择结果"）。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 006/007 module case（RED：`server.ts` 校验块缺失） | 1 | 2 failed / 3，`/tmp/t12-red-construction.log` |
+| `response-shape.test.ts`（RED：校验器模块缺失） | 1 | 模块解析失败，`/tmp/t12-red-module.log` |
+| `SCN-PROTOCOL-CONTRACT-002.spec.ts`（RED：快照未适配） | 1 | 多 `validateResponse` 字段，`/tmp/t12-red-route-shape.log` |
+| `pnpm exec vitest run --project protocol-unit packages/protocol/testing/shadow/`（GREEN） | 0 | 10 文件 / 26 用例，`/tmp/t12b-green-unit.log` |
+| `pnpm lint` | 0 | `/tmp/t12b-lint.log` |
+| `pnpm typecheck` | 0 | `/tmp/t12b-typecheck.log` |
+| `pnpm format:check` | 0 | `/tmp/t12b-format.log` |
+| `pnpm check:architecture` | 0 | `/tmp/t12b-arch.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` | 0 | 3 步全部通过，`/tmp/t12b-affected.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t12b` | 1 | check:fast 0（139778ms）、weapp 0（172411ms）、check:scenarios 1（1372ms，16 条）；`/tmp/t12b-verify.log` |
+
+**报告路径**：单测与集成报告 `artifacts/core-hardening-t12b/reports/{unit.json,integration.json}`，覆盖率 `artifacts/core-hardening-t12b/coverage/`，weapp 逐文件报告 `artifacts/core-hardening-t12b/reports/weapp/<文件名>.json`；RED/GREEN/复跑日志在 `/tmp/t12-*.log` 与 `/tmp/t12b-*.log`。`check:scenarios` 的结论以 stdout JSON 为准（本任务未落盘 `scenarios.json`），完整输出在 `/tmp/t12b-verify.log`。
+
+**场景门禁剩余问题归属（16 条，19 → 16）**
+- 均为后续任务 case 的 `missing binding`：**未登记 checkpoint 0 条、过期报告 0 条、协议义务问题 0 条**（`check:scenarios` 输出 `issues` 共 16 条，`summaries.protocol` 635/635、`flows` 2/2 全通过）。Task 11 记录中归属 Task 12 的 3 条（`SCN-PROTOCOL-CONTRACT-006/idl-validator-rules`、`006/shadow-construction`、`007/malformed-claim-rules`）全部清零。
+
+| 归属 | 条数 | 具体 |
+| --- | --- | --- |
+| Task 13 | 7 | `SCN-PROTOCOL-CONTRACT-008/request-id-wire`（integration + weapp）、`008/client-options-shape`、`008/runtime-port-shape`、`009/generator-non-beijing-tz`、`010/shadow-header-patterns`、`010/context-obligation` |
+| Task 14 | 3 | `SCN-TEMPLATE-ENGINEERING-010/baseline-config-rules`、`010/format-check-cli`、`010/max-lines-cli` |
+| Task 15 | 2 | `SCN-TEMPLATE-ENGINEERING-011/project-map-rules`、`011/project-map-violations-cli` |
+| Task 16 | 2 | `SCN-TEMPLATE-ENGINEERING-012/architecture-doc-rules`、`012/architecture-doc-violations-cli` |
+| Task 17 | 2 | `SCN-TEMPLATE-ENGINEERING-008/example-removal-fast`、`008/example-removal-scenarios` |
+
+- 无法归属的问题 **0** 条，未触发「门禁问题无法归属」的暂停条件；续跑提示为 `pnpm verify --from check:scenarios --run-id core-hardening-t12b --change template-core-hardening`。
+
+**Review / Acceptance：启用校验时发现的不同形响应数量 = 0**
+- 构造期对"Fixture JSON 体"与"测试代码内联体"走同一校验。启用后 `test:integration`（50 文件 / 112 用例）与 weapp（4 文件）在构造期全绿——**不同形响应 0 处**，无既有响应被修错或被误判。
+- 现有用例没有"需要故意返回非法响应"的场景（`error-handling/codec-error` 测的是请求编解码，不是服务端返回非法体），因此**补 `malformed` 声明的步骤 0 处**；`malformed` 语义仅由 `response-shape.test.ts` 的新 case 覆盖。
+- 构造错误信息含"路由/步骤序号/字段路径"（`${id}/${method} step ${n}: 响应与协议不一致：<issues>`），`shadow-construction` case 逐项断言。
+
+**方案与实际的差异**（含 Task 12 Files 之外的改动；均为按契约补充或只同步受影响产物，未改规划语义）
+1. **`scripts/lib/response-shape.ts`（新增，Files 只说"如需把 `deriveFields` 抽到可复用位置"）**：从 `contract-inventory.ts` 迁出 `deriveFields` 一族（字段派生、编码类别、oneof 分支、枚举取值）与新的 `validateResponseShape`，只依赖 `typescript`。落点选 `scripts/lib/` 而非协议包内，是因为 Task 4 的 `scanHardcodedTopology` 禁止 `scripts/**` 出现 `packages/protocol` 字面量（ENG-05）：共享实现只能在门禁脚本侧。改为协议侧 `idl-routes.ts` 反向导入它，`shadow-engine-no-generated` 依旧成立（引擎不导入 generated）。
+2. **`scripts/lib/contract-inventory.ts`（Files 未列，属"抽到可复用位置"）**：删除本地派生实现，改为 `import ... from './response-shape.ts'`；已用改前/改后 `--inventory` 输出逐字节比对，177 条义务 / 83 个字段完全一致（diff 0）。
+3. **`packages/protocol/testing/shadow/response-shape.test.ts`（新增，Files 写"及单测"）**：006 的 `idl-validator-rules`、`shadow-construction` 与 007 的 `malformed-claim-rules`；含合成 `ts.Program`（临时目录写 `sample.ts`）覆盖枚举联合会话、map、数组/元素编码、Any/unknown 待定、自引用、非法 oneof 形态、单个枚举字面量。
+4. **两处 e2e spec 快照适配（Design PC-04 的直接后果）**：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` 与 `packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts` 的 `routes-from-declaration` 检查改为比较中立字段 `{methodName, httpMethod, path}`，并额外断言每条路由都带 `validateResponse` 函数。checkpoint 登记含义（"与声明一一对应、不取自示例路由"）未变。
+5. **`declared-routes.test.ts` 的输入**：改用真实 `CreateTrade.meta`/`QueryTrade.meta`（不再合成 `requestType`/`responseType` 字符串），使响应校验器可派生；路由字段来源仍只读 `meta`，`meta.name`/`meta.path` 被覆盖验证。
+6. **8 处 `timeout: 30_000`（预授权项，因默认 5s 超时在副本/负载下误判）**：`idl-routes.test.ts`（`SCN-PROTOCOL-CONTRACT-004 idl-route-source`）、`example/routes.test.ts`（前两个 it 与 `SCN-TEMPLATE-EXAMPLE-009 shadow-create-route`）、`response-shape.test.ts`（3 个 test）、`declared-routes.test.ts`（`SCN-PROTOCOL-CONTRACT-002 declared-routes`）。只加超时，断言与语义未动。
+
+**weapp 重跑记录**：本任务**无需重跑**——全量 `verify`（run id `core-hardening-t12b`）weapp 步骤退出码 **0**（172411ms），4 个文件首跑全绿：`SCN-PROTOCOL-CONTRACT-002` 11406ms、`FLOW-TEMPLATE-EXAMPLE-001` 11550ms、`SCN-TEMPLATE-EXAMPLE-002` 11538ms、`SCN-TEMPLATE-EXAMPLE-004` 11413ms。先前一次 `--run-id core-hardening-t12` 曾出现 `SCN-PROTOCOL-CONTRACT-002` 断言前 120s 挂起（该次在改 spec 后 `check:fast` 源摘要过期，`check:scenarios` 报 497 条 stale），已由全新 run id 的完整首跑取代。
+
+**按需选择结果**
+- 12 个改动文件被 `test:affected` 检出 1 个场景 ID（`SCN-PROTOCOL-CONTRACT-002`），转为 3 步、退出码均 0：`vitest related`（`sdk-unit`/`protocol-unit`/`test-tools-unit`）、`integration` 逐文件 1 个、`weapp` 逐文件 1 个。
+- 未退化为全量：`packages/protocol/testing/**` 与 `packages/e2e/tests/**` 不在"清单/宿主/驱动"全量触发路径上（本任务未改 `project.manifest.json`、`packages/e2e/host/`、`packages/e2e/src/`）。选择结果为精确子集。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：全量三项中 `check:fast`、`test:e2e:weapp` 退出码 0；`check:scenarios` 非零来自 16 条全部归属后续任务 13–17 的 `missing binding`，与按需选择无关，也不构成"按需通过但全量发现新增失败"。
+
+**优先采用现成方案**
+- 响应结构校验复用 TypeScript 编译器 API（`ts.Program`/`ts.TypeChecker`，仓库既有 `typescript` 依赖）派生可达字段，未自研类型解析或引入 JSON Schema 生成器。
+- Shadow 构造期校验沿用既有 `steps[]` 编排模型（只在构造循环内插入一次校验调用与 `malformed` 认领分支），未新建校验框架或独立校验阶段。
+- 错误信息与字段路径沿用既有的 snake_case 路径与 `snakeCase()` 工具，未引入第二套命名规则。

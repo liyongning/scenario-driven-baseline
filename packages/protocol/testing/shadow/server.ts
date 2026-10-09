@@ -96,6 +96,22 @@ export function createShadowServer(
         `${scenario.id}/${route.methodName}: poll is only available to platform test projects`,
       );
     }
+    // 响应体结构校验（PC-04）：构造期完成，Fixture 与内联体走同一校验；malformed 必须显式认领。
+    configured?.steps.forEach((step, index) => {
+      if (step.malformed !== undefined) {
+        if (step.malformed.reason.trim() === '')
+          throw new Error(
+            `${scenario.id}/${route.methodName} step ${index + 1}: malformed reason must not be empty`,
+          );
+        return;
+      }
+      if (!Object.prototype.hasOwnProperty.call(step, 'body')) return;
+      const issues = route.validateResponse?.(step.body) ?? [];
+      if (issues.length > 0)
+        throw new Error(
+          `${scenario.id}/${route.methodName} step ${index + 1}: 响应与协议不一致：${issues.join('; ')}`,
+        );
+    });
     states.set(`${scenario.id}/${route.methodName}`, { cursor: 0, issues: [] });
   }
 

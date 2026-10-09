@@ -4,14 +4,20 @@ import { discoverExampleRoutes } from './routes.ts';
 import { createShadowServer } from '../server.ts';
 
 describe('discoverExampleRoutes', () => {
-  it('discovers CreateTrade and QueryTrade from generated metadata', () => {
-    expect(discoverExampleRoutes()).toEqual([
+  it('discovers CreateTrade and QueryTrade from generated metadata', { timeout: 30_000 }, () => {
+    expect(
+      discoverExampleRoutes().map(({ methodName, httpMethod, path }) => ({
+        methodName,
+        httpMethod,
+        path,
+      })),
+    ).toEqual([
       { methodName: 'CreateTrade', httpMethod: 'POST', path: '/api/base/trade/create' },
       { methodName: 'QueryTrade', httpMethod: 'POST', path: '/api/base/trade/query' },
     ]);
   });
 
-  it('rejects missing or incomplete generated methods', () => {
+  it('rejects missing or incomplete generated methods', { timeout: 30_000 }, () => {
     expect(() => discoverExampleRoutes([QueryTrade.meta])).toThrow(/CreateTrade/);
     expect(() =>
       discoverExampleRoutes([{ ...CreateTrade.meta, path: '' } as never, QueryTrade.meta]),
@@ -21,6 +27,8 @@ describe('discoverExampleRoutes', () => {
   test(
     'SCN-TEMPLATE-EXAMPLE-009 shadow-create-route',
     {
+      // 同一原因：discoverExampleRoutes 会编译 generated 类型派生校验器。
+      timeout: 30_000,
       meta: {
         scenarioCase: {
           ownerId: 'SCN-TEMPLATE-EXAMPLE-009',

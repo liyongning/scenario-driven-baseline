@@ -1,5 +1,10 @@
 import { join, relative, resolve } from 'node:path';
 import ts from 'typescript';
+import {
+  collectReachableFields,
+  type ReachableField,
+  type ShapeEncoding,
+} from './response-shape.ts';
 import { collectFiles } from './fingerprints.ts';
 import {
   loadProjectManifest,
@@ -9,22 +14,8 @@ import {
 } from './project-manifest.ts';
 
 type Direction = 'request' | 'response';
-type Encoding =
-  | 'json-string'
-  | 'json-number'
-  | 'json-int64-string'
-  | 'json-boolean'
-  | 'enum-name'
-  | 'nested-object'
-  | 'oneof-object'
-  | 'repeated-array'
-  | 'string-map';
-type ReachableField = Readonly<{
-  path: string;
-  encoding: Encoding | undefined;
-  optional: boolean;
-  oneofBranch: boolean;
-}>;
+/** 可达字段的编码类别由协议同形校验模块统一维护（PC-04）。 */
+type Encoding = ShapeEncoding;
 type InventoryOptions = Readonly<{ generatedRoot?: string }>;
 type Obligation = Readonly<{ id: string; cases: string[]; requiredIn: string[] }>;
 type RequestPolicy = Readonly<{ cases: string[]; authority: string }>;
@@ -57,95 +48,6 @@ export type ConsumedDeclaration = Readonly<{
 
 const responseAuthority =
   'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
-
-function snakeCase(value: string): string {
-  return value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
-}
-
-function withoutNullish(type: ts.Type): ts.Type[] {
-  return (type.isUnion() ? type.types : [type]).filter(
-    (item) => !(item.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)),
-  );
-}
-
-function typeAt(checker: ts.TypeChecker, symbol: ts.Symbol): ts.Type {
-  return checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!);
-}
-
-function oneofBranches(
-  checker: ts.TypeChecker,
-  type: ts.Type,
-): Array<Readonly<{ name: string; type: ts.Type }>> | undefined {
-  const properties = checker.getPropertiesOfType(type);
-  if (properties.length !== 1 || properties[0]?.name !== 'params') return undefined;
-  const variants = withoutNullish(typeAt(checker, properties[0]));
-  const branches: Array<Readonly<{ name: string; type: ts.Type }>> = [];
-  for (const variant of variants) {
-    const members = checker
-      .getPropertiesOfType(variant)
-      .filter((member) => member.name !== '$case');
-    if (members.length !== 1) return undefined;
-    branches.push({ name: members[0]!.name, type: typeAt(checker, members[0]!) });
-  }
-  return branches;
-}
-
-function describeType(
-  checker: ts.TypeChecker,
-  input: ts.Type,
-): Readonly<{ type: ts.Type; encoding?: Encoding; descend: boolean }> {
-  const members = withoutNullish(input);
-  const type = members.length === 1 ? members[0]! : input;
-  if (checker.isArrayType(type)) {
-    const element = checker.getTypeArguments(type as ts.TypeReference)[0]!;
-    const shape = describeType(checker, element);
-    return { type: shape.type, encoding: 'repeated-array', descend: shape.descend };
-  }
-  if (type.getStringIndexType()) return { type, encoding: 'string-map', descend: false };
-  if (type.flags & ts.TypeFlags.EnumLike) return { type, encoding: 'enum-name', descend: false };
-  if (type.flags & ts.TypeFlags.StringLike)
-    return { type, encoding: 'json-string', descend: false };
-  if (type.flags & ts.TypeFlags.NumberLike)
-    return { type, encoding: 'json-number', descend: false };
-  if (type.flags & ts.TypeFlags.BigIntLike)
-    return { type, encoding: 'json-int64-string', descend: false };
-  if (type.flags & ts.TypeFlags.BooleanLike)
-    return { type, encoding: 'json-boolean', descend: false };
-  if (oneofBranches(checker, type)) return { type, encoding: 'oneof-object', descend: true };
-  if (type.flags & ts.TypeFlags.Object) return { type, encoding: 'nested-object', descend: true };
-  return { type, descend: false };
-}
-
-function collectReachableFields(checker: ts.TypeChecker, root: ts.Type): ReachableField[] {
-  const fields: ReachableField[] = [];
-  const visit = (type: ts.Type, prefix: string, ancestors: ReadonlySet<ts.Type>) => {
-    const branches = oneofBranches(checker, type);
-    if (branches) {
-      for (const branch of branches) {
-        const path = `${prefix}.${snakeCase(branch.name)}`;
-        const shape = describeType(checker, branch.type);
-        fields.push({ path, optional: false, oneofBranch: true, encoding: shape.encoding });
-        if (shape.descend && !ancestors.has(shape.type))
-          visit(shape.type, path, new Set([...ancestors, shape.type]));
-      }
-      return;
-    }
-    for (const property of checker.getPropertiesOfType(type)) {
-      const propertyType = typeAt(checker, property);
-      const optional =
-        Boolean(property.flags & ts.SymbolFlags.Optional) ||
-        withoutNullish(propertyType).length !==
-          (propertyType.isUnion() ? propertyType.types.length : 1);
-      const path = prefix ? `${prefix}.${snakeCase(property.name)}` : snakeCase(property.name);
-      const shape = describeType(checker, propertyType);
-      fields.push({ path, optional, oneofBranch: false, encoding: shape.encoding });
-      if (shape.descend && !ancestors.has(shape.type))
-        visit(shape.type, path, new Set([...ancestors, shape.type]));
-    }
-  };
-  visit(root, '', new Set([root]));
-  return fields;
-}
 
 function exportedType(checker: ts.TypeChecker, source: ts.SourceFile, name: string): ts.Type {
   const module = checker.getSymbolAtLocation(source);
