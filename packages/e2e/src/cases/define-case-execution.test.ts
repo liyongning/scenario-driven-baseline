@@ -52,9 +52,11 @@ describe('defineCase execution', () => {
   });
 
   it('loads the fixture, records assertions, and annotates executed checkpoints', async () => {
+    let environmentClass: string | undefined;
     defineCase(
       binding,
-      async ({ fixture, expect: localExpect, checkpoint }) => {
+      async ({ fixture, environmentClass: resolvedClass, expect: localExpect, checkpoint }) => {
+        environmentClass = resolvedClass;
         await checkpoint('wire', () => localExpect((fixture as { value: number }).value).toBe(1));
       },
       { fixtureRoot: '/fixtures' },
@@ -62,6 +64,7 @@ describe('defineCase execution', () => {
     const testContext = context();
     await state.registered!(testContext);
     expect(state.fixtureRoots).toEqual(['/fixtures']);
+    expect(environmentClass).toBe('integration');
     expect(testContext.annotate).toHaveBeenCalledWith(
       JSON.stringify({ assertions: 1, checkpoints: ['wire'] }),
       'scenario-evidence',

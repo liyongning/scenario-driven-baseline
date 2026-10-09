@@ -171,6 +171,16 @@ export function testProjectConfigs(manifest: ProjectManifest): string[] {
   return manifest.testProjects.map((item) => item.config);
 }
 
+/** 测试项目的默认报告名：unit 类项目合并为 unit，其余每个项目一份与自己同名的报告。 */
+export function reportNameFor(project: TestProject): string {
+  return project.class === 'unit' ? 'unit' : project.name;
+}
+
+/** 默认报告名清单（去重、保持清单顺序）；运行入口与场景门禁共用同一口径。 */
+export function defaultReportNames(manifest: ProjectManifest): string[] {
+  return [...new Set(manifest.testProjects.map(reportNameFor))];
+}
+
 /** 取登记的覆盖率排除项；清单缺省质量块时返回空数组。 */
 export function coverageExclusions(manifest: ProjectManifest): ReadonlyArray<QualityException> {
   return manifest.quality?.coverageExclusions ?? [];

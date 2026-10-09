@@ -5,6 +5,7 @@ import {
   fixtureRoot,
   runArchitecture,
   writeProjectManifest,
+  writeRepositoryPackages,
 } from './scenario-gate-helpers.ts';
 import { writeTemplateGuideFixture } from './helpers.ts';
 
@@ -23,14 +24,7 @@ cliEvidence(
       writeProjectManifest(fixture.root);
       writeFileSync(join(fixture.root, 'AGENTS.md'), 'scenario-gate.config.schema.json');
       writeTemplateGuideFixture(fixture.root);
-      for (const name of ['sdk', 'protocol', 'e2e']) {
-        mkdirSync(join(fixture.root, 'packages', name), { recursive: true });
-        writeFileSync(join(fixture.root, 'packages', name, 'AGENTS.md'), '[root](../../AGENTS.md)');
-        writeFileSync(
-          join(fixture.root, 'packages', name, 'package.json'),
-          readFileSync(join(process.cwd(), 'packages', name, 'package.json')),
-        );
-      }
+      writeRepositoryPackages(fixture.root);
       mkdirSync(join(fixture.root, 'scripts'), { recursive: true });
       for (const path of [
         'scenario-gate.config.schema.json',

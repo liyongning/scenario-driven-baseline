@@ -60,6 +60,22 @@ export function writeSpec(
   writeFileSync(path, content);
 }
 
+/** 按仓库清单复制每个包的最小目录（AGENTS.md 与 package.json），用例不写死包目录名。 */
+export function writeRepositoryPackages(root: string) {
+  const manifest = JSON.parse(
+    readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
+  ) as { packages: Array<{ directory: string }> };
+  for (const pkg of manifest.packages) {
+    const directory = join(root, 'packages', pkg.directory);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
+    writeFileSync(
+      join(directory, 'package.json'),
+      readFileSync(join(repositoryRoot, 'packages', pkg.directory, 'package.json')),
+    );
+  }
+}
+
 export function enableInventory(root: string) {
   const generated = join(root, 'packages/protocol/src/generated');
   mkdirSync(dirname(generated), { recursive: true });

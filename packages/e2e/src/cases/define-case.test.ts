@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateCaseBinding } from './define-case.ts';
+import { environmentClassOf, validateCaseBinding } from './define-case.ts';
 
 const valid = {
   ownerId: 'SCN-SAMPLE-CONTRACT-023',
@@ -42,5 +42,21 @@ describe('validateCaseBinding', () => {
 
   it('accepts generic uppercase owner IDs for non-template scenarios', () => {
     expect(validateCaseBinding({ ...valid, ownerId: 'SCN-TEMPLATE-EXAMPLE-001' })).toEqual([]);
+  });
+
+  it('rejects environments that are not registered integration or platform projects', () => {
+    expect(validateCaseBinding({ ...valid, environment: 'unknown-project' })).toContain(
+      'environment unknown-project is not a registered integration or platform test project',
+    );
+    expect(validateCaseBinding({ ...valid, environment: 'sdk-unit' })).toContain(
+      'environment sdk-unit is not a registered integration or platform test project',
+    );
+  });
+
+  it('resolves the environment class from the project manifest', () => {
+    const root = process.cwd();
+    expect(environmentClassOf('integration', root)).toBe('integration');
+    expect(environmentClassOf('weapp')).toBe('platform');
+    expect(environmentClassOf('missing-project')).toBeUndefined();
   });
 });

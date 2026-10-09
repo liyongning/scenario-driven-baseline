@@ -8,7 +8,12 @@ import { readEffectiveSpecs } from './lib/spec-sources.ts';
 import { loadScenarioConfig, validateScenarioConfig } from './lib/scenario-config.ts';
 import { buildContractInventory } from './lib/contract-inventory.ts';
 import { buildVerificationFingerprints } from './lib/fingerprints.ts';
-import { errorMessage, loadProjectManifest, type TestProject } from './lib/project-manifest.ts';
+import {
+  defaultReportNames,
+  errorMessage,
+  loadProjectManifest,
+  type TestProject,
+} from './lib/project-manifest.ts';
 
 export type Project = string;
 export type VerificationKind = 'behavior' | 'module' | 'engineering';
@@ -550,14 +555,16 @@ export async function runScenariosCli(
   }
   const effective = precheck.effective!;
   const specs = precheck.inventory!;
+  const manifest = loadProjectManifest(root);
   const contracts = await buildContractInventory(root);
   const fingerprints = buildVerificationFingerprints(root);
   const reportArguments = argv.flatMap((value, index) =>
     value === '--report' && argv[index + 1] ? [resolve(root, argv[index + 1]!)] : [],
   );
-  const defaultReports = ['unit.json', 'integration.json', 'weapp.json']
+  // 默认报告名由清单的测试项目派生：unit 类合并为 unit.json，其余每个项目一份 <name>.json。
+  const defaultReports = defaultReportNames(manifest)
     .map((name) =>
-      resolve(root, `artifacts/${environment.VERIFY_RUN_ID ?? 'local'}/reports/${name}`),
+      resolve(root, `artifacts/${environment.VERIFY_RUN_ID ?? 'local'}/reports/${name}.json`),
     )
     .filter((path) => existsSync(path));
   const loaded = await loadReporterOutputs(

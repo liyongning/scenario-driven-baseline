@@ -3,25 +3,21 @@ import { defineConfig } from 'vitest/config';
 import { ScenarioReporter } from './packages/e2e/src/reporters/scenario-reporter.ts';
 import { buildVerificationFingerprints } from './scripts/lib/fingerprints.ts';
 import { coverageScope } from './scripts/lib/coverage-scope.ts';
+import { loadProjectManifest, testProjectConfigs } from './scripts/lib/project-manifest.ts';
 
 const repositoryRoot = import.meta.dirname;
 const runId = process.env.VERIFY_RUN_ID ?? 'local';
 
 const fingerprints = buildVerificationFingerprints(repositoryRoot);
 const coverage = coverageScope(repositoryRoot);
+const manifest = loadProjectManifest(repositoryRoot);
 const reportFile = process.env.VERIFY_REPORT_FILE
   ? resolve(repositoryRoot, process.env.VERIFY_REPORT_FILE)
   : resolve(repositoryRoot, `artifacts/${runId}/reports/scenarios.json`);
 
 export default defineConfig({
   test: {
-    projects: [
-      'packages/sdk/vitest.config.ts',
-      'packages/protocol/vitest.config.ts',
-      'packages/e2e/vitest.config.unit.ts',
-      'packages/e2e/vitest.config.integration.ts',
-      'packages/e2e/vitest.config.weapp.ts',
-    ],
+    projects: [...testProjectConfigs(manifest)],
     reporters: [
       'default',
       new ScenarioReporter({

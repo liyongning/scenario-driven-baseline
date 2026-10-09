@@ -1,73 +1,14 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
+const { readFileSync } = require('node:fs');
+const { resolve } = require('node:path');
+const { dependencyRules } = require('./scripts/lib/dependency-rules.cjs');
+
+// 拓扑规则由清单按角色生成；清单从当前工作目录读取，副本门禁因此指向副本自身的包。
+const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'project.manifest.json'), 'utf8'));
+
 module.exports = {
   forbidden: [
-    {
-      name: 'protocol-no-reverse-import',
-      severity: 'error',
-      from: { path: '^packages/protocol/src/' },
-      to: { path: '^packages/(sdk|e2e)/' },
-    },
-    {
-      name: 'production-no-test',
-      severity: 'error',
-      from: { path: '^packages/(sdk|protocol)/src/', pathNot: '[.]test[.]ts$' },
-      to: { path: '(^packages/e2e/|/testing/|[.]test[.]ts$|^@template-test/)' },
-    },
-    // 本地路径即便指向公开入口，也必须通过 npm 名称消费；仅放行已配置的 npm 名称别名。
-    {
-      name: 'cross-workspace-no-direct-files',
-      severity: 'error',
-      from: { path: '^packages/(sdk|protocol)/src/' },
-      to: {
-        path: '^packages/(?!$1/)(sdk|protocol|e2e)/',
-        dependencyTypes: ['local'],
-        dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'],
-      },
-    },
-    {
-      name: 'sdk-cross-package-exports-only',
-      severity: 'error',
-      from: { path: '^packages/sdk/src/' },
-      to: {
-        path: '^packages/protocol/',
-        pathNot: '^packages/protocol/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))',
-      },
-    },
-    {
-      name: 'core-no-platform-or-node',
-      severity: 'error',
-      from: { path: '^packages/sdk/src/(runtime|[^/]+/(core|ports))/', pathNot: '[.]test[.]ts$' },
-      to: { dependencyTypes: ['core'] },
-    },
-    // 分层守卫按目录模式覆盖产品包 src/ 下全部业务模块（runtime/ 除外）的 core/ports，新增模块无需改本配置；约定见 packages/sdk/AGENTS.md。
-    {
-      name: 'domain-core-no-generated',
-      severity: 'error',
-      from: { path: '^packages/sdk/src/[^/]+/(core|ports)/' },
-      to: { path: '^packages/protocol/(src/|dist/)?generated/' },
-    },
-    // Shadow 引擎只接收中立路由（PC-03）；协议来源经 testing/shadow/idl-routes.ts 与 testing/shadow/example/ 接入，引擎文件不得导入 ProtoGen 生成代码。
-    {
-      name: 'shadow-engine-no-generated',
-      severity: 'error',
-      comment:
-        'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。',
-      from: {
-        path: '^packages/protocol/testing/shadow/',
-        pathNot: '(^packages/protocol/testing/shadow/(idl-routes[.]ts|example/)|[.]test[.]ts$)',
-      },
-      to: { path: '^packages/protocol/src/generated/' },
-    },
-    // 产品包内各业务模块目录互不导入；可共用的只有 runtime/ 与协议包公开入口，index.ts 作为装配入口豁免。
-    {
-      name: 'domain-isolation',
-      severity: 'error',
-      from: { path: '^packages/sdk/src/([^/]+)/', pathNot: '^packages/sdk/src/runtime/' },
-      to: {
-        path: '^packages/sdk/src/([^/]+)/',
-        pathNot: ['^packages/sdk/src/runtime/', '^packages/sdk/src/$1/'],
-      },
-    },
+    ...dependencyRules(manifest),
     {
       name: 'no-circular',
       severity: 'warn',

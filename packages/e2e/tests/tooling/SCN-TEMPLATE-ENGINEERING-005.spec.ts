@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -26,6 +27,7 @@ import {
 } from './scenario-gate-helpers.ts';
 import { writeTemplateGuideFixture } from './helpers.ts';
 import { createControlledRoot } from './controlled-root.ts';
+import { planCommand } from '../../../../scripts/run-by-manifest.ts';
 
 const repositoryRoot = process.cwd();
 const roots: string[] = [];
@@ -38,14 +40,23 @@ type FixturePackage = {
   name: string;
   role: 'product' | 'protocol' | 'test';
   private: boolean;
-  allowedDirectories: string[];
+  allowedDirectories: ReadonlyArray<string>;
+  moduleRoots?: ReadonlyArray<string>;
+  consumedOperations?: ReadonlyArray<string>;
 };
 type FixtureManifest = {
-  packages: FixturePackage[];
-  requiredCommands: string[];
-  testProjects: Array<{ name: string; class: TestProjectClass; config: string }>;
-  fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
-  quality?: { coverageExclusions: Array<{ path: string; reason: string }>; maxLinesExemptions: [] };
+  packages: ReadonlyArray<FixturePackage>;
+  requiredCommands: ReadonlyArray<string>;
+  testProjects: ReadonlyArray<{ name: string; class: TestProjectClass; config: string }>;
+  fingerprints: {
+    sourceRoots: ReadonlyArray<string>;
+    buildInputs: ReadonlyArray<string>;
+    protocolInputs: ReadonlyArray<string>;
+  };
+  quality?: {
+    coverageExclusions: ReadonlyArray<{ path: string; reason: string }>;
+    maxLinesExemptions: ReadonlyArray<{ path: string; reason: string }>;
+  };
   release?: { registry: string; tagPrefix: string };
 };
 
@@ -128,28 +139,85 @@ function scanScripts(directory: string, found: string[] = []): string[] {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const full = join(directory, entry.name);
     if (entry.isDirectory()) scanScripts(full, found);
-    else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) found.push(full);
+    else if (
+      /\.(?:ts|cjs|mjs|js)$/.test(entry.name) &&
+      !/[.]test[.]/.test(entry.name) &&
+      !entry.name.endsWith('.d.ts')
+    )
+      found.push(full);
   }
   return found;
 }
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** 写死扫描的配置清单：依赖、lint 与根 Vitest 配置的内容。 */
+const scannedConfigs = ['.dependency-cruiser.cjs', 'eslint.config.js', 'vitest.config.ts'];
+
+/**
+ * 扫描门禁脚本、依赖/lint/测试配置的内容与根 scripts 的值：
+ * 不得出现产品包与协议包的目录名、包名，与类别不同名的测试项目名，以及 registry 字面量。
+ * 根 scripts 的键名不扫描；与 requiredCommands 同名的命令参数不算写死。
+ */
+function scanHardcodedTopology(root: string, manifest: FixtureManifest): string[] {
+  const product = manifest.packages.find((item) => item.role === 'product')!;
+  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
+  const registry = manifest.release?.registry;
+  const mismatchedProjects = manifest.testProjects
+    .filter((project) => project.name !== project.class)
+    .map((project) => project.name);
+  const files = [
+    ...scanScripts(resolve(root, 'scripts')),
+    ...scannedConfigs.map((path) => resolve(root, path)).filter((path) => existsSync(path)),
+  ];
+  const problems: string[] = [];
+  /** 文件内容按路径/引号字面量匹配；scripts 的值是 shell 文本，按独立词元匹配。 */
+  const inspect = (text: string, label: string, tokenMode: boolean) => {
+    for (const pkg of [product, protocol]) {
+      if (new RegExp(`packages/${escapeRegExp(pkg.directory)}(?=[/'"\x60])`).test(text))
+        problems.push(`${label}: package directory ${pkg.directory}`);
+      if (text.includes(pkg.name)) problems.push(`${label}: package name ${pkg.name}`);
+    }
+    if (registry && text.includes(registry)) problems.push(`${label}: release registry`);
+    for (const name of mismatchedProjects) {
+      const hit = tokenMode
+        ? new RegExp(`(^|[^\\w-])${escapeRegExp(name)}(?![\\w-])`).test(text)
+        : text.includes(`'${name}'`) ||
+          text.includes(`"${name}"`) ||
+          text.includes(`\x60${name}\x60`);
+      if (hit) problems.push(`${label}: test project ${name}`);
+    }
+  };
+  for (const file of files) inspect(readFileSync(file, 'utf8'), relative(root, file), false);
+  const scripts =
+    (
+      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+        scripts?: Record<string, string>;
+      }
+    ).scripts ?? {};
+  for (const value of Object.values(scripts)) {
+    let stripped = value;
+    for (const command of manifest.requiredCommands) stripped = stripped.split(command).join('');
+    inspect(stripped, 'package.json scripts value', true);
+  }
+  return problems;
+}
+
 cliEvidence(
   'SCN-TEMPLATE-ENGINEERING-005',
   'rename-by-manifest-cli',
-  ['rename-by-manifest'],
+  ['rename-by-manifest', 'scripts-by-manifest'],
   async (context, check) => {
     const manifest = manifestFixture();
     const root = architectureFixture(manifest);
+    const renamed = {
+      directory: 'renamed-sdk',
+      name: '@sample/renamed-sdk',
+      role: 'product' as const,
+      private: false,
+      allowedDirectories: ['src'],
+    };
     await check('rename-by-manifest', () => {
-      const renamed = {
-        directory: 'renamed-sdk',
-        name: '@sample/renamed-sdk',
-        role: 'product' as const,
-        private: false,
-        allowedDirectories: ['src'],
-      };
       renameSync(join(root, 'packages', 'sample-sdk'), join(root, 'packages', renamed.directory));
       writeFileSync(
         join(root, 'packages', renamed.directory, 'package.json'),
@@ -168,6 +236,22 @@ cliEvidence(
       context
         .expect(runArchitecture(stale).output?.issues.join('\n'))
         .toContain('unexpected package renamed-sdk');
+    });
+    await check('scripts-by-manifest', () => {
+      const renamedRoot = architectureFixture(manifestFixture({ product: renamed }));
+      context.expect(planCommand(renamedRoot, 'build')).toEqual([
+        { command: 'pnpm', args: ['--filter', '@sample/protocol', 'build'] },
+        { command: 'pnpm', args: ['--filter', '@sample/renamed-sdk', 'build'] },
+      ]);
+      context.expect(planCommand(renamedRoot, 'test:unit')).toEqual([
+        {
+          command: 'vitest',
+          args: ['run', '--project', 'sample-unit', '--coverage'],
+          env: {
+            VERIFY_REPORT_FILE: join(renamedRoot, 'artifacts/local/reports/unit.json'),
+          },
+        },
+      ]);
     });
   },
 );
@@ -196,7 +280,7 @@ cliEvidence(
       const missing = architectureFixture(manifestFixture());
       const missingManifest = JSON.parse(
         readFileSync(join(missing, 'project.manifest.json'), 'utf8'),
-      ) as FixtureManifest;
+      ) as FixtureManifest & { requiredCommands: string[] };
       missingManifest.requiredCommands.push('missing:command');
       writeFileSync(join(missing, 'project.manifest.json'), JSON.stringify(missingManifest));
       context
@@ -239,32 +323,42 @@ cliEvidence(
   async (context, check) => {
     await check('no-hardcoded-topology', () => {
       const manifest = loadProjectManifest(repositoryRoot);
+      context.expect(scanHardcodedTopology(repositoryRoot, manifest)).toEqual([]);
+
+      // 正例控制：在受控临时根中写入写死包名与项目名的脚本、配置与根 scripts，必须被逐项命中。
       const product = packageByRole(manifest, 'product');
       const protocol = packageByRole(manifest, 'protocol');
-      const registry = manifest.release?.registry;
-      const mismatchedProjects = manifest.testProjects
-        .filter((project) => project.name !== project.class)
-        .map((project) => project.name);
-      const problems: string[] = [];
-      for (const file of scanScripts(resolve(repositoryRoot, 'scripts'))) {
-        const text = readFileSync(file, 'utf8');
-        const label = relative(repositoryRoot, file);
-        for (const pkg of [product, protocol]) {
-          if (new RegExp(`packages/${escapeRegExp(pkg.directory)}(?=[/'"\x60])`).test(text))
-            problems.push(`${label}: package directory ${pkg.directory}`);
-          if (text.includes(pkg.name)) problems.push(`${label}: package name ${pkg.name}`);
-        }
-        if (registry && text.includes(registry)) problems.push(`${label}: release registry`);
-        for (const name of mismatchedProjects) {
-          if (
-            text.includes(`'${name}'`) ||
-            text.includes(`"${name}"`) ||
-            text.includes(`\x60${name}\x60`)
-          )
-            problems.push(`${label}: test project ${name}`);
-        }
-      }
-      context.expect(problems).toEqual([]);
+      const platform = manifest.testProjects.find((project) => project.class === 'platform')!;
+      const probe = mkdtempSync(join(tmpdir(), 'template-hardcoded-probe-'));
+      roots.push(probe);
+      mkdirSync(join(probe, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(probe, 'scripts', 'probe.ts'),
+        `export const dir = 'packages/${product.directory}/src';\nexport const name = '${protocol.name}';\n`,
+      );
+      writeFileSync(join(probe, 'eslint.config.js'), `export default ['${platform.name}'];\n`);
+      writeFileSync(
+        join(probe, 'package.json'),
+        JSON.stringify({
+          scripts: {
+            probe: `vitest run --project ${platform.name}`,
+            allowed: `tsx run.ts test:e2e:${platform.name}`,
+          },
+        }),
+      );
+      const found = scanHardcodedTopology(probe, manifest);
+      context
+        .expect(found)
+        .toEqual(
+          context.expect.arrayContaining([
+            `scripts/probe.ts: package directory ${product.directory}`,
+            `scripts/probe.ts: package name ${protocol.name}`,
+            `eslint.config.js: test project ${platform.name}`,
+            `package.json scripts value: test project ${platform.name}`,
+          ]),
+        );
+      // scripts 的键名不扫描：与 requiredCommands 同名的命令参数不算写死。
+      context.expect(found.filter((item) => item.includes('allowed'))).toEqual([]);
     });
   },
 );

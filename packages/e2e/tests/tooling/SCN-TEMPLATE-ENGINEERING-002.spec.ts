@@ -11,6 +11,7 @@ import {
   writeTemplateGuideFixture,
   type MutableCoverageInput,
 } from './helpers.ts';
+import { writeRepositoryPackages } from './scenario-gate-helpers.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const roots: string[] = [];
@@ -39,12 +40,7 @@ function architectureFixture() {
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md)\n');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
   writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  for (const name of ['sdk', 'protocol', 'e2e']) {
-    const directory = join(root, 'packages', name);
-    mkdirSync(directory);
-    writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
-    writeFileSync(join(directory, 'package.json'), readFileSync(`packages/${name}/package.json`));
-  }
+  writeRepositoryPackages(root);
   writeTemplateGuideFixture(root);
   return root;
 }

@@ -1,4 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { unified } from 'unified';
@@ -14,6 +16,12 @@ import {
 } from './lib/project-manifest.ts';
 import { nodeText } from './lib/spec-inventory.ts';
 import { readEffectiveSpecs } from './lib/spec-sources.ts';
+
+/** 依赖与平台规则的路径按清单角色生成；实现与 dependency-cruiser 配置共用同一份 CJS 模块。 */
+type DependencyRules = Readonly<{ cruiseTargets(manifest: ProjectManifest): string[] }>;
+const dependencyRules = createRequire(import.meta.url)(
+  './lib/dependency-rules.cjs',
+) as DependencyRules;
 
 type Manifest = {
   name: string;
@@ -212,14 +220,42 @@ export async function checkArchitecture(
   return errors;
 }
 
+/** 按清单组装 dependency-cruiser 参数：配置、输出格式与产品包/协议包的模块根目录。 */
+export function cruiseArguments(root: string, manifest: ProjectManifest): string[] {
+  return [
+    '--config',
+    resolve(root, '.dependency-cruiser.cjs'),
+    '--output-type',
+    'err-long',
+    ...dependencyRules.cruiseTargets(manifest),
+  ];
+}
+
+/** 执行 dependency-cruiser；配置文件从当前 cruise 根读取清单。 */
+function runCruise(root: string, manifest: ProjectManifest): number {
+  const result = spawnSync(
+    resolve(root, 'node_modules/.bin/depcruise'),
+    cruiseArguments(root, manifest),
+    {
+      cwd: root,
+      stdio: 'inherit',
+    },
+  );
+  return result.status ?? 1;
+}
+
 export async function runArchitectureCli(argv: ReadonlyArray<string>, cwd = process.cwd()) {
   const rootIndex = argv.indexOf('--root');
   const dependencyIndex = argv.indexOf('--dependency-exit-code');
   const root = rootIndex >= 0 && argv[rootIndex + 1] ? resolve(argv[rootIndex + 1]!) : cwd;
-  const dependencyExitCode =
-    dependencyIndex >= 0 && argv[dependencyIndex + 1] ? Number(argv[dependencyIndex + 1]) : 0;
-  if (!Number.isInteger(dependencyExitCode) || dependencyExitCode < 0)
-    throw new Error('--dependency-exit-code must be a non-negative integer');
+  let dependencyExitCode: number;
+  if (dependencyIndex >= 0 && argv[dependencyIndex + 1]) {
+    dependencyExitCode = Number(argv[dependencyIndex + 1]);
+    if (!Number.isInteger(dependencyExitCode) || dependencyExitCode < 0)
+      throw new Error('--dependency-exit-code must be a non-negative integer');
+  } else {
+    dependencyExitCode = runCruise(root, loadProjectManifest(root));
+  }
   const issues = await checkArchitecture(root, dependencyExitCode);
   return { issues, exitCode: Math.min(1, issues.length) };
 }

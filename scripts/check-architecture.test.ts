@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { writeTemplateGuideFixture } from '../packages/e2e/tests/tooling/helpers.ts';
-import { checkArchitecture, runArchitectureCli } from './check-architecture';
+import { checkArchitecture, cruiseArguments, runArchitectureCli } from './check-architecture';
+import { loadProjectManifest } from './lib/project-manifest.ts';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -26,6 +27,9 @@ function fixture() {
     writeFileSync(join(dir, 'package.json'), readFileSync(`packages/${name}/package.json`));
   }
   writeTemplateGuideFixture(root);
+  // 默认 CLI 分支调用真实 depcruise：放一个可执行替身，验证参数组装与退出码传递，不依赖真实解析。
+  mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
+  writeFileSync(join(root, 'node_modules/.bin/depcruise'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   return root;
 }
 
@@ -37,12 +41,29 @@ test('完整三包和可解析规则链接通过；依赖工具失败传递', as
     await runArchitectureCli(['node', 'script', '--root', root, '--dependency-exit-code', '0']),
   ).toMatchObject({ issues: [], exitCode: 0 });
   expect(await runArchitectureCli([], root)).toMatchObject({ issues: [], exitCode: 0 });
+  expect(cruiseArguments(root, loadProjectManifest(root))).toEqual([
+    '--config',
+    resolve(root, '.dependency-cruiser.cjs'),
+    '--output-type',
+    'err-long',
+    'packages/sdk/src',
+    'packages/protocol/src',
+    'packages/protocol/testing',
+  ]);
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', '-1'], root),
   ).rejects.toThrow(/non-negative integer/);
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', 'bad'], root),
   ).rejects.toThrow(/non-negative integer/);
+});
+
+test('依赖工具不可执行时按失败处理', async () => {
+  const root = fixture();
+  rmSync(join(root, 'node_modules/.bin/depcruise'), { force: true });
+  const result = await runArchitectureCli([], root);
+  expect(result.issues).toContain('dependency-cruiser failed');
+  expect(result.exitCode).toBe(1);
 });
 
 test('缺失 AGENTS 和断链被拒绝', async () => {
@@ -249,6 +270,11 @@ evidence(
 function importFixture(source: string) {
   const root = fixture();
   writeFileSync(join(root, '.dependency-cruiser.cjs'), readFileSync('.dependency-cruiser.cjs'));
+  mkdirSync(join(root, 'scripts/lib'), { recursive: true });
+  writeFileSync(
+    join(root, 'scripts/lib/dependency-rules.cjs'),
+    readFileSync('scripts/lib/dependency-rules.cjs'),
+  );
   writeFileSync(join(root, 'tsconfig.base.json'), readFileSync('tsconfig.base.json'));
   for (const name of ['sdk', 'protocol'])
     mkdirSync(join(root, 'packages', name, 'src'), { recursive: true });

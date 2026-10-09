@@ -149,3 +149,59 @@
 **weapp 重跑记录**：N/A（本任务不新增或改动 weapp 用例；`check:fast` 不含 weapp，weapp 证据在 Task 17/18 运行）。
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`）。
+
+### Task 4 去除写死拓扑与通用规则反例
+
+**Commit message**：`refactor(template): remove hard-coded topology from gates, configs and tooling tests`
+
+**RED（预期失败的反例，已实际执行）**
+- 写死扫描：把 HEAD 版本的 `.dependency-cruiser.cjs`、`eslint.config.js`、`vitest.config.ts`、`scripts/**`（非测试）与根 `package.json` 的 scripts 值物化到 `/tmp/t4-red`，用本任务新增的扫描口径（`/tmp/t4-red-scan.mjs`）比对清单登记的包目录/包名/项目名：命中 16 条（`.dependency-cruiser.cjs`、`eslint.config.js`、`vitest.config.ts` 各有 `packages/sdk`、`packages/protocol`；根 scripts 值含 `packages/sdk`、`@daqian/template-sdk`、`@daqian/template-protocol`、`sdk-unit`、`protocol-unit`、`test-tools-unit`、`weapp`）。HEAD 配置内的写死示例：`git show HEAD:.dependency-cruiser.cjs | grep -n 'packages/sdk'` → 第 30/39/46/65 行等。
+- 规则随清单：HEAD 的 `.dependency-cruiser.cjs` 把 `^packages/sdk/src/` 等路径写死在配置里，副本改名后规则不再指向新目录 → SCN-TEMPLATE-ENGINEERING-007 的 `synthetic-renamed-manifest` 无证据可依。
+- checkpoint 对账：HEAD 的 `SCN-TEMPLATE-EXAMPLE-008` 声明 4 个 checkpoint（`example-core-isolated`、`no-cross-domain-import`、`new-domain-guarded`、`restored-passes`），而 delta spec EX-008 只登记 `example-core-isolated`、`restored-passes` → 场景门禁按"binding references unknown checkpoint"报出；HEAD 的 `SCN-TEMPLATE-ENGINEERING-001` 的 `package-boundaries` 只有 `production-package-clean`、`source-and-graph-current`，缺 delta spec 新增的 `build-copy-by-manifest`。
+- 共享配置的连带失败（实测）：依赖规则抽成 `scripts/lib/dependency-rules.cjs` 后，旧 `SCN-PROTOCOL-CONTRACT-004` 的临时副本未复制该共享模块与 `project.manifest.json`，`depcruise` 输出 `ERROR: Cannot find module './scripts/lib/dependency-rules.cjs'`（随后为 `ENOENT .../project.manifest.json`）而非 `shadow-engine-no-generated`，该用例退出码 1。
+
+**GREEN**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 0（日志 `/tmp/checkfast.log`）：`format:check`、`lint`、`build`、`typecheck`、`check:architecture`、`test:unit`、`check:coverage`、`check:fixtures`、`test:integration`、`check:package` 全部通过。
+- 写死扫描零命中：`SCN-TEMPLATE-ENGINEERING-005 no-hardcoded-topology` 用例在真实仓库上 `scanHardcodedTopology(repositoryRoot, manifest)` 返回 `[]`，并在受控临时根的正例探针上逐项命中目录名、包名、项目名，且根 scripts 键名不参与扫描（值里与 `requiredCommands` 同名的命令参数剥离后不判写死）。
+- 改名副本逐条拦截：`SCN-TEMPLATE-ENGINEERING-007` 5 个集成用例全部通过，逐条"违规被拦截 + 恢复后整个依赖图通过"，并且全部证据来自"已删除模板示例"的受控副本。
+
+**命令与退出码**
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 写死扫描（HEAD 内容 + 新口径） | 命中 16 条（RED） | `/tmp/t4-red-scan.mjs`、`/tmp/t4-red/**` |
+| `vitest run --project test-tools-unit packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts`（误用 unit 项目） | 1（`No test files found`） | 该文件属 integration 项目，改按 integration 运行 |
+| `vitest run --project integration SCN-TEMPLATE-ENGINEERING-005.spec.ts` | 0 | 5 用例含 `no-hardcoded-topology` |
+| `vitest run --project integration SCN-TEMPLATE-ENGINEERING-001.spec.ts` | 0 | 6 用例，`package-boundaries` 断言 14 次、含 `build-copy-by-manifest` |
+| `vitest run --project integration SCN-TEMPLATE-EXAMPLE-008.spec.ts` | 0 | 1 用例，7 断言、2 checkpoint |
+| `vitest run --project integration SCN-TEMPLATE-ENGINEERING-007.spec.ts` | 0 | 5 用例 |
+| `vitest run --project integration SCN-PROTOCOL-CONTRACT-004.spec.ts`（修复副本缺失前） | 1 | `Cannot find module './scripts/lib/dependency-rules.cjs'` |
+| `vitest run --project integration SCN-PROTOCOL-CONTRACT-004.spec.ts`（修复后） | 0 | 1 用例 |
+| `pnpm typecheck`（首次） | 2 | ENG-005 `FixtureManifest` 与清单只读数组不兼容（2 处 TS2379） |
+| `pnpm typecheck`（修正类型后） | 0 | 无输出 |
+| `pnpm test:unit`（首次） | 1 | 分支覆盖率 99.92%，`scripts/check-architecture.ts:244` 的 `?? 1` 未覆盖 |
+| `pnpm test:unit`（补"依赖工具不可执行"用例后） | 0 | 47 文件 / 307 用例；语句/分支/函数/行 100% |
+| `pnpm test:integration`（修复 004 副本后） | 0 | 33 文件 / 88 用例 |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | `/tmp/checkfast.log` |
+
+**报告路径**
+- 单测覆盖率：`artifacts/local/coverage/`（`test:unit` 由 `run-by-manifest` 以 `--coverage` 运行）。
+- 场景报告：`artifacts/local/reports/*.json`（`VERIFY_RUN_ID` 未设置时落到 `local`；本任务未跑 weapp）。
+
+**方案与实际的差异**
+- 依赖与 lint 规则的唯一来源落在 `scripts/lib/dependency-rules.cjs`（CJS，供 `.dependency-cruiser.cjs`、`eslint.config.js` 与门禁自测共同 `require`）；`.dependency-cruiser.cjs` 与 `eslint.config.js` 都从 `process.cwd()` 读清单，副本因此指向副本自身。配置里原本带包路径字面量的注释已改为"产品包 AGENTS.md"等无字面量表述，以满足写死扫描。
+- `check-architecture.ts` 新增 `cruiseArguments(root, manifest)` 与内部 `runCruise`；`check:architecture` 改为只调用该脚本（`tsx scripts/check-architecture.ts` 不再带 `--dependency-exit-code`）。
+- `run-by-manifest.ts` 按清单组装命令：`build`（protocol 先于 product）、`typecheck`（两个 `tsconfig.build.json` + 根 `tsconfig.test.json`、`tsconfig.tools.json`）、`test:unit`（全部 unit 项目一次运行并开覆盖率）、`test:integration`、`test:e2e:<name>`；根 `package.json` 的 5 个脚本值改为 `tsx scripts/run-by-manifest.ts <命令名>`；`vitest.config.ts` 的 `projects` 由 `testProjects[].config` 组装。
+- `define-case.ts` 的 `environment` 收窄为 `string` 并按清单运行时校验（只接受 integration/platform 类项目），上下文新增 `environmentClass`；沿用现有 `defineCase`，未引入第二个 runner。
+- `SCN-TEMPLATE-EXAMPLE-008` 只保留示例自身分层检查（core 导入 generated、`wx` 全局、Node 内置），并把"跨模块导入""新增模块无需改配置即受约束"两个 checkpoint 完整移交 `SCN-TEMPLATE-ENGINEERING-007`（EX-05 已声明这两项由 ENG-02 承担）。
+- `SCN-PROTOCOL-CONTRACT-004` 的受控副本新增复制 `project.manifest.json` 与 `scripts/lib/dependency-rules.cjs`；这是共享配置的必然连带修改，未改动该用例的断言语义。
+
+**已接受的 Minor**
+- Task 4（EX-008 受控副本用最小 helper）：`packages/e2e/tests/tooling/repository-copy.ts` 提供 `buildCopyInputs`/`createBuildCopy`，ENG-001、EX-008、ENG-007 使用；Task 5 再统一收敛到仓库副本 helper（含 `git ls-files -co` 复制、`pnpm install --offline`、realpath 断言、`TEMPLATE_COPY` 守卫）。
+- Task 4（写死扫描口径）：扫描根 `package.json` 的 scripts **值**（不扫键名），先把与 `requiredCommands` 同名的命令词元剥掉，再按独立词元匹配项目名；探针用例里 `tsx run.ts test:e2e:<platform>` 不判写死。
+
+**优先采用现成方案**
+- 依赖规则沿用 dependency-cruiser 的原生规则结构（`from`/`to` + 正则 + 捕获组 `$1`），未自研图算法；ESLint 平台全局禁令用内置 `no-restricted-globals`；副本依赖用符号链接而非重装；源码/构建输入枚举复用 Task 3 的 `git ls-files -co --exclude-standard`。无自研通用基建。
+
+**weapp 重跑记录**：N/A（本任务不改动 weapp 用例，`check:fast` 不含 weapp；weapp 证据在 Task 17/18 运行）。
+
+**按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务 `test:integration` 全量运行）。

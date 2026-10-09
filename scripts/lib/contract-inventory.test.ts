@@ -5,9 +5,15 @@ import { describe, expect, it, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
+import { loadProjectManifest, testProjectsByClass } from './project-manifest.ts';
 
 const generated = join(process.cwd(), 'packages/protocol/src/generated');
 const tradeFile = 'generated/idl/infra/trade/v1/trade.ts';
+/** 义务运行环境由清单派生：路由、字段与共享方法要求全部 integration 与 platform 项目。 */
+const requiredIn = testProjectsByClass(loadProjectManifest(process.cwd()), [
+  'integration',
+  'platform',
+]);
 
 async function copyGenerated(prefix: string) {
   const root = await mkdtemp(join(tmpdir(), prefix));
@@ -133,7 +139,7 @@ describe('buildContractInventory', () => {
       scenarios: [],
       contracts: inventory.obligations.map((item) => ({
         ...item,
-        requiredIn: item.requiredIn as Array<'integration' | 'weapp'>,
+        requiredIn: [...item.requiredIn],
       })),
       flows: [],
       bindings: [],
@@ -350,7 +356,7 @@ test(
         context.expect(scoped.length, method).toBeGreaterThan(0);
         for (const obligation of scoped) {
           context.expect(obligation.cases.length, obligation.id).toBeGreaterThan(0);
-          context.expect(obligation.requiredIn, obligation.id).toEqual(['integration', 'weapp']);
+          context.expect(obligation.requiredIn, obligation.id).toEqual(requiredIn);
         }
       }
       context

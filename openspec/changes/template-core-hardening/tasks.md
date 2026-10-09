@@ -134,7 +134,7 @@
   **Commit**
   - `feat(template): derive fingerprints and coverage scope from one source inventory`
 
-- [ ] 4. 去除写死拓扑与通用规则反例
+- [x] 4. 去除写死拓扑与通用规则反例
 
   **Files**
   - Modify：`packages/e2e/src/cases/define-case.ts` 及单测（`environment: string` 运行时按清单校验；上下文新增 `environmentClass`）。

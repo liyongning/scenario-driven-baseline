@@ -1,8 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach } from 'vitest';
-import { cliEvidence, runArchitecture, writeProjectManifest } from './scenario-gate-helpers.ts';
+import {
+  cliEvidence,
+  runArchitecture,
+  writeProjectManifest,
+  writeRepositoryPackages,
+} from './scenario-gate-helpers.ts';
 import { writeTemplateGuideFixture } from './helpers.ts';
 
 const repositoryRoot = process.cwd();
@@ -19,14 +24,7 @@ function guideRoot() {
   writeFileSync(join(root, 'package.json'), readFileSync(join(repositoryRoot, 'package.json')));
   writeFileSync(join(root, 'AGENTS.md'), '[root](README.md)\n');
   writeFileSync(join(root, 'README.md'), '# readme\n');
-  for (const name of ['sdk', 'protocol', 'e2e']) {
-    mkdirSync(join(root, 'packages', name), { recursive: true });
-    writeFileSync(join(root, 'packages', name, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
-    writeFileSync(
-      join(root, 'packages', name, 'package.json'),
-      readFileSync(join(repositoryRoot, 'packages', name, 'package.json')),
-    );
-  }
+  writeRepositoryPackages(root);
   writeTemplateGuideFixture(root);
   return root;
 }

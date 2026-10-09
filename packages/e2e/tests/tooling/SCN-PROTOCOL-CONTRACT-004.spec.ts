@@ -45,8 +45,15 @@ test(
     const root = mkdtempSync(join(tmpdir(), 'shadow-engine-cli-'));
     try {
       cpSync(resolve('package.json'), join(root, 'package.json'));
+      cpSync(resolve('project.manifest.json'), join(root, 'project.manifest.json'));
       cpSync(resolve('tsconfig.base.json'), join(root, 'tsconfig.base.json'));
       cpSync(resolve('.dependency-cruiser.cjs'), join(root, '.dependency-cruiser.cjs'));
+      // 依赖规则由清单派生，配置 require 的共享模块必须一并复制到副本。
+      mkdirSync(join(root, 'scripts/lib'), { recursive: true });
+      cpSync(
+        resolve('scripts/lib/dependency-rules.cjs'),
+        join(root, 'scripts/lib/dependency-rules.cjs'),
+      );
       mkdirSync(join(root, 'packages/protocol'), { recursive: true });
       // 真实复制协议包源码与测试设施：依赖检查按相对路径前缀匹配规则，符号链接会让路径变成仓库绝对路径。
       cpSync(resolve('packages/protocol/testing'), join(root, 'packages/protocol/testing'), {

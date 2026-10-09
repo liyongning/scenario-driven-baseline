@@ -1,19 +1,23 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, test, type TestContext } from 'vitest';
+import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
+import { environmentClassOf } from '../../packages/e2e/src/cases/define-case.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 import { buildVerificationFingerprints } from './fingerprints.ts';
+import { planCommand } from '../run-by-manifest.ts';
 import { checkSchemaDocumentation } from './schema-docs.ts';
 import {
   errorMessage,
   loadProjectManifest,
   coverageExclusions,
+  defaultReportNames,
   maxLinesExemptions,
   packageByRole,
   projectManifestFile,
+  reportNameFor,
   testProjectConfigs,
   testProjectsByClass,
   validateManifest,
@@ -142,6 +146,8 @@ evidence(
     'obligation-environments',
     'source-roots-by-manifest',
     'digest-inputs',
+    'environments-by-manifest',
+    'scripts-by-manifest',
   ],
   async (context, check) => {
     await check('manifest-schema', () => {
@@ -391,5 +397,55 @@ evidence(
         fixture.cleanup();
       }
     });
+
+    await check('environments-by-manifest', () => {
+      const manifest = loadProjectManifest(process.cwd());
+      context.expect(environmentClassOf('integration')).toBe('integration');
+      context.expect(environmentClassOf('weapp')).toBe('platform');
+      context.expect(environmentClassOf('not-registered')).toBeUndefined();
+      context.expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
+    });
+
+    await check('scripts-by-manifest', () => {
+      const root = process.cwd();
+      const manifest = loadProjectManifest(root);
+      const scripts =
+        (
+          JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+            scripts?: Record<string, string>;
+          }
+        ).scripts ?? {};
+      const platform = manifest.testProjects.find((project) => project.class === 'platform')!;
+      for (const command of [
+        'build',
+        'typecheck',
+        'test:unit',
+        'test:integration',
+        `test:e2e:${platform.name}`,
+      ])
+        context.expect(scripts[command], command).toBe(`tsx scripts/run-by-manifest.ts ${command}`);
+      context
+        .expect(planCommand(root, 'build').map((step) => step.args[1]))
+        .toEqual([
+          packageByRole(manifest, 'protocol').name,
+          packageByRole(manifest, 'product').name,
+        ]);
+      context
+        .expect(planCommand(root, 'test:unit')[0]!.args)
+        .toEqual([
+          'run',
+          ...testProjectsByClass(manifest, ['unit']).flatMap((name) => ['--project', name]),
+          '--coverage',
+        ]);
+    });
   },
 );
+
+test('derives default report names from the registered test projects', () => {
+  const manifest = loadProjectManifest(process.cwd());
+  expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
+  expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'weapp')!)).toBe('weapp');
+  expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'sdk-unit')!)).toBe(
+    'unit',
+  );
+});
