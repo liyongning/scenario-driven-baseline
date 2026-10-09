@@ -158,7 +158,9 @@ describe('verification fingerprints', () => {
           },
         ],
       });
-      expect(result.issues).toContain('weapp/host-case is stale');
+      expect(result.issues).toEqual(
+        expect.arrayContaining([expect.stringContaining('weapp/host-case is stale')]),
+      );
     } finally {
       fixture.cleanup();
     }

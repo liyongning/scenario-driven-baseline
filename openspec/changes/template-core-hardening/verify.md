@@ -404,3 +404,83 @@
 - 反向对账直接复用 `evaluateCoverage` 已有的「cover → ScenarioCase/协议义务」索引，不新建登记表或校验器。
 - 作用域解析与帮助文本复用 Task 6 的 `spec-sources.ts`（`parseChangeArguments`/`resolveChangeScope`/`changeScopeHelp`），`check:scenarios` 只做接入，未自研第二套参数解析。
 - 集成用例的受控根、OpenSpec 替身、清单复制、`enableInventory` 全部复用 Task 3–6 的 helper（`createControlledRoot`/`scenario-gate-helpers`/`controlled-root`），未新增框架。
+
+### Task 8 统一验收入口与过期说明
+
+**Commit message**：`feat(template): add a single verify entry and explain stale reports`
+
+**RED（预期失败的反例，已实际执行）**
+- 先落地 `SCN-SCENARIO-GATE-023/024/025.spec.ts` 与 Fixture，再运行 `node_modules/.bin/vitest run --project integration SCN-SCENARIO-GATE-023.spec.ts SCN-SCENARIO-GATE-024.spec.ts SCN-SCENARIO-GATE-025.spec.ts`，退出码 **1**，`3 failed (3)`，日志 `/tmp/t8-red.log`：
+  - 023 `verify-run-cli`：入口不存在，默认 run id 读到空串（`expected '' to match /^feat-scope-\d{8}T\d{6}Z$/`）；
+  - 024 `verify-resume-cli`：没有任何步骤被调用（`expected [] to deeply equal ['check:fast', …]`）；
+  - 025 `stale-explanation-cli`：过期信息只有 `integration/normal is stale` 与 `integration/normal FLOW evidence is stale` 两句，不含期望/实际 run id、摘要类别与变化文件。
+
+**GREEN**
+- `pnpm typecheck` 退出 0；`pnpm test:unit` 48 文件 / 327 用例，`Statements/Branches/Functions/Lines` 均 100%；`pnpm format:check`、`pnpm lint` 退出 0。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration` 连续 **2 次**退出 0（45 文件 / 104 用例），日志 `/tmp/t8-integration.log`、`/tmp/t8-integration-runB.log`。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出 0，日志 `/tmp/t8-checkfast.log`。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 新集成用例 + 旧实现（RED） | 1 | `/tmp/t8-red.log`（3 failed / 0 passed） |
+| `pnpm typecheck` | 0 | `/tmp/t8-typecheck3.log` |
+| `pnpm test:unit` | 0 | 48 文件 / 327 用例，100% 覆盖率（`/tmp/t8-unit-final.log`） |
+| `pnpm format:check` / `pnpm lint` | 0 | `/tmp/t8-format3.log`、`/tmp/t8-lint3.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration`（第 1 次） | 0 | 45 文件 / 104 用例，`/tmp/t8-integration.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration`（第 2 次） | 0 | 45 文件 / 104 用例，`/tmp/t8-integration-runB.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | `/tmp/t8-checkfast.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t8` | 1（第 3 步按预期归属后续任务，见下） | `/tmp/t8-verify-final.log` |
+| 过期说明反例：改一个源码文件后 `pnpm check:scenarios --change template-core-hardening` | 1 | `/tmp/t8-scenarios-stale.log`（459 条过期说明，全部列出该文件） |
+
+**报告路径**
+- `pnpm verify` 产物：`artifacts/core-hardening-t8/reports/unit.json`、`integration.json`，以及 perFile 项目目录 `artifacts/core-hardening-t8/reports/weapp/` 下的 4 份文件（`SCN-PROTOCOL-CONTRACT-002.json`、`FLOW-TEMPLATE-EXAMPLE-001.json`、`SCN-TEMPLATE-EXAMPLE-002.json`、`SCN-TEMPLATE-EXAMPLE-004.json`）；覆盖率在 `artifacts/core-hardening-t8/coverage/`。
+- 单测覆盖率报告沿用 `artifacts/local/coverage/`（直接 `pnpm test:unit` 时）。
+
+**Task 8 Verification：`pnpm verify --change template-core-hardening --run-id core-hardening-t8`**
+- 第 1 步 `check:fast` 退出码 **0**（80945ms，含 48 文件 / 327 单测与 45 文件 / 104 集成用例）。
+- 第 2 步 `test:e2e:weapp` 退出码 **0**（170642ms，逐文件 4 个），见「weapp 重跑记录」。
+- 第 3 步 `check:scenarios` 退出码 **1**（1360ms）：共 **53** 条问题，`未登记的 checkpoint` 0 条、`过期报告` 0 条，全部可按「共同完成条件 4」归属后续任务：
+
+| 归属 | 条数 | 具体 |
+| --- | --- | --- |
+| Task 9 | 7 | `SCN-SCENARIO-GATE-020/full-trigger-rules`、`020/full-trigger-cli`、`021/affected-selection-rules`、`021/affected-spec-fixture-cli`、`021/affected-code-cli`、`022/partial-report-rules`、`022/partial-report-cli` 的 missing binding |
+| Task 10 | 22 | `SCN-PROTOCOL-CONTRACT-001/non-trade-method-cli` 与 `test-tools-unit/derivation-rules`（8）、`002/declared-routes` 与 `integration|weapp/protocol-matrix`（5）、`005/call-scan-rules`、`005/declaration-gate-cli`（2）、`SCN-TEMPLATE-ENGINEERING-003/entry-discovery-rules` 与 `integration/missing-comment-rejected`（3）、`SCN-TEMPLATE-ENGINEERING-001/sdk-does-not-reexport-network`（1）、`SCN-TEMPLATE-EXAMPLE-012`（2）、`integration/inventory-cli`（1） |
+| Task 11 | 3 | `SCN-PROTOCOL-CONTRACT-011/request-recording`、`012/path-template`、`013/bounded-poll` |
+| Task 12 | 3 | `SCN-PROTOCOL-CONTRACT-006/idl-validator-rules`、`006/shadow-construction`、`007/malformed-claim-rules` |
+| Task 13 | 7 | `SCN-PROTOCOL-CONTRACT-008/request-id-wire`（integration + weapp）、`008/client-options-shape`、`008/runtime-port-shape`、`009/generator-non-beijing-tz`、`010/shadow-header-patterns`、`010/context-obligation` |
+| Task 14 | 3 | `SCN-TEMPLATE-ENGINEERING-010/baseline-config-rules`、`010/format-check-cli`、`010/max-lines-cli` |
+| Task 15 | 2 | `SCN-TEMPLATE-ENGINEERING-011/project-map-rules`、`011/project-map-violations-cli` |
+| Task 16 | 4 | `SCN-TEMPLATE-ENGINEERING-006/example-marker-rules`、`006/example-marker-violations-cli`、`012/architecture-doc-rules`、`012/architecture-doc-violations-cli` |
+| Task 17 | 2 | `SCN-TEMPLATE-ENGINEERING-008/example-removal-fast`、`008/example-removal-scenarios`（删除演练，由验收方执行） |
+
+- 无法归属的问题 **0** 条，故本任务不触发「门禁问题无法归属」的暂停条件。
+- 与 Task 7 记录（`--change` 下 376 条）的差异来自报告集合：Task 7 未运行 weapp 步骤，weapp 环境的用例全部计为 missing binding；本任务产出 `reports/weapp/` 后 weapp 侧缺口清零（53 = 376 − weapp 侧缺口 − 本次新增绑定 + 2 条 weapp checkpoint）。同一份报告集合下，带与不带 `--change` 的结论一致（`/tmp/t8-cs-unscoped-fresh.log`）。
+
+**故意改一个源码文件的过期说明反例**
+- 在 `packages/sdk/src/index.ts` 末尾追加一行注释后运行 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:scenarios --change template-core-hardening`，退出码 1；输出 829 条问题，其中 459 条 `is stale`，每条都给出 `摘要类别不同：source；变化文件（共 1 个）：packages/sdk/src/index.ts`。随后 `git checkout -- packages/sdk/src/index.ts` 还原（`git status` 无残留）。
+
+**方案与实际的差异**（含 Task 8 Files 之外的改动，均只同步受影响测试或按契约补充，未改规划语义）
+1. `scripts/lib/fingerprints.test.ts`（Files 之外）：GATE-14 的过期说明现在会在 `is stale` 后附带明细，原断言整串相等改为 `expect.arrayContaining([expect.stringContaining('weapp/host-case is stale')])`；判定语义不变，属根 AGENTS 第 4 条要求的受影响测试同步。
+2. `scripts/check-coverage.test.ts`（Files 之外）：`pnpm verify` 按 GATE-14 给全部步骤设置 `VERIFY_RUN_ID`，该变量存在时 `check-coverage.ts` 缺省报告路径的 `process.env.VERIFY_RUN_ID ?? 'local'` 只剩一侧分支被执行，`check:fast` 的覆盖率阈值在 verify 内以 99.93% 分支覆盖率失败（`/tmp/t8-verify-real.log`）。用例改为显式覆盖两种取值；改后带/不带该变量都 100%（`/tmp/t8-unit-envset2.log`、`/tmp/t8-unit-noenv.log`）。
+3. `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts`（Files 之外）：同一原因——`scripts-by-manifest` 把 `artifacts/local/reports/unit.json` 写死，verify 内必然失败（`/tmp/t8-verify-real2.log`）。改为按 `process.env.VERIFY_RUN_ID ?? 'local'` 计算，同时满足 GATE-15「事实核验结论不受无关 active Change 影响」。
+4. Task 8 Files 内的补充：`scripts/check-scenarios.test.ts` 的 `loadReporterOutputs` 用例补「信封带 `files` / 不带 `files`」两路；`scripts/lib/project-manifest.test.ts` 的 `environments-by-manifest` 追加「perFile 项目取目录下全部报告、未生成报告的项目不入集合、非 `.json` 条目忽略」断言。
+5. 超时约定：`scripts/verify.test.ts` 的 evidence 包装与 `cliEvidence` 一致给 `30_000`（本次未触发超时重跑）。按 Task 7 裁决，同类副本/重负载用例后续若因默认 5s 超时失败，同样加显式 30s 并在本文件登记。
+6. `packages/e2e/AGENTS.md` 按契约改写「微信开发者工具自动化的注意事项」：退出主进程、清理残留与预热由 `pnpm verify` 的逐文件运行与 `weapp:prepare` 自动执行（失败时自动先 prepare 再整文件重跑）；手工单跑仍按原约定执行。
+7. 实现细节：逐文件文件清单由 Vitest 配置的 `test.include` 经 `vite.loadConfigFromFile` + Node 内建 `globSync` 解析，缺 include 时直接拒绝；`--from` 以步骤命令名定位；续跑仅在报告存在且全部用例 `passed` 时跳过该文件。
+
+**weapp 重跑记录**
+- 4 个文件各 1 个 case，全部首次通过，无重跑；每个文件前由 `pnpm weapp:prepare` 自动执行 `cli quit` → `pkill -f wechatwebdevtools.app` → `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（本步共 4 次 prepare）。
+- 各文件耗时：`SCN-PROTOCOL-CONTRACT-002` 11391ms、`FLOW-TEMPLATE-EXAMPLE-001` 11122ms、`SCN-TEMPLATE-EXAMPLE-002` 11209ms、`SCN-TEMPLATE-EXAMPLE-004` 11185ms；第 2 步合计 170642ms（含 4 次预热）。
+
+**按需选择结果**：N/A（`test:affected` 由任务 9 交付；本任务按 `check:fast` 全量运行）。
+
+**OI-CH-02 统计**：本任务无「按需通过、全量失败」记录（按需入口尚未交付；累计仍为 0 次）。
+
+**优先采用现成方案**
+- 逐文件枚举复用 Vitest 自身配置加载（`vite.loadConfigFromFile`）与 Node 内建 `globSync` 读 `test.include`，不自研 glob 或 TS 配置解析。
+- run id 时间戳复用内建 `Date#toISOString()`（UTC），只去掉分隔符与毫秒；未引入日期库。
+- 默认报告集合与过期说明复用 Task 3 的报告 `files` 明细、Task 6/7 的作用域与来源 API（`parseChangeArguments`/`resolveChangeScope`）；`check-scenarios` 只接入 `defaultReportPaths`。
+- 平台步骤替身沿用 Task 3–6 的受控根与清单复制 helper（`createControlledRoot`/`scenario-gate-helpers`/`enableInventory`），未新增框架或自研进程控制器。
+- 微信开发者工具的退出与预热复用本机 `cli` 与仓库既有约定，未自研工具控制器。

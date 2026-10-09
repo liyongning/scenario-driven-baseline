@@ -296,28 +296,32 @@ describe('evaluateCoverage', () => {
   it('loads bindings and execution facts from saved reporter outputs without changing their project or fingerprints', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'template-reports-'));
     const file = join(directory, 'integration.json');
+    const withFiles = join(directory, 'integration-files.json');
     const binding = base().bindings[0]!;
-    await writeFile(
-      file,
-      JSON.stringify({
-        runId: 'run-1',
-        sourceDigest: 'source',
-        specDigest: 'spec',
-        protocolDigest: 'idl',
-        fixtureDigest: 'fixture',
-        tests: [{ ...base().reports[0], binding }],
-      }),
-    );
-    const loaded = await loadReporterOutputs([file]);
+    const envelope = {
+      runId: 'run-1',
+      sourceDigest: 'source',
+      specDigest: 'spec',
+      protocolDigest: 'idl',
+      fixtureDigest: 'fixture',
+      tests: [{ ...base().reports[0], binding }],
+    };
+    await writeFile(file, JSON.stringify(envelope));
+    // 信封带 files 明细时随之进入报告；不带时保持原样（GATE-14 变化文件明细）。
+    await writeFile(withFiles, JSON.stringify({ ...envelope, files: { 'src/a.ts': 'hash' } }));
+    const loaded = await loadReporterOutputs([file, withFiles]);
     expect(loaded.issues).toEqual([]);
-    expect(loaded.bindings).toEqual([binding]);
-    expect(loaded.reports).toEqual([
+    expect(loaded.bindings).toEqual([binding, binding]);
+    expect(loaded.reports).toHaveLength(2);
+    expect(loaded.reports[0]).toEqual(
       expect.objectContaining({
         project: 'integration',
         caseId: 'flow-normal',
         sourceDigest: 'source',
       }),
-    ]);
+    );
+    expect(loaded.reports[0]).not.toHaveProperty('files');
+    expect(loaded.reports[1]).toEqual(expect.objectContaining({ files: { 'src/a.ts': 'hash' } }));
   });
 
   it('reports malformed reporter envelopes, missing bindings, and record mismatches', async () => {
@@ -1098,5 +1102,63 @@ evidence(
     } finally {
       controlled.cleanup();
     }
+  },
+);
+
+evidence(
+  'SCN-SCENARIO-GATE-025',
+  'stale-explanation-rules',
+  ['run-id-mismatch-detail', 'digest-category-detail', 'changed-files-detail'],
+  async (context, check) => {
+    /** 过期报告：run id 与 source 摘要都与当前不同，其余摘要保持一致。 */
+    const stale = (): MutableCoverageInput => {
+      const input = mutable(base()) as MutableCoverageInput;
+      input.reports[0] = { ...input.reports[0]!, runId: 'actual-run', sourceDigest: 'old-source' };
+      return input;
+    };
+
+    await check('run-id-mismatch-detail', () => {
+      const issues = runCoverage(stale()).issues.join('\n');
+      context.expect(issues).toContain('is stale');
+      context.expect(issues).toContain('run id 期望 run-1，实际 actual-run');
+    });
+
+    await check('digest-category-detail', () => {
+      const input = stale();
+      input.reports[0]!.specDigest = input.current.specDigest;
+      input.reports[0]!.protocolDigest = input.current.protocolDigest;
+      input.current.fixtureDigest = 'new-fixture';
+      const issues = runCoverage(input).issues.join('\n');
+      context.expect(issues).toContain('摘要类别不同：source、fixture');
+    });
+
+    await check('changed-files-detail', () => {
+      const input = stale();
+      input.reports[0]!.files = { 'a.ts': '1', 'b.ts': '2' };
+      input.current.files = { 'b.ts': '2', 'c.ts': '3' };
+      const issues = runCoverage(input).issues.join('\n');
+      context.expect(issues).toContain('变化文件（共 2 个）：a.ts、c.ts');
+
+      const many = stale();
+      many.reports[0]!.files = {};
+      many.current.files = Object.fromEntries(
+        Array.from({ length: 25 }, (_, index) => [
+          `file-${String(index).padStart(2, '0')}.ts`,
+          'x',
+        ]),
+      );
+      const manyIssues = runCoverage(many).issues.join('\n');
+      context.expect(manyIssues).toContain('变化文件（共 25 个）：');
+      context.expect(manyIssues).toContain(' 等');
+      const listed = manyIssues.split('变化文件（共 25 个）：')[1]!.split(' 等')[0]!.split('、');
+      context.expect(listed).toHaveLength(20);
+      context.expect(listed[0]).toBe('file-00.ts');
+
+      const noDetail = mutable(base()) as MutableCoverageInput;
+      noDetail.reports[0] = { ...noDetail.reports[0]!, runId: 'actual-run' };
+      context
+        .expect(runCoverage(noDetail).issues.join('\n'))
+        .toContain('变化文件：报告未记录摘要明细');
+    });
   },
 );

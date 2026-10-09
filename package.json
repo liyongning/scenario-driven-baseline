@@ -25,7 +25,9 @@
     "release:preflight": "tsx scripts/check-release.ts",
     "sdk-release": "tsx scripts/sdk-release.ts",
     "check:fast": "pnpm proto:validate && pnpm proto:status && pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm check:architecture && pnpm test:unit && pnpm check:coverage && pnpm check:fixtures && pnpm test:integration && pnpm check:package",
-    "check": "pnpm check:fast && pnpm test:e2e:weapp && pnpm check:scenarios"
+    "weapp:prepare": "tsx scripts/weapp-prepare.ts",
+    "verify": "tsx scripts/verify.ts",
+    "check": "pnpm verify"
   },
   "packageManager": "pnpm@10.20.0",
   "type": "module",

@@ -1,4 +1,4 @@
-import { existsSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
@@ -14,7 +14,7 @@ import { loadScenarioConfig, validateScenarioConfig } from './lib/scenario-confi
 import { buildContractInventory } from './lib/contract-inventory.ts';
 import { buildVerificationFingerprints } from './lib/fingerprints.ts';
 import {
-  defaultReportNames,
+  defaultReportPaths,
   errorMessage,
   loadProjectManifest,
   type TestProject,
@@ -66,6 +66,8 @@ export type ExecutionReport = Readonly<{
   specDigest: string;
   protocolDigest: string;
   fixtureDigest: string | null;
+  /** 报告记录的摘要文件明细（`path -> sha256`），用于过期说明（GATE-14）。 */
+  files?: Readonly<Record<string, string>>;
   project: Project;
   file: string;
   fullName: string;
@@ -93,6 +95,8 @@ export type CoverageInput = Readonly<{
     specDigest: string;
     protocolDigest: string;
     fixtureDigest: string;
+    /** 本次运行的摘要文件明细；缺省表示无法比对变化文件。 */
+    files?: Readonly<Record<string, string>>;
   }>;
   scenarios: ReadonlyArray<
     Readonly<{ id: string; cases: ReadonlyArray<ScenarioCase>; blockedBy?: ReadonlyArray<string> }>
@@ -237,6 +241,7 @@ type ReporterOutput = Readonly<{
   specDigest: string;
   protocolDigest: string;
   fixtureDigest: string;
+  files?: Readonly<Record<string, string>>;
   tests: ReadonlyArray<ExecutionReport & Readonly<{ binding?: CaseBinding }>>;
 }>;
 
@@ -291,7 +296,7 @@ export async function loadReporterOutputs(paths: ReadonlyArray<string>) {
       bindings.push(test.binding);
       const { binding: _binding, ...report } = test;
       void _binding;
-      reports.push(report);
+      reports.push(output.files ? { ...report, files: output.files } : report);
     }
   }
   return { bindings, reports, issues };
@@ -318,6 +323,52 @@ function sameFingerprint(
     report.protocolDigest === current.protocolDigest &&
     report.fixtureDigest === (binding.fixtureCase === null ? null : current.fixtureDigest)
   );
+}
+
+/** 过期说明最多列出的变化文件数。 */
+const maxListedChangedFiles = 20;
+
+/** 摘要类别与过期说明使用的标签，顺序固定为 source、spec、protocol、fixture。 */
+const digestCategories = [
+  { key: 'sourceDigest', label: 'source' },
+  { key: 'specDigest', label: 'spec' },
+  { key: 'protocolDigest', label: 'protocol' },
+  { key: 'fixtureDigest', label: 'fixture' },
+] as const;
+
+/**
+ * 过期报告的三类信息（GATE-14）：期望/实际 run id、不同的摘要类别，
+ * 以及依据报告文件明细算出的变化文件（最多 20 个，超出时给出总数）。
+ */
+function staleDetail(
+  report: ExecutionReport,
+  current: CoverageInput['current'],
+  fixtureCase: string | null,
+): string {
+  const categories = digestCategories
+    .filter(({ key }) => {
+      const expected = key === 'fixtureDigest' && fixtureCase === null ? null : current[key];
+      return report[key] !== expected;
+    })
+    .map(({ label }) => label);
+  const parts = [
+    `run id 期望 ${current.runId}，实际 ${report.runId}`,
+    `摘要类别不同：${categories.length > 0 ? categories.join('、') : '无'}`,
+  ];
+  if (report.files && current.files) {
+    const paths = [...new Set([...Object.keys(report.files), ...Object.keys(current.files)])]
+      .filter((path) => report.files?.[path] !== current.files?.[path])
+      .sort();
+    const listed = paths.slice(0, maxListedChangedFiles);
+    parts.push(
+      `变化文件（共 ${paths.length} 个）：${listed.join('、')}${
+        paths.length > listed.length ? ' 等' : ''
+      }`,
+    );
+  } else {
+    parts.push('变化文件：报告未记录摘要明细');
+  }
+  return parts.join('；');
 }
 
 export function evaluateCoverage(input: CoverageInput) {
@@ -407,7 +458,10 @@ export function evaluateCoverage(input: CoverageInput) {
       return { executed: false, passed: false };
     }
     const fresh = sameFingerprint(report, input.current, binding);
-    if (!fresh) issues.push(`${environment}/${binding.caseId} is stale`);
+    if (!fresh)
+      issues.push(
+        `${environment}/${binding.caseId} is stale：${staleDetail(report, input.current, binding.fixtureCase)}`,
+      );
     if (report.assertions <= 0)
       issues.push(`${environment}/${binding.caseId} has no executed assertions`);
     if (!report.fullName.includes(binding.ownerId) || !report.fullName.includes(binding.caseId)) {
@@ -485,7 +539,9 @@ export function evaluateCoverage(input: CoverageInput) {
           issues.push(`${flow.id}/${caseKey}: missing continuous stages in one report`);
         const fresh = complete ? sameFingerprint(complete, input.current, binding) : false;
         if (complete && !fresh)
-          issues.push(`${environment}/${binding.caseId} FLOW evidence is stale`);
+          issues.push(
+            `${environment}/${binding.caseId} FLOW evidence is stale：${staleDetail(complete, input.current, binding.fixtureCase)}`,
+          );
         if (complete && complete.assertions <= 0)
           issues.push(`${environment}/${binding.caseId} FLOW has no executed assertions`);
         if (complete && complete.status !== 'passed')
@@ -637,12 +693,9 @@ export async function runScenariosCli(
   const reportArguments = argv.flatMap((value, index) =>
     value === '--report' && argv[index + 1] ? [resolve(root, argv[index + 1]!)] : [],
   );
-  // 默认报告名由清单的测试项目派生：unit 类合并为 unit.json，其余每个项目一份 <name>.json。
-  const defaultReports = defaultReportNames(manifest)
-    .map((name) =>
-      resolve(root, `artifacts/${environment.VERIFY_RUN_ID ?? 'local'}/reports/${name}.json`),
-    )
-    .filter((path) => existsSync(path));
+  // 默认报告集合由清单的测试项目派生：unit 类合并为 unit.json，非 perFile 项目各一份
+  // <name>.json，perFile 项目取其目录下的全部报告文件（GATE-14）。
+  const defaultReports = defaultReportPaths(root, environment.VERIFY_RUN_ID ?? 'local', manifest);
   const loaded = await loadReporterOutputs(
     reportArguments.length > 0 ? reportArguments : defaultReports,
   );

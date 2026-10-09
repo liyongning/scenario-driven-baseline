@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 
 export type PackageRole = 'product' | 'protocol' | 'test';
@@ -179,6 +179,31 @@ export function reportNameFor(project: TestProject): string {
 /** 默认报告名清单（去重、保持清单顺序）；运行入口与场景门禁共用同一口径。 */
 export function defaultReportNames(manifest: ProjectManifest): string[] {
   return [...new Set(manifest.testProjects.map(reportNameFor))];
+}
+
+/**
+ * 场景门禁默认读取的报告路径：unit 类与非 perFile 项目各一份 `<name>.json`，
+ * perFile 项目取其目录 `reports/<name>/` 下的全部报告文件（见 GATE-14）。
+ */
+export function defaultReportPaths(
+  root: string,
+  runId: string,
+  manifest: ProjectManifest,
+): string[] {
+  const reportsDirectory = resolve(root, 'artifacts', runId, 'reports');
+  const paths: string[] = [];
+  for (const project of manifest.testProjects) {
+    if (project.perFile) {
+      const directory = join(reportsDirectory, project.name);
+      if (!existsSync(directory)) continue;
+      for (const entry of readdirSync(directory).sort())
+        if (entry.endsWith('.json')) paths.push(join(directory, entry));
+    } else {
+      const path = join(reportsDirectory, `${reportNameFor(project)}.json`);
+      if (existsSync(path)) paths.push(path);
+    }
+  }
+  return [...new Set(paths)];
 }
 
 /** 取登记的覆盖率排除项；清单缺省质量块时返回空数组。 */

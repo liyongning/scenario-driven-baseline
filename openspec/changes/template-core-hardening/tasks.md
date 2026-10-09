@@ -273,7 +273,7 @@
   **Commit**
   - `feat(template): reconcile checkpoints both ways and scope the gate by change`
 
-- [ ] 8. 统一验收入口与过期说明
+- [x] 8. 统一验收入口与过期说明
 
   **Files**
   - Create：`scripts/verify.ts` 及单测（默认 run id 规则；三步顺序；`--from <命令名>`；`--change` 经 `SCENARIO_GATE_CHANGES` 传给全部步骤，未传时不设置；perFile 项目逐文件运行、每文件前执行 `prepare`、每文件一份 `reports/<项目名>/<文件名>.json`、失败先 `prepare` 再整文件重跑一次、续跑跳过已有通过报告的文件；各步耗时与结论）；根 `package.json` 新增 `verify`，`check` 改为调用 `verify`；清单 `requiredCommands` 加入 `verify`。

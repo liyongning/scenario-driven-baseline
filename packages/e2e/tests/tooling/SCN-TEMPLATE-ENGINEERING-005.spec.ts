@@ -247,7 +247,13 @@ cliEvidence(
           command: 'vitest',
           args: ['run', '--project', 'sample-unit', '--coverage'],
           env: {
-            VERIFY_REPORT_FILE: join(renamedRoot, 'artifacts/local/reports/unit.json'),
+            // 报告路径跟随运行入口的 run id（pnpm verify 会设置 VERIFY_RUN_ID），不写死 local。
+            VERIFY_REPORT_FILE: join(
+              renamedRoot,
+              'artifacts',
+              process.env.VERIFY_RUN_ID ?? 'local',
+              'reports/unit.json',
+            ),
           },
         },
       ]);

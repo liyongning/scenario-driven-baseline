@@ -45,6 +45,8 @@
     "check:scenarios",
     "check:package",
     "check:fast",
+    "weapp:prepare",
+    "verify",
     "check"
   ],
   "testProjects": [
@@ -60,7 +62,13 @@
       "class": "integration",
       "config": "packages/e2e/vitest.config.integration.ts"
     },
-    { "name": "weapp", "class": "platform", "config": "packages/e2e/vitest.config.weapp.ts" }
+    {
+      "name": "weapp",
+      "class": "platform",
+      "config": "packages/e2e/vitest.config.weapp.ts",
+      "perFile": true,
+      "prepare": "weapp:prepare"
+    }
   ],
   "fingerprints": {
     "sourceRoots": [

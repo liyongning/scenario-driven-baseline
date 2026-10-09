@@ -203,10 +203,22 @@ test('runCoverageCli reports issues on a partial report and passes when complete
     expect(passing.issues).toEqual([]);
     expect(passing.exitCode).toBe(0);
 
-    // 不带 --root 时以传入的 cwd 为根，缺省报告路径也随之落在该根下。
-    const defaulted = runCoverageCli([], fixture.root);
-    expect(defaulted.exitCode).toBe(1);
-    expect(defaulted.issues.join('\n')).toContain('coverage report');
+    // 不带 --root 时以传入的 cwd 为根，缺省报告路径读取 VERIFY_RUN_ID；
+    // 显式覆盖两种取值，避免结论依赖外层环境（pnpm verify 会设置该变量）。
+    const previousRunId = process.env.VERIFY_RUN_ID;
+    try {
+      delete process.env.VERIFY_RUN_ID;
+      const defaulted = runCoverageCli([], fixture.root);
+      expect(defaulted.exitCode).toBe(1);
+      expect(defaulted.issues.join('\n')).toContain(join(fixture.root, 'artifacts', 'local'));
+      process.env.VERIFY_RUN_ID = 'run-9';
+      const scoped = runCoverageCli([], fixture.root);
+      expect(scoped.exitCode).toBe(1);
+      expect(scoped.issues.join('\n')).toContain(join(fixture.root, 'artifacts', 'run-9'));
+    } finally {
+      if (previousRunId === undefined) delete process.env.VERIFY_RUN_ID;
+      else process.env.VERIFY_RUN_ID = previousRunId;
+    }
   } finally {
     fixture.cleanup();
   }

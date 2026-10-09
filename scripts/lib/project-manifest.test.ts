@@ -14,6 +14,7 @@ import {
   errorMessage,
   loadProjectManifest,
   coverageExclusions,
+  defaultReportPaths,
   defaultReportNames,
   maxLinesExemptions,
   packageByRole,
@@ -411,6 +412,31 @@ evidence(
       context.expect(environmentClassOf('weapp')).toBe('platform');
       context.expect(environmentClassOf('not-registered')).toBeUndefined();
       context.expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
+      // 默认报告由清单测试项目派生：unit 合并为一份，perFile 项目取目录下的全部报告文件。
+      const root = temporaryRoot('project-manifest-reports-');
+      const perFileManifest = baseManifest();
+      perFileManifest.testProjects[3] = {
+        ...perFileManifest.testProjects[3]!,
+        perFile: true,
+      };
+      writeManifest(root, perFileManifest);
+      const reports = join(root, 'artifacts', 'run-1', 'reports');
+      mkdirSync(join(reports, 'platform'), { recursive: true });
+      writeFileSync(join(reports, 'unit.json'), '{"tests":[]}');
+      writeFileSync(join(reports, 'platform', 'notes.md'), 'ignored');
+      writeFileSync(join(reports, 'platform', 'second.json'), '{"tests":[]}');
+      writeFileSync(join(reports, 'platform', 'first.json'), '{"tests":[]}');
+      context
+        .expect(defaultReportPaths(root, 'run-1', loadProjectManifest(root)))
+        .toEqual([
+          join(reports, 'unit.json'),
+          join(reports, 'platform', 'first.json'),
+          join(reports, 'platform', 'second.json'),
+        ]);
+      // 未生成报告的测试项目不进入默认集合。
+      context
+        .expect(defaultReportPaths(root, 'missing-run', loadProjectManifest(root)))
+        .toEqual([]);
     });
 
     await check('scripts-by-manifest', () => {
