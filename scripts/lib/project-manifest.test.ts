@@ -113,6 +113,8 @@ function evidence(
   test(
     `${id} ${caseId}`,
     {
+      // 与 cliEvidence 一致：用例会读真实仓库清单与包目录，在副本/负载下默认 5s 易误判超时。
+      timeout: 30_000,
       meta: {
         scenarioCase: {
           ownerId: id,

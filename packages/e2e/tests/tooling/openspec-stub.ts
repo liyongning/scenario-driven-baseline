@@ -31,12 +31,15 @@ process.exit(${status});
 `,
   );
   chmodSync(executable, 0o755);
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: `${directory}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
+  };
+  // 受控根自带的 active Change 集合与调用方作用域无关：剔除外层 SCENARIO_GATE_CHANGES。
+  delete env.SCENARIO_GATE_CHANGES;
   return {
     directory,
-    env: {
-      ...process.env,
-      PATH: `${directory}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
-    },
+    env,
     cleanup: () => rmSync(directory, { recursive: true, force: true }),
   };
 }

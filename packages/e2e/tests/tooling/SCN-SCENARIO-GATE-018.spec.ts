@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { cliEvidence } from './scenario-gate-helpers.ts';
+import { cliEvidence, runGate } from './scenario-gate-helpers.ts';
 import { controlledFixtureRoot, runFixtureCli, writeOwnerFixture } from './fixture-gate-helpers.ts';
 
 cliEvidence(
@@ -19,11 +19,19 @@ cliEvidence(
           const result = runFixtureCli(gate, args);
           context.expect(result.status).toBe(1);
           context.expect(result.output.issues.join('\n')).toContain('--change 需要 Change 名');
+          const scenarios = runGate(gate.root, args);
+          context.expect(scenarios.status).toBe(1);
+          context.expect(scenarios.output?.issues.join('\n')).toContain('--change 需要 Change 名');
         }
         const fromEnv = runFixtureCli(gate, [], { SCENARIO_GATE_CHANGES: '' });
         context.expect(fromEnv.status).toBe(1);
         context
           .expect(fromEnv.output.issues.join('\n'))
+          .toContain('SCENARIO_GATE_CHANGES 已设置但为空值');
+        const fromEnvScenarios = runGate(gate.root, [], true, { SCENARIO_GATE_CHANGES: '' });
+        context.expect(fromEnvScenarios.status).toBe(1);
+        context
+          .expect(fromEnvScenarios.output?.issues.join('\n'))
           .toContain('SCENARIO_GATE_CHANGES 已设置但为空值');
       });
 
@@ -32,12 +40,26 @@ cliEvidence(
         context.expect(direct.status).toBe(1);
         context.expect(direct.output.issues.join('\n')).toContain('--change nope');
         context.expect(direct.output.issues.join('\n')).toContain('不存在于 active 目录');
+        const directScenarios = runGate(gate.root, ['--change', 'nope']);
+        context.expect(directScenarios.status).toBe(1);
+        context.expect(directScenarios.output?.issues.join('\n')).toContain('--change nope');
+        context.expect(directScenarios.output?.issues.join('\n')).toContain('不存在于 active 目录');
         const archived = runFixtureCli(gate, ['--change', '2026-01-01-old']);
         context.expect(archived.status).toBe(1);
         context.expect(archived.output.issues.join('\n')).toContain('--change 2026-01-01-old');
+        const archivedScenarios = runGate(gate.root, ['--change', '2026-01-01-old']);
+        context.expect(archivedScenarios.status).toBe(1);
+        context
+          .expect(archivedScenarios.output?.issues.join('\n'))
+          .toContain('--change 2026-01-01-old');
         const fromEnv = runFixtureCli(gate, [], { SCENARIO_GATE_CHANGES: 'nope' });
         context.expect(fromEnv.status).toBe(1);
         context.expect(fromEnv.output.issues.join('\n')).toContain('SCENARIO_GATE_CHANGES nope');
+        const fromEnvScenarios = runGate(gate.root, [], true, { SCENARIO_GATE_CHANGES: 'nope' });
+        context.expect(fromEnvScenarios.status).toBe(1);
+        context
+          .expect(fromEnvScenarios.output?.issues.join('\n'))
+          .toContain('SCENARIO_GATE_CHANGES nope');
       });
 
       await check('no-fallback', () => {
@@ -45,6 +67,11 @@ cliEvidence(
         context.expect(result.status).toBe(1);
         context.expect(result.output).not.toHaveProperty('manifests');
         context.expect(result.output.issues.join('\n')).not.toContain('来源摘要过期');
+        const scenarios = runGate(gate.root, ['--change', 'nope']);
+        context.expect(scenarios.status).toBe(1);
+        context.expect(scenarios.output).not.toHaveProperty('scenarios');
+        context.expect(scenarios.output).not.toHaveProperty('flows');
+        context.expect(scenarios.output?.issues.join('\n')).not.toContain('missing binding');
       });
     } finally {
       gate.cleanup();

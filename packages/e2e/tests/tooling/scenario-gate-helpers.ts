@@ -101,12 +101,17 @@ export function enableInventory(root: string) {
   }
 }
 
-export function runGate(root: string, args: string[] = [], available = true) {
+export function runGate(
+  root: string,
+  args: string[] = [],
+  available = true,
+  environment: Readonly<Record<string, string>> = {},
+) {
   const stub = createOpenSpecStub({ available });
   try {
     const result = spawnSync(tsx, [gateScript, ...args], {
       cwd: root,
-      env: stub.env,
+      env: { ...stub.env, ...environment },
       encoding: 'utf8',
     });
     return {
@@ -120,6 +125,7 @@ export function runGate(root: string, args: string[] = [], available = true) {
             flows?: unknown[];
             summaries?: unknown;
             digests?: unknown;
+            help?: string;
             mode?: string;
           })
         : undefined,

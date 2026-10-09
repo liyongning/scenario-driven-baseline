@@ -4,7 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { readSpecInventory } from './lib/spec-inventory.ts';
-import { readEffectiveSpecs } from './lib/spec-sources.ts';
+import {
+  activeChangeNames,
+  changeScopeHelp,
+  readEffectiveSpecs,
+  resolveChangeScope,
+} from './lib/spec-sources.ts';
 import { loadScenarioConfig, validateScenarioConfig } from './lib/scenario-config.ts';
 import { buildContractInventory } from './lib/contract-inventory.ts';
 import { buildVerificationFingerprints } from './lib/fingerprints.ts';
@@ -28,6 +33,13 @@ export type ScenarioCommand = (
   args: ReadonlyArray<string>,
   options: Readonly<{ cwd: string }>,
 ) => ScenarioCommandResult;
+
+/** `check:scenarios` 的命令帮助；作用域默认语义见 GATE-12。 */
+export const scenariosHelp = [
+  'check:scenarios 对账 Scenario/FLOW/协议义务的登记与执行证据。',
+  '用法：pnpm check:scenarios [--inventory] [--report <file>...] [--input <file>] [--change <name>[,<name>]] [--help]',
+  changeScopeHelp,
+].join('\n');
 
 const defaultScenarioCommand: ScenarioCommand = (command, args, options) => {
   const result = spawnSync(command, [...args], { cwd: options.cwd, encoding: 'utf8' });
@@ -140,6 +152,7 @@ async function loadPrecheckProjects(
 export async function runScenarioPrechecks(
   root: string,
   command: ScenarioCommand = defaultScenarioCommand,
+  options: Readonly<{ changes?: ReadonlyArray<string> }> = {},
 ): Promise<ScenarioPrecheckResult> {
   const issues: string[] = [];
   const specsDirectory = resolve(root, 'openspec/specs');
@@ -178,27 +191,44 @@ export async function runScenarioPrechecks(
   const configIssues = validateScenarioConfig(config);
   if (configIssues.length > 0) issues.push(...configIssues.map((issue) => `precheck: ${issue}`));
   const projects = await loadPrecheckProjects(root, issues);
-  const inventory = await readSpecInventory(effective.documents, config, projects);
+  // 格式前置检查（GATE-01/02/05/06）始终覆盖全部 active Change；作用域只收窄覆盖清单。
+  const fullInventory = await readSpecInventory(effective.documents, config, projects);
+  const scopedEffective =
+    options.changes === undefined
+      ? effective
+      : await readEffectiveSpecs(root, { changes: options.changes });
+  const scopedInventory =
+    options.changes === undefined
+      ? fullInventory
+      : await readSpecInventory(scopedEffective.documents, config, projects);
 
   // Keep diagnostics deterministic and aligned with the gate contract:
   // identity checks, FLOW placement/rows, then verification metadata.
-  const idIssues: string[] = [];
-  const flowIssues: string[] = [];
-  const verificationIssues: string[] = [];
-  const otherIssues: string[] = [];
-  for (const issue of [...effective.issues, ...inventory.issues]) {
-    if (
-      /Scenario ID|Scenario heading|duplicate Scenario ID|duplicate FLOW ID|invalid FLOW ID/.test(
-        issue,
+  const classify = (list: ReadonlyArray<string>) => {
+    const buckets = {
+      id: [] as string[],
+      flow: [] as string[],
+      verification: [] as string[],
+      other: [] as string[],
+    };
+    for (const issue of list) {
+      if (
+        /Scenario ID|Scenario heading|duplicate Scenario ID|duplicate FLOW ID|invalid FLOW ID/.test(
+          issue,
+        )
       )
-    )
-      idIssues.push(issue);
-    else if (/FLOW (?:table|row)|invalid FLOW row/.test(issue)) flowIssues.push(issue);
-    else if (/verification/.test(issue)) verificationIssues.push(issue);
-    else otherIssues.push(issue);
-  }
-  issues.push(...idIssues, ...flowIssues, ...verificationIssues, ...otherIssues);
-  return { issues, effective, inventory };
+        buckets.id.push(issue);
+      else if (/FLOW (?:table|row)|invalid FLOW row/.test(issue)) buckets.flow.push(issue);
+      else if (/verification/.test(issue)) buckets.verification.push(issue);
+      else buckets.other.push(issue);
+    }
+    return buckets;
+  };
+  // 格式类问题取自全量来源（覆盖全部 active Change）；非格式问题取自作用域来源，避免重复。
+  const full = classify([...effective.issues, ...fullInventory.issues]);
+  const scoped = classify([...scopedEffective.issues, ...scopedInventory.issues]);
+  issues.push(...full.id, ...full.flow, ...full.verification, ...scoped.other);
+  return { issues, effective: scopedEffective, inventory: scopedInventory };
 }
 
 type ReporterOutput = Readonly<{
@@ -468,6 +498,31 @@ export function evaluateCoverage(input: CoverageInput) {
     }
   }
 
+  // GATE-11 反向检查：以绑定为对账单位，实际执行的 checkpoint 必须落在
+  // 该绑定全部 cover 的登记集合内（Scenario/FLOW 取有效 Spec 声明的 checks，
+  // 协议义务取 `<义务 ID>/<case>` 形式）。
+  const bindingLedger = new Map<string, Set<string>>();
+  for (const binding of input.bindings) {
+    const key = `${binding.environment}/${binding.caseId}`;
+    const registered = bindingLedger.get(key) ?? new Set<string>();
+    for (const cover of binding.covers) {
+      const item = scenarioCases.get(`${cover.id}/${cover.caseKey}`);
+      if (item) for (const checkpoint of item.checks) registered.add(checkpoint);
+      else if (contractCases.has(`${cover.id}/${cover.caseKey}`))
+        registered.add(`${cover.id}/${cover.caseKey}`);
+    }
+    bindingLedger.set(key, registered);
+  }
+  for (const report of input.reports) {
+    const registered = bindingLedger.get(`${report.project}/${report.caseId}`);
+    if (!registered) continue;
+    for (const checkpoint of report.checkpoints)
+      if (!registered.has(checkpoint))
+        issues.push(
+          `未登记的 checkpoint：${report.file} 的绑定 ${report.project}/${report.caseId} 执行了 ${checkpoint}`,
+        );
+  }
+
   const currentIds = new Set([
     ...input.scenarios.map((item) => item.id),
     ...input.contracts.map((item) => item.id),
@@ -531,6 +586,11 @@ export async function runScenariosCli(
   environment: Readonly<Record<string, string | undefined>> = process.env,
   command: ScenarioCommand = defaultScenarioCommand,
 ) {
+  if (argv.includes('--help') || argv.includes('-h'))
+    return {
+      output: { mode: 'help', issues: [], help: scenariosHelp },
+      exitCode: 0,
+    };
   const inputIndex = argv.indexOf('--input');
   if (inputIndex >= 0 && argv[inputIndex + 1]) {
     const input = JSON.parse(
@@ -539,7 +599,23 @@ export async function runScenariosCli(
     const result = evaluateCoverage(input);
     return { output: result, exitCode: Math.min(1, result.issues.length) };
   }
-  const precheck = await runScenarioPrechecks(root, command);
+  const resolution = resolveChangeScope({
+    argv,
+    environment,
+    activeChanges: await activeChangeNames(root),
+  });
+  // 作用域非法时不输出覆盖结论，也不退化为不带作用域运行。
+  if (resolution.issues.length > 0)
+    return {
+      output: {
+        mode: argv.includes('--inventory') ? 'inventory' : 'complete',
+        issues: [...resolution.issues],
+      },
+      exitCode: 1,
+    };
+  const precheck = await runScenarioPrechecks(root, command, {
+    ...(resolution.scope.changes === undefined ? {} : { changes: resolution.scope.changes }),
+  });
   if (precheck.issues.length > 0) {
     return {
       output: {

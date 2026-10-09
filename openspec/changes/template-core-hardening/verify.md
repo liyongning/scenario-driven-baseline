@@ -344,3 +344,63 @@
 **优先采用现成方案**
 - Requirement 块定位/规范化复用既有 `remark-parse`/`remark-gfm`/`unified`（FLOW 表）与 `node:crypto` sha256；归档用固定版本官方 OpenSpec CLI（`openspec archive -y`），未自研归档；CLI 运行用仓库既有 `tsx`；无新增依赖、无自研通用基建。
 - 摘要来源与作用域解析直接在 `spec-sources.ts` 内实现（唯一自研点），因为任务契约要求 `check:fixtures` 与 Task 7 的 `check:scenarios` 共用同一套“有效来源合并 + 作用域”语义；已用受控根与真实归档双向验证。
+
+### Task 7 checkpoint 双向对账与 Change 作用域
+
+**Commit message**：`feat(template): reconcile checkpoints both ways and scope the gate by change`
+
+**RED（预期失败的反例，已实际执行）**
+- `git stash push -- scripts/check-scenarios.ts`（保留 Task 6 已提交的 `spec-sources.ts` 作用域 API，使新用例可加载 helper），随后运行新增/改动的用例：
+  - 集成：`node_modules/.bin/vitest run --project integration SCN-SCENARIO-GATE-016.spec.ts 017.spec.ts 018.spec.ts 019.spec.ts 003.spec.ts`，退出码 **1**，`6 failed | 2 passed (8)`，日志 `/tmp/t7-red-int.log`：016 三个 case（未登记 checkpoint 仍通过）、017 `change-scope-scenarios-cli`（`--change`/`SCENARIO_GATE_CHANGES` 不识别）、018 `change-arg-cli` 的 scenarios 断言、019 `unscoped-format-cli` 全失败；003 `active-change-cli` 与 017 `change-scope-fixtures-cli`（Task 6 已交付）通过，证明 RED 只打在本次新增能力上。
+  - 单测：`vitest run --project test-tools-unit scripts/check-scenarios.test.ts`，退出码 **1**，`3 failed | 19 passed (22)`，日志 `/tmp/t7-red-unit.log`：`prints help, rejects illegal change scope, and scopes the inventory`（旧实现不识别 `--help`/`--change`）、`SCN-SCENARIO-GATE-016 reverse-checkpoint-rules`、`SCN-SCENARIO-GATE-019 unscoped-format-rules`。
+- 执行后 `git stash pop` 恢复，`git stash list` 为空。
+
+**GREEN**
+- `pnpm typecheck` 退出 0；`pnpm test:unit` 47 文件 / 320 用例，`Statements/Branches/Functions/Lines` 均 100%。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration` 连续 **2 次**退出 0（42 文件 / 101 用例），日志 `/tmp/t7-integration-runA.log`、`/tmp/t7-integration-runB.log`。
+- `pnpm check:scenarios --change template-core-hardening` 从 383 条降到 **376 条**，且**没有**任何「未登记的 checkpoint」：现仓库协议矩阵用例（同时 cover `SCN-PROTOCOL-CONTRACT-002` 与全部派生协议义务）不被误报。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出 0，日志 `/tmp/t7-checkfast.log`。
+
+**命令与退出码**
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 旧实现 + 6 新集成用例（RED） | 1 | `/tmp/t7-red-int.log`（6 failed / 2 passed） |
+| 旧实现 + 3 新单测（RED） | 1 | `/tmp/t7-red-unit.log`（3 failed / 19 passed） |
+| `pnpm typecheck` | 0 | `/tmp/t7-typecheck2.log` |
+| `pnpm test:unit` | 0 | 47 文件 / 320 用例，100% 覆盖率（`/tmp/t7-unit-full4.log`） |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration`（第 1 次） | 0 | 42 文件 / 101 用例，`/tmp/t7-integration-runA.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:integration`（第 2 次） | 0 | 42 文件 / 101 用例，`/tmp/t7-integration-runB.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:scenarios --change template-core-hardening` | 1（覆盖门禁语义：仍缺后续任务绑定） | 376 条（见下），`/tmp/t7-scenarios.json` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | `/tmp/t7-checkfast.log` |
+
+**报告路径**：单测覆盖率 `artifacts/local/coverage/`；集成报告 `artifacts/local/reports/{unit,integration}.json`；RED/GREEN 期间的临时日志在 `/tmp/t7-*.log`、`/tmp/t7-scenarios.json`。
+
+**场景门禁剩余问题归属（376 条）**
+- 362 条 `missing binding for <project>`：Task 10–17 尚未登记的 case（协议义务、示例、文档、规模用例等）。
+- 13 条 `checkpoint did not execute`，全部属于本任务之外的 Scenario：`SCN-PROTOCOL-CONTRACT-001/derivation-rules`（8）、`SCN-PROTOCOL-CONTRACT-002/protocol-matrix`（2）、`SCN-TEMPLATE-ENGINEERING-001/sdk-does-not-reexport-network`（1）、`SCN-TEMPLATE-ENGINEERING-00x/missing-comment-rejected`（2）→ Task 10/14/15/16 与协议义务用例。
+- 1 条 `FLOW-TEMPLATE-EXAMPLE-001/normal: missing FLOW binding for weapp`：weapp 绑定在 Task 17/18 的运行中产生。
+- 本任务的 GATE-11/12 相关 Scenario（016 的 4 个 case、017 `change-scope-scenarios-cli`、018/019）已 0 问题；003/004/007 回归通过。
+
+**Review / Acceptance：现仓库在反向检查下的结果**
+- 现仓库全部绑定在执行集合上都落在「该绑定全部 cover 的登记集合」内，未登记的 checkpoint 为 0 条，无需补登记或删断言。
+- 多 cover 绑定（协议矩阵用例同时 cover 一个 Scenario 与上百条协议义务）以绑定为单位对账，执行集合恰为各 cover checks 的并集，未被误报（集成 016 `multi-cover-binding-cli` + 单测 `binding-union-ledger` 双向佐证）。
+
+**方案与实际的差异**
+- **已授权的偏离（涉及 Task 7 Files 之外的文件）**：`scripts/lib/project-manifest.test.ts` 的 `evidence` 包装增加显式 `timeout: 30_000`。原因：`SCN-SCENARIO-GATE-026` 在仓库副本内跑 `pnpm test:unit`，副本内 `SCN-TEMPLATE-ENGINEERING-005 manifest-rules` 在 HEAD 时已用 4651ms（默认 5s 预算的 93%），Task 7 新增的必需用例负载把它推到 5020–5710ms 超时；本分支 `test:integration` 全量因此连续 5 次红，而 HEAD 状态连续 2 次全绿（40 文件/96 用例）、GATE-026 单独跑本分支 39.3s vs HEAD 33.3s。用户裁决选 A：只加超时，不改断言与语义；本行即登记。
+- 同类处理（在 Task 7 Files 内，无需额外授权）：`scripts/check-scenarios.test.ts` 的两个 spawn/重负载用例补 `30_000` 显式超时（`runs both controlled-input and live-inventory CLI composition paths`、`prints help, rejects illegal change scope, and scopes the inventory`），与仓库既有 `cliEvidence`（30s）和 `SCN-SCENARIO-GATE-026`（300s）的约定一致。
+- 为把副本内负载压回 HEAD 水位：单测 `SCN-SCENARIO-GATE-016 reverse-checkpoint-rules` 改为进程内调用 `evaluateCoverage`（module 类证据的正确粒度），CLI 路径由集成用例 016 的三个 case 承担；集成 016 内复用同一输入的运行结果，不再重复 spawn `tsx`。
+- `check:scenarios` 的作用域实现沿用 Task 6 的 `resolveChangeScope`/`changeScopeHelp`：作用域只收窄覆盖清单（`scopedEffective`/`scopedInventory` 的 `other` 桶），GATE-01/02/05/06 的格式桶（id/flow/verification）始终取全量来源，满足 GATE-12「格式前置检查不受作用域影响」；非法作用域在 precheck 之前短路，`--inventory` 同时出现时也只回 `{mode:'inventory', issues}`，不输出覆盖结论。
+- 反向对账取 `evaluateCoverage` 的绑定台账（key=`<environment>/<caseId>`）：Scenario/FLOW 用有效 Spec 声明的 `checks`，协议义务 cover 用 `<义务 ID>/<case>`；报告中的 `checkpoints` 不在台账内即报「未登记的 checkpoint：<file> 的绑定 <project>/<caseId> 执行了 <checkpoint>」。
+- `SCN-SCENARIO-GATE-003` 相关用例未改动：GATE-03 的文字只在末尾追加了作用域默认语义说明，`SCN-SCENARIO-GATE-003` 的 case 与 checks 未变，003 的 module/CLI 证据在改动前后均通过（回归验证）。
+- 受控根/替身 `env` 统一 `delete env.SCENARIO_GATE_CHANGES`，避免外层作用域泄漏到受控根；`runGate` 增加第 4 个 `environment` 参数与 `help` 输出字段，供 017/018 显式注入作用域与断言帮助文本。
+
+**weapp 重跑记录**：N/A（本任务不改动 weapp 用例，`check:fast` 不含 weapp；weapp 证据在 Task 17/18 运行）。
+
+**按需选择结果**：N/A（`test:affected` 由任务 9 交付；本任务按 `test:integration` 全量运行）。
+
+**OI-CH-02 统计**：本任务无“按需通过、全量失败”记录（按需入口尚未交付）。附记：默认 5s 超时造成的全量抖动不属 OI-CH-02，见上「方案与实际的差异」第 1 条。
+
+**优先采用现成方案**
+- 反向对账直接复用 `evaluateCoverage` 已有的「cover → ScenarioCase/协议义务」索引，不新建登记表或校验器。
+- 作用域解析与帮助文本复用 Task 6 的 `spec-sources.ts`（`parseChangeArguments`/`resolveChangeScope`/`changeScopeHelp`），`check:scenarios` 只做接入，未自研第二套参数解析。
+- 集成用例的受控根、OpenSpec 替身、清单复制、`enableInventory` 全部复用 Task 3–6 的 helper（`createControlledRoot`/`scenario-gate-helpers`/`controlled-root`），未新增框架。

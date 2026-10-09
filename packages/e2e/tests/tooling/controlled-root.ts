@@ -116,6 +116,8 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
         ...process.env,
         PATH: `${resolve(repositoryRoot, 'node_modules/.bin')}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
       };
+  // 受控根以自身 active Change 为准：剔除外层 SCENARIO_GATE_CHANGES，避免作用域泄漏。
+  delete env.SCENARIO_GATE_CHANGES;
   return {
     root,
     env,

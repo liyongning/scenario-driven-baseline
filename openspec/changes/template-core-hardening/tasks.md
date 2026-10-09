@@ -241,7 +241,7 @@
   **Commit**
   - `feat(template): bind fixtures to requirement digests instead of spec paths`
 
-- [ ] 7. checkpoint 双向对账与 Change 作用域
+- [x] 7. checkpoint 双向对账与 Change 作用域
 
   **Files**
   - Modify：`scripts/check-scenarios.ts` 及单测（反向检查：以绑定为对账单位，登记集合为全部 cover 的 checks 并集，Scenario/FLOW 取有效 Spec 声明、协议义务取派生义务清单且 checkpoint 形如 `<义务 ID>/<case>`；`--change` 接入任务 6 的作用域 API、命令行无 `--change` 时读取 `SCENARIO_GATE_CHANGES`、帮助文本）。
