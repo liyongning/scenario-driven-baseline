@@ -13,17 +13,24 @@ const entries = [
 ];
 
 export default defineConfig({
-  plugins: [dts({
-    tsconfigPath: './tsconfig.build.json',
-    entryRoot: 'src',
-    bundleTypes: true,
-    outDirs: ['dist', { dir: 'dist', moduleFormat: 'cjs' }],
-    aliasesExclude: ['@daqian/template-protocol'],
-  })],
+  plugins: [
+    dts({
+      tsconfigPath: './tsconfig.build.json',
+      entryRoot: 'src',
+      bundleTypes: true,
+      outDirs: ['dist', { dir: 'dist', moduleFormat: 'cjs' }],
+      aliasesExclude: ['@daqian/template-protocol'],
+    }),
+  ],
   build: {
     target: 'es2020',
     lib: {
-      entry: Object.fromEntries(entries.map(entry => [entry, fileURLToPath(new URL(`./src/${entry}.ts`, import.meta.url))])),
+      entry: Object.fromEntries(
+        entries.map((entry) => [
+          entry,
+          fileURLToPath(new URL(`./src/${entry}.ts`, import.meta.url)),
+        ]),
+      ),
       formats: ['es', 'cjs'],
       fileName: (format, entry) => `${entry}.${format === 'es' ? 'js' : 'cjs'}`,
     },

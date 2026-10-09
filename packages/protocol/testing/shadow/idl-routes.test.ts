@@ -3,23 +3,54 @@ import { CreateTrade, QueryTrade } from '../../src/generated/idl/infra/trade/v1/
 import { exampleRpcMethods } from './example/routes.ts';
 import { routesFromRpcMethods } from './idl-routes.ts';
 
-test('SCN-PROTOCOL-CONTRACT-004 idl-route-source', { meta: { scenarioCase: {
-  ownerId: 'SCN-PROTOCOL-CONTRACT-004', caseId: 'idl-route-source', environment: 'protocol-unit', fixtureCase: null,
-  covers: [{ id: 'SCN-PROTOCOL-CONTRACT-004', caseKey: 'idl-route-source', checks: ['idl-route-source'] }],
-} } }, async context => {
-  const assertionsBefore = context.expect.getState().assertionCalls;
-  // 生成描述 -> 中立路由：方法名、HTTP 方法与路径与生成描述一致。
-  context.expect(routesFromRpcMethods(exampleRpcMethods, exampleRpcMethods)).toEqual([
-    { methodName: 'CreateTrade', httpMethod: 'POST', path: CreateTrade.meta.path },
-    { methodName: 'QueryTrade', httpMethod: 'POST', path: QueryTrade.meta.path },
-  ]);
-  // 缺少所需方法时报错，不静默跳过。
-  context.expect(() => routesFromRpcMethods(exampleRpcMethods, [QueryTrade.meta])).toThrow(/CreateTrade/);
-  // 缺少路径、HTTP 方法或 codec 时报错。
-  const { requestCodec, ...withoutCodec } = CreateTrade.meta;
-  void requestCodec;
-  context.expect(() => routesFromRpcMethods([CreateTrade.meta], [{ ...CreateTrade.meta, path: '' }])).toThrow(/not an HTTP method/);
-  context.expect(() => routesFromRpcMethods([CreateTrade.meta], [{ ...CreateTrade.meta, method: '' }])).toThrow(/not an HTTP method/);
-  context.expect(() => routesFromRpcMethods([CreateTrade.meta], [withoutCodec as never])).toThrow(/not an HTTP method/);
-  await context.annotate(JSON.stringify({ assertions: context.expect.getState().assertionCalls - assertionsBefore, checkpoints: ['idl-route-source'] }), 'scenario-evidence');
-});
+test(
+  'SCN-PROTOCOL-CONTRACT-004 idl-route-source',
+  {
+    meta: {
+      scenarioCase: {
+        ownerId: 'SCN-PROTOCOL-CONTRACT-004',
+        caseId: 'idl-route-source',
+        environment: 'protocol-unit',
+        fixtureCase: null,
+        covers: [
+          {
+            id: 'SCN-PROTOCOL-CONTRACT-004',
+            caseKey: 'idl-route-source',
+            checks: ['idl-route-source'],
+          },
+        ],
+      },
+    },
+  },
+  async (context) => {
+    const assertionsBefore = context.expect.getState().assertionCalls;
+    // 生成描述 -> 中立路由：方法名、HTTP 方法与路径与生成描述一致。
+    context.expect(routesFromRpcMethods(exampleRpcMethods, exampleRpcMethods)).toEqual([
+      { methodName: 'CreateTrade', httpMethod: 'POST', path: CreateTrade.meta.path },
+      { methodName: 'QueryTrade', httpMethod: 'POST', path: QueryTrade.meta.path },
+    ]);
+    // 缺少所需方法时报错，不静默跳过。
+    context
+      .expect(() => routesFromRpcMethods(exampleRpcMethods, [QueryTrade.meta]))
+      .toThrow(/CreateTrade/);
+    // 缺少路径、HTTP 方法或 codec 时报错。
+    const { requestCodec, ...withoutCodec } = CreateTrade.meta;
+    void requestCodec;
+    context
+      .expect(() => routesFromRpcMethods([CreateTrade.meta], [{ ...CreateTrade.meta, path: '' }]))
+      .toThrow(/not an HTTP method/);
+    context
+      .expect(() => routesFromRpcMethods([CreateTrade.meta], [{ ...CreateTrade.meta, method: '' }]))
+      .toThrow(/not an HTTP method/);
+    context
+      .expect(() => routesFromRpcMethods([CreateTrade.meta], [withoutCodec as never]))
+      .toThrow(/not an HTTP method/);
+    await context.annotate(
+      JSON.stringify({
+        assertions: context.expect.getState().assertionCalls - assertionsBefore,
+        checkpoints: ['idl-route-source'],
+      }),
+      'scenario-evidence',
+    );
+  },
+);

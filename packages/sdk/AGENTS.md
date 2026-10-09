@@ -20,4 +20,5 @@
 ### 依赖规则与平台限制
 
 `domain-core-no-generated` 防止任一业务模块的核心和端口绑定传输模型，`core-no-platform-or-node` 防止核心、端口与 `runtime/` 依赖 Node 内置模块，`domain-isolation` 防止产品包内不同业务模块目录互相导入。`eslint.config.js` 中 core/ports 的 `wx` 限制防止平台全局穿透核心层；平台调用必须留在适配器边界。
+
 - 这些守卫按目录模式覆盖 `src/` 下除 `runtime/` 外的全部业务模块（`src/<模块>/core/`、`src/<模块>/ports/`），新增业务模块无需修改配置即受约束；业务模块须沿用 `core/`、`ports/` 目录名。`runtime/` 是共享运行辅助，不建立 `core/`、`ports/` 子目录。

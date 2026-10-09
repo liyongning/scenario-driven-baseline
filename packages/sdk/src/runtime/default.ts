@@ -16,7 +16,7 @@ function nextRequestId(): string {
 
 function sleepMs(durationMs: number, cancellation?: Cancellation): Promise<void> {
   if (cancellation?.isStopped()) return Promise.resolve();
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     let settled = false;
     let unsubscribe: (() => void) | undefined = undefined;
     const finish = () => {

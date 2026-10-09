@@ -4,11 +4,11 @@
 
 使用入口见 [模板使用指南](docs/template-guide.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
-| Workspace 目录 | 包名 | 职责 |
-| --- | --- | --- |
-| packages/sdk | @daqian/template-sdk | 公共入口与示例能力（`src/example/`）：工厂校验装配，核心编排端口，适配器负责外部协议映射 |
-| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow |
-| packages/e2e | @daqian/template-e2e | private 测试工程，不发布 |
+| Workspace 目录    | 包名                      | 职责                                                                                     |
+| ----------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| packages/sdk      | @daqian/template-sdk      | 公共入口与示例能力（`src/example/`）：工厂校验装配，核心编排端口，适配器负责外部协议映射 |
+| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow                           |
+| packages/e2e      | @daqian/template-e2e      | private 测试工程，不发布                                                                 |
 
 消费方只安装产品包。产品包采用独立版本，协议依赖固定到精确版本，发布统一由 SDK 发布入口处理；不需要发布能力时可按指南“包发布”替换点整块删除。
 
@@ -45,4 +45,3 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 ## 维护者说明
 
 工作流 schema（`openspec/schemas/`）不随本模板提交：`.gitignore` 不忽略它，使用方按 Change Skill 安装后应正常提交。模板仓库自己维护时，如果不希望跟踪 schema，在 `.git/info/exclude` 中本地排除，而不是修改 `.gitignore`。
-

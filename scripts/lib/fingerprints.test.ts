@@ -6,17 +6,45 @@ import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildVerificationFingerprints, collectFiles, digestFiles } from './fingerprints.ts';
 
 /** 指纹目录来自项目清单，测试根目录写入一份最小清单。 */
-function writeFingerprintManifest(root: string, sourceRoots: ReadonlyArray<string>, hostRoots: ReadonlyArray<string>) {
-  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify({
-    packages: [
-      { directory: 'sdk', name: '@daqian/template-sdk', role: 'product', private: false, allowedDirectories: ['src'] },
-      { directory: 'protocol', name: '@daqian/template-protocol', role: 'protocol', private: false, allowedDirectories: ['src', 'testing'] },
-      { directory: 'e2e', name: '@daqian/template-e2e', role: 'test', private: true, allowedDirectories: ['src', 'host', 'tests'] },
-    ],
-    requiredCommands: ['check:fast'],
-    testProjects: [{ name: 'sdk-unit', class: 'unit' }, { name: 'integration', class: 'integration' }],
-    fingerprints: { sourceRoots: [...sourceRoots], hostRoots: [...hostRoots] },
-  }));
+function writeFingerprintManifest(
+  root: string,
+  sourceRoots: ReadonlyArray<string>,
+  hostRoots: ReadonlyArray<string>,
+) {
+  writeFileSync(
+    join(root, 'project.manifest.json'),
+    JSON.stringify({
+      packages: [
+        {
+          directory: 'sdk',
+          name: '@daqian/template-sdk',
+          role: 'product',
+          private: false,
+          allowedDirectories: ['src'],
+        },
+        {
+          directory: 'protocol',
+          name: '@daqian/template-protocol',
+          role: 'protocol',
+          private: false,
+          allowedDirectories: ['src', 'testing'],
+        },
+        {
+          directory: 'e2e',
+          name: '@daqian/template-e2e',
+          role: 'test',
+          private: true,
+          allowedDirectories: ['src', 'host', 'tests'],
+        },
+      ],
+      requiredCommands: ['check:fast'],
+      testProjects: [
+        { name: 'sdk-unit', class: 'unit' },
+        { name: 'integration', class: 'integration' },
+      ],
+      fingerprints: { sourceRoots: [...sourceRoots], hostRoots: [...hostRoots] },
+    }),
+  );
 }
 
 describe('verification fingerprints', () => {
@@ -24,8 +52,9 @@ describe('verification fingerprints', () => {
     const root = mkdtempSync(join(tmpdir(), 'template-fingerprint-'));
     writeFileSync(join(root, 'a'), 'one');
     writeFileSync(join(root, 'b'), 'two');
-    expect(digestFiles(root, [join(root, 'a'), join(root, 'b')]))
-      .toBe(digestFiles(root, [join(root, 'b'), join(root, 'a')]));
+    expect(digestFiles(root, [join(root, 'a'), join(root, 'b')])).toBe(
+      digestFiles(root, [join(root, 'b'), join(root, 'a')]),
+    );
     const before = digestFiles(root, [join(root, 'a')]);
     writeFileSync(join(root, 'a'), 'changed');
     expect(digestFiles(root, [join(root, 'a')])).not.toBe(before);
@@ -36,59 +65,131 @@ describe('verification fingerprints', () => {
   it('builds source, Spec, IDL, and Fixture digests from the reviewed repository inputs', () => {
     const root = mkdtempSync(join(tmpdir(), 'template-fingerprint-tree-'));
     for (const directory of [
-      'packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing',
-      'packages/e2e/src', 'packages/e2e/host/weapp', 'packages/e2e/tests/fixtures', 'scripts',
+      'packages/sdk/src',
+      'packages/protocol/src',
+      'packages/protocol/testing',
+      'packages/e2e/src',
+      'packages/e2e/host/weapp',
+      'packages/e2e/tests/fixtures',
+      'scripts',
       'openspec/changes/archive/2026-01-01-template-example/specs/template-example',
       'openspec/changes/archive/2026-01-01-template-example/specs/template-engineering',
-    ]) mkdirSync(join(root, directory), { recursive: true });
+    ])
+      mkdirSync(join(root, directory), { recursive: true });
     writeFileSync(join(root, 'packages/sdk/src/index.ts'), 'sdk');
     writeFileSync(join(root, 'packages/protocol/src/index.ts'), 'protocol');
     writeFileSync(join(root, 'packages/protocol/testing/index.ts'), 'shadow');
     writeFileSync(join(root, 'packages/e2e/src/index.ts'), 'e2e');
     writeFileSync(join(root, 'packages/e2e/host/weapp/app.js'), 'App({});');
-    writeFileSync(join(root, 'packages/e2e/host/weapp/app.json'), '{"pages":["pages/index/index"]}');
-    writeFileSync(join(root, 'packages/e2e/host/weapp/project.config.json'), '{"libVersion":"3.10.3"}');
+    writeFileSync(
+      join(root, 'packages/e2e/host/weapp/app.json'),
+      '{"pages":["pages/index/index"]}',
+    );
+    writeFileSync(
+      join(root, 'packages/e2e/host/weapp/project.config.json'),
+      '{"libVersion":"3.10.3"}',
+    );
     mkdirSync(join(root, 'packages/e2e/host/weapp/pages/index'), { recursive: true });
     writeFileSync(join(root, 'packages/e2e/host/weapp/pages/index/index.json'), '{}');
     writeFileSync(join(root, 'packages/e2e/host/weapp/pages/index/index.wxml'), '<view />');
     writeFileSync(join(root, 'packages/e2e/host/weapp/pages/index/index.wxss'), 'view {}');
     writeFileSync(join(root, 'scripts/check.ts'), 'tool');
     writeFileSync(join(root, 'packages/e2e/tests/fixtures/base.json'), '{}');
-    writeFileSync(join(root, 'openspec/changes/archive/2026-01-01-template-example/specs/template-example/spec.md'), 'archived spec');
-    writeFileSync(join(root, 'openspec/changes/archive/2026-01-01-template-example/specs/template-engineering/spec.md'), 'archived engineering spec');
+    writeFileSync(
+      join(
+        root,
+        'openspec/changes/archive/2026-01-01-template-example/specs/template-example/spec.md',
+      ),
+      'archived spec',
+    );
+    writeFileSync(
+      join(
+        root,
+        'openspec/changes/archive/2026-01-01-template-example/specs/template-engineering/spec.md',
+      ),
+      'archived engineering spec',
+    );
     mkdirSync(join(root, 'openspec/specs/template-example'), { recursive: true });
     writeFileSync(join(root, 'openspec/specs/template-example/spec.md'), 'active spec');
     mkdirSync(join(root, 'openspec/changes/current/specs/template-example'), { recursive: true });
-    writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'delta spec');
+    writeFileSync(
+      join(root, 'openspec/changes/current/specs/template-example/spec.md'),
+      'delta spec',
+    );
     writeFileSync(join(root, 'proto-gen.lock'), 'idl');
-    writeFingerprintManifest(root, [
-      'packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing',
-      'packages/e2e/src', 'packages/e2e/tests', 'scripts',
-    ], ['packages/e2e/host']);
+    writeFingerprintManifest(
+      root,
+      [
+        'packages/sdk/src',
+        'packages/protocol/src',
+        'packages/protocol/testing',
+        'packages/e2e/src',
+        'packages/e2e/tests',
+        'scripts',
+      ],
+      ['packages/e2e/host'],
+    );
 
     const fingerprints = buildVerificationFingerprints(root);
     expect(Object.values(fingerprints)).toHaveLength(4);
-    expect(Object.values(fingerprints).every(value => /^[a-f0-9]{64}$/.test(value))).toBe(true);
+    expect(Object.values(fingerprints).every((value) => /^[a-f0-9]{64}$/.test(value))).toBe(true);
 
     const oldSourceDigest = fingerprints.sourceDigest;
     const oldSpecDigest = fingerprints.specDigest;
     writeFileSync(join(root, 'openspec/changes/current/verify.md'), 'verification output');
     writeFileSync(join(root, 'openspec/changes/current/tasks.md'), 'checkbox changes');
     expect(buildVerificationFingerprints(root).specDigest).toBe(oldSpecDigest);
-    writeFileSync(join(root, 'openspec/changes/current/specs/template-example/spec.md'), 'changed delta spec');
+    writeFileSync(
+      join(root, 'openspec/changes/current/specs/template-example/spec.md'),
+      'changed delta spec',
+    );
     expect(buildVerificationFingerprints(root).specDigest).not.toBe(oldSpecDigest);
     writeFileSync(join(root, 'packages/e2e/host/weapp/app.js'), 'App({ changed: true });');
     const current = buildVerificationFingerprints(root);
     expect(current.sourceDigest).not.toBe(oldSourceDigest);
     const binding = {
-      ownerId: 'TC-HOST', caseId: 'host-case', fixtureCase: 'host-case', environment: 'weapp' as const,
+      ownerId: 'TC-HOST',
+      caseId: 'host-case',
+      fixtureCase: 'host-case',
+      environment: 'weapp' as const,
       covers: [{ id: 'TC-HOST', caseKey: 'host-case', checks: ['host-loaded'] }],
     };
     const result = evaluateCoverage({
       current: { runId: 'run-1', ...current },
-      scenarios: [{ id: 'TC-HOST', cases: [{ key: 'host-case', kind: 'behavior' as const, requiredIn: ['weapp' as const], checks: ['host-loaded'] }] }],
-      contracts: [], flows: [], bindings: [binding], sourceIssues: [], reductionReasons: {},
-      reports: [{ runId: 'run-1', project: 'weapp', file: 'host.spec.ts', fullName: 'TC-HOST host-case', caseId: 'host-case', status: 'passed', assertions: 1, checkpoints: ['host-loaded'], sourceDigest: oldSourceDigest, specDigest: current.specDigest, idlDigest: current.idlDigest, fixtureDigest: current.fixtureDigest }],
+      scenarios: [
+        {
+          id: 'TC-HOST',
+          cases: [
+            {
+              key: 'host-case',
+              kind: 'behavior' as const,
+              requiredIn: ['weapp' as const],
+              checks: ['host-loaded'],
+            },
+          ],
+        },
+      ],
+      contracts: [],
+      flows: [],
+      bindings: [binding],
+      sourceIssues: [],
+      reductionReasons: {},
+      reports: [
+        {
+          runId: 'run-1',
+          project: 'weapp',
+          file: 'host.spec.ts',
+          fullName: 'TC-HOST host-case',
+          caseId: 'host-case',
+          status: 'passed',
+          assertions: 1,
+          checkpoints: ['host-loaded'],
+          sourceDigest: oldSourceDigest,
+          specDigest: current.specDigest,
+          idlDigest: current.idlDigest,
+          fixtureDigest: current.fixtureDigest,
+        },
+      ],
     });
     expect(result.issues).toContain('weapp/host-case is stale');
 
@@ -114,10 +215,11 @@ describe('verification fingerprints', () => {
     const root = mkdtempSync(join(tmpdir(), 'template-collect-'));
     expect(collectFiles(join(root, 'missing'), () => true)).toEqual([]);
     for (const name of ['dist', 'generated', '.generated', 'node_modules']) {
-      mkdirSync(join(root, name)); writeFileSync(join(root, name, 'hidden.ts'), 'hidden');
+      mkdirSync(join(root, name));
+      writeFileSync(join(root, name, 'hidden.ts'), 'hidden');
     }
     writeFileSync(join(root, 'accepted.ts'), 'accepted');
     writeFileSync(join(root, 'rejected.txt'), 'rejected');
-    expect(collectFiles(root, path => path.endsWith('.ts'))).toEqual([join(root, 'accepted.ts')]);
+    expect(collectFiles(root, (path) => path.endsWith('.ts'))).toEqual([join(root, 'accepted.ts')]);
   });
 });

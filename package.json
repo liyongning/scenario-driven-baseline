@@ -4,6 +4,8 @@
   "private": true,
   "description": "SDK 领域项目模板：示例、质量门禁与工程工具链",
   "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "proto:version": "proto-gen version --json",
     "proto:validate": "proto-gen config validate --json",
     "proto:status": "proto-gen consumer status --branch feat/esm-v1.4 --json",
@@ -20,7 +22,7 @@
     "check:package": "tsx scripts/check-package.ts",
     "release:preflight": "tsx scripts/check-release.ts",
     "sdk-release": "tsx scripts/sdk-release.ts",
-    "check:fast": "pnpm proto:validate && pnpm proto:status && pnpm lint && pnpm build && pnpm typecheck && pnpm check:architecture && pnpm test:unit && pnpm check:fixtures && pnpm test:integration && pnpm check:package",
+    "check:fast": "pnpm proto:validate && pnpm proto:status && pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm check:architecture && pnpm test:unit && pnpm check:fixtures && pnpm test:integration && pnpm check:package",
     "check": "pnpm check:fast && pnpm test:e2e:weapp && pnpm check:scenarios"
   },
   "packageManager": "pnpm@10.20.0",
@@ -39,6 +41,7 @@
     "express": "5.2.1",
     "globals": "17.13.0",
     "miniprogram-automator": "0.12.1",
+    "prettier": "3.9.9",
     "remark-gfm": "4.0.1",
     "remark-parse": "11.0.0",
     "tsx": "4.23.15",

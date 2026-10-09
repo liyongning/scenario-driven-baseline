@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { validateCaseBinding } from './define-case.ts';
 
 const valid = {
-  ownerId: 'SCN-SAMPLE-CONTRACT-023', caseId: 'presence-omitted', environment: 'integration' as const,
-  fixtureCase: 'omitted', covers: [{ id: 'SCN-SAMPLE-CONTRACT-023', caseKey: 'omitted', checks: ['absence'] }],
+  ownerId: 'SCN-SAMPLE-CONTRACT-023',
+  caseId: 'presence-omitted',
+  environment: 'integration' as const,
+  fixtureCase: 'omitted',
+  covers: [{ id: 'SCN-SAMPLE-CONTRACT-023', caseKey: 'omitted', checks: ['absence'] }],
 };
 
 describe('validateCaseBinding', () => {
@@ -14,12 +17,27 @@ describe('validateCaseBinding', () => {
   it('rejects file-only IDs, empty checks, and partial FLOW bindings', () => {
     expect(validateCaseBinding({ ...valid, ownerId: 'invalid' })).toContain('ownerId is invalid');
     expect(validateCaseBinding({ ...valid, caseId: '' })).toContain('caseId must not be empty');
-    expect(validateCaseBinding({ ...valid, fixtureCase: '' })).toContain('fixtureCase must not be empty');
-    expect(validateCaseBinding({ ...valid, covers: [] })).toContain('covers must contain at least one concrete case binding');
-    expect(validateCaseBinding({ ...valid, covers: [{ id: '', caseKey: '', checks: ['x'] }] })).toContain('covers[0] must identify an id and caseKey');
-    expect(validateCaseBinding({ ...valid, covers: [{ id: valid.ownerId, caseKey: 'omitted', checks: [] }] })).toContain('covers[0].checks must not be empty');
-    expect(validateCaseBinding({ ...valid, flowId: 'FLOW-SAMPLE-008' })).toContain('flowId and flowCase must be provided together');
-    expect(validateCaseBinding({ ...valid, flowCase: 'normal' })).toContain('flowId and flowCase must be provided together');
+    expect(validateCaseBinding({ ...valid, fixtureCase: '' })).toContain(
+      'fixtureCase must not be empty',
+    );
+    expect(validateCaseBinding({ ...valid, covers: [] })).toContain(
+      'covers must contain at least one concrete case binding',
+    );
+    expect(
+      validateCaseBinding({ ...valid, covers: [{ id: '', caseKey: '', checks: ['x'] }] }),
+    ).toContain('covers[0] must identify an id and caseKey');
+    expect(
+      validateCaseBinding({
+        ...valid,
+        covers: [{ id: valid.ownerId, caseKey: 'omitted', checks: [] }],
+      }),
+    ).toContain('covers[0].checks must not be empty');
+    expect(validateCaseBinding({ ...valid, flowId: 'FLOW-SAMPLE-008' })).toContain(
+      'flowId and flowCase must be provided together',
+    );
+    expect(validateCaseBinding({ ...valid, flowCase: 'normal' })).toContain(
+      'flowId and flowCase must be provided together',
+    );
   });
 
   it('accepts generic uppercase owner IDs for non-template scenarios', () => {

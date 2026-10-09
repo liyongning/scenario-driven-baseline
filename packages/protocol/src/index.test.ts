@@ -23,7 +23,9 @@ describe('协议包生产根入口', () => {
     const prior = Object.getOwnPropertyDescriptor(globalThis, 'wx');
     Object.defineProperty(globalThis, 'wx', {
       configurable: true,
-      get() { throw new Error('根入口加载或创建时读取了 wx'); },
+      get() {
+        throw new Error('根入口加载或创建时读取了 wx');
+      },
     });
     try {
       const protocolRoot = await import('./index');
@@ -42,7 +44,13 @@ describe('协议包生产根入口', () => {
       get() {
         platformReads += 1;
         return {
-          request(options: { success(response: { statusCode: number; header: Record<string, string>; data: string }): void }) {
+          request(options: {
+            success(response: {
+              statusCode: number;
+              header: Record<string, string>;
+              data: string;
+            }): void;
+          }) {
             options.success({ statusCode: 202, header: { 'X-Root': 'yes' }, data: 'accepted' });
             return { abort() {} };
           },
@@ -53,9 +61,18 @@ describe('协议包生产根入口', () => {
     try {
       const http = createWechatMiniappHttp();
       expect(platformReads).toBe(0);
-      await expect(http.send({
-        url: 'https://gateway.invalid/pay', method: 'POST', headers: {}, body: '{}', timeoutMs: 50,
-      })).resolves.toEqual({ ok: true, value: { status: 202, headers: { 'X-Root': 'yes' }, body: 'accepted' } });
+      await expect(
+        http.send({
+          url: 'https://gateway.invalid/pay',
+          method: 'POST',
+          headers: {},
+          body: '{}',
+          timeoutMs: 50,
+        }),
+      ).resolves.toEqual({
+        ok: true,
+        value: { status: 202, headers: { 'X-Root': 'yes' }, body: 'accepted' },
+      });
       expect(platformReads).toBe(1);
       expect(vi.getTimerCount()).toBe(0);
     } finally {
@@ -64,7 +81,9 @@ describe('协议包生产根入口', () => {
   });
 
   test('不新增平台深层 package export，SDK 根也不转导出网络工厂', () => {
-    const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+    const manifest = JSON.parse(
+      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as {
       exports: Record<string, unknown>;
     };
     expect(Object.keys(manifest.exports)).toEqual(['.', './generated/*']);

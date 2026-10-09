@@ -6,8 +6,16 @@ import { collectFiles } from './fingerprints.ts';
 import { loadProjectManifest, packageByRole, testProjectsByClass } from './project-manifest.ts';
 
 type Direction = 'request' | 'response';
-type Encoding = 'json-string' | 'json-number' | 'json-int64-string' | 'json-boolean' | 'enum-name'
-  | 'nested-object' | 'oneof-object' | 'repeated-array' | 'string-map';
+type Encoding =
+  | 'json-string'
+  | 'json-number'
+  | 'json-int64-string'
+  | 'json-boolean'
+  | 'enum-name'
+  | 'nested-object'
+  | 'oneof-object'
+  | 'repeated-array'
+  | 'string-map';
 type ReachableField = Readonly<{
   path: string;
   encoding: Encoding | undefined;
@@ -29,8 +37,10 @@ type FieldDiscovery = Readonly<{
   authority: string | null;
 }>;
 
-const requestAuthority = 'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
-const responseAuthority = 'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
+const requestAuthority =
+  'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
+const responseAuthority =
+  'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
 const requestPolicies: Readonly<Record<string, Readonly<Record<string, RequestPolicy>>>> = {
   CreateTrade: {
     biz_type: { cases: ['mapped-value'], authority: requestAuthority },
@@ -47,7 +57,10 @@ const requestPolicies: Readonly<Record<string, Readonly<Record<string, RequestPo
     'items.pay_amount': { cases: ['mapped-value'], authority: requestAuthority },
     'items.discount_amount': { cases: ['fixed-value'], authority: requestAuthority },
     'items.sku_snapshot': { cases: ['omitted'], authority: requestAuthority },
-    'items.sku_snapshot.wechat_virtual_product_id': { cases: ['omitted'], authority: requestAuthority },
+    'items.sku_snapshot.wechat_virtual_product_id': {
+      cases: ['omitted'],
+      authority: requestAuthority,
+    },
     'items.sku_snapshot.biz_snapshot': { cases: ['omitted'], authority: requestAuthority },
     original_amount: { cases: ['mapped-value'], authority: requestAuthority },
     discount_amount: { cases: ['fixed-value'], authority: requestAuthority },
@@ -71,27 +84,37 @@ function snakeCase(value: string): string {
 }
 
 function withoutNullish(type: ts.Type): ts.Type[] {
-  return (type.isUnion() ? type.types : [type]).filter(item => !(item.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)));
+  return (type.isUnion() ? type.types : [type]).filter(
+    (item) => !(item.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)),
+  );
 }
 
 function typeAt(checker: ts.TypeChecker, symbol: ts.Symbol): ts.Type {
   return checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration!);
 }
 
-function oneofBranches(checker: ts.TypeChecker, type: ts.Type): Array<Readonly<{ name: string; type: ts.Type }>> | undefined {
+function oneofBranches(
+  checker: ts.TypeChecker,
+  type: ts.Type,
+): Array<Readonly<{ name: string; type: ts.Type }>> | undefined {
   const properties = checker.getPropertiesOfType(type);
   if (properties.length !== 1 || properties[0]?.name !== 'params') return undefined;
   const variants = withoutNullish(typeAt(checker, properties[0]));
   const branches: Array<Readonly<{ name: string; type: ts.Type }>> = [];
   for (const variant of variants) {
-    const members = checker.getPropertiesOfType(variant).filter(member => member.name !== '$case');
+    const members = checker
+      .getPropertiesOfType(variant)
+      .filter((member) => member.name !== '$case');
     if (members.length !== 1) return undefined;
     branches.push({ name: members[0]!.name, type: typeAt(checker, members[0]!) });
   }
   return branches;
 }
 
-function describeType(checker: ts.TypeChecker, input: ts.Type): Readonly<{ type: ts.Type; encoding?: Encoding; descend: boolean }> {
+function describeType(
+  checker: ts.TypeChecker,
+  input: ts.Type,
+): Readonly<{ type: ts.Type; encoding?: Encoding; descend: boolean }> {
   const members = withoutNullish(input);
   const type = members.length === 1 ? members[0]! : input;
   if (checker.isArrayType(type)) {
@@ -101,10 +124,14 @@ function describeType(checker: ts.TypeChecker, input: ts.Type): Readonly<{ type:
   }
   if (type.getStringIndexType()) return { type, encoding: 'string-map', descend: false };
   if (type.flags & ts.TypeFlags.EnumLike) return { type, encoding: 'enum-name', descend: false };
-  if (type.flags & ts.TypeFlags.StringLike) return { type, encoding: 'json-string', descend: false };
-  if (type.flags & ts.TypeFlags.NumberLike) return { type, encoding: 'json-number', descend: false };
-  if (type.flags & ts.TypeFlags.BigIntLike) return { type, encoding: 'json-int64-string', descend: false };
-  if (type.flags & ts.TypeFlags.BooleanLike) return { type, encoding: 'json-boolean', descend: false };
+  if (type.flags & ts.TypeFlags.StringLike)
+    return { type, encoding: 'json-string', descend: false };
+  if (type.flags & ts.TypeFlags.NumberLike)
+    return { type, encoding: 'json-number', descend: false };
+  if (type.flags & ts.TypeFlags.BigIntLike)
+    return { type, encoding: 'json-int64-string', descend: false };
+  if (type.flags & ts.TypeFlags.BooleanLike)
+    return { type, encoding: 'json-boolean', descend: false };
   if (oneofBranches(checker, type)) return { type, encoding: 'oneof-object', descend: true };
   if (type.flags & ts.TypeFlags.Object) return { type, encoding: 'nested-object', descend: true };
   return { type, descend: false };
@@ -119,18 +146,22 @@ function collectReachableFields(checker: ts.TypeChecker, root: ts.Type): Reachab
         const path = `${prefix}.${snakeCase(branch.name)}`;
         const shape = describeType(checker, branch.type);
         fields.push({ path, optional: false, oneofBranch: true, encoding: shape.encoding });
-        if (shape.descend && !ancestors.has(shape.type)) visit(shape.type, path, new Set([...ancestors, shape.type]));
+        if (shape.descend && !ancestors.has(shape.type))
+          visit(shape.type, path, new Set([...ancestors, shape.type]));
       }
       return;
     }
     for (const property of checker.getPropertiesOfType(type)) {
       const propertyType = typeAt(checker, property);
-      const optional = Boolean(property.flags & ts.SymbolFlags.Optional)
-        || withoutNullish(propertyType).length !== (propertyType.isUnion() ? propertyType.types.length : 1);
+      const optional =
+        Boolean(property.flags & ts.SymbolFlags.Optional) ||
+        withoutNullish(propertyType).length !==
+          (propertyType.isUnion() ? propertyType.types.length : 1);
       const path = prefix ? `${prefix}.${snakeCase(property.name)}` : snakeCase(property.name);
       const shape = describeType(checker, propertyType);
       fields.push({ path, optional, oneofBranch: false, encoding: shape.encoding });
-      if (shape.descend && !ancestors.has(shape.type)) visit(shape.type, path, new Set([...ancestors, shape.type]));
+      if (shape.descend && !ancestors.has(shape.type))
+        visit(shape.type, path, new Set([...ancestors, shape.type]));
     }
   };
   visit(root, '', new Set([root]));
@@ -139,13 +170,16 @@ function collectReachableFields(checker: ts.TypeChecker, root: ts.Type): Reachab
 
 function exportedType(checker: ts.TypeChecker, source: ts.SourceFile, name: string): ts.Type {
   const module = checker.getSymbolAtLocation(source);
-  const symbol = module && checker.getExportsOfModule(module).find(item => item.name === name);
+  const symbol = module && checker.getExportsOfModule(module).find((item) => item.name === name);
   if (!symbol) throw new Error(`generated Consumer output is missing type ${name}`);
   return checker.getDeclaredTypeOfSymbol(symbol);
 }
 
-function deriveFields(generatedRoot: string, typeNames: ReadonlyArray<string>): Map<string, ReachableField[]> {
-  const files = collectFiles(generatedRoot, path => path.endsWith('.ts'));
+function deriveFields(
+  generatedRoot: string,
+  typeNames: ReadonlyArray<string>,
+): Map<string, ReachableField[]> {
+  const files = collectFiles(generatedRoot, (path) => path.endsWith('.ts'));
   const program = ts.createProgram(files, {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
@@ -155,7 +189,12 @@ function deriveFields(generatedRoot: string, typeNames: ReadonlyArray<string>): 
   const checker = program.getTypeChecker();
   const tradeSource = program.getSourceFile(join(generatedRoot, 'idl/infra/trade/v1/trade.ts'));
   if (!tradeSource) throw new Error('generated Consumer trade output is missing');
-  return new Map(typeNames.map(name => [name, collectReachableFields(checker, exportedType(checker, tradeSource, name))]));
+  return new Map(
+    typeNames.map((name) => [
+      name,
+      collectReachableFields(checker, exportedType(checker, tradeSource, name)),
+    ]),
+  );
 }
 
 function responseMappingCases(field: ReachableField): string[] {
@@ -164,24 +203,45 @@ function responseMappingCases(field: ReachableField): string[] {
   return ['decoded-value', 'decoded-default'];
 }
 
-function encodingCases(direction: Direction, field: ReachableField, mappingCases: ReadonlyArray<string>): string[] {
-  if (mappingCases.every(item => item === 'omitted')) return [`${direction}-wire-absent`];
+function encodingCases(
+  direction: Direction,
+  field: ReachableField,
+  mappingCases: ReadonlyArray<string>,
+): string[] {
+  if (mappingCases.every((item) => item === 'omitted')) return [`${direction}-wire-absent`];
   const cases = [`${direction}-${field.encoding}`];
-  if (mappingCases.includes('omitted') || field.optional) cases.push(`${direction}-optional-absence`);
+  if (mappingCases.includes('omitted') || field.optional)
+    cases.push(`${direction}-optional-absence`);
   if (field.oneofBranch) cases.push(`${direction}-oneof-absence`);
   return cases;
 }
 
-function fieldObligations(method: string, direction: Direction, typeName: string, fields: ReadonlyArray<ReachableField>, requiredIn: ReadonlyArray<string>, issues: string[]) {
+function fieldObligations(
+  method: string,
+  direction: Direction,
+  typeName: string,
+  fields: ReadonlyArray<ReachableField>,
+  requiredIn: ReadonlyArray<string>,
+  issues: string[],
+) {
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const field of fields) {
-    const requestPolicy = direction === 'request' ? requestPolicies[method]?.[field.path] : undefined;
-    const authority = direction === 'response' ? responseAuthority : requestPolicy?.authority ?? null;
+    const requestPolicy =
+      direction === 'request' ? requestPolicies[method]?.[field.path] : undefined;
+    const authority =
+      direction === 'response' ? responseAuthority : (requestPolicy?.authority ?? null);
     const applicable = authority !== null && field.encoding !== undefined;
     discoveries.push({
-      method, direction, typeName, path: field.path, optional: field.optional, oneofBranch: field.oneofBranch,
-      encoding: field.encoding ?? null, applicability: applicable ? 'applicable' : 'pending', authority,
+      method,
+      direction,
+      typeName,
+      path: field.path,
+      optional: field.optional,
+      oneofBranch: field.oneofBranch,
+      encoding: field.encoding ?? null,
+      applicability: applicable ? 'applicable' : 'pending',
+      authority,
     });
     if (!field.encoding) {
       issues.push(`${method} ${direction} field ${field.path} has no approved encoding rule`);
@@ -191,7 +251,8 @@ function fieldObligations(method: string, direction: Direction, typeName: string
       issues.push(`${method} request field ${field.path} has no reviewed applicability rule`);
       continue;
     }
-    const mappingCases = direction === 'response' ? responseMappingCases(field) : requestPolicy!.cases;
+    const mappingCases =
+      direction === 'response' ? responseMappingCases(field) : requestPolicy!.cases;
     obligations.push({
       id: `infra.trade.v1.${method}#${direction}-mapping#${field.path}`,
       cases: [...mappingCases],
@@ -206,19 +267,55 @@ function fieldObligations(method: string, direction: Direction, typeName: string
   return { obligations, discoveries };
 }
 
-const sharedMethodObligations = (method: string, requiredIn: ReadonlyArray<string>): Obligation[] => [
+const sharedMethodObligations = (
+  method: string,
+  requiredIn: ReadonlyArray<string>,
+): Obligation[] => [
   {
     id: `infra.trade.v1.${method}#header-base-req#$`,
     cases: [
-      'authorization', 'content-type', 'x-product-id-configured', 'x-product-id-omitted', 'request-id-header',
-      'base-req-request-id', 'base-req-product-id-configured', 'base-req-product-id-omitted',
-      'lane-configured', 'lane-omitted', 'app-version-configured', 'app-version-omitted',
+      'authorization',
+      'content-type',
+      'x-product-id-configured',
+      'x-product-id-omitted',
+      'request-id-header',
+      'base-req-request-id',
+      'base-req-product-id-configured',
+      'base-req-product-id-omitted',
+      'lane-configured',
+      'lane-omitted',
+      'app-version-configured',
+      'app-version-omitted',
     ],
     requiredIn: [...requiredIn],
   },
-  { id: `infra.trade.v1.${method}#response-handling#$`, cases: ['success', 'business-error', 'http-error', 'malformed-body'], requiredIn: [...requiredIn] },
-  { id: `infra.trade.v1.${method}#error-handling#$`, cases: ['empty-access-token', 'host-context-error', 'network-error', 'cancelled', 'codec-error'], requiredIn: [...requiredIn] },
-  { id: `infra.trade.v1.${method}#timeout#$`, cases: ['deadline-before-context', 'provider-timeout', 'deadline-before-send', 'in-flight-timeout', 'late-result-isolated'], requiredIn: [...requiredIn] },
+  {
+    id: `infra.trade.v1.${method}#response-handling#$`,
+    cases: ['success', 'business-error', 'http-error', 'malformed-body'],
+    requiredIn: [...requiredIn],
+  },
+  {
+    id: `infra.trade.v1.${method}#error-handling#$`,
+    cases: [
+      'empty-access-token',
+      'host-context-error',
+      'network-error',
+      'cancelled',
+      'codec-error',
+    ],
+    requiredIn: [...requiredIn],
+  },
+  {
+    id: `infra.trade.v1.${method}#timeout#$`,
+    cases: [
+      'deadline-before-context',
+      'provider-timeout',
+      'deadline-before-send',
+      'in-flight-timeout',
+      'late-result-isolated',
+    ],
+    requiredIn: [...requiredIn],
+  },
 ];
 
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
@@ -228,32 +325,65 @@ export async function buildContractInventory(root: string, options: InventoryOpt
   const integrationOnly = testProjectsByClass(manifest, ['integration']);
   // 示例方法描述模块按仓库清单的 protocol 角色目录定位，不随门禁根目录变化；临时根无需提供 testing/。
   const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
-  const repositoryProtocol = packageByRole(loadProjectManifest(repositoryRoot), 'protocol').directory;
+  const repositoryProtocol = packageByRole(
+    loadProjectManifest(repositoryRoot),
+    'protocol',
+  ).directory;
   // 直接读取生成的方法描述，不依赖 Shadow 路由类型（PC-03：派生与路由中立解耦）。
-  const { exampleRpcMethods: routes } = await import(`../../packages/${repositoryProtocol}/testing/shadow/example/routes.ts`) as {
-    exampleRpcMethods: ReadonlyArray<{ name: string; method: string; path: string; requestType: string; responseType: string }>;
+  const { exampleRpcMethods: routes } = (await import(
+    `../../packages/${repositoryProtocol}/testing/shadow/example/routes.ts`
+  )) as {
+    exampleRpcMethods: ReadonlyArray<{
+      name: string;
+      method: string;
+      path: string;
+      requestType: string;
+      responseType: string;
+    }>;
   };
-  const generatedRoot = options.generatedRoot ?? resolve(root, 'packages', protocolDirectory, 'src/generated');
-  const typeNames = routes.flatMap(route => [route.requestType, route.responseType]);
+  const generatedRoot =
+    options.generatedRoot ?? resolve(root, 'packages', protocolDirectory, 'src/generated');
+  const typeNames = routes.flatMap((route) => [route.requestType, route.responseType]);
   const fields = deriveFields(generatedRoot, typeNames);
-  const errors = JSON.parse(await readFile(join(root, 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'), 'utf8')) as Array<{ name: string }>;
+  const errors = JSON.parse(
+    await readFile(
+      join(root, 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'),
+      'utf8',
+    ),
+  ) as Array<{ name: string }>;
   const issues: string[] = [];
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const route of routes) {
-    obligations.push({ id: `infra.trade.v1.${route.name}#http-route#$`, cases: [route.name], requiredIn: [...requiredIn] });
-    for (const [direction, typeName] of [['request', route.requestType], ['response', route.responseType]] as const) {
-      const derived = fieldObligations(route.name, direction, typeName, fields.get(typeName)!, requiredIn, issues);
+    obligations.push({
+      id: `infra.trade.v1.${route.name}#http-route#$`,
+      cases: [route.name],
+      requiredIn: [...requiredIn],
+    });
+    for (const [direction, typeName] of [
+      ['request', route.requestType],
+      ['response', route.responseType],
+    ] as const) {
+      const derived = fieldObligations(
+        route.name,
+        direction,
+        typeName,
+        fields.get(typeName)!,
+        requiredIn,
+        issues,
+      );
       obligations.push(...derived.obligations);
       discoveries.push(...derived.discoveries);
     }
     obligations.push(...sharedMethodObligations(route.name, requiredIn));
   }
-  obligations.push(
-    { id: 'idl.error-contract#business-error#$', cases: errors.map(item => item.name), requiredIn: [...integrationOnly] },
-  );
+  obligations.push({
+    id: 'idl.error-contract#business-error#$',
+    cases: errors.map((item) => item.name),
+    requiredIn: [...integrationOnly],
+  });
   return {
-    methods: routes.map(route => ({ name: route.name, method: route.method, path: route.path })),
+    methods: routes.map((route) => ({ name: route.name, method: route.method, path: route.path })),
     discoveries,
     obligations,
     issues,

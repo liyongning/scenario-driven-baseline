@@ -12,7 +12,9 @@ export type VerificationFingerprints = Readonly<{
 
 export function digestFiles(repositoryRoot: string, paths: ReadonlyArray<string>): string {
   const hash = createHash('sha256');
-  for (const path of [...paths].sort((left, right) => relative(repositoryRoot, left).localeCompare(relative(repositoryRoot, right)))) {
+  for (const path of [...paths].sort((left, right) =>
+    relative(repositoryRoot, left).localeCompare(relative(repositoryRoot, right)),
+  )) {
     hash.update(relative(repositoryRoot, path));
     hash.update('\0');
     hash.update(readFileSync(path));
@@ -39,17 +41,29 @@ export function collectFiles(root: string, accept: (path: string) => boolean): s
 export function buildVerificationFingerprints(repositoryRoot: string): VerificationFingerprints {
   const manifest = loadProjectManifest(repositoryRoot);
   const sourcePaths = [
-    ...manifest.fingerprints.sourceRoots.flatMap(root => collectFiles(resolve(repositoryRoot, root), path => /\.(?:ts|js)$/.test(path))),
-    ...manifest.fingerprints.hostRoots.flatMap(root => collectFiles(
-      resolve(repositoryRoot, root),
-      path => /\.(?:ts|js|json|wxml|wxss)$/.test(path),
-    )),
+    ...manifest.fingerprints.sourceRoots.flatMap((root) =>
+      collectFiles(resolve(repositoryRoot, root), (path) => /\.(?:ts|js)$/.test(path)),
+    ),
+    ...manifest.fingerprints.hostRoots.flatMap((root) =>
+      collectFiles(resolve(repositoryRoot, root), (path) =>
+        /\.(?:ts|js|json|wxml|wxss)$/.test(path),
+      ),
+    ),
   ];
   const specPaths = [
-    ...collectFiles(resolve(repositoryRoot, 'openspec/specs'), path => path.endsWith('/spec.md')),
-    ...collectFiles(resolve(repositoryRoot, 'openspec/changes'), path => path.endsWith('/spec.md') && path.split('/').includes('specs') && !path.split('/').includes('archive')),
+    ...collectFiles(resolve(repositoryRoot, 'openspec/specs'), (path) => path.endsWith('/spec.md')),
+    ...collectFiles(
+      resolve(repositoryRoot, 'openspec/changes'),
+      (path) =>
+        path.endsWith('/spec.md') &&
+        path.split('/').includes('specs') &&
+        !path.split('/').includes('archive'),
+    ),
   ];
-  const fixturePaths = collectFiles(resolve(repositoryRoot, 'packages/e2e/tests/fixtures'), path => path.endsWith('.json'));
+  const fixturePaths = collectFiles(
+    resolve(repositoryRoot, 'packages/e2e/tests/fixtures'),
+    (path) => path.endsWith('.json'),
+  );
   return {
     sourceDigest: digestFiles(repositoryRoot, sourcePaths),
     specDigest: digestFiles(repositoryRoot, specPaths),

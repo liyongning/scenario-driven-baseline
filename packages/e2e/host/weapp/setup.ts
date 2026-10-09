@@ -8,5 +8,7 @@ const generated = new URL('./.generated', import.meta.url);
 export default async function setup() {
   await build({ configFile });
   await build({ ...exampleConfig, configFile: false });
-  return async () => { await rm(generated, { force: true, recursive: true }); };
+  return async () => {
+    await rm(generated, { force: true, recursive: true });
+  };
 }

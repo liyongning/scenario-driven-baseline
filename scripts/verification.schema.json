@@ -9,8 +9,15 @@
       "description": "本场景可被 case 引用的检查点名称与说明映射。",
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "检查点名称必须使用小写字母、数字和连字符。" },
-      "additionalProperties": { "type": "string", "minLength": 1, "description": "检查点的人类可读说明，不能为空。" }
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "description": "检查点名称必须使用小写字母、数字和连字符。"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "description": "检查点的人类可读说明，不能为空。"
+      }
     },
     "cases": {
       "description": "本场景需要执行的验证 case 列表。",
@@ -21,25 +28,47 @@
         "type": "object",
         "required": ["key", "kind", "requiredIn", "checks"],
         "properties": {
-          "key": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "case 的稳定键，使用小写字母、数字和连字符。" },
-          "kind": { "enum": ["behavior", "module", "engineering"], "description": "验证类别：公共行为、模块单测或工程门禁。" },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "case 的稳定键，使用小写字母、数字和连字符。"
+          },
+          "kind": {
+            "enum": ["behavior", "module", "engineering"],
+            "description": "验证类别：公共行为、模块单测或工程门禁。"
+          },
           "requiredIn": {
             "description": "case 必须运行的测试项目；取值必须是 project.manifest.json 登记的测试项目，kind 与项目类别的匹配由场景门禁按清单校验。",
             "type": "array",
             "minItems": 1,
             "uniqueItems": true,
-            "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "project.manifest.json 登记的测试项目名。" }
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "description": "project.manifest.json 登记的测试项目名。"
+            }
           },
           "checks": {
             "description": "该 case 必须实际执行的 checkpoint 名称列表。",
-            "type": "array", "minItems": 1, "uniqueItems": true,
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
             "items": { "type": "string", "description": "引用 checkpoints 中已声明的检查点名称。" }
           }
         },
         "additionalProperties": false
       }
     },
-    "blockedBy": { "type": "array", "uniqueItems": true, "description": "阻塞该场景验收的非空依赖标识列表。", "items": { "type": "string", "minLength": 1, "description": "阻塞依赖标识，必须为非空字符串。" } }
+    "blockedBy": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "阻塞该场景验收的非空依赖标识列表。",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "阻塞依赖标识，必须为非空字符串。"
+      }
+    }
   },
   "additionalProperties": false
 }

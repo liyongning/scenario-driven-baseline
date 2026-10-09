@@ -64,7 +64,7 @@
   **Commit**
   - `chore(template): bump tooling patch versions and fix ignore rules`
 
-- [ ] 2. Prettier 基线与全量格式化
+- [x] 2. Prettier 基线与全量格式化
 
   **Files**
   - Create：`.prettierrc.json`（Design"工程基线"中的配置）、`.prettierignore`（Design 列出的忽略清单）。

@@ -1,0 +1,10 @@
+openspec/
+.local/
+.claude/
+artifacts/
+dist/
+coverage/
+**/generated/**
+pnpm-lock.yaml
+packages/e2e/tests/fixtures/**
+proto-gen.lock

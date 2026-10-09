@@ -22,14 +22,20 @@ function walkSchema(node: unknown, path: string, issues: string[]): void {
   if (properties && typeof properties === 'object' && !Array.isArray(properties)) {
     for (const [name, child] of Object.entries(properties as Record<string, unknown>)) {
       const childPath = `${path}.properties.${name}`;
-      const description = child && typeof child === 'object' ? (child as SchemaNode).description : undefined;
-      if (typeof description !== 'string' || !description.trim() || !/[\u3400-\u9fff]/u.test(description)) {
+      const description =
+        child && typeof child === 'object' ? (child as SchemaNode).description : undefined;
+      if (
+        typeof description !== 'string' ||
+        !description.trim() ||
+        !/[\u3400-\u9fff]/u.test(description)
+      ) {
         issues.push(`${path}: property ${name} is missing a non-empty Chinese description`);
       }
       walkSchema(child, childPath, issues);
     }
   }
-  if (Array.isArray(object.allOf)) object.allOf.forEach((child, index) => walkSchema(child, `${path}.allOf[${index}]`, issues));
+  if (Array.isArray(object.allOf))
+    object.allOf.forEach((child, index) => walkSchema(child, `${path}.allOf[${index}]`, issues));
   if (object.if) walkSchema(object.if, `${path}.if`, issues);
   if (object.then) walkSchema(object.then, `${path}.then`, issues);
   if (object.else) walkSchema(object.else, `${path}.else`, issues);
@@ -47,13 +53,17 @@ export function checkSchemaDocumentation(root: string): string[] {
   const issues: string[] = [];
   // 两组 schema 各自独立：某一组在该 root 中完全缺失时（例如仅覆盖硬规则的旧 fixture），跳过该组。
   for (const group of [hardRuleSchemas, projectSchemas] as const) {
-    const present = group.filter(path => existsSync(join(root, path)));
+    const present = group.filter((path) => existsSync(join(root, path)));
     if (present.length === 0) continue;
     for (const relative of present) {
       const path = join(root, relative);
       let parsed: unknown;
-      try { parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown; }
-      catch (error) { issues.push(`${relative}: schema cannot be parsed: ${String(error)}`); continue; }
+      try {
+        parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+      } catch (error) {
+        issues.push(`${relative}: schema cannot be parsed: ${String(error)}`);
+        continue;
+      }
       walkSchema(parsed, relative, issues);
     }
     const agentsPath = join(root, 'AGENTS.md');

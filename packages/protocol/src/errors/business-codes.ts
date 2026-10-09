@@ -16,28 +16,76 @@ export type BusinessErrorDescriptor = Readonly<{
 /** 本副本直接核对 error_code.go / error_contract.go 的完整来源提交。 */
 export const businessErrorsIdlCommit = '5539be8f09323709fa65f6568efe22896ec35d24';
 
-function entry(statusCode: bigint, canonicalCode: C, bizCodeName: string, source: string, retryable: boolean): BusinessErrorDescriptor {
+function entry(
+  statusCode: bigint,
+  canonicalCode: C,
+  bizCodeName: string,
+  source: string,
+  retryable: boolean,
+): BusinessErrorDescriptor {
   return Object.freeze({ statusCode, canonicalCode, bizCodeName, source, retryable });
 }
 /** 手写维护的 7 项 Go 原始错误；目录及记录冻结，跨客户端不可改写。 */
 export const businessErrors = Object.freeze({
   /** 网关参数拒绝，不推断业务登录态。 */
-  ErrGatewayProxyInvalidParameter: entry(20200002001010n, C.CANONICAL_ERROR_CODE_INVALID_PARAMETER, 'BIZ_GATEWAY_INVALID_PARAMETER', 'infra-gateway', false),
+  ErrGatewayProxyInvalidParameter: entry(
+    20200002001010n,
+    C.CANONICAL_ERROR_CODE_INVALID_PARAMETER,
+    'BIZ_GATEWAY_INVALID_PARAMETER',
+    'infra-gateway',
+    false,
+  ),
   /** 网关业务鉴权失败。 */
-  ErrGatewayProxyUnauthorized: entry(20200002001020n, C.CANONICAL_ERROR_CODE_UNAUTHORIZED, 'BIZ_GATEWAY_UNAUTHORIZED', 'infra-gateway', false),
+  ErrGatewayProxyUnauthorized: entry(
+    20200002001020n,
+    C.CANONICAL_ERROR_CODE_UNAUTHORIZED,
+    'BIZ_GATEWAY_UNAUTHORIZED',
+    'infra-gateway',
+    false,
+  ),
   /** 网关未找到目标，不合成交易事实。 */
-  ErrGatewayProxyNotFound: entry(20200002001030n, C.CANONICAL_ERROR_CODE_NOT_FOUND, 'BIZ_GATEWAY_NOT_FOUND', 'infra-gateway', false),
+  ErrGatewayProxyNotFound: entry(
+    20200002001030n,
+    C.CANONICAL_ERROR_CODE_NOT_FOUND,
+    'BIZ_GATEWAY_NOT_FOUND',
+    'infra-gateway',
+    false,
+  ),
   /** 原交易查询鉴权失败，不推断内部副作用。 */
-  ErrInfraTradeQueryTradeUnauthorized: entry(10100801003020n, C.CANONICAL_ERROR_CODE_UNAUTHORIZED, 'BIZ_INFRA_TRADE_UNAUTHORIZED', 'infra-trade', false),
+  ErrInfraTradeQueryTradeUnauthorized: entry(
+    10100801003020n,
+    C.CANONICAL_ERROR_CODE_UNAUTHORIZED,
+    'BIZ_INFRA_TRADE_UNAUTHORIZED',
+    'infra-trade',
+    false,
+  ),
   /** 原交易查询参数非法。 */
-  ErrInfraTradeQueryTradeInvalidParameter: entry(10100801003010n, C.CANONICAL_ERROR_CODE_INVALID_PARAMETER, 'BIZ_INFRA_TRADE_INVALID_PARAMETER', 'infra-trade', false),
+  ErrInfraTradeQueryTradeInvalidParameter: entry(
+    10100801003010n,
+    C.CANONICAL_ERROR_CODE_INVALID_PARAMETER,
+    'BIZ_INFRA_TRADE_INVALID_PARAMETER',
+    'infra-trade',
+    false,
+  ),
   /** 查询未找到或不可访问，不能合成未支付。 */
-  ErrInfraTradeQueryTradeNotFound: entry(10100801003030n, C.CANONICAL_ERROR_CODE_NOT_FOUND, 'BIZ_INFRA_TRADE_NOT_FOUND', 'infra-trade', false),
+  ErrInfraTradeQueryTradeNotFound: entry(
+    10100801003030n,
+    C.CANONICAL_ERROR_CODE_NOT_FOUND,
+    'BIZ_INFRA_TRADE_NOT_FOUND',
+    'infra-trade',
+    false,
+  ),
   /** 查询服务暂不可用，保留服务端可重试事实。 */
-  ErrInfraTradeQueryTradeUnavailable: entry(10100801003070n, C.CANONICAL_ERROR_CODE_UNAVAILABLE, 'BIZ_INFRA_TRADE_UNAVAILABLE', 'infra-trade', true),
+  ErrInfraTradeQueryTradeUnavailable: entry(
+    10100801003070n,
+    C.CANONICAL_ERROR_CODE_UNAVAILABLE,
+    'BIZ_INFRA_TRADE_UNAVAILABLE',
+    'infra-trade',
+    true,
+  ),
 });
 
 /** 按完整 int64 查找原始描述；未知码不按位段、文案或通用类别猜测。 */
 export function getBusinessError(statusCode: bigint): BusinessErrorDescriptor | undefined {
-  return Object.values(businessErrors).find(error => error.statusCode === statusCode);
+  return Object.values(businessErrors).find((error) => error.statusCode === statusCode);
 }

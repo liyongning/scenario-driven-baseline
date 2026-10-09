@@ -14,10 +14,17 @@ async function fixture(overrides: Record<string, unknown> = {}) {
   await mkdir(directory);
   const data = JSON.stringify({ request: { tradeNo: 't-1' }, response: { ok: true } });
   await writeFile(join(directory, 'omitted.json'), data);
-  await writeFile(join(directory, 'manifest.json'), JSON.stringify({
-    formatVersion: 1, ownerId, sources: { spec: { path: 'spec.md', sha256: 'a'.repeat(64) }, idlCommit: 'b'.repeat(40) },
-    cases: { omitted: 'omitted.json' }, sha256: { 'omitted.json': digest(data) }, ...overrides,
-  }));
+  await writeFile(
+    join(directory, 'manifest.json'),
+    JSON.stringify({
+      formatVersion: 1,
+      ownerId,
+      sources: { spec: { path: 'spec.md', sha256: 'a'.repeat(64) }, idlCommit: 'b'.repeat(40) },
+      cases: { omitted: 'omitted.json' },
+      sha256: { 'omitted.json': digest(data) },
+      ...overrides,
+    }),
+  );
   return { root, ownerId };
 }
 
@@ -33,13 +40,19 @@ describe('loadFixtureCase', () => {
     const wrongOwner = await fixture({ ownerId: 'SCN-SAMPLE-CONTRACT-999' });
     await expect(loadFixtureCase({ ...wrongOwner, caseKey: 'omitted' })).rejects.toThrow(/ownerId/);
     const wrongSource = await fixture({ sources: {} });
-    await expect(loadFixtureCase({ ...wrongSource, caseKey: 'omitted' })).rejects.toThrow(/sources/);
+    await expect(loadFixtureCase({ ...wrongSource, caseKey: 'omitted' })).rejects.toThrow(
+      /sources/,
+    );
     const wrongDigest = await fixture({ sha256: { 'omitted.json': '0'.repeat(64) } });
     await expect(loadFixtureCase({ ...wrongDigest, caseKey: 'omitted' })).rejects.toThrow(/sha256/);
     const traversal = await fixture({ cases: { omitted: '../outside.json' } });
-    await expect(loadFixtureCase({ ...traversal, caseKey: 'omitted' })).rejects.toThrow(/schema|path/i);
+    await expect(loadFixtureCase({ ...traversal, caseKey: 'omitted' })).rejects.toThrow(
+      /schema|path/i,
+    );
     const undeclared = await fixture();
-    await expect(loadFixtureCase({ ...undeclared, caseKey: 'unknown' })).rejects.toThrow(/not declared/);
+    await expect(loadFixtureCase({ ...undeclared, caseKey: 'unknown' })).rejects.toThrow(
+      /not declared/,
+    );
     expect(resolveFixtureFile('/fixtures/owner', 'case.json')).toBe('/fixtures/owner/case.json');
     expect(() => resolveFixtureFile('/fixtures/owner', '../outside.json')).toThrow(/escapes/);
   });

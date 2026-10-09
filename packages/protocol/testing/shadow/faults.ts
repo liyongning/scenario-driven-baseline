@@ -10,7 +10,7 @@ export type ShadowStep = Readonly<{
 }>;
 
 export async function sendShadowStep(response: Response, step: ShadowStep): Promise<void> {
-  if (step.delayMs !== undefined) await new Promise(resolve => setTimeout(resolve, step.delayMs));
+  if (step.delayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, step.delayMs));
   if (step.disconnect) {
     response.socket?.destroy();
     return;

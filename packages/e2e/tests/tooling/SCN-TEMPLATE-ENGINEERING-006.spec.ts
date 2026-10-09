@@ -7,7 +7,9 @@ import { writeTemplateGuideFixture } from './helpers.ts';
 
 const repositoryRoot = process.cwd();
 const roots: string[] = [];
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 
 /** 最小架构根：清单、根 package.json、三包与一份合法指南；各反例在其副本上改写。 */
 function guideRoot() {
@@ -20,7 +22,10 @@ function guideRoot() {
   for (const name of ['sdk', 'protocol', 'e2e']) {
     mkdirSync(join(root, 'packages', name), { recursive: true });
     writeFileSync(join(root, 'packages', name, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
-    writeFileSync(join(root, 'packages', name, 'package.json'), readFileSync(join(repositoryRoot, 'packages', name, 'package.json')));
+    writeFileSync(
+      join(root, 'packages', name, 'package.json'),
+      readFileSync(join(repositoryRoot, 'packages', name, 'package.json')),
+    );
   }
   writeTemplateGuideFixture(root);
   return root;
@@ -29,8 +34,16 @@ function guideRoot() {
 const guidePath = (root: string) => join(root, 'docs/template-guide.md');
 const issuesOf = (root: string) => runArchitecture(root).output?.issues.join('\n') ?? '';
 
-cliEvidence('SCN-TEMPLATE-ENGINEERING-006', 'guide-violations-cli',
-  ['guide-present-and-linked', 'guide-sections', 'guide-links-resolve', 'guide-facts-consistent', 'guide-restorable'],
+cliEvidence(
+  'SCN-TEMPLATE-ENGINEERING-006',
+  'guide-violations-cli',
+  [
+    'guide-present-and-linked',
+    'guide-sections',
+    'guide-links-resolve',
+    'guide-facts-consistent',
+    'guide-restorable',
+  ],
   async (context, check) => {
     await check('guide-present-and-linked', () => {
       const missing = guideRoot();
@@ -40,8 +53,12 @@ cliEvidence('SCN-TEMPLATE-ENGINEERING-006', 'guide-violations-cli',
       const unlinked = guideRoot();
       writeFileSync(join(unlinked, 'AGENTS.md'), '# root\n');
       writeFileSync(join(unlinked, 'README.md'), '# readme\n');
-      context.expect(issuesOf(unlinked)).toContain('AGENTS.md does not link docs/template-guide.md');
-      context.expect(issuesOf(unlinked)).toContain('README.md does not link docs/template-guide.md');
+      context
+        .expect(issuesOf(unlinked))
+        .toContain('AGENTS.md does not link docs/template-guide.md');
+      context
+        .expect(issuesOf(unlinked))
+        .toContain('README.md does not link docs/template-guide.md');
     });
 
     await check('guide-sections', () => {
@@ -54,13 +71,19 @@ cliEvidence('SCN-TEMPLATE-ENGINEERING-006', 'guide-violations-cli',
 
     await check('guide-links-resolve', () => {
       const root = guideRoot();
-      writeFileSync(guidePath(root), `${readFileSync(guidePath(root), 'utf8')}\n[missing](missing.md)\n`);
+      writeFileSync(
+        guidePath(root),
+        `${readFileSync(guidePath(root), 'utf8')}\n[missing](missing.md)\n`,
+      );
       context.expect(issuesOf(root)).toContain('broken link docs/template-guide.md -> missing.md');
     });
 
     await check('guide-facts-consistent', () => {
       const root = guideRoot();
-      writeFileSync(guidePath(root), `${readFileSync(guidePath(root), 'utf8')}\n\`SCN-NOT-REGISTERED-001\` \`pnpm not:a:command\` \`manifest.not.a.field\`\n`);
+      writeFileSync(
+        guidePath(root),
+        `${readFileSync(guidePath(root), 'utf8')}\n\`SCN-NOT-REGISTERED-001\` \`pnpm not:a:command\` \`manifest.not.a.field\`\n`,
+      );
       const issues = issuesOf(root);
       context.expect(issues).toContain('unregistered Scenario ID SCN-NOT-REGISTERED-001');
       context.expect(issues).toContain('unknown pnpm command not:a:command');
@@ -73,4 +96,5 @@ cliEvidence('SCN-TEMPLATE-ENGINEERING-006', 'guide-violations-cli',
       context.expect(result.output?.issues).toEqual([]);
       context.expect(result.status).toBe(0);
     });
-  });
+  },
+);

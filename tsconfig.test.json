@@ -1,27 +1,13 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": [
-      "node",
-      "vitest/globals"
-    ],
+    "types": ["node", "vitest/globals"],
     "paths": {
-      "@daqian/template-protocol": [
-        "packages/protocol/src/index.ts"
-      ],
-      "@daqian/template-sdk": [
-        "packages/sdk/src/index.ts"
-      ],
-      "@template-test/protocol": [
-        "packages/protocol/testing/index.ts"
-      ]
+      "@daqian/template-protocol": ["packages/protocol/src/index.ts"],
+      "@daqian/template-sdk": ["packages/sdk/src/index.ts"],
+      "@template-test/protocol": ["packages/protocol/testing/index.ts"]
     }
   },
-  "include": [
-    "packages/**/*.ts"
-  ],
-  "exclude": [
-    "packages/**/dist",
-    "packages/**/src/generated"
-  ]
+  "include": ["packages/**/*.ts"],
+  "exclude": ["packages/**/dist", "packages/**/src/generated"]
 }

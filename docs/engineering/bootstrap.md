@@ -4,20 +4,20 @@
 
 ## 工具链与依赖版本
 
-| 项目 | 核对结果 |
-| --- | --- |
-| Node / pnpm | 22.21.1 / 10.20.0 |
-| create-vite | 9.2.0 |
-| Vite | 8.2.2 |
-| Vitest / @vitest/coverage-v8 | 5.0.0 |
-| unplugin-dts | 1.1.0 |
-| TypeScript | 5.9.3 |
-| ESLint / typescript-eslint | 10.10.0 / 8.70.0 |
-| dependency-cruiser | 18.2.0 |
-| tsx | 4.23.13 |
-| @types/node | 22.20.1 |
-| globals | 17.12.0 |
-| @microsoft/api-extractor | 7.59.1 |
+| 项目                         | 核对结果          |
+| ---------------------------- | ----------------- |
+| Node / pnpm                  | 22.21.1 / 10.20.0 |
+| create-vite                  | 9.2.0             |
+| Vite                         | 8.2.2             |
+| Vitest / @vitest/coverage-v8 | 5.0.0             |
+| unplugin-dts                 | 1.1.0             |
+| TypeScript                   | 5.9.3             |
+| ESLint / typescript-eslint   | 10.10.0 / 8.70.0  |
+| dependency-cruiser           | 18.2.0            |
+| tsx                          | 4.23.13           |
+| @types/node                  | 22.20.1           |
+| globals                      | 17.12.0           |
+| @microsoft/api-extractor     | 7.59.1            |
 
 TypeScript 采用 5.9.3，满足 typescript-eslint `>=4.8.4 <6.1.0`，未使用不兼容的 TypeScript 7。Node 22.21.1 满足以上 engines 交集。
 
@@ -27,14 +27,14 @@ TypeScript 采用 5.9.3，满足 typescript-eslint `>=4.8.4 <6.1.0`，未使用�
 
 ### 来源与版本
 
-| 项目 | 核对结果 |
-| --- | --- |
-| npm 来源 | https://gitlab.daqian369.com/api/v4/projects/216/packages/npm/ |
-| 包 | @daqian/proto-gen |
-| dist-tags.latest / 最高正式发布版本 | 0.1.2 |
-| 版本列表核对 | 0.1.0、0.1.1、0.1.2 及其预发布；无 0.1.3，显式查询 0.1.3 返回 E404 |
-| CLI 报告 | 0.1.2，commit 9f706d4811a8ffaffeabcfa6fbaedff8670f1c89 |
-| bundled buf | 1.58.0 |
+| 项目                                | 核对结果                                                           |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| npm 来源                            | https://gitlab.daqian369.com/api/v4/projects/216/packages/npm/     |
+| 包                                  | @daqian/proto-gen                                                  |
+| dist-tags.latest / 最高正式发布版本 | 0.1.2                                                              |
+| 版本列表核对                        | 0.1.0、0.1.1、0.1.2 及其预发布；无 0.1.3，显式查询 0.1.3 返回 E404 |
+| CLI 报告                            | 0.1.2，commit 9f706d4811a8ffaffeabcfa6fbaedff8670f1c89             |
+| bundled buf                         | 1.58.0                                                             |
 
 根 `.npmrc` 指定工具依赖所在项目 216，无写入凭据；产品包 `publishConfig` 的 registry 由清单 `manifest.release` 给出，两者职责见 README。
 

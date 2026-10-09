@@ -17,7 +17,20 @@
 最小示例：
 
 ```json
-{"packages":[{"directory":"sdk","name":"@scope/sdk","role":"product","private":false,"allowedDirectories":["src"]}],"requiredCommands":["check:fast"],"testProjects":[{"name":"sdk-unit","class":"unit"}],"fingerprints":{"sourceRoots":["packages/sdk/src"],"hostRoots":[]}}
+{
+  "packages": [
+    {
+      "directory": "sdk",
+      "name": "@scope/sdk",
+      "role": "product",
+      "private": false,
+      "allowedDirectories": ["src"]
+    }
+  ],
+  "requiredCommands": ["check:fast"],
+  "testProjects": [{ "name": "sdk-unit", "class": "unit" }],
+  "fingerprints": { "sourceRoots": ["packages/sdk/src"], "hostRoots": [] }
+}
 ```
 
 以下事实必须改清单：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许的一级子目录、根 `package.json` 的必需命令、测试项目名与类别、源码摘要目录，以及可选的发布设置 `manifest.release`。改代码前先改清单，再让门禁按清单核对。

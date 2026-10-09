@@ -1,29 +1,84 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
-    { name: 'protocol-no-reverse-import', severity: 'error', from: { path: '^packages/protocol/src/' }, to: { path: '^packages/(sdk|e2e)/' } },
-    { name: 'production-no-test', severity: 'error', from: { path: '^packages/(sdk|protocol)/src/', pathNot: '[.]test[.]ts$' }, to: { path: '(^packages/e2e/|/testing/|[.]test[.]ts$|^@template-test/)' } },
+    {
+      name: 'protocol-no-reverse-import',
+      severity: 'error',
+      from: { path: '^packages/protocol/src/' },
+      to: { path: '^packages/(sdk|e2e)/' },
+    },
+    {
+      name: 'production-no-test',
+      severity: 'error',
+      from: { path: '^packages/(sdk|protocol)/src/', pathNot: '[.]test[.]ts$' },
+      to: { path: '(^packages/e2e/|/testing/|[.]test[.]ts$|^@template-test/)' },
+    },
     // 本地路径即便指向公开入口，也必须通过 npm 名称消费；仅放行已配置的 npm 名称别名。
-    { name: 'cross-workspace-no-direct-files', severity: 'error', from: { path: '^packages/(sdk|protocol)/src/' }, to: { path: '^packages/(?!$1/)(sdk|protocol|e2e)/', dependencyTypes: ['local'], dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'] } },
-    { name: 'sdk-cross-package-exports-only', severity: 'error', from: { path: '^packages/sdk/src/' }, to: { path: '^packages/protocol/', pathNot: '^packages/protocol/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))' } },
-    { name: 'core-no-platform-or-node', severity: 'error', from: { path: '^packages/sdk/src/(runtime|[^/]+/(core|ports))/', pathNot: '[.]test[.]ts$' }, to: { dependencyTypes: ['core'] } },
+    {
+      name: 'cross-workspace-no-direct-files',
+      severity: 'error',
+      from: { path: '^packages/(sdk|protocol)/src/' },
+      to: {
+        path: '^packages/(?!$1/)(sdk|protocol|e2e)/',
+        dependencyTypes: ['local'],
+        dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'],
+      },
+    },
+    {
+      name: 'sdk-cross-package-exports-only',
+      severity: 'error',
+      from: { path: '^packages/sdk/src/' },
+      to: {
+        path: '^packages/protocol/',
+        pathNot: '^packages/protocol/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))',
+      },
+    },
+    {
+      name: 'core-no-platform-or-node',
+      severity: 'error',
+      from: { path: '^packages/sdk/src/(runtime|[^/]+/(core|ports))/', pathNot: '[.]test[.]ts$' },
+      to: { dependencyTypes: ['core'] },
+    },
     // 分层守卫按目录模式覆盖产品包 src/ 下全部业务模块（runtime/ 除外）的 core/ports，新增模块无需改本配置；约定见 packages/sdk/AGENTS.md。
-    { name: 'domain-core-no-generated', severity: 'error', from: { path: '^packages/sdk/src/[^/]+/(core|ports)/' }, to: { path: '^packages/protocol/(src/|dist/)?generated/' } },
+    {
+      name: 'domain-core-no-generated',
+      severity: 'error',
+      from: { path: '^packages/sdk/src/[^/]+/(core|ports)/' },
+      to: { path: '^packages/protocol/(src/|dist/)?generated/' },
+    },
     // Shadow 引擎只接收中立路由（PC-03）；协议来源经 testing/shadow/idl-routes.ts 与 testing/shadow/example/ 接入，引擎文件不得导入 ProtoGen 生成代码。
-    { name: 'shadow-engine-no-generated', severity: 'error', comment: 'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。', from: { path: '^packages/protocol/testing/shadow/', pathNot: '(^packages/protocol/testing/shadow/(idl-routes[.]ts|example/)|[.]test[.]ts$)' }, to: { path: '^packages/protocol/src/generated/' } },
+    {
+      name: 'shadow-engine-no-generated',
+      severity: 'error',
+      comment:
+        'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。',
+      from: {
+        path: '^packages/protocol/testing/shadow/',
+        pathNot: '(^packages/protocol/testing/shadow/(idl-routes[.]ts|example/)|[.]test[.]ts$)',
+      },
+      to: { path: '^packages/protocol/src/generated/' },
+    },
     // 产品包内各业务模块目录互不导入；可共用的只有 runtime/ 与协议包公开入口，index.ts 作为装配入口豁免。
-    { name: 'domain-isolation', severity: 'error', from: { path: '^packages/sdk/src/([^/]+)/', pathNot: '^packages/sdk/src/runtime/' }, to: { path: '^packages/sdk/src/([^/]+)/', pathNot: ['^packages/sdk/src/runtime/', '^packages/sdk/src/$1/'] } },
+    {
+      name: 'domain-isolation',
+      severity: 'error',
+      from: { path: '^packages/sdk/src/([^/]+)/', pathNot: '^packages/sdk/src/runtime/' },
+      to: {
+        path: '^packages/sdk/src/([^/]+)/',
+        pathNot: ['^packages/sdk/src/runtime/', '^packages/sdk/src/$1/'],
+      },
+    },
     {
       name: 'no-circular',
       severity: 'warn',
       comment:
-        "This dependency is part of a circular relationship. You might want to revise " +
-        "your solution (i.e. use dependency inversion, make sure the modules have a single responsibility) ",
+        'This dependency is part of a circular relationship. You might want to revise ' +
+        'your solution (i.e. use dependency inversion, make sure the modules have a single responsibility) ',
       from: {},
       to: {
         circular: true,
-        dependencyTypesNot: ['type-only']
-      }
+        dependencyTypesNot: ['type-only'],
+      },
     },
     {
       name: 'no-deprecated-core',
@@ -33,9 +88,7 @@ module.exports = {
       severity: 'warn',
       from: {},
       to: {
-        dependencyTypes: [
-          'core'
-        ],
+        dependencyTypes: ['core'],
         path: [
           '^v8/tools/codemap$',
           '^v8/tools/consarray$',
@@ -56,9 +109,9 @@ module.exports = {
           '^constants$',
           '^sys$',
           '^_linklist$',
-          '^_stream_wrap$'
+          '^_stream_wrap$',
         ],
-      }
+      },
     },
     {
       name: 'not-to-deprecated',
@@ -68,10 +121,8 @@ module.exports = {
       severity: 'warn',
       from: {},
       to: {
-        dependencyTypes: [
-          'deprecated'
-        ]
-      }
+        dependencyTypes: ['deprecated'],
+      },
     },
     {
       name: 'no-non-package-json',
@@ -79,15 +130,12 @@ module.exports = {
       comment:
         "This module depends on an npm package that isn't in the 'dependencies' section of your package.json. " +
         "That's problematic as the package either (1) won't be available on live (2 - worse) will be " +
-        "available on live with an non-guaranteed version. Fix it by adding the package to the dependencies " +
-        "in your package.json.",
+        'available on live with an non-guaranteed version. Fix it by adding the package to the dependencies ' +
+        'in your package.json.',
       from: {},
       to: {
-        dependencyTypes: [
-          'npm-no-pkg',
-          'npm-unknown'
-        ]
-      }
+        dependencyTypes: ['npm-no-pkg', 'npm-unknown'],
+      },
     },
     {
       name: 'not-to-unresolvable',
@@ -97,23 +145,23 @@ module.exports = {
       severity: 'error',
       from: {},
       to: {
-        couldNotResolve: true
-      }
+        couldNotResolve: true,
+      },
     },
     {
       name: 'no-duplicate-dep-types',
       comment:
         "Likely this module depends on an external ('npm') package that occurs more than once " +
-        "in your package.json i.e. bot as a devDependencies and in dependencies. This will cause " +
-        "maintenance problems later on.",
+        'in your package.json i.e. bot as a devDependencies and in dependencies. This will cause ' +
+        'maintenance problems later on.',
       severity: 'warn',
       from: {},
       to: {
         moreThanOneDependencyType: true,
         // as it's common to use a devDependency for type-only imports: don't
         // consider type-only dependencyTypes for this rule
-        dependencyTypesNot: ["type-only"]
-      }
+        dependencyTypesNot: ['type-only'],
+      },
     },
 
     // rules you might want to tweak for your specific situation:
@@ -127,8 +175,8 @@ module.exports = {
       severity: 'error',
       from: {},
       to: {
-        path: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$'
-      }
+        path: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$',
+      },
     },
     {
       name: 'not-to-dev-dep',
@@ -143,58 +191,48 @@ module.exports = {
         path: '^(packages)',
         // `testing/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
         // 因此允许它使用根 devDependency，如 express。
-        pathNot: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/'
+        pathNot: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/',
       },
       to: {
-        dependencyTypes: [
-          'npm-dev',
-        ],
+        dependencyTypes: ['npm-dev'],
         // type only dependencies are not a problem as they don't end up in the
         // production code or are ignored by the runtime.
-        dependencyTypesNot: [
-          'type-only'
-        ],
-        pathNot: [
-          'node_modules/@types/'
-        ]
-      }
+        dependencyTypesNot: ['type-only'],
+        pathNot: ['node_modules/@types/'],
+      },
     },
     {
       name: 'optional-deps-used',
       severity: 'info',
       comment:
-        "This module depends on an npm package that is declared as an optional dependency " +
+        'This module depends on an npm package that is declared as an optional dependency ' +
         "in your package.json. As this makes sense in limited situations only, it's flagged here. " +
-        "If you use an optional dependency here by design - add an exception to your" +
-        "dependency-cruiser configuration.",
+        'If you use an optional dependency here by design - add an exception to your' +
+        'dependency-cruiser configuration.',
       from: {},
       to: {
-        dependencyTypes: [
-          'npm-optional'
-        ]
-      }
+        dependencyTypes: ['npm-optional'],
+      },
     },
     {
       name: 'peer-deps-used',
       comment:
-        "This module depends on an npm package that is declared as a peer dependency " +
-        "in your package.json. This makes sense if your package is e.g. a plugin, but in " +
-        "other cases - maybe not so much. If the use of a peer dependency is intentional " +
-        "add an exception to your dependency-cruiser configuration.",
+        'This module depends on an npm package that is declared as a peer dependency ' +
+        'in your package.json. This makes sense if your package is e.g. a plugin, but in ' +
+        'other cases - maybe not so much. If the use of a peer dependency is intentional ' +
+        'add an exception to your dependency-cruiser configuration.',
       severity: 'warn',
       from: {},
       to: {
-        dependencyTypes: [
-          'npm-peer'
-        ]
-      }
-    }
+        dependencyTypes: ['npm-peer'],
+      },
+    },
   ],
   options: {
     // Which modules not to follow further when encountered
     doNotFollow: {
       // path: an array of regular expressions in strings to match against
-      path: ['node_modules']
+      path: ['node_modules'],
     },
 
     // Which modules to exclude
@@ -261,7 +299,7 @@ module.exports = {
     // dependency-cruiser's current working directory). When not provided
     // defaults to './tsconfig.json'.
     tsConfig: {
-      fileName: 'tsconfig.base.json'
+      fileName: 'tsconfig.base.json',
     },
 
     // Webpack configuration to use to get resolve options from.
@@ -313,7 +351,7 @@ module.exports = {
       // extensions: [".js", ".jsx", ".ts", ".tsx", ".d.ts"],
 
       // What to consider a 'main' field in package.json
-      mainFields: ["module", "main", "types", "typings"],
+      mainFields: ['module', 'main', 'types', 'typings'],
 
       // A list of alias fields in package.jsons
       // See https://github.com/defunctzombie/package-browser-field-spec and
@@ -348,7 +386,8 @@ module.exports = {
       },
       archi: {
         // Pattern of modules to consolidate to.
-        collapsePattern: '^(?:packages|src|lib(s?)|app(s?)|bin|test(s?)|spec(s?))/[^/]+|node_modules/(?:@[^/]+/[^/]+|[^/]+)',
+        collapsePattern:
+          '^(?:packages|src|lib(s?)|app(s?)|bin|test(s?)|spec(s?))/[^/]+|node_modules/(?:@[^/]+/[^/]+|[^/]+)',
 
         // Options to tweak the appearance of your graph. If you don't specify a
         // theme for 'archi' dependency-cruiser will use the one specified in the
@@ -356,9 +395,9 @@ module.exports = {
         // theme: { },
       },
       text: {
-        highlightFocused: true
+        highlightFocused: true,
       },
-    }
-  }
+    },
+  },
 };
 // generated: dependency-cruiser@18.2.0 on 2026-09-09T03:31:43.317Z

@@ -5,10 +5,34 @@
   "required": ["id", "relatedScenarios", "stages", "cases", "requiredIn", "notes"],
   "properties": {
     "id": { "type": "string", "description": "FLOW 的稳定唯一标识。" },
-    "relatedScenarios": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$", "description": "关联 Scenario 的稳定标识；此处只约束 ID 形状，具体格式与是否已登记由场景门禁按有效 Spec 清单校验。" }, "description": "该流程覆盖的 Scenario 引用列表，每项必须是有效 Spec 中已登记的完整 Scenario ID。" },
-    "stages": { "type": "string", "minLength": 1, "description": "同一连续运行中必须完成的阶段，用箭头分隔。" },
-    "cases": { "type": "array", "items": { "type": "string", "minLength": 1, "description": "流程必须运行的 case key。" }, "description": "流程 case key 列表。" },
-    "requiredIn": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "project.manifest.json 登记的 integration 或 platform 类测试项目名。" }, "description": "流程所需运行环境；取值必须是 project.manifest.json 登记的 integration 或 platform 类测试项目。" },
+    "relatedScenarios": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$",
+        "description": "关联 Scenario 的稳定标识；此处只约束 ID 形状，具体格式与是否已登记由场景门禁按有效 Spec 清单校验。"
+      },
+      "description": "该流程覆盖的 Scenario 引用列表，每项必须是有效 Spec 中已登记的完整 Scenario ID。"
+    },
+    "stages": {
+      "type": "string",
+      "minLength": 1,
+      "description": "同一连续运行中必须完成的阶段，用箭头分隔。"
+    },
+    "cases": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "description": "流程必须运行的 case key。" },
+      "description": "流程 case key 列表。"
+    },
+    "requiredIn": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "description": "project.manifest.json 登记的 integration 或 platform 类测试项目名。"
+      },
+      "description": "流程所需运行环境；取值必须是 project.manifest.json 登记的 integration 或 platform 类测试项目。"
+    },
     "notes": { "type": "string", "description": "输入、证据和边界说明。" }
   }
 }

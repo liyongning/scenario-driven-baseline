@@ -22,18 +22,21 @@ export function createRequestContext(
   options: ProtocolContextOptions,
   context: OperationContext,
 ): Promise<CommunicationResult<RequestContext>> {
-  if (context.cancellation?.isStopped()) return Promise.resolve({ ok: false, error: { code: 'CANCELLED' } });
+  if (context.cancellation?.isStopped())
+    return Promise.resolve({ ok: false, error: { code: 'CANCELLED' } });
   const remaining = context.deadlineAtMs - options.runtime.nowMs();
   if (remaining <= 0) return Promise.resolve({ ok: false, error: { code: 'TIMEOUT' } });
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     let ended = false;
     const subscription: { unsubscribe?: () => void } = {};
     const timerListeners = new Set<() => void>();
     const timerCancellation: Cancellation = {
       isStopped: () => ended,
-      subscribe: listener => {
+      subscribe: (listener) => {
         timerListeners.add(listener);
-        return () => { timerListeners.delete(listener); };
+        return () => {
+          timerListeners.delete(listener);
+        };
       },
     };
     const finish = (result: CommunicationResult<RequestContext>) => {
@@ -46,30 +49,56 @@ export function createRequestContext(
       resolve(result);
     };
     if (context.cancellation) {
-      subscription.unsubscribe = context.cancellation.subscribe(() => finish({ ok: false, error: { code: 'CANCELLED' } }));
+      subscription.unsubscribe = context.cancellation.subscribe(() =>
+        finish({ ok: false, error: { code: 'CANCELLED' } }),
+      );
     }
     // subscribe 允许同步通知；此时刚返回的解除函数也必须执行。
-    if (ended) { subscription.unsubscribe?.(); return; }
-    void options.runtime.sleepMs(remaining, timerCancellation).then(() => finish({ ok: false, error: { code: 'TIMEOUT' } }));
-    void Promise.resolve().then(() => options.getAccessToken()).then(token => {
-      if (ended) return;
-      if (context.cancellation?.isStopped()) { finish({ ok: false, error: { code: 'CANCELLED' } }); return; }
-      if (options.runtime.nowMs() >= context.deadlineAtMs) { finish({ ok: false, error: { code: 'TIMEOUT' } }); return; }
-      if (token === null || typeof token === 'string' && token.trim() === '') {
-        finish({ ok: false, error: { code: 'EMPTY_ACCESS_TOKEN' } });
-        return;
-      }
-      if (typeof token !== 'string') { finish({ ok: false, error: { code: 'HOST_CONTEXT_ERROR' } }); return; }
-      const requestId = options.runtime.nextRequestId();
-      const config = options.requestContext;
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', request_id: requestId,
-      };
-      const baseReq = BaseReq.create({ requestId });
-      if (config?.productId !== undefined) { headers['X-Product-ID'] = config.productId; baseReq.productId = config.productId; }
-      if (config?.lane !== undefined) headers.lane = config.lane;
-      if (config?.appVersion !== undefined) headers.app_version = config.appVersion;
-      finish({ ok: true, value: { headers, baseReq } });
-    }, () => finish({ ok: false, error: { code: 'HOST_CONTEXT_ERROR' } }));
+    if (ended) {
+      subscription.unsubscribe?.();
+      return;
+    }
+    void options.runtime
+      .sleepMs(remaining, timerCancellation)
+      .then(() => finish({ ok: false, error: { code: 'TIMEOUT' } }));
+    void Promise.resolve()
+      .then(() => options.getAccessToken())
+      .then(
+        (token) => {
+          if (ended) return;
+          if (context.cancellation?.isStopped()) {
+            finish({ ok: false, error: { code: 'CANCELLED' } });
+            return;
+          }
+          if (options.runtime.nowMs() >= context.deadlineAtMs) {
+            finish({ ok: false, error: { code: 'TIMEOUT' } });
+            return;
+          }
+          if (token === null || (typeof token === 'string' && token.trim() === '')) {
+            finish({ ok: false, error: { code: 'EMPTY_ACCESS_TOKEN' } });
+            return;
+          }
+          if (typeof token !== 'string') {
+            finish({ ok: false, error: { code: 'HOST_CONTEXT_ERROR' } });
+            return;
+          }
+          const requestId = options.runtime.nextRequestId();
+          const config = options.requestContext;
+          const headers: Record<string, string> = {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            request_id: requestId,
+          };
+          const baseReq = BaseReq.create({ requestId });
+          if (config?.productId !== undefined) {
+            headers['X-Product-ID'] = config.productId;
+            baseReq.productId = config.productId;
+          }
+          if (config?.lane !== undefined) headers.lane = config.lane;
+          if (config?.appVersion !== undefined) headers.app_version = config.appVersion;
+          finish({ ok: true, value: { headers, baseReq } });
+        },
+        () => finish({ ok: false, error: { code: 'HOST_CONTEXT_ERROR' } }),
+      );
   });
 }

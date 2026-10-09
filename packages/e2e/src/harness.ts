@@ -12,7 +12,10 @@ export function createHarness(attemptId: string) {
       events.push({ sequence: events.length + 1, kind, detail: { ...detail } });
     },
     snapshot() {
-      return { attemptId, events: events.map(event => ({ ...event, detail: { ...event.detail } })) };
+      return {
+        attemptId,
+        events: events.map((event) => ({ ...event, detail: { ...event.detail } })),
+      };
     },
   };
 }
