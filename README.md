@@ -42,4 +42,7 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 
 以 sdk-template 为基线初始化本项目：先按 docs/template-guide.md 的"初始化方式"做适配评估，产品方案与前后端方案在 <路径>。使用过程中的发现记入 docs/template-feedback.md。
 
+## 维护者说明
+
+工作流 schema（`openspec/schemas/`）不随本模板提交：`.gitignore` 不忽略它，使用方按 Change Skill 安装后应正常提交。模板仓库自己维护时，如果不希望跟踪 schema，在 `.git/info/exclude` 中本地排除，而不是修改 `.gitignore`。
 

@@ -4,8 +4,6 @@ node_modules/
 
 .worktrees/
 
-openspec/schemas/
-
 dist/
 artifacts/
 .proto-gen/

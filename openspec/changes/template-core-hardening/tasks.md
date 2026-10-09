@@ -32,7 +32,7 @@
 
 **Tracking rule:** One independently implementable and reviewable task maps to one unindented top-level checkbox. RED, GREEN, verification, and review steps are indented plain bullets, not additional tracked checkboxes.
 
-- [ ] 1. 依赖小版本升级与忽略项修正
+- [x] 1. 依赖小版本升级与忽略项修正
 
   **Files**
   - Modify：根 `package.json`、`pnpm-lock.yaml`（全部 devDependencies 升至最新补丁或小版本，以 `pnpm outdated` 为准；`typescript` 保持 5.9.x；`@types/node` 保持 22.x；`@daqian/proto-gen` 升至私有 registry 最新正式版本并保存精确版本）。

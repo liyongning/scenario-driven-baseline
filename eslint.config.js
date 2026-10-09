@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/.generated/**', 'artifacts/**', '.superpowers/**', 'packages/protocol/src/generated/**'] },
+  { ignores: ['**/node_modules/**', '**/dist/**', '**/.generated/**', 'artifacts/**', '.local/**', '.superpowers/**', 'packages/protocol/src/generated/**'] },
   { files: ['**/*.{js,mjs,cjs,ts,mts,cts}'], plugins: { js }, extends: ['js/recommended'] },
   tseslint.configs.recommended,
   { files: ['scripts/**/*.ts', '*.ts', '*.js', '*.cjs', 'packages/**/*.config*.ts', 'packages/**/*.test.ts'], languageOptions: { globals: globals.node } },
