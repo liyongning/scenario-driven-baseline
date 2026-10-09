@@ -1,9 +1,12 @@
-import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import ts from 'typescript';
-import { fileURLToPath } from 'node:url';
 import { collectFiles } from './fingerprints.ts';
-import { loadProjectManifest, packageByRole, testProjectsByClass } from './project-manifest.ts';
+import {
+  loadProjectManifest,
+  packageByRole,
+  testProjectsByClass,
+  type ProjectManifest,
+} from './project-manifest.ts';
 
 type Direction = 'request' | 'response';
 type Encoding =
@@ -36,48 +39,24 @@ type FieldDiscovery = Readonly<{
   applicability: 'applicable' | 'pending';
   authority: string | null;
 }>;
+/** 声明模块里一条消费接口：方法描述的声明位置、元数据与请求字段策略。 */
+export type ConsumedDeclaration = Readonly<{
+  name: string;
+  httpMethod: string;
+  path: string;
+  requestType: string;
+  responseType: string;
+  /** 义务 ID 前缀：由声明文件相对 `generated/idl/` 的目录推导（PC-01）。 */
+  prefix: string;
+  /** 请求/响应类型的源文件：方法常量在 generated 中的声明位置。 */
+  source: ts.SourceFile;
+  requestFields: Readonly<Record<string, RequestPolicy>>;
+  /** 声明元素在声明模块中的位置，用于报错。 */
+  position: string;
+}>;
 
-const requestAuthority =
-  'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
 const responseAuthority =
   'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
-const requestPolicies: Readonly<Record<string, Readonly<Record<string, RequestPolicy>>>> = {
-  CreateTrade: {
-    biz_type: { cases: ['mapped-value'], authority: requestAuthority },
-    biz_trade_no: { cases: ['mapped-value'], authority: requestAuthority },
-    user_id: { cases: ['mapped-value'], authority: requestAuthority },
-    goods_type: { cases: ['fixed-value'], authority: requestAuthority },
-    pay_amount: { cases: ['mapped-value'], authority: requestAuthority },
-    items: { cases: ['mapped-value'], authority: requestAuthority },
-    'items.biz_order_no': { cases: ['mapped-value'], authority: requestAuthority },
-    'items.sku_id': { cases: ['mapped-value'], authority: requestAuthority },
-    'items.sku_name': { cases: ['mapped-value'], authority: requestAuthority },
-    'items.quantity': { cases: ['mapped-value'], authority: requestAuthority },
-    'items.unit_price': { cases: ['mapped-value'], authority: requestAuthority },
-    'items.pay_amount': { cases: ['mapped-value'], authority: requestAuthority },
-    'items.discount_amount': { cases: ['fixed-value'], authority: requestAuthority },
-    'items.sku_snapshot': { cases: ['omitted'], authority: requestAuthority },
-    'items.sku_snapshot.wechat_virtual_product_id': {
-      cases: ['omitted'],
-      authority: requestAuthority,
-    },
-    'items.sku_snapshot.biz_snapshot': { cases: ['omitted'], authority: requestAuthority },
-    original_amount: { cases: ['mapped-value'], authority: requestAuthority },
-    discount_amount: { cases: ['fixed-value'], authority: requestAuthority },
-    base_req: { cases: ['generated-value'], authority: requestAuthority },
-    'base_req.request_id': { cases: ['generated-value'], authority: requestAuthority },
-    'base_req.product_id': { cases: ['configured-value', 'omitted'], authority: requestAuthority },
-  },
-  QueryTrade: {
-    trade_no: { cases: ['mapped-value'], authority: requestAuthority },
-    biz_type: { cases: ['omitted'], authority: requestAuthority },
-    biz_trade_no: { cases: ['omitted'], authority: requestAuthority },
-    sync_channel: { cases: ['omitted'], authority: requestAuthority },
-    base_req: { cases: ['generated-value'], authority: requestAuthority },
-    'base_req.request_id': { cases: ['generated-value'], authority: requestAuthority },
-    'base_req.product_id': { cases: ['configured-value', 'omitted'], authority: requestAuthority },
-  },
-};
 
 function snakeCase(value: string): string {
   return value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
@@ -175,28 +154,6 @@ function exportedType(checker: ts.TypeChecker, source: ts.SourceFile, name: stri
   return checker.getDeclaredTypeOfSymbol(symbol);
 }
 
-function deriveFields(
-  generatedRoot: string,
-  typeNames: ReadonlyArray<string>,
-): Map<string, ReachableField[]> {
-  const files = collectFiles(generatedRoot, (path) => path.endsWith('.ts'));
-  const program = ts.createProgram(files, {
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    skipLibCheck: true,
-  });
-  const checker = program.getTypeChecker();
-  const tradeSource = program.getSourceFile(join(generatedRoot, 'idl/infra/trade/v1/trade.ts'));
-  if (!tradeSource) throw new Error('generated Consumer trade output is missing');
-  return new Map(
-    typeNames.map((name) => [
-      name,
-      collectReachableFields(checker, exportedType(checker, tradeSource, name)),
-    ]),
-  );
-}
-
 function responseMappingCases(field: ReachableField): string[] {
   if (field.oneofBranch) return ['decoded-branch', 'wire-present', 'wire-absent'];
   if (field.optional) return ['decoded-value', 'decoded-absence', 'wire-present', 'wire-absent'];
@@ -217,18 +174,19 @@ function encodingCases(
 }
 
 function fieldObligations(
+  prefix: string,
   method: string,
   direction: Direction,
   typeName: string,
   fields: ReadonlyArray<ReachableField>,
+  requestFields: Readonly<Record<string, RequestPolicy>>,
   requiredIn: ReadonlyArray<string>,
   issues: string[],
 ) {
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
   for (const field of fields) {
-    const requestPolicy =
-      direction === 'request' ? requestPolicies[method]?.[field.path] : undefined;
+    const requestPolicy = direction === 'request' ? requestFields[field.path] : undefined;
     const authority =
       direction === 'response' ? responseAuthority : (requestPolicy?.authority ?? null);
     const applicable = authority !== null && field.encoding !== undefined;
@@ -254,12 +212,12 @@ function fieldObligations(
     const mappingCases =
       direction === 'response' ? responseMappingCases(field) : requestPolicy!.cases;
     obligations.push({
-      id: `infra.trade.v1.${method}#${direction}-mapping#${field.path}`,
+      id: `${prefix}.${method}#${direction}-mapping#${field.path}`,
       cases: [...mappingCases],
       requiredIn: [...requiredIn],
     });
     obligations.push({
-      id: `infra.trade.v1.${method}#encoding-boundary#${direction}.${field.path}`,
+      id: `${prefix}.${method}#encoding-boundary#${direction}.${field.path}`,
       cases: encodingCases(direction, field, mappingCases),
       requiredIn: [...requiredIn],
     });
@@ -268,11 +226,12 @@ function fieldObligations(
 }
 
 const sharedMethodObligations = (
+  prefix: string,
   method: string,
   requiredIn: ReadonlyArray<string>,
 ): Obligation[] => [
   {
-    id: `infra.trade.v1.${method}#header-base-req#$`,
+    id: `${prefix}.${method}#header-base-req#$`,
     cases: [
       'authorization',
       'content-type',
@@ -290,12 +249,12 @@ const sharedMethodObligations = (
     requiredIn: [...requiredIn],
   },
   {
-    id: `infra.trade.v1.${method}#response-handling#$`,
+    id: `${prefix}.${method}#response-handling#$`,
     cases: ['success', 'business-error', 'http-error', 'malformed-body'],
     requiredIn: [...requiredIn],
   },
   {
-    id: `infra.trade.v1.${method}#error-handling#$`,
+    id: `${prefix}.${method}#error-handling#$`,
     cases: [
       'empty-access-token',
       'host-context-error',
@@ -306,7 +265,7 @@ const sharedMethodObligations = (
     requiredIn: [...requiredIn],
   },
   {
-    id: `infra.trade.v1.${method}#timeout#$`,
+    id: `${prefix}.${method}#timeout#$`,
     cases: [
       'deadline-before-context',
       'provider-timeout',
@@ -318,72 +277,408 @@ const sharedMethodObligations = (
   },
 ];
 
+/** 分析用 TS program：把各包包名映射到包内源码根，协议包解析到 `src` 而不是 `dist`。 */
+function analysisProgram(root: string, manifest: ProjectManifest, generatedRoot: string) {
+  const product = packageByRole(manifest, 'product');
+  const protocol = packageByRole(manifest, 'protocol');
+  const productSrc = resolve(root, 'packages', product.directory, 'src');
+  const protocolSrc = resolve(root, 'packages', protocol.directory, 'src');
+  const paths: Record<string, string[]> = {
+    [`${protocol.name}/generated/*`]: [relative(root, generatedRoot) + '/*'],
+    [protocol.name]: [relative(root, join(protocolSrc, 'index.ts'))],
+    [`${protocol.name}/*`]: [relative(root, protocolSrc) + '/*'],
+    [product.name]: [relative(root, join(productSrc, 'index.ts'))],
+    [`${product.name}/*`]: [relative(root, productSrc) + '/*'],
+  };
+  const sources = (directory: string) =>
+    collectFiles(directory, (path) => path.endsWith('.ts') && !path.endsWith('.d.ts'));
+  return ts.createProgram([...sources(productSrc), ...sources(protocolSrc)], {
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    skipLibCheck: true,
+    baseUrl: root,
+    paths,
+  });
+}
+
+/** 解析别名符号：仅当符号是 import 别名时才展开，避免对普通符号调用 getAliasedSymbol。 */
+function resolveAlias(
+  checker: ts.TypeChecker,
+  symbol: ts.Symbol | undefined,
+): ts.Symbol | undefined {
+  if (!symbol) return undefined;
+  return symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+}
+
+function stringLiteral(node: ts.Expression): string | undefined {
+  return ts.isStringLiteralLike(node) ? node.text : undefined;
+}
+
+function propertyName(node: ts.ObjectLiteralElementLike): string | undefined {
+  if (!ts.isPropertyAssignment(node)) return undefined;
+  return ts.isIdentifier(node.name) || ts.isStringLiteralLike(node.name)
+    ? node.name.text
+    : undefined;
+}
+
+/** 解析属性值：字符串字面量，或指向字符串常量的标识符。 */
+function resolveString(checker: ts.TypeChecker, node: ts.Expression): string | undefined {
+  const literal = stringLiteral(node);
+  if (literal !== undefined) return literal;
+  if (!ts.isIdentifier(node)) return undefined;
+  const target = resolveAlias(checker, checker.getSymbolAtLocation(node));
+  const declaration = target?.valueDeclaration;
+  if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer)
+    return stringLiteral(declaration.initializer);
+  return undefined;
+}
+
+/** 去掉 `as`/括号等包裹，取方法常量或 meta 的实际字面量。 */
+function unwrapExpression(node: ts.Expression): ts.Expression {
+  let current = node;
+  while (
+    ts.isAsExpression(current) ||
+    ts.isParenthesizedExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  )
+    current = current.expression;
+  return current;
+}
+
+/** 一条 `request(...)` 里的方法名；两种调用形式都识别。 */
+function callTarget(
+  checker: ts.TypeChecker,
+  node: ts.Expression,
+): { method: string; declaration: ts.VariableDeclaration } | undefined {
+  let value: ts.Expression = node;
+  if (ts.isPropertyAccessExpression(value) && value.name.text === 'meta') value = value.expression;
+  if (!ts.isIdentifier(value)) return undefined;
+  const symbol = resolveAlias(checker, checker.getSymbolAtLocation(value));
+  let declaration = symbol?.valueDeclaration;
+  // `const meta = CreateTrade.meta` 这类再赋值：追溯到方法常量本身。
+  if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer) {
+    const initializer = declaration.initializer;
+    if (ts.isPropertyAccessExpression(initializer) && initializer.name.text === 'meta') {
+      const inner = resolveAlias(
+        checker,
+        checker.getSymbolAtLocation(initializer.expression as ts.Identifier),
+      );
+      declaration = inner?.valueDeclaration;
+    }
+  }
+  if (!declaration || !ts.isVariableDeclaration(declaration)) return undefined;
+  const initializer = declaration.initializer;
+  if (!initializer || !ts.isCallExpression(initializer)) return undefined;
+  if (!ts.isIdentifier(initializer.expression) || initializer.expression.text !== 'createMethod')
+    return undefined;
+  const first = initializer.arguments[0];
+  const argument = first && unwrapExpression(first);
+  const name =
+    argument && ts.isObjectLiteralExpression(argument)
+      ? argument.properties.map(propertyName).includes('name')
+        ? stringLiteral(
+            (
+              argument.properties.find(
+                (item) => propertyName(item) === 'name',
+              ) as ts.PropertyAssignment
+            ).initializer,
+          )
+        : undefined
+      : undefined;
+  if (!name) return undefined;
+  return { method: name, declaration };
+}
+
+function lineOf(source: ts.SourceFile, node: ts.Node): number {
+  return source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+}
+
+/** 申请声明位置的义务 ID 前缀：`generated/idl/infra/trade/v1/trade.ts` → `infra.trade.v1`。 */
+function packagePrefix(generatedRoot: string, file: ts.SourceFile): string | undefined {
+  const relativePath = relative(generatedRoot, file.fileName).split('\\').join('/');
+  // 只有 `idl/<包目录>/<文件>` 能推导包名：`idl/` 之外的入口与 `idl/` 直属文件都不属于 IDL 包。
+  const match = /^idl\/(.+)\/[^/]+$/.exec(relativePath);
+  return match ? match[1]!.split('/').join('.') : undefined;
+}
+
+function readDeclarationModule(
+  checker: ts.TypeChecker,
+  program: ts.Program,
+  generatedRoot: string,
+  modulePath: string,
+  position: string,
+  issues: string[],
+): ConsumedDeclaration[] {
+  const source = program
+    .getSourceFiles()
+    .find((file) => resolve(file.fileName) === resolve(modulePath));
+  if (!source) {
+    issues.push(`consumedOperations 声明模块不存在或未进入分析范围：${position}`);
+    return [];
+  }
+  const module = checker.getSymbolAtLocation(source);
+  const exported =
+    module && checker.getExportsOfModule(module).find((item) => item.name === 'consumedOperations');
+  const valueDeclaration = exported?.valueDeclaration;
+  const initializer =
+    valueDeclaration && ts.isVariableDeclaration(valueDeclaration)
+      ? valueDeclaration.initializer
+      : undefined;
+  if (!initializer || !ts.isArrayLiteralExpression(initializer)) {
+    issues.push(`consumedOperations 声明模块未导出数组：${position}`);
+    return [];
+  }
+  const declarations: ConsumedDeclaration[] = [];
+  for (const element of initializer.elements) {
+    const where = `${position}:${lineOf(source, element)}`;
+    if (!ts.isObjectLiteralExpression(element)) {
+      issues.push(`声明元素不是 { method, requestFields } 对象：${where}`);
+      continue;
+    }
+    const methodProperty = element.properties.find((item) => propertyName(item) === 'method');
+    const methodNode =
+      methodProperty && ts.isPropertyAssignment(methodProperty)
+        ? methodProperty.initializer
+        : undefined;
+    const symbol =
+      methodNode && ts.isIdentifier(methodNode)
+        ? resolveAlias(checker, checker.getSymbolAtLocation(methodNode))
+        : undefined;
+    const declaration =
+      symbol?.valueDeclaration && ts.isVariableDeclaration(symbol.valueDeclaration)
+        ? symbol.valueDeclaration
+        : undefined;
+    const call = declaration?.initializer;
+    if (!declaration || !call || !ts.isCallExpression(call)) {
+      issues.push(`声明元素的 method 无法解析到 generated 方法常量：${where}`);
+      continue;
+    }
+    if (!ts.isIdentifier(call.expression) || call.expression.text !== 'createMethod') {
+      issues.push(
+        `声明元素的 method 不是 createMethod 常量（${call.expression.getText()}）：${where}`,
+      );
+      continue;
+    }
+    const prefix = packagePrefix(generatedRoot, declaration.getSourceFile());
+    if (!prefix) {
+      issues.push(`声明元素的 method 不在 generated/idl/ 下，无法推导 IDL 包名：${where}`);
+      continue;
+    }
+    const firstArgument = call.arguments[0];
+    const argument = firstArgument && unwrapExpression(firstArgument);
+    if (!argument || !ts.isObjectLiteralExpression(argument)) {
+      issues.push(`方法常量没有可读的 meta 对象：${where}`);
+      continue;
+    }
+    const meta = (name: string) => {
+      const property = argument.properties.find((item) => propertyName(item) === name);
+      return property && ts.isPropertyAssignment(property)
+        ? resolveString(checker, property.initializer)
+        : undefined;
+    };
+    const name = meta('name');
+    const httpMethod = meta('method');
+    const path = meta('path');
+    const requestType = meta('requestType');
+    const responseType = meta('responseType');
+    if (!name || !httpMethod || !path || !requestType || !responseType) {
+      issues.push(`方法常量缺少 name、method、path、requestType 或 responseType：${where}`);
+      continue;
+    }
+    const requestFields: Record<string, RequestPolicy> = {};
+    const fieldsProperty = element.properties.find(
+      (item) => propertyName(item) === 'requestFields',
+    );
+    if (fieldsProperty && ts.isPropertyAssignment(fieldsProperty)) {
+      if (!ts.isObjectLiteralExpression(fieldsProperty.initializer)) {
+        issues.push(`requestFields 不是对象字面量：${where}`);
+        continue;
+      }
+      for (const field of fieldsProperty.initializer.properties) {
+        const fieldPath = propertyName(field);
+        if (!fieldPath || !ts.isPropertyAssignment(field)) {
+          issues.push(`requestFields 的键必须是字段路径：${where}`);
+          continue;
+        }
+        const policy = field.initializer;
+        if (!ts.isObjectLiteralExpression(policy)) {
+          issues.push(`${name} request field ${fieldPath} 的策略不是对象字面量：${where}`);
+          continue;
+        }
+        const casesProperty = policy.properties.find((item) => propertyName(item) === 'cases');
+        const authorityProperty = policy.properties.find(
+          (item) => propertyName(item) === 'authority',
+        );
+        const cases =
+          casesProperty &&
+          ts.isPropertyAssignment(casesProperty) &&
+          ts.isArrayLiteralExpression(casesProperty.initializer)
+            ? casesProperty.initializer.elements.map((item) => stringLiteral(item))
+            : undefined;
+        const authority =
+          authorityProperty && ts.isPropertyAssignment(authorityProperty)
+            ? resolveString(checker, authorityProperty.initializer)
+            : undefined;
+        if (!cases || cases.some((item) => item === undefined) || !authority) {
+          issues.push(`${name} request field ${fieldPath} 的策略缺少 cases 或 authority：${where}`);
+          continue;
+        }
+        requestFields[fieldPath] = { cases: cases as string[], authority };
+      }
+    }
+    declarations.push({
+      name,
+      httpMethod,
+      path,
+      requestType,
+      responseType,
+      prefix,
+      source: declaration.getSourceFile(),
+      requestFields,
+      position: where,
+    });
+  }
+  return declarations;
+}
+
+/**
+ * 取分析 program 中对应某个源码文件的 SourceFile。
+ * program 由同一批 `collectFiles` 结果创建，因此这些文件必然在 program 内。
+ */
+function sourceFileFor(program: ts.Program, file: string): ts.SourceFile {
+  return program.getSourceFiles().find((candidate) => candidate.fileName === file)!;
+}
+
+/** 协议包手写的 `businessErrors` 目录：错误码义务的事实源（PC-02）。 */
+function businessErrorNames(
+  checker: ts.TypeChecker,
+  program: ts.Program,
+  protocolSrc: string,
+): string[] {
+  const files = collectFiles(
+    protocolSrc,
+    (path) => path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts'),
+  );
+  for (const file of files) {
+    const source = sourceFileFor(program, file);
+    const module = checker.getSymbolAtLocation(source)!;
+    const symbol = checker
+      .getExportsOfModule(module)
+      .find((item) => item.name === 'businessErrors');
+    const declaration = symbol?.valueDeclaration;
+    if (!declaration || !ts.isVariableDeclaration(declaration)) continue;
+    let initializer = declaration.initializer;
+    if (initializer && ts.isCallExpression(initializer)) initializer = initializer.arguments[0];
+    if (!initializer || !ts.isObjectLiteralExpression(initializer)) continue;
+    return initializer.properties
+      .map(propertyName)
+      .filter((item) => item !== undefined) as string[];
+  }
+  return [];
+}
+
+/** 产品包源码里的实际调用：`request(X.meta, ...)` 与把方法描述作为参数两种形式。 */
+function calledMethods(
+  checker: ts.TypeChecker,
+  program: ts.Program,
+  productSrc: string,
+): Array<Readonly<{ method: string; position: string }>> {
+  const calls: Array<Readonly<{ method: string; position: string }>> = [];
+  const files = collectFiles(productSrc, (path) => path.endsWith('.ts') && !path.endsWith('.d.ts'));
+  for (const file of files) {
+    const source = sourceFileFor(program, file);
+    const visit = (node: ts.Node) => {
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'request'
+      ) {
+        const argument = node.arguments[0];
+        const target = argument && callTarget(checker, argument);
+        if (target)
+          calls.push({
+            method: target.method,
+            position: `${relative(program.getCurrentDirectory(), file)}:${lineOf(source, node)}`,
+          });
+      }
+      node.forEachChild(visit);
+    };
+    source.forEachChild(visit);
+  }
+  return calls;
+}
+
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
   const manifest = loadProjectManifest(root);
   const protocolDirectory = packageByRole(manifest, 'protocol').directory;
+  const productPackage = packageByRole(manifest, 'product');
   const requiredIn = testProjectsByClass(manifest, ['integration', 'platform']);
   const integrationOnly = testProjectsByClass(manifest, ['integration']);
-  // 示例方法描述模块按仓库清单的 protocol 角色目录定位，不随门禁根目录变化；临时根无需提供 testing/。
-  const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
-  const repositoryProtocol = packageByRole(
-    loadProjectManifest(repositoryRoot),
-    'protocol',
-  ).directory;
-  // 直接读取生成的方法描述，不依赖 Shadow 路由类型（PC-03：派生与路由中立解耦）。
-  const { exampleRpcMethods: routes } = (await import(
-    `../../packages/${repositoryProtocol}/testing/shadow/example/routes.ts`
-  )) as {
-    exampleRpcMethods: ReadonlyArray<{
-      name: string;
-      method: string;
-      path: string;
-      requestType: string;
-      responseType: string;
-    }>;
-  };
   const generatedRoot =
     options.generatedRoot ?? resolve(root, 'packages', protocolDirectory, 'src/generated');
-  const typeNames = routes.flatMap((route) => [route.requestType, route.responseType]);
-  const fields = deriveFields(generatedRoot, typeNames);
-  const errors = JSON.parse(
-    await readFile(
-      join(root, 'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json'),
-      'utf8',
-    ),
-  ) as Array<{ name: string }>;
+  const protocolSrc = resolve(root, 'packages', protocolDirectory, 'src');
+  const program = analysisProgram(root, manifest, generatedRoot);
+  const checker = program.getTypeChecker();
   const issues: string[] = [];
+  const declarations = (productPackage.consumedOperations ?? []).flatMap((module) =>
+    readDeclarationModule(checker, program, generatedRoot, resolve(root, module), module, issues),
+  );
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
-  for (const route of routes) {
+  for (const declaration of declarations) {
     obligations.push({
-      id: `infra.trade.v1.${route.name}#http-route#$`,
-      cases: [route.name],
+      id: `${declaration.prefix}.${declaration.name}#http-route#$`,
+      cases: [declaration.name],
       requiredIn: [...requiredIn],
     });
     for (const [direction, typeName] of [
-      ['request', route.requestType],
-      ['response', route.responseType],
+      ['request', declaration.requestType],
+      ['response', declaration.responseType],
     ] as const) {
+      const fields = collectReachableFields(
+        checker,
+        exportedType(checker, declaration.source, typeName),
+      );
       const derived = fieldObligations(
-        route.name,
+        declaration.prefix,
+        declaration.name,
         direction,
         typeName,
-        fields.get(typeName)!,
+        fields,
+        declaration.requestFields,
         requiredIn,
         issues,
       );
       obligations.push(...derived.obligations);
       discoveries.push(...derived.discoveries);
     }
-    obligations.push(...sharedMethodObligations(route.name, requiredIn));
+    obligations.push(...sharedMethodObligations(declaration.prefix, declaration.name, requiredIn));
   }
+  const errors = businessErrorNames(checker, program, protocolSrc);
   obligations.push({
     id: 'idl.error-contract#business-error#$',
-    cases: errors.map((item) => item.name),
+    cases: errors,
     requiredIn: [...integrationOnly],
   });
+  // 双向对账：声明了但没有调用、调用了但没有声明都是门禁问题（SCN-PROTOCOL-CONTRACT-005）。
+  const declared = new Set(declarations.map((item) => item.name));
+  const calls = calledMethods(
+    checker,
+    program,
+    resolve(root, 'packages', productPackage.directory, 'src'),
+  );
+  for (const call of calls)
+    if (!declared.has(call.method)) issues.push(`未声明的调用：${call.method}（${call.position}）`);
+  for (const declaration of declarations)
+    if (!calls.some((call) => call.method === declaration.name))
+      issues.push(`未使用的声明：${declaration.name}（${declaration.position}）`);
   return {
-    methods: routes.map((route) => ({ name: route.name, method: route.method, path: route.path })),
+    methods: declarations.map((item) => ({
+      name: item.name,
+      method: item.httpMethod,
+      path: item.path,
+    })),
     discoveries,
     obligations,
     issues,

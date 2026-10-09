@@ -2,7 +2,9 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runProtocolSuite } from '../../host/weapp/protocol-runner.ts';
+// template-example:begin
 import { runExampleCase } from '../../host/weapp/example-runner.ts';
+// template-example:end
 
 const generatedRunner = new URL('../../host/weapp/.generated/protocol-runner.js', import.meta.url)
   .pathname;
@@ -19,14 +21,20 @@ describe('official minimal weapp host', () => {
       | {
           runProtocolCase(input: unknown): Promise<unknown>;
           runProtocolSuite(input: unknown): Promise<unknown>;
+          // template-example:begin
           runExampleCase(input: unknown): Promise<unknown>;
+          // template-example:end
         }
       | undefined;
     const runProtocolCase = vi.fn(async (input: unknown) => ({ input }));
     const runProtocolSuite = vi.fn(async (input: unknown) => ({ suite: input }));
+    // template-example:begin
     const runExampleCase = vi.fn(async (input: unknown) => ({ example: input }));
+    // template-example:end
     vi.stubGlobal('__TEMPLATE_TEST_RUNNER__', { runProtocolCase, runProtocolSuite });
+    // template-example:begin
     vi.stubGlobal('__EXAMPLE_TEST_RUNNER__', { runExampleCase });
+    // template-example:end
     vi.stubGlobal('App', (value: typeof definition) => {
       definition = value;
     });
@@ -38,10 +46,14 @@ describe('official minimal weapp host', () => {
       input: { caseKey: 'omitted' },
     });
     await expect(definition?.runProtocolSuite('matrix')).resolves.toEqual({ suite: 'matrix' });
+    // template-example:begin
     await expect(definition?.runExampleCase('example')).resolves.toEqual({ example: 'example' });
+    // template-example:end
     expect(runProtocolCase).toHaveBeenCalledOnce();
     expect(runProtocolSuite).toHaveBeenCalledOnce();
+    // template-example:begin
     expect(runExampleCase).toHaveBeenCalledOnce();
+    // template-example:end
   });
 
   it('registers an interaction-free empty page', async () => {
@@ -58,12 +70,16 @@ describe('official minimal weapp host', () => {
     let definition: { runProtocolCase(input: unknown): Promise<unknown> } | undefined;
     await mkdir(dirname(generatedRunner), { recursive: true });
     await writeFile(generatedRunner, 'export const runProtocolCase = async input => input;\n');
+    // template-example:begin
     await writeFile(
       new URL('../../host/weapp/.generated/example-runner.js', import.meta.url),
       'export const runExampleCase = async input => input;\n',
     );
+    // template-example:end
     vi.stubGlobal('__TEMPLATE_TEST_RUNNER__', undefined);
+    // template-example:begin
     vi.stubGlobal('__EXAMPLE_TEST_RUNNER__', undefined);
+    // template-example:end
     vi.stubGlobal('App', (value: typeof definition) => {
       definition = value;
     });
@@ -74,6 +90,7 @@ describe('official minimal weapp host', () => {
     await expect(definition?.runProtocolCase('case')).resolves.toBe('case');
   });
 
+  // template-example:begin
   it('runs the example create, observation, flow, and input-failure branches through the SDK', async () => {
     const requests: string[] = [];
     const request = vi.fn(
@@ -120,6 +137,7 @@ describe('official minimal weapp host', () => {
       'query',
     ]);
   });
+  // template-example:end
 
   it('returns protocol projections without nested bigint values', async () => {
     const request = vi.fn((options: { success(value: unknown): void; complete?(): void }) => {
@@ -143,7 +161,7 @@ describe('official minimal weapp host', () => {
       timeoutMs: 100,
       methods: [
         {
-          method: 'CreateTrade',
+          name: 'CreateTrade',
           request: { bizType: 'projection' },
           sparseRequest: { bizType: 'projection' },
           responseCount: 1,

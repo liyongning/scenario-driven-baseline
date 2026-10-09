@@ -342,7 +342,7 @@
   **Commit**
   - `feat(template): add affected-scenario test selection with partial reports`
 
-- [ ] 10. 协议义务以消费接口声明派生与注释门禁按入口发现
+- [x] 10. 协议义务以消费接口声明派生与注释门禁按入口发现
 
   **Files**
   - Create：`packages/sdk/src/consumed-operations.ts`（导出 `consumedOperations`，元素为 `{ method, requestFields }`，数组显式标注元素类型；示例条目所依赖的 import 语句与条目一起放在 `template-example` 标记内；示例的 `CreateTrade`、`QueryTrade` 条目及其 `requestFields`（自 `contract-inventory.ts` 的 `requestPolicies` 原样迁入）用 `// template-example:begin/end` 包裹）及单测（标记外只断言每个元素的 `method` 都是 generated 方法描述；"恰好是 CreateTrade、QueryTrade"的示例断言及 SCN-TEMPLATE-EXAMPLE-012 的证据绑定在标记内）；清单 product 包登记 `consumedOperations`。

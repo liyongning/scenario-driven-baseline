@@ -1,19 +1,12 @@
-// @SCN-PROTOCOL-CONTRACT-002: 示例接口的协议义务逐项由公共协议客户端与 Shadow 执行。
+// @SCN-PROTOCOL-CONTRACT-002: 声明的消费接口的协议义务逐项由公共协议客户端与 Shadow 执行。
 import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
 import { createProtocolClient } from '@daqian/template-protocol';
 import type { HttpPort } from '@daqian/template-protocol';
-import {
-  CreateTrade,
-  CreateTradeRequest,
-  CreateTradeResponse,
-  QueryTrade,
-  QueryTradeRequest,
-  QueryTradeResponse,
-} from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { consumedOperations } from '@daqian/template-sdk';
 import {
   createShadowServer,
-  discoverExampleRoutes,
+  discoverDeclaredRoutes,
   type RunningShadowServer,
 } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
@@ -23,20 +16,23 @@ import { createNodeHttpDriver } from '../../src/drivers/node.ts';
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const inventory = await buildContractInventory(repositoryRoot);
-const routes = discoverExampleRoutes();
+
+/** 矩阵用例遍历产品包声明的消费接口，不写死任何接口名（PC-01）。 */
+const operations: ReadonlyArray<(typeof consumedOperations)[number]> = consumedOperations;
+const declaredNames = operations.map((operation) => operation.method.meta.name);
+const routes = discoverDeclaredRoutes(operations.map((operation) => operation.method));
 const running = new Set<RunningShadowServer>();
 
-type MethodName = 'CreateTrade' | 'QueryTrade';
-const methods = ['CreateTrade', 'QueryTrade'] as const;
-type MatrixFixture = Readonly<
-  Record<
-    'create' | 'query',
-    Readonly<{
-      request: Record<string, unknown>;
-      responses: Record<string, unknown>[];
-    }>
-  >
->;
+afterEach(async () => {
+  await Promise.all([...running].map((server) => server.close()));
+  running.clear();
+});
+
+type MatrixEntry = Readonly<{
+  request: Record<string, unknown>;
+  responses: Record<string, unknown>[];
+}>;
+type MatrixFixture = Readonly<Record<string, MatrixEntry>>;
 type Result = Awaited<ReturnType<ReturnType<typeof createProtocolClient>['request']>>;
 type MatrixRun = Readonly<{
   results: Result[];
@@ -44,10 +40,39 @@ type MatrixRun = Readonly<{
   verify: string[];
 }>;
 
-afterEach(async () => {
-  await Promise.all([...running].map((server) => server.close()));
-  running.clear();
-});
+const metaOf = (operation: (typeof operations)[number]) => operation.method.meta;
+const nameOf = (operation: (typeof operations)[number]) => operation.method.meta.name;
+
+/** 按接口名取矩阵 Fixture 数据；缺少键时失败并指出接口名。 */
+function entryOf(fixture: MatrixFixture, name: string): MatrixEntry {
+  const entry = fixture[name];
+  if (!entry) throw new Error(`协议矩阵 Fixture 缺少接口 ${name} 的数据`);
+  return entry;
+}
+
+/** 该接口全部义务的 ID 前缀：由方法描述在 generated 中的声明位置推导（PC-01）。 */
+function prefixOf(name: string): string {
+  const suffix = `.${name}#http-route#$`;
+  const route = inventory.obligations.find((item) => item.id.endsWith(suffix));
+  if (!route) throw new Error(`接口 ${name} 缺少 http-route 义务`);
+  return route.id.slice(0, route.id.length - suffix.length);
+}
+
+const obligationsOf = (name: string) =>
+  inventory.obligations.filter((item) => item.id.startsWith(`${prefixOf(name)}.${name}#`));
+
+/** 按消费接口派生的义务键；声明为空时为空数组。 */
+const declaredObligationKeys = () =>
+  declaredNames.flatMap((name) =>
+    obligationsOf(name).flatMap((item) => item.cases.map((caseKey) => `${item.id}/${caseKey}`)),
+  );
+
+const declaredObligationCases = () =>
+  declaredNames.flatMap((name) =>
+    obligationsOf(name).flatMap((item) =>
+      item.cases.map((caseKey) => ({ id: item.id, caseKey, checks: [`${item.id}/${caseKey}`] })),
+    ),
+  );
 
 function camel(value: string): string {
   return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
@@ -88,19 +113,19 @@ function communicationClient(
   });
 }
 
-const entryOf = (fixture: MatrixFixture, method: MethodName) =>
-  fixture[method === 'CreateTrade' ? 'create' : 'query'];
-
-function requestBody(fixture: MatrixFixture, method: MethodName) {
-  const source = structuredClone(entryOf(fixture, method).request);
+/** 用方法描述的请求 codec 由 Fixture 请求体构造消息，baseReq 由公共客户端填充。 */
+function messageOf(
+  fixture: MatrixFixture,
+  name: string,
+  codec: { fromJSON(input: unknown): unknown },
+) {
+  const source = structuredClone(entryOf(fixture, name).request);
   delete source.baseReq;
-  return method === 'CreateTrade'
-    ? CreateTradeRequest.fromJSON(source)
-    : QueryTradeRequest.fromJSON(source);
+  return codec.fromJSON(source);
 }
 
-function expectedBody(fixture: MatrixFixture, method: MethodName, sparse = false) {
-  const body = structuredClone(entryOf(fixture, method).request);
+function expectedBody(fixture: MatrixFixture, name: string, sparse = false) {
+  const body = structuredClone(entryOf(fixture, name).request);
   if (sparse) delete (body.baseReq as Record<string, unknown>).productId;
   return body;
 }
@@ -124,23 +149,22 @@ function encodingMatches(caseKey: string, value: unknown): boolean {
   return true;
 }
 
-const metaOf = (method: MethodName) =>
-  method === 'CreateTrade' ? CreateTrade.meta : QueryTrade.meta;
-const messageOf = (fixture: MatrixFixture, method: MethodName) =>
-  requestBody(fixture, method) as CreateTradeRequest & QueryTradeRequest;
-const responseCodecOf = (method: MethodName) =>
-  method === 'CreateTrade' ? CreateTradeResponse : QueryTradeResponse;
-
 /** 用真实协议客户端逐条发送 fixture 中的响应样例；sparse 请求省略可配置的公共上下文。 */
-async function runMatrix(method: MethodName, fixture: MatrixFixture): Promise<MatrixRun> {
-  const responses = entryOf(fixture, method).responses;
+async function runMatrix(
+  operation: (typeof operations)[number],
+  fixture: MatrixFixture,
+): Promise<MatrixRun> {
+  const meta = metaOf(operation);
+  const name = meta.name;
+  const responses = entryOf(fixture, name).responses;
+  const message = () => messageOf(fixture, name, meta.requestCodec!);
   const scenario = {
-    id: `${method}-matrix`,
+    id: `${name}-matrix`,
     routes: {
-      [method]: {
+      [name]: {
         expectedRequests: [
-          ...responses.map(() => ({ body: expectedBody(fixture, method) })),
-          { body: expectedBody(fixture, method, true) },
+          ...responses.map(() => ({ body: expectedBody(fixture, name) })),
+          { body: expectedBody(fixture, name, true) },
         ],
         steps: [...responses.map((body) => ({ body })), { body: {} }],
       },
@@ -151,32 +175,25 @@ async function runMatrix(method: MethodName, fixture: MatrixFixture): Promise<Ma
   const configured = communicationClient(server.url);
   const results: Result[] = [];
   for (let index = 0; index < responses.length; index += 1) {
-    results.push(
-      await configured.request(
-        metaOf(method) as typeof CreateTrade.meta,
-        messageOf(fixture, method),
-        { deadlineAtMs: Date.now() + 5_000 },
-      ),
-    );
+    results.push(await configured.request(meta, message(), { deadlineAtMs: Date.now() + 5_000 }));
   }
   results.push(
-    await communicationClient(server.url, false).request(
-      metaOf(method) as typeof CreateTrade.meta,
-      messageOf(fixture, method),
-      { deadlineAtMs: Date.now() + 5_000 },
-    ),
+    await communicationClient(server.url, false).request(meta, message(), {
+      deadlineAtMs: Date.now() + 5_000,
+    }),
   );
   return { results, records: server.records(), verify: server.verify() };
 }
 
 /** 通信错误、响应处理与超时分支；每条分支都通过公共客户端的真实网络适配发出或按契约拒绝。 */
 async function runSharedEvidence(
-  method: MethodName,
+  operation: (typeof operations)[number],
   fixture: MatrixFixture,
 ): Promise<Record<string, boolean>> {
-  const meta = metaOf(method) as typeof CreateTrade.meta;
-  const request = messageOf(fixture, method);
-  const expected = expectedBody(fixture, method);
+  const meta = metaOf(operation);
+  const name = meta.name;
+  const request = () => messageOf(fixture, name, meta.requestCodec!);
+  const expected = expectedBody(fixture, name);
   const deadline = () => Date.now() + 2_000;
   const requestStep = async (
     step: Readonly<{ status?: number; body?: unknown; rawBody?: string; delayMs?: number }>,
@@ -185,13 +202,13 @@ async function runSharedEvidence(
       routes,
       scenarios: [
         {
-          id: `${method}-shared-${running.size}`,
-          routes: { [method]: { expectedRequests: [{ body: expected }], steps: [step] } },
+          id: `${name}-shared-${running.size}`,
+          routes: { [name]: { expectedRequests: [{ body: expected }], steps: [step] } },
         },
       ],
     }).start();
     running.add(server);
-    return communicationClient(server.url).request(meta, request, { deadlineAtMs: deadline() });
+    return communicationClient(server.url).request(meta, request(), { deadlineAtMs: deadline() });
   };
   const success = await requestStep({ body: { baseResp: { success: true, statusCode: '0' } } });
   const business = await requestStep({
@@ -220,10 +237,10 @@ async function runSharedEvidence(
       http,
       runtime: { nowMs, nextRequestId: () => 'matrix-request', sleepMs },
     });
-  const emptyToken = await make(() => '').request(meta, request, { deadlineAtMs: 10 });
+  const emptyToken = await make(() => '').request(meta, request(), { deadlineAtMs: 10 });
   const hostError = await make(() => {
     throw new Error('host');
-  }).request(meta, request, { deadlineAtMs: 10 });
+  }).request(meta, request(), { deadlineAtMs: 10 });
   const networkError = await make(
     () => 'token',
     () => 0,
@@ -233,34 +250,34 @@ async function runSharedEvidence(
         throw new Error('network');
       },
     },
-  ).request(meta, request, { deadlineAtMs: 10 });
-  const cancelled = await make(() => 'token').request(meta, request, {
+  ).request(meta, request(), { deadlineAtMs: 10 });
+  const cancelled = await make(() => 'token').request(meta, request(), {
     deadlineAtMs: 10,
     cancellation: { isStopped: () => true, subscribe: () => () => undefined },
   });
-  const codecRequest = new Proxy(request as object, {
+  const codecRequest = new Proxy(request() as object, {
     get() {
       throw new Error('codec');
     },
-  }) as CreateTradeRequest;
+  });
   const codecError = await make(() => 'token').request(meta, codecRequest, { deadlineAtMs: 10 });
 
   const beforeContext = await make(
     () => 'token',
     () => 10,
-  ).request(meta, request, { deadlineAtMs: 10 });
+  ).request(meta, request(), { deadlineAtMs: 10 });
   const providerTimeout = await make(
     () => new Promise<string>(() => undefined),
     () => 0,
     async () => undefined,
-  ).request(meta, request, { deadlineAtMs: 10 });
+  ).request(meta, request(), { deadlineAtMs: 10 });
   let currentTime = 0;
-  const deadlineRequest = new Proxy(request as object, {
+  const deadlineRequest = new Proxy(request() as object, {
     get(target, property, receiver) {
       currentTime = 10;
       return Reflect.get(target, property, receiver);
     },
-  }) as CreateTradeRequest;
+  });
   const beforeSend = await make(
     () => 'token',
     () => currentTime,
@@ -269,15 +286,15 @@ async function runSharedEvidence(
     routes,
     scenarios: [
       {
-        id: `${method}-in-flight-timeout`,
+        id: `${name}-in-flight-timeout`,
         routes: {
-          [method]: { expectedRequests: [{ body: expected }], steps: [{ delayMs: 30, body: {} }] },
+          [name]: { expectedRequests: [{ body: expected }], steps: [{ delayMs: 30, body: {} }] },
         },
       },
     ],
   }).start();
   running.add(delayedServer);
-  const delayed = await communicationClient(delayedServer.url).request(meta, request, {
+  const delayed = await communicationClient(delayedServer.url).request(meta, request(), {
     deadlineAtMs: Date.now() + 5,
   });
   let resolveLate!: (token: string) => void;
@@ -295,7 +312,7 @@ async function runSharedEvidence(
         return { ok: true, value: { status: 200, headers: {}, body: '{}' } };
       },
     },
-  ).request(meta, request, { deadlineAtMs: 10 });
+  ).request(meta, request(), { deadlineAtMs: 10 });
   resolveLate('late-token');
   await Promise.resolve();
   await Promise.resolve();
@@ -330,47 +347,43 @@ defineCase(
       {
         id: 'SCN-PROTOCOL-CONTRACT-002',
         caseKey: 'protocol-matrix',
-        checks: ['obligations-covered', 'real-client-path'],
+        checks: [
+          'obligations-covered',
+          'real-client-path',
+          'routes-from-declaration',
+          'matrix-iterates-declaration',
+        ],
       },
-      ...inventory.obligations
-        .filter((item) => item.id.startsWith('infra.trade.v1.'))
-        .flatMap((item) =>
-          item.cases.map((caseKey) => ({
-            id: item.id,
-            caseKey,
-            checks: [`${item.id}/${caseKey}`],
-          })),
-        ),
+      ...declaredObligationCases(),
     ],
   },
   async ({ fixture: value, checkpoint, expect }) => {
     const fixture = value as MatrixFixture;
     const covered = new Set<string>();
-    const runs = new Map<MethodName, MatrixRun>();
-    const shared = new Map<MethodName, Record<string, boolean>>();
-    for (const method of methods) {
-      runs.set(method, await runMatrix(method, fixture));
-      shared.set(method, await runSharedEvidence(method, fixture));
+    const runs = new Map<string, MatrixRun>();
+    const shared = new Map<string, Record<string, boolean>>();
+    for (const operation of operations) {
+      const name = nameOf(operation);
+      runs.set(name, await runMatrix(operation, fixture));
+      shared.set(name, await runSharedEvidence(operation, fixture));
     }
-    for (const method of methods) {
-      expect(runs.get(method)!.verify).toEqual([]);
-      expect(runs.get(method)!.results.every((result) => result.ok)).toBe(true);
+    for (const name of declaredNames) {
+      expect(runs.get(name)!.verify).toEqual([]);
+      expect(runs.get(name)!.results.every((result) => result.ok)).toBe(true);
     }
 
-    for (const method of methods) {
-      const run = runs.get(method)!;
-      const entries = entryOf(fixture, method).responses;
+    for (const operation of operations) {
+      const name = nameOf(operation);
+      const run = runs.get(name)!;
+      const entries = entryOf(fixture, name).responses;
       const richResults = run.results.slice(0, entries.length);
       const emptyResult = run.results.at(-1)!;
       const richRecord = run.records[0]!;
       const sparseRecord = run.records.at(-1)!;
-      const responseCodec = responseCodecOf(method);
+      const responseCodec = metaOf(operation).responseCodec;
       const emptyDecoded = responseCodec.fromJSON({});
-      const obligations = inventory.obligations.filter((item) =>
-        item.id.startsWith(`infra.trade.v1.${method}#`),
-      );
 
-      for (const obligation of obligations) {
+      for (const obligation of obligationsOf(name)) {
         const match = obligation.id.match(/#([^#]+)#(.+)$/)!;
         const category = match[1]!;
         const path = match[2]!;
@@ -378,7 +391,7 @@ defineCase(
           covered.add(`${obligation.id}/${caseKey}`);
           await checkpoint(`${obligation.id}/${caseKey}`, () => {
             if (category === 'http-route') {
-              expect(run.records.every((record) => record.methodName === method)).toBe(true);
+              expect(run.records.every((record) => record.methodName === name)).toBe(true);
               return;
             }
             if (category === 'request-mapping') {
@@ -454,27 +467,54 @@ defineCase(
               return;
             }
             expect(
-              shared.get(method)![`${category}/${caseKey}`],
-              `${method}/${category}/${caseKey}`,
+              shared.get(name)![`${category}/${caseKey}`],
+              `${name}/${category}/${caseKey}`,
             ).toBe(true);
           });
         }
       }
     }
 
+    await checkpoint('routes-from-declaration', () => {
+      expect(routes.map((route) => route.methodName)).toEqual([...declaredNames]);
+      expect(routes).toEqual(
+        operations.map((operation) => ({
+          methodName: metaOf(operation).name,
+          httpMethod: metaOf(operation).method,
+          path: metaOf(operation).path,
+        })),
+      );
+      expect(routes.length).toBe(declaredNames.length);
+    });
+
+    await checkpoint('matrix-iterates-declaration', () => {
+      expect([...runs.keys()].sort()).toEqual([...declaredNames].sort());
+      for (const operation of operations) {
+        const name = nameOf(operation);
+        expect(Object.prototype.hasOwnProperty.call(fixture, name)).toBe(true);
+        expect(runs.get(name)!.records.length).toBe(entryOf(fixture, name).responses.length + 1);
+      }
+      expect(() => entryOf({}, 'UndeclaredInterface')).toThrow(/UndeclaredInterface/);
+    });
+
     await checkpoint('obligations-covered', () => {
-      const derived = inventory.obligations
-        .filter((item) => item.id.startsWith('infra.trade.v1.'))
-        .flatMap((item) => item.cases.map((caseKey) => `${item.id}/${caseKey}`));
+      const derived = declaredObligationKeys();
+      // 声明为空时按消费接口派生的义务为空并结束（业务错误码义务不在矩阵范围内）。
+      if (declaredNames.length === 0) {
+        expect(derived).toEqual([]);
+        expect(routes).toEqual([]);
+        return;
+      }
       expect(derived.length).toBeGreaterThan(0);
       expect(covered.size).toBe(derived.length);
+      expect(inventory.methods.map((item) => item.name).sort()).toEqual([...declaredNames].sort());
     });
 
     await checkpoint('real-client-path', () => {
-      for (const method of methods) {
-        const run = runs.get(method)!;
-        expect(run.records.length).toBe(entryOf(fixture, method).responses.length + 1);
-        expect(run.records.every((record) => record.methodName === method)).toBe(true);
+      for (const name of declaredNames) {
+        const run = runs.get(name)!;
+        expect(run.records.length).toBe(entryOf(fixture, name).responses.length + 1);
+        expect(run.records.every((record) => record.methodName === name)).toBe(true);
       }
     });
   },

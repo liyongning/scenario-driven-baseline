@@ -15,6 +15,7 @@ export default defineConfig({
   },
 });
 
+// template-example:begin
 export const exampleConfig = defineConfig({
   build: {
     target: 'es2020',
@@ -28,3 +29,4 @@ export const exampleConfig = defineConfig({
     },
   },
 });
+// template-example:end

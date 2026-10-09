@@ -3,19 +3,23 @@ import {
   createWechatMiniappHttp,
   type Cancellation,
 } from '@daqian/template-protocol';
-import {
-  CreateTrade,
-  CreateTradeRequest,
-  CreateTradeResponse,
-  QueryTrade,
-  QueryTradeRequest,
-  QueryTradeResponse,
-} from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { consumedOperations } from '@daqian/template-sdk';
 
-type ProtocolMethod = 'CreateTrade' | 'QueryTrade';
+/**
+ * 宿主只按产品包的消费接口声明解析接口：声明里的方法描述自带 HTTP 方法与请求/响应 codec，
+ * 运行器不写死任何具体接口，新增消费接口时只需改声明与矩阵 Fixture。
+ */
+function declaredMethod(name: string) {
+  const operation = consumedOperations.find((item) => item.method.meta.name === name);
+  const meta = operation?.method.meta;
+  if (!meta) throw new Error(`消费接口声明中没有 ${name}`);
+  if (!meta.method || !meta.path || !meta.requestCodec)
+    throw new Error(`消费接口 ${name} 的方法描述不是 HTTP 方法`);
+  return meta;
+}
 
 type ProtocolCaseInput = Readonly<{
-  action: 'createTrade' | 'queryTrade';
+  name: string;
   gatewayBaseUrl: string;
   request: Record<string, unknown>;
   accessToken: string;
@@ -25,7 +29,7 @@ type ProtocolCaseInput = Readonly<{
 }>;
 
 type ProtocolSuiteMethod = Readonly<{
-  method: ProtocolMethod;
+  name: string;
   request: Record<string, unknown>;
   sparseRequest: Record<string, unknown>;
   responseCount: number;
@@ -43,6 +47,7 @@ type ProtocolSuiteInput = Readonly<{
 
 /** 最小宿主只装配协议公共入口；网络始终由协议包的真实 wx.request 适配器提供。 */
 export async function runProtocolCase(input: ProtocolCaseInput) {
+  const meta = declaredMethod(input.name);
   const client = createProtocolClient({
     gatewayBaseUrl: input.gatewayBaseUrl,
     getAccessToken: () => input.accessToken,
@@ -54,38 +59,20 @@ export async function runProtocolCase(input: ProtocolCaseInput) {
       sleepMs: () => new Promise(() => undefined),
     },
   });
-  const context = { deadlineAtMs: Date.now() + input.timeoutMs };
-  if (input.action === 'createTrade') {
-    const result = await client.request(
-      CreateTrade.meta,
-      CreateTradeRequest.fromJSON(input.request),
-      context,
-    );
-    return result.ok
-      ? {
-          ok: true,
-          httpStatus: result.value.http.status,
-          wire: result.value.wire,
-          decoded: CreateTradeResponse.toJSON(result.value.data),
-        }
-      : result;
-  }
-  const result = await client.request(
-    QueryTrade.meta,
-    QueryTradeRequest.fromJSON(input.request),
-    context,
-  );
+  const result = await client.request(meta, meta.requestCodec!.fromJSON(input.request), {
+    deadlineAtMs: Date.now() + input.timeoutMs,
+  });
   return result.ok
     ? {
         ok: true,
         httpStatus: result.value.http.status,
         wire: result.value.wire,
-        decoded: QueryTradeResponse.toJSON(result.value.data),
+        decoded: meta.responseCodec.toJSON(result.value.data),
       }
     : result;
 }
 
-/** 单次自动化连接内执行整份示例协议矩阵与通信故障；所有发出的请求仍走真实 wx.request。 */
+/** 单次自动化连接内执行整份协议矩阵与通信故障；所有发出的请求仍走真实 wx.request。 */
 export async function runProtocolSuite(input: ProtocolSuiteInput) {
   const camel = (value: string) =>
     value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
@@ -110,11 +97,9 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
   };
 
   const runMethod = async (spec: ProtocolSuiteMethod) => {
-    const query = spec.method === 'QueryTrade';
-    const meta = query ? QueryTrade.meta : CreateTrade.meta;
-    const codec = query ? QueryTradeResponse : CreateTradeResponse;
-    const message = (source: Record<string, unknown>) =>
-      query ? QueryTradeRequest.fromJSON(source) : CreateTradeRequest.fromJSON(source);
+    const meta = declaredMethod(spec.name);
+    const codec = meta.responseCodec;
+    const message = (source: Record<string, unknown>) => meta.requestCodec!.fromJSON(source);
     const serialize = (
       result: Awaited<ReturnType<ReturnType<typeof createProtocolClient>['request']>>,
     ) =>
@@ -123,7 +108,7 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
             ok: true,
             httpStatus: result.value.http.status,
             wire: result.value.wire,
-            decoded: codec.toJSON(result.value.data as never),
+            decoded: codec.toJSON(result.value.data),
             decodedProjection: Object.fromEntries(
               spec.responsePaths.map((path) => [path, decodedAt(result.value.data, path)]),
             ),
@@ -162,11 +147,9 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
       timeoutMs = input.timeoutMs,
       options?: Parameters<typeof make>[0],
     ) =>
-      make(options).request(
-        meta as typeof CreateTrade.meta,
-        message(source) as CreateTradeRequest,
-        { deadlineAtMs: (options?.nowMs?.() ?? Date.now()) + timeoutMs },
-      );
+      make(options).request(meta, message(source), {
+        deadlineAtMs: (options?.nowMs?.() ?? Date.now()) + timeoutMs,
+      });
 
     const matrix = [];
     for (let index = 0; index < spec.responseCount; index += 1)
@@ -188,37 +171,28 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
     );
     const stopped: Cancellation = { isStopped: () => true, subscribe: () => () => undefined };
     const cancelled = serialize(
-      await make().request(
-        meta as typeof CreateTrade.meta,
-        message(spec.request) as CreateTradeRequest,
-        { deadlineAtMs: Date.now() + input.timeoutMs, cancellation: stopped },
-      ),
+      await make().request(meta, message(spec.request), {
+        deadlineAtMs: Date.now() + input.timeoutMs,
+        cancellation: stopped,
+      }),
     );
     const codecRequest = new Proxy(message(spec.request) as object, {
       get() {
         throw new Error('codec');
       },
-    }) as CreateTradeRequest;
+    });
     const codecError = serialize(
-      await make().request(meta as typeof CreateTrade.meta, codecRequest, {
-        deadlineAtMs: Date.now() + input.timeoutMs,
-      }),
+      await make().request(meta, codecRequest, { deadlineAtMs: Date.now() + input.timeoutMs }),
     );
     const beforeContext = serialize(
-      await make({ nowMs: () => 10 }).request(
-        meta as typeof CreateTrade.meta,
-        message(spec.request) as CreateTradeRequest,
-        { deadlineAtMs: 10 },
-      ),
+      await make({ nowMs: () => 10 }).request(meta, message(spec.request), { deadlineAtMs: 10 }),
     );
     const providerTimeout = serialize(
       await make({
         token: () => new Promise<string>(() => undefined),
         nowMs: () => 0,
         sleepMs: async () => undefined,
-      }).request(meta as typeof CreateTrade.meta, message(spec.request) as CreateTradeRequest, {
-        deadlineAtMs: 10,
-      }),
+      }).request(meta, message(spec.request), { deadlineAtMs: 10 }),
     );
     let now = 0;
     const deadlineRequest = new Proxy(message(spec.request) as object, {
@@ -226,11 +200,9 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
         now = 10;
         return Reflect.get(target, property, receiver);
       },
-    }) as CreateTradeRequest;
+    });
     const beforeSend = serialize(
-      await make({ nowMs: () => now }).request(meta as typeof CreateTrade.meta, deadlineRequest, {
-        deadlineAtMs: 5,
-      }),
+      await make({ nowMs: () => now }).request(meta, deadlineRequest, { deadlineAtMs: 5 }),
     );
     let resolveLate!: (value: string) => void;
     const lateToken = new Promise<string>((resolve) => {
@@ -241,9 +213,7 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
         token: () => lateToken,
         nowMs: () => 0,
         sleepMs: async () => undefined,
-      }).request(meta as typeof CreateTrade.meta, message(spec.request) as CreateTradeRequest, {
-        deadlineAtMs: 10,
-      }),
+      }).request(meta, message(spec.request), { deadlineAtMs: 10 }),
     );
     resolveLate('late');
     await Promise.resolve();
@@ -257,7 +227,7 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
     };
   };
 
-  const suites: Partial<Record<ProtocolMethod, Awaited<ReturnType<typeof runMethod>>>> = {};
-  for (const spec of input.methods) suites[spec.method] = await runMethod(spec);
+  const suites: Record<string, Awaited<ReturnType<typeof runMethod>>> = {};
+  for (const spec of input.methods) suites[spec.name] = await runMethod(spec);
   return { suites };
 }

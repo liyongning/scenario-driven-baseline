@@ -6,6 +6,7 @@ import { createDefaultRuntime } from '../runtime/default';
 
 /** 示例客户端配置不符合公共契约。 */
 export class ExampleConfigurationError extends Error {
+  /** 稳定的错误类别，用于调用方判别。 */
   readonly code = 'INVALID_CONFIG' as const;
   constructor(message = 'Invalid example client configuration') {
     super(message);

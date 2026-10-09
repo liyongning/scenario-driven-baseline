@@ -6,7 +6,8 @@
       "role": "product",
       "private": false,
       "allowedDirectories": ["src", "dist", "node_modules"],
-      "moduleRoots": ["src"]
+      "moduleRoots": ["src"],
+      "consumedOperations": ["packages/sdk/src/consumed-operations.ts"]
     },
     {
       "directory": "protocol",
@@ -51,8 +52,16 @@
     "check"
   ],
   "testProjects": [
-    { "name": "sdk-unit", "class": "unit", "config": "packages/sdk/vitest.config.ts" },
-    { "name": "protocol-unit", "class": "unit", "config": "packages/protocol/vitest.config.ts" },
+    {
+      "name": "sdk-unit",
+      "class": "unit",
+      "config": "packages/sdk/vitest.config.ts"
+    },
+    {
+      "name": "protocol-unit",
+      "class": "unit",
+      "config": "packages/protocol/vitest.config.ts"
+    },
     {
       "name": "test-tools-unit",
       "class": "unit",

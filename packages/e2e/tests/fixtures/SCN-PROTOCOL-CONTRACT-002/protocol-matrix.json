@@ -1,5 +1,5 @@
 {
-  "create": {
+  "CreateTrade": {
     "request": {
       "bizType": "example-biz",
       "bizTradeNo": "biz-matrix",
@@ -53,7 +53,7 @@
       {}
     ]
   },
-  "query": {
+  "QueryTrade": {
     "request": {
       "tradeNo": "trade-matrix",
       "baseReq": {

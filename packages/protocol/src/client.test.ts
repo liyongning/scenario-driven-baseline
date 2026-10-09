@@ -22,11 +22,11 @@ const matrix = JSON.parse(
     'utf8',
   ),
 ) as {
-  create: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
-  query: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
+  CreateTrade: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
+  QueryTrade: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
 };
-const create = { request: matrix.create.request, response: matrix.create.responses[0]! };
-const query = { request: matrix.query.request, response: matrix.query.responses[0]! };
+const create = { request: matrix.CreateTrade.request, response: matrix.CreateTrade.responses[0]! };
+const query = { request: matrix.QueryTrade.request, response: matrix.QueryTrade.responses[0]! };
 
 function cancellation() {
   let stopped = false;

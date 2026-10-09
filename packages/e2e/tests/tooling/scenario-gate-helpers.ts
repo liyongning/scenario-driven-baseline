@@ -1,4 +1,11 @@
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -79,16 +86,48 @@ export function writeRepositoryPackages(root: string) {
   }
 }
 
-export function enableInventory(root: string) {
-  const protocol = packageByRole(loadProjectManifest(root), 'protocol');
-  const generated = join(root, 'packages', protocol.directory, 'src/generated');
-  mkdirSync(dirname(generated), { recursive: true });
-  symlinkSync(
-    resolve(repositoryRoot, 'packages', protocol.directory, 'src/generated'),
-    generated,
-    'dir',
-  );
+export type InventoryOptions = Readonly<{
+  /**
+   * 把真实仓库的包源码根链进受控根：协议义务派生要读取产品包的消费接口声明
+   * 与协议包的 `businessErrors`，只链 generated 不足以派生。
+   */
+  realSources?: boolean;
+}>;
+
+/** 生成产物目录整体链接，其余目录建真实目录、文件逐个链接：git 与覆盖率脚本只按文件读取。 */
+const linkedDirectories = new Set(['generated', '.generated', 'dist', 'node_modules']);
+
+function mirrorSources(source: string, target: string): void {
+  mkdirSync(target, { recursive: true });
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const from = join(source, entry.name);
+    const to = join(target, entry.name);
+    if (existsSync(to)) continue;
+    if (entry.isDirectory() && !linkedDirectories.has(entry.name)) mirrorSources(from, to);
+    else symlinkSync(from, to, entry.isDirectory() ? 'dir' : 'file');
+  }
+}
+
+export function enableInventory(root: string, options: InventoryOptions = {}) {
+  const manifest = loadProjectManifest(root);
+  const protocol = packageByRole(manifest, 'protocol');
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
+  if (options.realSources) {
+    for (const pkg of manifest.packages) {
+      const source = resolve(repositoryRoot, 'packages', pkg.directory, 'src');
+      const target = join(root, 'packages', pkg.directory, 'src');
+      if (!existsSync(source) || existsSync(target)) continue;
+      mirrorSources(source, target);
+    }
+  } else {
+    const generated = join(root, 'packages', protocol.directory, 'src/generated');
+    mkdirSync(dirname(generated), { recursive: true });
+    symlinkSync(
+      resolve(repositoryRoot, 'packages', protocol.directory, 'src/generated'),
+      generated,
+      'dir',
+    );
+  }
   for (const [relative, source] of [
     [
       'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json',

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { afterAll, beforeAll } from 'vitest';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import { discoverEntryExports } from './public-doc.ts';
 import { buildCopyInputs, createBuildCopy, type RepositoryCopy } from './repository-copy.ts';
 
 const root = resolve(import.meta.dirname, '../../../..');
@@ -108,7 +109,7 @@ const caseChecks: Record<string, string[]> = {
   'protocol-network-esm-consumer': ['protocol-network-export'],
   'protocol-network-commonjs-consumer': ['protocol-network-export'],
   'protocol-network-types-consumer': ['protocol-network-export'],
-  'sdk-does-not-reexport-network': ['sdk-export-boundary'],
+  'sdk-does-not-reexport-network': ['sdk-export-boundary', 'sdk-exports-from-entry'],
   'sdk-only-consumer': ['dependency-release-contract'],
   'package-boundaries': [
     'production-package-clean',
@@ -182,6 +183,12 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
         await checkpoint('sdk-export-boundary', () =>
           expect(esm).not.toHaveProperty('createWechatMiniappHttp'),
         );
+        // 期望导出集合由产品包根入口的实际导出计算，不在 Fixture 或测试里写死示例导出名。
+        await checkpoint('sdk-exports-from-entry', () => {
+          const entry = resolve(root, 'packages', productPackage.directory, 'src/index.ts');
+          const expected = discoverEntryExports({ root, entry }).values;
+          expect([...expected].sort()).toEqual(Object.keys(esm).sort());
+        });
       } else if (caseKey === 'sdk-only-consumer') {
         const consumerManifest = JSON.parse(
           await readFile(join(state.sdkConsumer, 'package.json'), 'utf8'),

@@ -81,6 +81,13 @@ beforeAll(() => {
   copy = createBuildCopy({ prefix: 'template-engineering-007-' });
   copies.push(copy);
   removeTemplateExample(copy.root, productPackage.directory);
+  // 产品包以协议包 generated 子路径导入方法常量；副本不含构建产物，先构建协议包再巡航依赖图。
+  const built = spawnSync('pnpm', ['--filter', protocolPackage.name, 'build'], {
+    cwd: copy.root,
+    encoding: 'utf8',
+  });
+  if (built.status !== 0)
+    throw new Error(`protocol build in copy failed: ${built.stdout}${built.stderr}`);
 }, 120_000);
 
 afterAll(() => {

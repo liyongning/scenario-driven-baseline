@@ -1,14 +1,11 @@
-// @SCN-PROTOCOL-CONTRACT-002: 示例协议义务在真实 wx.request 上逐项取证。
+// @SCN-PROTOCOL-CONTRACT-002: 声明的协议义务在真实 wx.request 上逐项取证。
 import automator from 'miniprogram-automator';
 import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
-import {
-  CreateTradeResponse,
-  QueryTradeResponse,
-} from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+import { consumedOperations } from '@daqian/template-sdk';
 import {
   createShadowServer,
-  discoverExampleRoutes,
+  discoverDeclaredRoutes,
   type RunningShadowServer,
 } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
@@ -21,24 +18,22 @@ const projectPath = new URL('../../host/weapp', import.meta.url).pathname;
 const cliPath =
   process.env.WECHAT_DEVTOOLS_CLI_PATH ?? '/Applications/wechatwebdevtools.app/Contents/MacOS/cli';
 const inventory = await buildContractInventory(repositoryRoot);
-const routes = discoverExampleRoutes();
+
+/** 矩阵用例遍历产品包声明的消费接口，不写死任何接口名（PC-01）。 */
+const operations: ReadonlyArray<(typeof consumedOperations)[number]> = consumedOperations;
+const declaredNames = operations.map((operation) => operation.method.meta.name);
+const routes = discoverDeclaredRoutes(operations.map((operation) => operation.method));
 const running = new Set<RunningShadowServer>();
 afterEach(async () => {
   await Promise.all([...running].map((server) => server.close()));
   running.clear();
 });
 
-type MethodName = 'CreateTrade' | 'QueryTrade';
-const methods = ['CreateTrade', 'QueryTrade'] as const;
-type MatrixFixture = Readonly<
-  Record<
-    'create' | 'query',
-    Readonly<{
-      request: Record<string, unknown>;
-      responses: Record<string, unknown>[];
-    }>
-  >
->;
+type MatrixEntry = Readonly<{
+  request: Record<string, unknown>;
+  responses: Record<string, unknown>[];
+}>;
+type MatrixFixture = Readonly<Record<string, MatrixEntry>>;
 type ProtocolResult = Readonly<{
   ok: boolean;
   httpStatus?: number;
@@ -52,19 +47,49 @@ type MethodSuite = Readonly<{
   errors: Record<string, ProtocolResult>;
   timeouts: Record<string, ProtocolResult>;
 }>;
-type SuiteResult = Readonly<{ suites: Record<MethodName, MethodSuite> }>;
+type SuiteResult = Readonly<{ suites: Record<string, MethodSuite> }>;
+
+const nameOf = (operation: (typeof operations)[number]) => operation.method.meta.name;
+
+/** 按接口名取矩阵 Fixture 数据；缺少键时失败并指出接口名。 */
+function entryOf(fixture: MatrixFixture, name: string): MatrixEntry {
+  const entry = fixture[name];
+  if (!entry) throw new Error(`协议矩阵 Fixture 缺少接口 ${name} 的数据`);
+  return entry;
+}
+
+/** 该接口全部义务的 ID 前缀：由方法描述在 generated 中的声明位置推导（PC-01）。 */
+function prefixOf(name: string): string {
+  const suffix = `.${name}#http-route#$`;
+  const route = inventory.obligations.find((item) => item.id.endsWith(suffix));
+  if (!route) throw new Error(`接口 ${name} 缺少 http-route 义务`);
+  return route.id.slice(0, route.id.length - suffix.length);
+}
+
+const obligationsOf = (name: string) =>
+  inventory.obligations.filter((item) => item.id.startsWith(`${prefixOf(name)}.${name}#`));
+
+const declaredObligationKeys = () =>
+  declaredNames.flatMap((name) =>
+    obligationsOf(name).flatMap((item) => item.cases.map((caseKey) => `${item.id}/${caseKey}`)),
+  );
+
+const declaredObligationCases = () =>
+  declaredNames.flatMap((name) =>
+    obligationsOf(name).flatMap((item) =>
+      item.cases.map((caseKey) => ({ id: item.id, caseKey, checks: [`${item.id}/${caseKey}`] })),
+    ),
+  );
 
 const camel = (value: string) =>
   value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
-const entryOf = (fixture: MatrixFixture, method: MethodName) =>
-  fixture[method === 'CreateTrade' ? 'create' : 'query'];
-const inputBody = (fixture: MatrixFixture, method: MethodName) => {
-  const value = structuredClone(entryOf(fixture, method).request);
+const inputBody = (fixture: MatrixFixture, name: string) => {
+  const value = structuredClone(entryOf(fixture, name).request);
   delete value.baseReq;
   return value;
 };
-const expectedBody = (fixture: MatrixFixture, method: MethodName, sparse = false) => {
-  const value = structuredClone(entryOf(fixture, method).request);
+const expectedBody = (fixture: MatrixFixture, name: string, sparse = false) => {
+  const value = structuredClone(entryOf(fixture, name).request);
   if (sparse) delete (value.baseReq as Record<string, unknown>).productId;
   return value;
 };
@@ -119,41 +144,39 @@ defineCase(
       {
         id: 'SCN-PROTOCOL-CONTRACT-002',
         caseKey: 'protocol-matrix',
-        checks: ['obligations-covered', 'real-client-path'],
+        checks: [
+          'obligations-covered',
+          'real-client-path',
+          'routes-from-declaration',
+          'matrix-iterates-declaration',
+        ],
       },
-      ...inventory.obligations
-        .filter((item) => item.id.startsWith('infra.trade.v1.'))
-        .flatMap((item) =>
-          item.cases.map((caseKey) => ({
-            id: item.id,
-            caseKey,
-            checks: [`${item.id}/${caseKey}`],
-          })),
-        ),
+      ...declaredObligationCases(),
     ],
   },
   async ({ fixture: value, checkpoint, expect }) => {
     const fixture = value as MatrixFixture;
     const covered = new Set<string>();
-    const planned = methods.map((method) => {
-      const responses = entryOf(fixture, method).responses;
+    const planned = operations.map((operation) => {
+      const name = nameOf(operation);
+      const responses = entryOf(fixture, name).responses;
       return {
-        method,
-        request: inputBody(fixture, method),
-        sparseRequest: inputBody(fixture, method),
+        name,
+        request: inputBody(fixture, name),
+        sparseRequest: inputBody(fixture, name),
         responseCount: responses.length,
         responsePaths: inventory.discoveries
           .filter(
             (item) =>
-              item.method === method &&
+              item.method === name &&
               item.direction === 'response' &&
               item.applicability === 'applicable',
           )
           .map((item) => item.path),
         expectedRequests: [
-          ...responses.map(() => ({ body: expectedBody(fixture, method) })),
-          { body: expectedBody(fixture, method, true) },
-          ...Array.from({ length: 6 }, () => ({ body: expectedBody(fixture, method) })),
+          ...responses.map(() => ({ body: expectedBody(fixture, name) })),
+          { body: expectedBody(fixture, name, true) },
+          ...Array.from({ length: 6 }, () => ({ body: expectedBody(fixture, name) })),
         ],
         steps: [
           ...responses.map((body) => ({ body })),
@@ -174,7 +197,7 @@ defineCase(
           id: 'weapp-protocol-matrix',
           routes: Object.fromEntries(
             planned.map((item) => [
-              item.method,
+              item.name,
               { expectedRequests: item.expectedRequests, steps: item.steps },
             ]),
           ),
@@ -194,7 +217,7 @@ defineCase(
         productId: 'matrix-product',
         timeoutMs: 10_000,
         methods: planned.map((item) => ({
-          method: item.method,
+          name: item.name,
           request: item.request,
           sparseRequest: item.sparseRequest,
           responseCount: item.responseCount,
@@ -205,19 +228,18 @@ defineCase(
     expect(server.verify()).toEqual([]);
     const records = server.records();
 
-    for (const method of methods) {
-      const suite = result.suites[method];
-      const responses = entryOf(fixture, method).responses;
-      const methodRecords = records.filter((record) => record.methodName === method);
+    for (const operation of operations) {
+      const name = nameOf(operation);
+      const meta = operation.method.meta;
+      const suite = result.suites[name]!;
+      const responses = entryOf(fixture, name).responses;
+      const methodRecords = records.filter((record) => record.methodName === name);
       const richRecord = methodRecords[0]!;
       const sparseRecord = methodRecords[responses.length]!;
-      const responseCodec = method === 'CreateTrade' ? CreateTradeResponse : QueryTradeResponse;
+      const responseCodec = meta.responseCodec;
       const emptyDecoded = responseCodec.fromJSON({});
-      const obligations = inventory.obligations.filter((item) =>
-        item.id.startsWith(`infra.trade.v1.${method}#`),
-      );
 
-      for (const obligation of obligations) {
+      for (const obligation of obligationsOf(name)) {
         const match = obligation.id.match(/#([^#]+)#(.+)$/)!;
         const category = match[1]!;
         const path = match[2]!;
@@ -225,7 +247,7 @@ defineCase(
           covered.add(`${obligation.id}/${caseKey}`);
           await checkpoint(`${obligation.id}/${caseKey}`, () => {
             if (category === 'http-route') {
-              expect(methodRecords.every((record) => record.methodName === method)).toBe(true);
+              expect(methodRecords.every((record) => record.methodName === name)).toBe(true);
               return;
             }
             if (category === 'request-mapping') {
@@ -329,28 +351,53 @@ defineCase(
               'timeout/in-flight-timeout': suite.timeouts.inFlight?.code === 'TIMEOUT',
               'timeout/late-result-isolated': suite.timeouts.late?.code === 'TIMEOUT',
             };
-            expect(map[`${category}/${caseKey}`], `${method}/${category}/${caseKey}`).toBe(true);
+            expect(map[`${category}/${caseKey}`], `${name}/${category}/${caseKey}`).toBe(true);
           });
         }
       }
     }
 
+    await checkpoint('routes-from-declaration', () => {
+      expect(routes.map((route) => route.methodName)).toEqual([...declaredNames]);
+      expect(routes).toEqual(
+        operations.map((operation) => ({
+          methodName: operation.method.meta.name,
+          httpMethod: operation.method.meta.method,
+          path: operation.method.meta.path,
+        })),
+      );
+      expect(routes.length).toBe(declaredNames.length);
+    });
+
+    await checkpoint('matrix-iterates-declaration', () => {
+      expect(planned.map((item) => item.name)).toEqual([...declaredNames]);
+      for (const name of declaredNames) {
+        expect(Object.prototype.hasOwnProperty.call(fixture, name)).toBe(true);
+        expect(Object.prototype.hasOwnProperty.call(result.suites, name)).toBe(true);
+      }
+      expect(() => entryOf({}, 'UndeclaredInterface')).toThrow(/UndeclaredInterface/);
+    });
+
     await checkpoint('obligations-covered', () => {
-      const derived = inventory.obligations
-        .filter((item) => item.id.startsWith('infra.trade.v1.'))
-        .flatMap((item) => item.cases.map((caseKey) => `${item.id}/${caseKey}`));
+      const derived = declaredObligationKeys();
+      // 声明为空时按消费接口派生的义务为空并结束（业务错误码义务不在矩阵范围内）。
+      if (declaredNames.length === 0) {
+        expect(derived).toEqual([]);
+        expect(routes).toEqual([]);
+        return;
+      }
       expect(derived.length).toBeGreaterThan(0);
       expect(covered.size).toBe(derived.length);
+      expect(inventory.methods.map((item) => item.name).sort()).toEqual([...declaredNames].sort());
     });
 
     await checkpoint('real-client-path', () => {
-      for (const method of methods) {
-        expect(records.filter((record) => record.methodName === method).length).toBe(
-          entryOf(fixture, method).responses.length + 7,
+      for (const name of declaredNames) {
+        expect(records.filter((record) => record.methodName === name).length).toBe(
+          entryOf(fixture, name).responses.length + 7,
         );
+        expect(result.suites[name]!.matrix.every((item) => item.ok)).toBe(true);
       }
-      expect(result.suites.CreateTrade.matrix.every((item) => item.ok)).toBe(true);
-      expect(result.suites.QueryTrade.matrix.every((item) => item.ok)).toBe(true);
     });
   },
   { fixtureRoot },

@@ -5,12 +5,16 @@ import {
   shadowUrl,
   type RunningShadowServer,
 } from './server.ts';
-import { discoverExampleRoutes } from './example/routes.ts';
+import type { ShadowRoute } from './routes.ts';
 
-const routes = discoverExampleRoutes();
+// Shadow 引擎只接收中立路由：这两个合成路由不属于任何协议来源，也不引用 generated。
+const routes: ShadowRoute[] = [
+  { methodName: 'NeutralTrade', httpMethod: 'POST', path: '/api/neutral/trade' },
+  { methodName: 'NeutralQuery', httpMethod: 'POST', path: '/api/neutral/query' },
+];
 const pathOf = (methodName: string) => {
   const route = routes.find((candidate) => candidate.methodName === methodName);
-  if (!route) throw new Error(`missing example route ${methodName}`);
+  if (!route) throw new Error(`missing route ${methodName}`);
   return route.path;
 };
 
@@ -24,7 +28,7 @@ async function start(steps: ReadonlyArray<Record<string, unknown>>) {
       {
         id: 'case-a',
         routes: {
-          CreateTrade: {
+          NeutralTrade: {
             expectedRequests: steps.map(() => ({ body: { tradeNo: 'trade-1' } })),
             steps,
           },
@@ -46,7 +50,7 @@ describe('shadow server', () => {
           {
             id,
             routes: {
-              QueryTrade: {
+              NeutralQuery: {
                 expectedRequests: turns.map(() => ({ body: { tradeNo } })),
                 steps: turns.map((turn) => ({ body: { turn } })),
               },
@@ -61,24 +65,24 @@ describe('shadow server', () => {
     const first = await make('first', 't-1', [1, 2]);
     const second = await make('second', 't-2', [8]);
     const post = (server: RunningShadowServer, body: unknown) =>
-      fetch(`${server.url}${pathOf('QueryTrade')}`, {
+      fetch(`${server.url}${pathOf('NeutralQuery')}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
     expect(await (await post(first, { tradeNo: 't-1' })).json()).toEqual({ turn: 1 });
     expect(await (await post(second, { tradeNo: 't-2' })).json()).toEqual({ turn: 8 });
-    expect(first.verify()).toEqual(['first/QueryTrade: missing request 2 of 2']);
+    expect(first.verify()).toEqual(['first/NeutralQuery: missing request 2 of 2']);
     expect(await (await post(first, { tradeNo: 't-1' })).json()).toEqual({ turn: 2 });
     expect((await post(first, { tradeNo: 't-1' })).status).toBe(409);
-    expect(first.verify()).toEqual(['first/QueryTrade: unexpected request 3']);
+    expect(first.verify()).toEqual(['first/NeutralQuery: unexpected request 3']);
     expect(first.records()).toHaveLength(3);
     expect(second.records()).toHaveLength(1);
   });
 
   it('rejects an unmatched raw JSON request and preserves key presence in the record', async () => {
     const active = await start([{ body: { ok: true } }]);
-    const response = await fetch(`${active.url}${pathOf('CreateTrade')}`, {
+    const response = await fetch(`${active.url}${pathOf('NeutralTrade')}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ tradeNo: 'trade-1', extra: 0 }),
@@ -86,7 +90,7 @@ describe('shadow server', () => {
 
     expect(response.status).toBe(422);
     expect(active.records()[0]?.rawBody).toEqual({ tradeNo: 'trade-1', extra: 0 });
-    expect(active.verify()).toContain('case-a/CreateTrade request 1: $.extra: unexpected key');
+    expect(active.verify()).toContain('case-a/NeutralTrade request 1: $.extra: unexpected key');
   });
 
   it('replays status, delay, and disconnect faults in order and cleans up its listener', async () => {
@@ -96,7 +100,7 @@ describe('shadow server', () => {
       { disconnect: true },
     ]);
     const post = () =>
-      fetch(`${active.url}${pathOf('CreateTrade')}`, {
+      fetch(`${active.url}${pathOf('NeutralTrade')}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ tradeNo: 'trade-1' }),
@@ -119,7 +123,7 @@ describe('shadow server', () => {
         {
           id: 'raw',
           routes: {
-            QueryTrade: {
+            NeutralQuery: {
               expectedRequests: [
                 { headers: { authorization: 'Bearer one' }, body: { tradeNo: 't' } },
                 { headers: { authorization: 'Bearer two' }, body: { tradeNo: 't' } },
@@ -133,7 +137,7 @@ describe('shadow server', () => {
     const active = await server.start();
     running.push(active);
     const send = (authorization: string) =>
-      fetch(`${active.url}${pathOf('QueryTrade')}`, {
+      fetch(`${active.url}${pathOf('NeutralQuery')}`, {
         method: 'POST',
         headers: { authorization, 'content-type': 'application/json' },
         body: '{"tradeNo":"t"}',
@@ -152,7 +156,7 @@ describe('shadow server', () => {
         {
           id: 'dynamic',
           routes: {
-            QueryTrade: {
+            NeutralQuery: {
               expectedRequests: [{ recordOnly: true, headers: { authorization: 'Bearer token' } }],
               steps: [{ body: {} }],
             },
@@ -162,7 +166,7 @@ describe('shadow server', () => {
     });
     const server = await configured.start();
     running.push(server);
-    const response = await fetch(`${server.url}${pathOf('QueryTrade')}`, {
+    const response = await fetch(`${server.url}${pathOf('NeutralQuery')}`, {
       method: 'POST',
       headers: { authorization: 'Bearer token', 'content-type': 'application/json' },
       body: '{"tradeNo":"trade-dynamic","baseReq":{"requestId":"generated-at-runtime"}}',
@@ -177,7 +181,7 @@ describe('shadow server', () => {
 
   it('rejects an unconfigured generated route and mismatched headers', async () => {
     const active = await start([{ body: {} }]);
-    const unmatched = await fetch(`${active.url}${pathOf('QueryTrade')}`, {
+    const unmatched = await fetch(`${active.url}${pathOf('NeutralQuery')}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: '{"tradeNo":"t"}',
@@ -190,7 +194,7 @@ describe('shadow server', () => {
         {
           id: 'headers',
           routes: {
-            QueryTrade: {
+            NeutralQuery: {
               expectedRequests: [
                 { headers: { authorization: 'Bearer expected' }, body: { tradeNo: 't' } },
               ],
@@ -202,14 +206,14 @@ describe('shadow server', () => {
     });
     const server = await configured.start();
     running.push(server);
-    const mismatch = await fetch(`${server.url}${pathOf('QueryTrade')}`, {
+    const mismatch = await fetch(`${server.url}${pathOf('NeutralQuery')}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: '{"tradeNo":"t"}',
     });
     expect(mismatch.status).toBe(422);
     expect(server.verify()).toContain(
-      'headers/QueryTrade request 1: $.headers.authorization: expected "Bearer expected", received undefined',
+      'headers/NeutralQuery request 1: $.headers.authorization: expected "Bearer expected", received undefined',
     );
     expect(server.records('other')).toEqual([]);
     await server.close();
@@ -234,7 +238,7 @@ describe('shadow server', () => {
           {
             id: 'a',
             routes: {
-              QueryTrade: {
+              NeutralQuery: {
                 expectedRequests: [{ body: { tradeNo: 't' } }],
                 steps: [{ body: {} }, { body: {} }],
               },
@@ -250,7 +254,7 @@ describe('shadow server', () => {
           {
             id: 'a',
             routes: {
-              QueryTrade: {
+              NeutralQuery: {
                 expectedRequests: [{}],
                 steps: [{ body: {} }],
               },

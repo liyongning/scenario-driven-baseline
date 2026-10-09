@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
+import { checkExampleMarkers } from './lib/example-markers.ts';
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 import { loadScenarioConfig, matchesAny } from './lib/scenario-config.ts';
 import {
@@ -216,6 +217,7 @@ export async function checkArchitecture(
   )
     errors.push('protocol cannot depend on SDK/E2E');
   errors.push(...checkSchemaDocumentation(root));
+  errors.push(...checkExampleMarkers(root, manifest));
   errors.push(...(await checkTemplateGuide(root, scripts)));
   return errors;
 }

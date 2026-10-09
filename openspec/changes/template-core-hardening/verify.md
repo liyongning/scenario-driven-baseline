@@ -582,3 +582,98 @@
 - run id 时间戳复用内建 `Date#toISOString()`（UTC）。
 - 受控根、报告替身与 gate helper 沿用 Task 3–8 的既有 helper（`createRepositoryCopy`、`scenario-gate-helpers`），未新增进程控制器或测试框架。
 - 门禁拒收 partial 复用既有 `loadReporterOutputs` 装载点，未新增报告解析路径。
+
+### Task 10 协议义务以消费接口声明派生与注释门禁按入口发现
+
+**Commit message**：`feat(template): derive protocol obligations from declared consumed operations`
+
+**RED（预期失败的反例，已实际执行）**
+
+1. **派生器缺声明读取（覆盖 RED 第 1、2 条）**：把 `scripts/lib/contract-inventory.ts` 临时回退到 `HEAD`（临时 `git stash push -- scripts/lib/contract-inventory.ts`，其余实现保持 Task 10 状态）后：
+   - `node_modules/.bin/vitest run --project integration packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-005.spec.ts` 退出码 **1**，`Test Files 2 failed (2)` / `Tests 3 failed (3)`（`/tmp/t10-red-a.log`）：
+     - `SCN-PROTOCOL-CONTRACT-001 inventory-cli`：`expected 1 to be +0`（空声明根下仍按写死的 `requestPolicies` 派生，退出码非 0）；
+     - `SCN-PROTOCOL-CONTRACT-001 non-trade-method-cli`：`expected [] to deeply equal [ 'idl.error-contract', …(2) ]`（合成 `pay.ts` 的方法不产生义务）；
+     - `SCN-PROTOCOL-CONTRACT-005 declaration-gate-cli`：`expected '' to contain '未使用的声明：FastCharge'`（双向对账未生效，未声明调用/未使用声明都不报）。
+   - `node_modules/.bin/vitest run scripts/lib/contract-inventory.test.ts` 退出码 **1**，`Tests 8 failed | 4 passed (12)`（`/tmp/t10-red-a-unit.log`）：声明位置推导、前缀、`defineMethodSpec` 报错、双向检查等新单测逐条失败。
+   - `git stash pop` 恢复后同两组均退出码 0（001/005 两文件 3 用例、单测 12 用例全绿，见下方 GREEN）。
+2. **矩阵 Fixture 键未按声明（覆盖 RED 第 3 条）**：把 `packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 临时回退到 `HEAD`（键为 `create`/`query`）：
+   - 直接运行 `vitest run --project integration …SCN-PROTOCOL-CONTRACT-002.spec.ts`：退出码 **1**，报 `fixture sha256 mismatch for protocol-matrix.json`（`/tmp/t10-red-b.log`，Fixture 摘要是内容寻址的，回退旧内容先被摘要守卫拦下）；
+   - 用 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002` 让旧键 Fixture 摘要自洽后再运行同一用例：退出码 **1**，报 `协议矩阵 Fixture 缺少接口 CreateTrade 的数据`（`/tmp/t10-red-b2.log`）——用例按声明遍历接口并在缺键时指出接口名，证明"写死键"状态无法通过。
+3. **入口发现缺失（覆盖 RED 第 4 条）**：把 `packages/e2e/tests/tooling/public-doc.ts` 移出工作区后运行 `SCN-TEMPLATE-ENGINEERING-003.spec.ts`：退出码 **1**，`Cannot find module './public-doc.ts'`、`Tests no tests`（`/tmp/t10-red-c.log`）；放回后 2 用例通过。
+4. **标记校验缺失（覆盖 RED 第 5 条）**：把 `scripts/lib/example-markers.ts` 移出工作区并把 `scripts/check-architecture.ts` 临时回退到 `HEAD`：
+   - `SCN-TEMPLATE-ENGINEERING-006.spec.ts` 退出码 **1**，`Tests 1 failed | 1 passed`：新增 `example-marker-violations-cli` 报 `expected '' to contain 'packages/sdk/src/marked.ts:1: templat…'`（未闭合标记不报错），`guide-violations-cli` 仍通过（证明失败来自新校验而非其他改写，`/tmp/t10-red-d.log`）；
+   - `vitest run scripts/check-architecture.test.ts` 退出码 **1**，`Tests 1 failed | 14 passed`（标记规则单测失败，`/tmp/t10-red-d-unit.log`）；恢复后 15 用例全绿。
+
+**GREEN**
+- 上述四组反例恢复后：001/005/002/003/006 五个用例文件 **5 文件 / 8 用例**退出码 0（`/tmp/t10-green-after-red.log`）；`contract-inventory.test.ts`、`check-architecture.test.ts` 全绿。
+- `pnpm test:integration`（全量）退出码 **0**，`Test Files 50 passed (50)` / `Tests 112 passed (112)`（`/tmp/t10-integ1.log`，80.71s；verify 内再次运行同为 50/112（85.57s））。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**（`/tmp/t10-fast3.log`；verify 内 138775ms）：`test:unit` 52 文件 / 355 用例，覆盖率 Statements/Branches/Functions/Lines 均 **100%**（2946/1955/540/2603）；`check:package` 两个 pack 命令退出码 0、`issues: []`。
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` 退出码 **0**（退化为全量，见「按需选择结果」）。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 001+005 集成（RED：派生器回退 HEAD） | 1 | 3 用例失败，`/tmp/t10-red-a.log` |
+| `contract-inventory.test.ts`（RED） | 1 | 8 failed / 4 passed，`/tmp/t10-red-a-unit.log` |
+| 002 集成（RED：Fixture 回退旧键） | 1 | sha256 守卫；刷新摘要后报「缺少接口 CreateTrade」，`/tmp/t10-red-b.log`、`/tmp/t10-red-b2.log` |
+| 003 集成（RED：入口发现模块缺失） | 1 | `Cannot find module './public-doc.ts'`，`/tmp/t10-red-c.log` |
+| 006 集成 / `check-architecture.test.ts`（RED） | 1 / 1 | 标记用例失败，`/tmp/t10-red-d.log`、`/tmp/t10-red-d-unit.log` |
+| 001+005+002+003+006 集成（GREEN） | 0 | 5 文件 / 8 用例，`/tmp/t10-green-after-red.log` |
+| `pnpm test:integration`（全量） | 0 | 50 文件 / 112 用例，`/tmp/t10-integ1.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fast` | 0 | `/tmp/t10-fast3.log`（52 文件 / 355 单测，覆盖率四项 100%） |
+| `SCENARIO_GATE_CHANGES=… pnpm test:affected` | 0 | 退化为全量，`/tmp/t10-affected-real.log` |
+
+**Task 10 Verification：`pnpm verify --change template-core-hardening --run-id core-hardening-t10`**（三步合计 310813ms）
+- 第 1 步 `check:fast` 退出码 **0**（138775ms；报告 `artifacts/core-hardening-t10/reports/{unit.json,integration.json}`，覆盖率 `artifacts/core-hardening-t10/coverage/`）。
+- 第 2 步 `test:e2e:weapp` 退出码 **0**（170658ms；报告 `artifacts/core-hardening-t10/reports/weapp/`）。
+- 第 3 步 `check:scenarios` 退出码 **1**（1380ms；报告 `artifacts/core-hardening-t10/reports/scenarios.json`）：共 **22** 条问题，全部是后续任务 case 的 `missing binding`，`过期报告` 0 条、`未登记 checkpoint` 0 条、**协议义务问题 0 条**（没有"未声明的调用""未使用的声明""待定字段"或义务与声明不一致的报告）。Task 9 记录中归属 Task 10 的 22 条与 `SCN-TEMPLATE-ENGINEERING-006/example-marker-*` 2 条共 **24 条全部清零**（46 → 22）。
+
+| 归属 | 条数 | 具体 |
+| --- | --- | --- |
+| Task 11 | 3 | `SCN-PROTOCOL-CONTRACT-011/request-recording`、`012/path-template`、`013/bounded-poll` |
+| Task 12 | 3 | `SCN-PROTOCOL-CONTRACT-006/idl-validator-rules`、`006/shadow-construction`、`007/malformed-claim-rules` |
+| Task 13 | 7 | `SCN-PROTOCOL-CONTRACT-008/request-id-wire`（integration + weapp）、`008/client-options-shape`、`008/runtime-port-shape`、`009/generator-non-beijing-tz`、`010/shadow-header-patterns`、`010/context-obligation` |
+| Task 14 | 3 | `SCN-TEMPLATE-ENGINEERING-010/baseline-config-rules`、`010/format-check-cli`、`010/max-lines-cli` |
+| Task 15 | 2 | `SCN-TEMPLATE-ENGINEERING-011/project-map-rules`、`011/project-map-violations-cli` |
+| Task 16 | 2 | `SCN-TEMPLATE-ENGINEERING-012/architecture-doc-rules`、`012/architecture-doc-violations-cli` |
+| Task 17 | 2 | `SCN-TEMPLATE-ENGINEERING-008/example-removal-fast`、`008/example-removal-scenarios` |
+
+- 无法归属的问题 **0** 条，未触发「门禁问题无法归属」的暂停条件；续跑提示为 `pnpm verify --from check:scenarios --run-id core-hardening-t10 --change template-core-hardening`。
+
+**义务清单对比（改造前后，Review / Acceptance）**
+- 改造前基线用同一份清单在 `HEAD` 快照上跑 `check-scenarios --inventory`（`/tmp/head-repo`，`/tmp/t10-head-inventory.log`），与本次 verify 输出逐条对比：
+  - 义务总数同为 **177**，ID 集合**完全相同**（`set(id)` 无增无减），`contractFields` 同为 83 项；
+  - 义务 ID 前缀不变（`infra.trade.v1.CreateTrade` 81 条、`infra.trade.v1.QueryTrade` 95 条、`idl.error-contract#business-error#$` 1 条）；
+  - 请求字段映射义务**逐项相同**：把 `HEAD` 的 `requestPolicies` 与派生结果逐条比对，`CreateTrade` 21 项、`QueryTrade` 7 项，键与 `cases` **完全相等**（含 `base_req.product_id` 的 `configured-value`/`omitted` 与 `items.sku_snapshot.*` 的 `omitted`）；
+  - 唯一差异是 `idl.error-contract#business-error#$` 的 `cases` **顺序**（集合与多重集完全相同，7 个错误码不变）：改造前读 `packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003/idl-errors.json` 的 Fixture 顺序，改造后按 PC-02 读协议包手写 `businessErrors` 模块的声明顺序——属"来源说明变化"，非义务内容变化。同一棵树两次独立运行顺序一致（`/tmp/t10-scen.log` 与 `/tmp/t10-verify.log`）。
+- 派生器按路径映射把协议包名解析到 `packages/protocol/src/`（不读 `dist`），`contract-inventory` 单测覆盖合成非 `trade.ts` 声明文件的前缀与类型源文件、`defineMethodSpec` 报错、未登记/未导出数组报错。
+
+**weapp 重跑记录**
+- 4 个文件各 1 个 case，全部首次通过、无重跑；每个文件前由 `weapp:prepare` 自动执行 `cli quit` → `pkill -f wechatwebdevtools.app` → `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（本步共 4 次 prepare）。
+- 各文件耗时：`SCN-PROTOCOL-CONTRACT-002` 11379ms、`FLOW-TEMPLATE-EXAMPLE-001` 11171ms、`SCN-TEMPLATE-EXAMPLE-002` 11099ms、`SCN-TEMPLATE-EXAMPLE-004` 11243ms；第 2 步合计 170658ms。
+- 本任务改写了 `packages/e2e/host/weapp/{app.js,setup.ts,vite.config.ts,protocol-runner.ts}` 与 `packages/e2e/src/drivers/weapp-host.test.ts` 的示例注册片段（`template-example` 标记内），weapp 用例仍经真实 `wx.request` 访问 Shadow，结果不变。
+
+**按需选择结果**
+- 工作区含本任务全部未提交改动（43 个文件）时，`SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected --dry-run` 的选择结果是**退化为全量** `pnpm check:fast`，触发原因逐条打印：`packages/e2e/host/weapp/{app.js,protocol-runner.ts,setup.ts,vite.config.ts} 在宿主目录（全量触发）`、`packages/e2e/src/drivers/weapp-host.test.ts 在驱动目录（全量触发）`、`project.manifest.json 是清单文件（全量触发）`（`/tmp/t10-affected-dry.log`）。
+- 实际运行 `pnpm test:affected` 退出码 **0**：单测 52 文件 / 355 用例、集成 50 文件 / 112 用例、`check:package` `issues: []`（`/tmp/t10-affected-real.log`）。退化为全量时沿用默认报告位置（`artifacts/local/reports/`），不写 partial 标记。
+- 加 `--scenario SCN-PROTOCOL-CONTRACT-001 SCN-PROTOCOL-CONTRACT-005` 仍是全量（全量触发优先于 ID 选择），已记录。
+- 未做 Task 9 那样的"临时还原到单文件"实验：本任务改动覆盖清单、宿主目录与驱动目录，任何单个文件的隔离实验都仍需先把 42 个文件搬走，风险与收益不成比例；选择结果以退化原因逐条记录为准。
+
+**方案与实际的差异**（含 Task 10 Files 之外的改动；均按契约补充或只同步受影响产物，未改规划语义）
+1. **`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-007.spec.ts`（Files 之外的回归修复）**：本任务的 `consumed-operations.ts` 在 `example/` 之外仍以 `@daqian/template-protocol/generated/*` 子路径导入方法常量与 `RpcMethodMeta`，而 `createBuildCopy` 按 Design"临时构建复制"只复制 `sourceRoots`、`buildInputs` 与包的 `package.json`/tsconfig，副本内没有 `packages/protocol/dist`，于是 `expectRestored` 的全图巡航报 2 条 `not-to-unresolvable`（`packages/sdk/src/consumed-operations.ts → …/generated/std` 与 `…/generated/idl/infra/trade/v1/trade`，已用探针在副本内复现）。修法是**在 007 的副本 `beforeAll` 里先 `pnpm --filter @daqian/template-protocol build`**（与同一 helper 的既有用法 `SCN-TEMPLATE-ENGINEERING-001` 一致：ENG-001 也在副本内构建协议包与产品包），使依赖图在副本内可解析。已核对副本内构建不会写回仓库的 `packages/{sdk,protocol}/dist`（巡航前后 `shasum` 逐文件相同）；未改任何断言与断言语义。曾评估并放弃两条备选：给 `tsconfig.base.json`/`tsconfig.test.json` 加 `@daqian/template-protocol/generated/*` 路径映射（会让 `tsc -p packages/sdk/tsconfig.build.json`、`tsc -p tsconfig.test.json` 把协议包 `src/generated/**` 拉进程序，`globalThis.atob/btoa` 在无 DOM lib 的程序里报 TS7017；为它补 DOM lib 会放宽产品包的类型检查），以及在 `createBuildCopy` 里复制 `dist`（与 Design 的副本输入定义相悖、且依赖先有构建产物）。
+2. `packages/e2e/tests/tooling/scenario-gate-helpers.ts`（Files 之外的共享 helper）：`enableInventory` 增加 `realSources` 选项并把受控根的源码树改为"普通目录建实目录、文件逐个 symlink、`generated/.generated/dist/node_modules` 整目录 symlink"（`mirrorSources`）。原因：`SCN-PROTOCOL-CONTRACT-001` 的 `non-trade-method-cli` 需要受控根里真实的 `git ls-files` 语义与可被 `readFileSync` 读取的源码，纯 symlink 目录会让 `git ls-files`／覆盖率脚本报 EISDIR。属受控根构造适配，未改被测门禁语义。
+3. `packages/e2e/tests/tooling/declaration-fixture.ts`（新 helper）：把 Task 4 在 EX-008 用例内构造的受控副本收敛为一个合成声明 Fixture（`syntheticMethodFile` 等），供 `SCN-PROTOCOL-CONTRACT-001`/`005` 复用；Task 4 的 Minor 约定（EX-008 先用最小 helper、Task 5 再收敛）在 Task 5 已收敛到 `repository-copy`，本文件是其上的声明 Fixture 补充。
+4. `packages/protocol/src/client.test.ts` 与 `packages/protocol/testing/shadow/idl-routes.ts`（Files 之外）：矩阵 Fixture 键改名后，protocol-unit 的矩阵用例同步把 Fixture 键从 `create`/`query` 换成接口名；`idl-routes.ts` 新增导出类型 `RpcMethodSource`（`RpcMethodMeta<unknown, unknown>` 别名），让新的 `declared-routes.ts` 只依赖 `idl-routes.ts` 的中立输入而不直接导入 generated，避免触发本 Change 新增的 `shadow-engine-no-generated` 规则（已用 `pnpm check:architecture` 归零）。
+5. `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts` 的逐文件过滤：入口发现的要求可能落在多个文件（`consumed-operations.ts`、`example/contracts.ts`、`example/factory.ts`），而 `missing-comment-rejected` 只检查 `example/contracts.ts` 的文本，直接传全量要求会把其他文件的类型误报为 `missing`。修法是按 `requirement.file === 相对 contracts.ts` 过滤后再检查（`source-and-dual-declarations` 里的 `sourceIssues` 早已按文件过滤），断言与语义不变；`ExampleConfigurationError.code` 的中文注释已在源码补齐，构建产物随 `pnpm build` 同步。
+6. Fixture 摘要刷新：`pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002|SCN-TEMPLATE-ENGINEERING-001|SCN-TEMPLATE-ENGINEERING-003`（键改名、导出集合改为由根入口计算、检查要求随入口变化）。
+7. 实施中为定位 007 而临时做的探针文件（`.probe007.mts`、`/tmp/probe-*.mts`）与 `HEAD` 快照（`/tmp/head-repo`）只用于诊断，均未进入工作区。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：本任务结束时按需入口退化为全量 `check:fast` 并通过；全量 `verify` 的第 3 步 `check:scenarios` 非零是任务进行中的既定状态（22 条全部归属后续任务 11–17、协议义务问题 0 条），与"按需通过但全量发现新增失败"不同类。本任务执行中出现的 1 处红（007 副本 `not-to-unresolvable`）在提交前已按上面第 1 条修复。
+
+**优先采用现成方案**
+- 矩阵用例的声明遍历直接用 generated 方法常量携带的 `meta`（`RpcMethodMeta`：`name`/`method`/`path`/`requestType`/`responseType`/codec），未自研路由描述。
+- 声明与调用的双向对账、注释门禁的入口发现都复用仓库既有 devDependency `typescript` 的 Compiler API（`createProgram` + `getExportsOfModule` + 符号声明位置），未写正则解析，也未引入新的解析依赖。
+- 依赖与平台规则的反例沿用 Task 4/5 的 `dependency-cruiser` 与受控副本 helper；007 的副本内构建复用仓库既有 `pnpm --filter … build`（ENG-001 已在使用），未新增构建器或进程控制器。
+- Fixture 摘要沿用既有 `pnpm fixtures:refresh`；受控根沿用 `scenario-gate-helpers`／`repository-copy`。
+- 已评估 `tsconfig` `paths` 子路径映射方案（现成的模块解析机制）并在验证其副作用（无 DOM lib 程序报 TS7017）后放弃，理由记在上面第 1 条。

@@ -171,6 +171,65 @@ function evidence(
 
 evidence(
   'SCN-TEMPLATE-ENGINEERING-006',
+  'example-marker-rules',
+  ['example-markers-paired'],
+  async (context, check) => {
+    await check('example-markers-paired', async () => {
+      const paired = fixture();
+      mkdirSync(join(paired, 'packages/sdk/src'), { recursive: true });
+      writeFileSync(join(paired, 'packages/sdk/src/data.json'), '{}\n');
+      writeFileSync(
+        join(paired, 'packages/sdk/src/marked.ts'),
+        '// template-example:begin\n// 普通注释不算标记\nconst example = 1;\n// template-example:end\n',
+      );
+      context.expect(await checkArchitecture(paired, 0)).toEqual([]);
+
+      const unclosed = fixture();
+      mkdirSync(join(unclosed, 'packages/sdk/src'), { recursive: true });
+      writeFileSync(
+        join(unclosed, 'packages/sdk/src/marked.ts'),
+        'const before = 1;\n// template-example:begin\nconst example = 1;\n',
+      );
+      context
+        .expect(await checkArchitecture(unclosed, 0))
+        .toContain('packages/sdk/src/marked.ts:2: template-example:begin 没有对应的 end');
+
+      const extra = fixture();
+      mkdirSync(join(extra, 'packages/sdk/src'), { recursive: true });
+      writeFileSync(join(extra, 'packages/sdk/src/marked.ts'), '// template-example:end\n');
+      context
+        .expect(await checkArchitecture(extra, 0))
+        .toContain('packages/sdk/src/marked.ts:1: template-example:end 没有对应的 begin');
+
+      const nested = fixture();
+      mkdirSync(join(nested, 'packages/sdk/src'), { recursive: true });
+      writeFileSync(
+        join(nested, 'packages/sdk/src/marked.ts'),
+        '// template-example:begin\n// template-example:begin\n// template-example:end\n// template-example:end\n',
+      );
+      context
+        .expect(await checkArchitecture(nested, 0))
+        .toContain('packages/sdk/src/marked.ts:2: template-example 标记不允许嵌套');
+
+      const markdown = fixture();
+      writeFileSync(
+        join(markdown, 'README.md'),
+        '<!-- 说明 -->\n<!-- template-example:begin -->\n',
+      );
+      context
+        .expect(await checkArchitecture(markdown, 0))
+        .toContain('README.md:2: template-example:begin 没有对应的 end');
+
+      // 模块根之外的文件不属于示例裁剪范围，不参与标记校验。
+      const outside = fixture();
+      writeFileSync(join(outside, 'packages/sdk/notes.ts'), '// template-example:begin\n');
+      context.expect(await checkArchitecture(outside, 0)).toEqual([]);
+    });
+  },
+);
+
+evidence(
+  'SCN-TEMPLATE-ENGINEERING-006',
   'guide-rules',
   ['guide-present-and-linked', 'guide-sections', 'guide-links-resolve', 'guide-facts-consistent'],
   async (context, check) => {

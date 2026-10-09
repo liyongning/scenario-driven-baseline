@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach } from 'vitest';
@@ -89,6 +89,36 @@ cliEvidence(
 
     await check('guide-restorable', () => {
       const root = guideRoot();
+      const result = runArchitecture(root);
+      context.expect(result.output?.issues).toEqual([]);
+      context.expect(result.status).toBe(0);
+    });
+  },
+);
+
+cliEvidence(
+  'SCN-TEMPLATE-ENGINEERING-006',
+  'example-marker-violations-cli',
+  ['example-markers-paired', 'guide-restorable'],
+  async (context, check) => {
+    await check('example-markers-paired', () => {
+      const root = guideRoot();
+      mkdirSync(join(root, 'packages/sdk/src'), { recursive: true });
+      writeFileSync(join(root, 'packages/sdk/src/marked.ts'), '// template-example:begin\n');
+      const result = runArchitecture(root);
+      context
+        .expect(result.output?.issues.join('\n'))
+        .toContain('packages/sdk/src/marked.ts:1: template-example:begin 没有对应的 end');
+      context.expect(result.status).not.toBe(0);
+    });
+
+    await check('guide-restorable', () => {
+      const root = guideRoot();
+      mkdirSync(join(root, 'packages/sdk/src'), { recursive: true });
+      writeFileSync(
+        join(root, 'packages/sdk/src/marked.ts'),
+        '// template-example:begin\nconst example = 1;\n// template-example:end\n',
+      );
       const result = runArchitecture(root);
       context.expect(result.output?.issues).toEqual([]);
       context.expect(result.status).toBe(0);
