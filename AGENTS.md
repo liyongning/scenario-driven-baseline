@@ -28,8 +28,14 @@
     }
   ],
   "requiredCommands": ["check:fast"],
-  "testProjects": [{ "name": "sdk-unit", "class": "unit" }],
-  "fingerprints": { "sourceRoots": ["packages/sdk/src"], "hostRoots": [] }
+  "testProjects": [
+    { "name": "sdk-unit", "class": "unit", "config": "packages/sdk/vitest.config.ts" }
+  ],
+  "fingerprints": {
+    "sourceRoots": ["packages/sdk/src"],
+    "buildInputs": ["pnpm-lock.yaml"],
+    "protocolInputs": ["proto-gen.lock"]
+  }
 }
 ```
 

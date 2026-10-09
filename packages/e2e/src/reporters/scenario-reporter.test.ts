@@ -12,7 +12,13 @@ describe('ScenarioReporter', () => {
       outputFile,
       runId: 'run-1',
       project: 'integration',
-      fingerprints: { sourceDigest: 's', specDigest: 'p', idlDigest: 'i', fixtureDigest: 'f' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: { 'scripts/a.ts': 'hash-a' },
+      },
     });
     reporter.onTestCaseResult!({
       name: 'omitted',
@@ -44,6 +50,8 @@ describe('ScenarioReporter', () => {
     expect(report).toMatchObject({
       runId: 'run-1',
       sourceDigest: 's',
+      protocolDigest: 'i',
+      files: { 'scripts/a.ts': 'hash-a' },
       tests: [
         {
           runId: 'run-1',
@@ -64,7 +72,13 @@ describe('ScenarioReporter', () => {
       outputFile: '/dev/null',
       runId: 'r',
       project: 'weapp',
-      fingerprints: { sourceDigest: 's', specDigest: 'p', idlDigest: 'i', fixtureDigest: 'f' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
     });
     const test = (state: string) => ({
       name: 'x',
@@ -87,7 +101,13 @@ describe('ScenarioReporter', () => {
       outputFile: '/dev/null',
       runId: 'r',
       project: 'sdk-unit',
-      fingerprints: { sourceDigest: 's', specDigest: 'p', idlDigest: 'i', fixtureDigest: 'f' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
     });
     reporter.onTestCaseResult!({
       name: 'internal',
@@ -121,7 +141,13 @@ describe('ScenarioReporter', () => {
     const reporter = new ScenarioReporter({
       outputFile: '/dev/null',
       runId: 'r',
-      fingerprints: { sourceDigest: 's', specDigest: 'p', idlDigest: 'i', fixtureDigest: 'f' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
     });
     reporter.onTestCaseResult!({
       name: 'internal',
@@ -156,7 +182,13 @@ describe('ScenarioReporter', () => {
       outputFile: '/dev/null',
       runId: 'r',
       project: 'integration',
-      fingerprints: { sourceDigest: 's', specDigest: 'p', idlDigest: 'i', fixtureDigest: 'f' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
     });
     const item = (meta: unknown, annotations: unknown[]) => ({
       name: 'case',

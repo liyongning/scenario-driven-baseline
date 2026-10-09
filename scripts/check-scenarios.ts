@@ -47,7 +47,7 @@ export type ExecutionReport = Readonly<{
   runId: string;
   sourceDigest: string;
   specDigest: string;
-  idlDigest: string;
+  protocolDigest: string;
   fixtureDigest: string | null;
   project: Project;
   file: string;
@@ -74,7 +74,7 @@ export type CoverageInput = Readonly<{
     runId: string;
     sourceDigest: string;
     specDigest: string;
-    idlDigest: string;
+    protocolDigest: string;
     fixtureDigest: string;
   }>;
   scenarios: ReadonlyArray<
@@ -200,7 +200,7 @@ type ReporterOutput = Readonly<{
   runId: string;
   sourceDigest: string;
   specDigest: string;
-  idlDigest: string;
+  protocolDigest: string;
   fixtureDigest: string;
   tests: ReadonlyArray<ExecutionReport & Readonly<{ binding?: CaseBinding }>>;
 }>;
@@ -244,7 +244,7 @@ export async function loadReporterOutputs(paths: ReadonlyArray<string>) {
       }
       if (test.project !== test.binding.environment)
         issues.push(`${path}/${test.caseId}: report project does not match binding environment`);
-      for (const key of ['runId', 'sourceDigest', 'specDigest', 'idlDigest'] as const) {
+      for (const key of ['runId', 'sourceDigest', 'specDigest', 'protocolDigest'] as const) {
         if (test[key] !== output[key])
           issues.push(`${path}/${test.caseId}: record ${key} differs from report envelope`);
       }
@@ -280,7 +280,7 @@ function sameFingerprint(
     report.runId === current.runId &&
     report.sourceDigest === current.sourceDigest &&
     report.specDigest === current.specDigest &&
-    report.idlDigest === current.idlDigest &&
+    report.protocolDigest === current.protocolDigest &&
     report.fixtureDigest === (binding.fixtureCase === null ? null : current.fixtureDigest)
   );
 }

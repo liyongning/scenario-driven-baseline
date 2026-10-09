@@ -127,7 +127,7 @@ describe('buildContractInventory', () => {
         runId: 'controlled',
         sourceDigest: 'source',
         specDigest: 'spec',
-        idlDigest: 'idl',
+        protocolDigest: 'idl',
         fixtureDigest: 'fixture',
       },
       scenarios: [],

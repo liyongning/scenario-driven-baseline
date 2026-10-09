@@ -17,6 +17,7 @@ import {
 } from '../../../../scripts/lib/project-manifest.ts';
 import {
   cliEvidence,
+  enableInventory,
   fixtureRoot,
   runArchitecture,
   runGate,
@@ -24,6 +25,7 @@ import {
   writeSpec,
 } from './scenario-gate-helpers.ts';
 import { writeTemplateGuideFixture } from './helpers.ts';
+import { createControlledRoot } from './controlled-root.ts';
 
 const repositoryRoot = process.cwd();
 const roots: string[] = [];
@@ -41,8 +43,9 @@ type FixturePackage = {
 type FixtureManifest = {
   packages: FixturePackage[];
   requiredCommands: string[];
-  testProjects: Array<{ name: string; class: TestProjectClass }>;
-  fingerprints: { sourceRoots: string[]; hostRoots: string[] };
+  testProjects: Array<{ name: string; class: TestProjectClass; config: string }>;
+  fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
+  quality?: { coverageExclusions: Array<{ path: string; reason: string }>; maxLinesExemptions: [] };
   release?: { registry: string; tagPrefix: string };
 };
 
@@ -75,10 +78,19 @@ function manifestFixture(
     ],
     requiredCommands: overrides.requiredCommands ?? ['check:fast'],
     testProjects: [
-      { name: 'sample-unit', class: 'unit' },
-      { name: 'integration', class: 'integration' },
+      { name: 'sample-unit', class: 'unit', config: 'packages/sample-sdk/vitest.config.ts' },
+      {
+        name: 'integration',
+        class: 'integration',
+        config: 'packages/e2e/vitest.config.ts',
+      },
     ],
-    fingerprints: { sourceRoots: ['scripts'], hostRoots: [] },
+    fingerprints: {
+      sourceRoots: ['scripts'],
+      buildInputs: [],
+      protocolInputs: ['proto-gen.lock'],
+    },
+    quality: { coverageExclusions: [], maxLinesExemptions: [] },
   };
 }
 
@@ -254,5 +266,61 @@ cliEvidence(
       }
       context.expect(problems).toEqual([]);
     });
+  },
+);
+
+cliEvidence(
+  'SCN-TEMPLATE-ENGINEERING-005',
+  'digest-inputs-cli',
+  ['source-roots-by-manifest', 'digest-inputs'],
+  async (context, check) => {
+    const repositoryManifest = JSON.parse(
+      readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
+    ) as FixtureManifest;
+    const root = createControlledRoot({
+      manifest: repositoryManifest,
+      files: { 'scripts/marker.ts': 'export const marker = 1;' },
+      prefix: 'template-digest-cli-',
+    });
+    try {
+      enableInventory(root.root);
+      const before = runGate(root.root);
+      const beforeDigests = before.output?.digests as { sourceDigest: string } | undefined;
+
+      await check('source-roots-by-manifest', () => {
+        context.expect(beforeDigests?.sourceDigest, before.stderr).toMatch(/^[a-f0-9]{64}$/);
+        const plain = mkdtempSync(join(tmpdir(), 'template-digest-nongit-'));
+        try {
+          mkdirSync(join(plain, 'openspec/specs'), { recursive: true });
+          mkdirSync(join(plain, 'openspec/changes'), { recursive: true });
+          writeFileSync(join(plain, 'project.manifest.json'), JSON.stringify(repositoryManifest));
+          enableInventory(plain);
+          const rejected = runGate(plain);
+          context.expect(rejected.status).not.toBe(0);
+          context.expect(rejected.stderr).toContain('not a git work tree');
+        } finally {
+          rmSync(plain, { recursive: true, force: true });
+        }
+      });
+
+      await check('digest-inputs', () => {
+        writeFileSync(join(root.root, 'scripts/marker.ts'), 'export const marker = 2;');
+        writeFileSync(join(root.root, 'scripts/new.ts'), 'export const added = true;');
+        const changed = runGate(root.root);
+        const changedDigests = changed.output?.digests as
+          { sourceDigest: string; protocolDigest: string } | undefined;
+        context.expect(changedDigests?.sourceDigest).not.toBe(beforeDigests?.sourceDigest);
+
+        writeFileSync(join(root.root, 'scripts/AGENTS.md'), 'changed docs');
+        writeFileSync(join(root.root, 'proto-gen.lock'), 'changed idl');
+        const afterDocs = runGate(root.root);
+        const afterDigests = afterDocs.output?.digests as
+          { sourceDigest: string; protocolDigest: string } | undefined;
+        context.expect(afterDigests?.sourceDigest).toBe(changedDigests?.sourceDigest);
+        context.expect(afterDigests?.protocolDigest).not.toBe(changedDigests?.protocolDigest);
+      });
+    } finally {
+      root.cleanup();
+    }
   },
 );

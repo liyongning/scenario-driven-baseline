@@ -3,14 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
+import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 import { buildVerificationFingerprints } from './fingerprints.ts';
 import { checkSchemaDocumentation } from './schema-docs.ts';
 import {
   errorMessage,
   loadProjectManifest,
+  coverageExclusions,
+  maxLinesExemptions,
   packageByRole,
   projectManifestFile,
+  testProjectConfigs,
   testProjectsByClass,
   validateManifest,
   type ManifestPackage,
@@ -27,7 +31,8 @@ type MutableManifest = {
   packages: ManifestPackage[];
   requiredCommands: string[];
   testProjects: TestProject[];
-  fingerprints: { sourceRoots: string[]; hostRoots: string[] };
+  fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
+  quality?: { coverageExclusions: Array<{ path: string; reason: string }>; maxLinesExemptions: [] };
   release?: { registry: string; tagPrefix: string };
 };
 
@@ -39,6 +44,7 @@ const baseManifest = (): MutableManifest => ({
       role: 'product',
       private: false,
       allowedDirectories: ['src'],
+      moduleRoots: ['src'],
     },
     {
       directory: 'sample-protocol',
@@ -46,6 +52,7 @@ const baseManifest = (): MutableManifest => ({
       role: 'protocol',
       private: false,
       allowedDirectories: ['src', 'testing'],
+      moduleRoots: ['src', 'testing'],
     },
     {
       directory: 'sample-test',
@@ -53,16 +60,22 @@ const baseManifest = (): MutableManifest => ({
       role: 'test',
       private: true,
       allowedDirectories: ['src', 'host', 'tests'],
+      moduleRoots: ['src', 'host', 'tests'],
     },
   ],
   requiredCommands: ['check:fast'],
   testProjects: [
-    { name: 'product-unit', class: 'unit' },
-    { name: 'protocol-unit', class: 'unit' },
-    { name: 'integration', class: 'integration' },
-    { name: 'platform', class: 'platform' },
+    { name: 'product-unit', class: 'unit', config: 'packages/sample-product/vitest.config.ts' },
+    { name: 'protocol-unit', class: 'unit', config: 'packages/sample-protocol/vitest.config.ts' },
+    { name: 'integration', class: 'integration', config: 'packages/sample-test/vitest.config.ts' },
+    { name: 'platform', class: 'platform', config: 'packages/sample-test/vitest.config.weapp.ts' },
   ],
-  fingerprints: { sourceRoots: ['sample-src'], hostRoots: ['sample-host'] },
+  fingerprints: {
+    sourceRoots: ['sample-src'],
+    buildInputs: ['build.config.ts'],
+    protocolInputs: ['proto-gen.lock'],
+  },
+  quality: { coverageExclusions: [], maxLinesExemptions: [] },
 });
 
 function writeManifest(root: string, manifest: unknown) {
@@ -128,6 +141,7 @@ evidence(
     'projects-by-manifest',
     'obligation-environments',
     'source-roots-by-manifest',
+    'digest-inputs',
   ],
   async (context, check) => {
     await check('manifest-schema', () => {
@@ -143,6 +157,37 @@ evidence(
       const root = temporaryRoot();
       writeManifest(root, baseManifest());
       context.expect(loadProjectManifest(root).packages).toHaveLength(3);
+
+      // hostRoots 已删除，非 product 角色不得声明 consumedOperations。
+      const withHostRoots = temporaryRoot();
+      writeManifest(withHostRoots, {
+        ...baseManifest(),
+        fingerprints: { ...baseManifest().fingerprints, hostRoots: [] },
+      });
+      context.expect(() => loadProjectManifest(withHostRoots)).toThrow(/does not match/);
+      const wrongRole = temporaryRoot();
+      writeManifest(wrongRole, {
+        ...baseManifest(),
+        packages: baseManifest().packages.map((item) =>
+          item.role === 'protocol' ? { ...item, consumedOperations: ['src/ops.ts'] } : item,
+        ),
+      });
+      context.expect(() => loadProjectManifest(wrongRole)).toThrow(/does not match/);
+      const missingReason = temporaryRoot();
+      writeManifest(missingReason, {
+        ...baseManifest(),
+        quality: { coverageExclusions: [{ path: 'sample-src/x.ts' }], maxLinesExemptions: [] },
+      });
+      context.expect(() => loadProjectManifest(missingReason)).toThrow(/does not match/);
+      // perFile 与 prepare 是可选字段，登记后仍通过。
+      const perFile = temporaryRoot();
+      writeManifest(perFile, {
+        ...baseManifest(),
+        testProjects: baseManifest().testProjects.map((item) =>
+          item.name === 'platform' ? { ...item, perFile: true, prepare: 'weapp:prepare' } : item,
+        ),
+      });
+      context.expect(loadProjectManifest(perFile).testProjects).toHaveLength(4);
     });
 
     await check('projects-by-manifest', () => {
@@ -155,6 +200,17 @@ evidence(
       context.expect(testProjectsByClass(manifest, ['integration'])).toEqual(['integration']);
       context.expect(packageByRole(manifest, 'protocol').directory).toBe('sample-protocol');
       context.expect(validateManifest(manifest)).toEqual([]);
+      context
+        .expect(testProjectConfigs(manifest))
+        .toEqual([
+          'packages/sample-product/vitest.config.ts',
+          'packages/sample-protocol/vitest.config.ts',
+          'packages/sample-test/vitest.config.ts',
+          'packages/sample-test/vitest.config.weapp.ts',
+        ]);
+      const withoutQuality = { ...manifest, quality: undefined } as unknown as ProjectManifest;
+      context.expect(coverageExclusions(withoutQuality)).toEqual([]);
+      context.expect(maxLinesExemptions(withoutQuality)).toEqual([]);
 
       const missing = temporaryRoot();
       context.expect(() => loadProjectManifest(missing)).toThrow(/cannot be read/);
@@ -221,7 +277,17 @@ evidence(
         [
           'test project names must be unique',
           (value) => {
-            value.testProjects[1] = { name: 'product-unit', class: 'unit' };
+            value.testProjects[1] = {
+              name: 'product-unit',
+              class: 'unit',
+              config: 'packages/sample-protocol/vitest.config.ts',
+            };
+          },
+        ],
+        [
+          'consumedOperations is only allowed for the product package',
+          (value) => {
+            value.packages[1] = { ...value.packages[1]!, consumedOperations: ['src/ops.ts'] };
           },
         ],
         [
@@ -260,19 +326,70 @@ evidence(
     });
 
     await check('source-roots-by-manifest', () => {
-      const root = temporaryRoot('manifest-fingerprint-');
-      writeManifest(root, {
-        ...baseManifest(),
-        fingerprints: { sourceRoots: ['sample-src'], hostRoots: [] },
+      const fixture = createControlledRoot({
+        manifest: {
+          ...baseManifest(),
+          fingerprints: {
+            sourceRoots: ['sample-src'],
+            buildInputs: ['build.config.ts'],
+            protocolInputs: ['proto-gen.lock'],
+          },
+        },
+        files: {
+          'sample-src/index.ts': 'listed',
+          'build.config.ts': 'build',
+          'proto-gen.lock': 'idl',
+          'sample-src/AGENTS.md': 'docs',
+          'sample-src/generated/api.ts': 'generated',
+        },
       });
-      mkdirSync(join(root, 'sample-src'), { recursive: true });
-      writeFileSync(join(root, 'sample-src/index.ts'), 'listed');
-      writeFileSync(join(root, 'proto-gen.lock'), 'idl');
-      const before = buildVerificationFingerprints(root).sourceDigest;
-      writeFileSync(join(root, 'unlisted.ts'), 'not listed');
-      context.expect(buildVerificationFingerprints(root).sourceDigest).toBe(before);
-      writeFileSync(join(root, 'sample-src/index.ts'), 'changed');
-      context.expect(buildVerificationFingerprints(root).sourceDigest).not.toBe(before);
+      try {
+        const before = buildVerificationFingerprints(fixture.root).sourceDigest;
+        writeFileSync(join(fixture.root, 'unlisted.ts'), 'not listed');
+        context.expect(buildVerificationFingerprints(fixture.root).sourceDigest).toBe(before);
+        writeFileSync(join(fixture.root, 'sample-src/AGENTS.md'), 'changed docs');
+        context.expect(buildVerificationFingerprints(fixture.root).sourceDigest).toBe(before);
+        writeFileSync(join(fixture.root, 'sample-src/index.ts'), 'changed');
+        context.expect(buildVerificationFingerprints(fixture.root).sourceDigest).not.toBe(before);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+
+    await check('digest-inputs', () => {
+      const fixture = createControlledRoot({
+        manifest: {
+          ...baseManifest(),
+          fingerprints: {
+            sourceRoots: ['sample-src'],
+            buildInputs: ['build.config.ts'],
+            protocolInputs: ['proto-gen.lock'],
+          },
+        },
+        files: {
+          'sample-src/index.ts': 'listed',
+          'build.config.ts': 'build',
+          'proto-gen.lock': 'idl',
+        },
+      });
+      try {
+        const before = buildVerificationFingerprints(fixture.root);
+        writeFileSync(join(fixture.root, 'build.config.ts'), 'changed build');
+        const changedBuild = buildVerificationFingerprints(fixture.root);
+        context.expect(changedBuild.sourceDigest).not.toBe(before.sourceDigest);
+        context.expect(changedBuild.protocolDigest).toBe(before.protocolDigest);
+        writeFileSync(join(fixture.root, 'proto-gen.lock'), 'changed idl');
+        const changedProtocol = buildVerificationFingerprints(fixture.root);
+        context.expect(changedProtocol.protocolDigest).not.toBe(before.protocolDigest);
+        context.expect(Object.values(changedProtocol.files)).not.toEqual([]);
+        context
+          .expect(
+            Object.values(changedProtocol.files).every((value) => /^[a-f0-9]{64}$/.test(value)),
+          )
+          .toBe(true);
+      } finally {
+        fixture.cleanup();
+      }
     });
   },
 );

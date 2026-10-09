@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
+import { createControlledRoot } from './controlled-root.ts';
 import { writeTemplateGuideFixture } from './helpers.ts';
 
 const repositoryRoot = process.cwd();
@@ -39,12 +39,15 @@ export function writeProjectManifest(
 }
 
 export function fixtureRoot() {
-  const root = mkdtempSync(join(tmpdir(), 'scenario-gate-cli-'));
-  mkdirSync(join(root, 'openspec/specs/sample'), { recursive: true });
-  writeFileSync(join(root, 'scenario-gate.config.json'), JSON.stringify(config));
-  writeProjectManifest(root);
-  writeTemplateGuideFixture(root);
-  return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  const controlled = createControlledRoot({
+    manifest: JSON.parse(
+      readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
+    ) as unknown,
+    files: { 'scenario-gate.config.json': JSON.stringify(config) },
+    prefix: 'scenario-gate-cli-',
+  });
+  writeTemplateGuideFixture(controlled.root);
+  return { root: controlled.root, cleanup: controlled.cleanup };
 }
 
 export function writeSpec(
@@ -92,6 +95,7 @@ export function runGate(root: string, args: string[] = [], available = true) {
             scenarios?: unknown[];
             flows?: unknown[];
             summaries?: unknown;
+            digests?: unknown;
             mode?: string;
           })
         : undefined,

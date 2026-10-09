@@ -96,7 +96,7 @@
   **Commit**
   - `style(template): adopt prettier baseline and format the repository`
 
-- [ ] 3. 清单扩展、手写源码清单、指纹与覆盖率完整性
+- [x] 3. 清单扩展、手写源码清单、指纹与覆盖率完整性
 
   **Files**
   - Modify：`project.manifest.schema.json`、`project.manifest.json`（Design"共享契约：清单扩展"的全部字段：`sourceRoots` 新语义（原 `hostRoots` 的 `packages/e2e/host` 并入）、`buildInputs`、`protocolInputs`、删除 `hostRoots`、`consumedOperations`、`moduleRoots`、`quality.coverageExclusions`、`quality.maxLinesExemptions`、`testProjects[].config`、`testProjects[].perFile`、`testProjects[].prepare`，每个新属性带中文 `description`；`requiredCommands` 加入 `check:coverage`）。`config` 的取值在任务 4 填写，`perFile`/`prepare` 的取值在任务 8 填写。

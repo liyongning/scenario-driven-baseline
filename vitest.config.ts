@@ -2,11 +2,13 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { ScenarioReporter } from './packages/e2e/src/reporters/scenario-reporter.ts';
 import { buildVerificationFingerprints } from './scripts/lib/fingerprints.ts';
+import { coverageScope } from './scripts/lib/coverage-scope.ts';
 
 const repositoryRoot = import.meta.dirname;
 const runId = process.env.VERIFY_RUN_ID ?? 'local';
 
 const fingerprints = buildVerificationFingerprints(repositoryRoot);
+const coverage = coverageScope(repositoryRoot);
 const reportFile = process.env.VERIFY_REPORT_FILE
   ? resolve(repositoryRoot, process.env.VERIFY_REPORT_FILE)
   : resolve(repositoryRoot, `artifacts/${runId}/reports/scenarios.json`);
@@ -30,20 +32,8 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: [
-        'packages/sdk/src/**/*.ts',
-        'packages/protocol/src/**/*.ts',
-        'packages/protocol/testing/**/*.ts',
-        'packages/e2e/src/**/*.ts',
-        'packages/e2e/host/**/*.js',
-        'scripts/**/*.ts',
-      ],
-      exclude: [
-        '**/*.test.ts',
-        '**/*.d.ts',
-        '**/.generated/**',
-        'packages/protocol/src/generated/**',
-      ],
+      include: [...coverage.include],
+      exclude: [...coverage.exclude],
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
       reporter: ['text', 'json', 'html'],
       reportsDirectory: `artifacts/${runId}/coverage`,

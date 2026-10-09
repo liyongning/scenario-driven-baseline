@@ -10,8 +10,9 @@ type ReporterOptions = Readonly<{
   fingerprints: Readonly<{
     sourceDigest: string;
     specDigest: string;
-    idlDigest: string;
+    protocolDigest: string;
     fixtureDigest: string;
+    files: Readonly<Record<string, string>>;
   }>;
 }>;
 
@@ -23,7 +24,7 @@ type ScenarioRecord = Readonly<{
   project: Project;
   sourceDigest: string;
   specDigest: string;
-  idlDigest: string;
+  protocolDigest: string;
   fixtureDigest: string | null;
   status: 'passed' | 'failed' | 'skipped';
   assertions: number;
@@ -76,7 +77,7 @@ export class ScenarioReporter implements Reporter {
       project: this.options.project ?? (testCase.project.name as Project),
       sourceDigest: this.options.fingerprints.sourceDigest,
       specDigest: this.options.fingerprints.specDigest,
-      idlDigest: this.options.fingerprints.idlDigest,
+      protocolDigest: this.options.fingerprints.protocolDigest,
       fixtureDigest: binding.fixtureCase === null ? null : this.options.fingerprints.fixtureDigest,
       status: state === 'passed' || state === 'failed' ? state : 'skipped',
       assertions: evidence.assertions,

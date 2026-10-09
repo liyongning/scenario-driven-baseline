@@ -16,7 +16,7 @@ export const current = {
   runId: 'tooling-run',
   sourceDigest: 'source',
   specDigest: 'spec',
-  idlDigest: 'idl',
+  protocolDigest: 'idl',
   fixtureDigest: 'fixture',
 } as const;
 

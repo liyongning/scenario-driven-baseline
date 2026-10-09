@@ -5,21 +5,24 @@
       "name": "@daqian/template-sdk",
       "role": "product",
       "private": false,
-      "allowedDirectories": ["src", "dist", "node_modules"]
+      "allowedDirectories": ["src", "dist", "node_modules"],
+      "moduleRoots": ["src"]
     },
     {
       "directory": "protocol",
       "name": "@daqian/template-protocol",
       "role": "protocol",
       "private": false,
-      "allowedDirectories": ["src", "testing", "dist", "node_modules"]
+      "allowedDirectories": ["src", "testing", "dist", "node_modules"],
+      "moduleRoots": ["src", "testing"]
     },
     {
       "directory": "e2e",
       "name": "@daqian/template-e2e",
       "role": "test",
       "private": true,
-      "allowedDirectories": ["src", "host", "tests", "node_modules"]
+      "allowedDirectories": ["src", "host", "tests", "node_modules"],
+      "moduleRoots": ["src", "host", "tests"]
     }
   ],
   "requiredCommands": [
@@ -36,6 +39,7 @@
     "test:integration",
     "test:e2e:weapp",
     "check:architecture",
+    "check:coverage",
     "check:fixtures",
     "check:scenarios",
     "check:package",
@@ -43,11 +47,19 @@
     "check"
   ],
   "testProjects": [
-    { "name": "sdk-unit", "class": "unit" },
-    { "name": "protocol-unit", "class": "unit" },
-    { "name": "test-tools-unit", "class": "unit" },
-    { "name": "integration", "class": "integration" },
-    { "name": "weapp", "class": "platform" }
+    { "name": "sdk-unit", "class": "unit", "config": "packages/sdk/vitest.config.ts" },
+    { "name": "protocol-unit", "class": "unit", "config": "packages/protocol/vitest.config.ts" },
+    {
+      "name": "test-tools-unit",
+      "class": "unit",
+      "config": "packages/e2e/vitest.config.unit.ts"
+    },
+    {
+      "name": "integration",
+      "class": "integration",
+      "config": "packages/e2e/vitest.config.integration.ts"
+    },
+    { "name": "weapp", "class": "platform", "config": "packages/e2e/vitest.config.weapp.ts" }
   ],
   "fingerprints": {
     "sourceRoots": [
@@ -55,10 +67,47 @@
       "packages/protocol/src",
       "packages/protocol/testing",
       "packages/e2e/src",
+      "packages/e2e/host",
       "packages/e2e/tests",
       "scripts"
     ],
-    "hostRoots": ["packages/e2e/host"]
+    "buildInputs": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "tsconfig*.json",
+      "vitest.config.ts",
+      "vitest.shared.ts",
+      ".dependency-cruiser.cjs",
+      "eslint.config.js",
+      ".prettierrc.json",
+      ".prettierignore",
+      "packages/*/package.json",
+      "packages/*/tsconfig*.json",
+      "packages/*/vite.config.ts",
+      "packages/*/vitest.config*.ts"
+    ],
+    "protocolInputs": ["proto-gen.lock"]
+  },
+  "quality": {
+    "coverageExclusions": [
+      {
+        "path": "packages/e2e/host/weapp/setup.ts",
+        "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
+      },
+      {
+        "path": "packages/e2e/host/weapp/vite.config.ts",
+        "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
+      },
+      {
+        "path": "packages/e2e/host/weapp/protocol-runner.ts",
+        "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
+      },
+      {
+        "path": "packages/e2e/host/weapp/example-runner.ts",
+        "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
+      }
+    ],
+    "maxLinesExemptions": []
   },
   "release": {
     "registry": "https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/",

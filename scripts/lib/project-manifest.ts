@@ -12,15 +12,38 @@ export type ManifestPackage = Readonly<{
   role: PackageRole;
   private: boolean;
   allowedDirectories: ReadonlyArray<string>;
+  /** 包内承载模块的根目录，其一级子目录视为模块。 */
+  moduleRoots?: ReadonlyArray<string>;
+  /** 产品包内声明消费接口的模块路径；仅 product 角色可填。 */
+  consumedOperations?: ReadonlyArray<string>;
 }>;
 
-/** 清单登记的一个测试项目：Vitest 项目名与类别。 */
-export type TestProject = Readonly<{ name: string; class: TestProjectClass }>;
+/** 清单登记的一个测试项目：Vitest 项目名、类别与项目配置文件。 */
+export type TestProject = Readonly<{
+  name: string;
+  class: TestProjectClass;
+  /** 该项目的 Vitest 项目配置文件路径，根 vitest 配置按它组装 projects。 */
+  config: string;
+  /** 为 true 时验收入口逐文件运行该项目，每个文件一份报告。 */
+  perFile?: boolean;
+  /** 逐文件运行前执行的准备命令名，例如退出并预热微信开发者工具。 */
+  prepare?: string;
+}>;
 
-/** 参与验证摘要的源码与宿主目录。 */
-export type FingerprintRoots = Readonly<{
+/** 参与验证摘要的源码目录、构建输入与协议来源输入。 */
+export type FingerprintInputs = Readonly<{
   sourceRoots: ReadonlyArray<string>;
-  hostRoots: ReadonlyArray<string>;
+  buildInputs: ReadonlyArray<string>;
+  protocolInputs: ReadonlyArray<string>;
+}>;
+
+/** 一条带理由的质量例外登记。 */
+export type QualityException = Readonly<{ path: string; reason: string }>;
+
+/** 质量例外登记：覆盖率排除与行数上限豁免。 */
+export type QualitySettings = Readonly<{
+  coverageExclusions: ReadonlyArray<QualityException>;
+  maxLinesExemptions: ReadonlyArray<QualityException>;
 }>;
 
 /** 可选的发布设置；缺省表示已删除发布模块。 */
@@ -31,7 +54,8 @@ export type ProjectManifest = Readonly<{
   packages: ReadonlyArray<ManifestPackage>;
   requiredCommands: ReadonlyArray<string>;
   testProjects: ReadonlyArray<TestProject>;
-  fingerprints: FingerprintRoots;
+  fingerprints: FingerprintInputs;
+  quality?: QualitySettings;
   release?: ReleaseSettings;
 }>;
 
@@ -78,6 +102,13 @@ export function validateManifest(manifest: ProjectManifest): string[] {
   for (const requiredClass of ['unit', 'integration'] as const) {
     if (!manifest.testProjects.some((item) => item.class === requiredClass)) {
       issues.push(`at least one ${requiredClass} test project is required`);
+    }
+  }
+  for (const item of manifest.packages) {
+    if (item.role !== 'product' && item.consumedOperations && item.consumedOperations.length > 0) {
+      issues.push(
+        `consumedOperations is only allowed for the product package, found on ${item.name}`,
+      );
     }
   }
   return issues;
@@ -133,4 +164,19 @@ export function testProjectsByClass(
   return manifest.testProjects
     .filter((item) => classes.includes(item.class))
     .map((item) => item.name);
+}
+
+/** 取根 vitest 配置组装 projects 所需的项目配置文件路径，顺序与清单一致。 */
+export function testProjectConfigs(manifest: ProjectManifest): string[] {
+  return manifest.testProjects.map((item) => item.config);
+}
+
+/** 取登记的覆盖率排除项；清单缺省质量块时返回空数组。 */
+export function coverageExclusions(manifest: ProjectManifest): ReadonlyArray<QualityException> {
+  return manifest.quality?.coverageExclusions ?? [];
+}
+
+/** 取登记的行数上限豁免项；清单缺省质量块时返回空数组。 */
+export function maxLinesExemptions(manifest: ProjectManifest): ReadonlyArray<QualityException> {
+  return manifest.quality?.maxLinesExemptions ?? [];
 }

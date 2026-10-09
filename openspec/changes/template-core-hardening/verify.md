@@ -102,3 +102,50 @@
 **weapp 重跑记录**：N/A（本任务 Files/GREEN/Verification 不涉及 weapp；格式化为语义中性，weapp 证据在任务 8、11、12、13、17 运行）。
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`）。
+
+### Task 3 清单扩展、手写源码清单、指纹与覆盖率完整性
+
+**Commit message**：`feat(template): derive fingerprints and coverage scope from one source inventory`
+
+**RED（预期失败的反例，已实际执行）**
+- 用 `git stash push` 只回退受跟踪文件、保留本任务新增文件（`scripts/lib/source-inventory.ts`、`scripts/check-coverage.ts`、`scripts/lib/coverage-scope.ts` 及新单测），再运行 `pnpm exec vitest run --project test-tools-unit scripts/lib/source-inventory.test.ts scripts/check-coverage.test.ts`：退出码 1（日志 `/tmp/t3-red.log`）。旧 schema 报 `data/fingerprints must have required property 'hostRoots'`、`data/testProjects/0 must NOT have additional properties`、`quality` 未知；旧 `project-manifest.ts` 也没有 `coverageExclusions` 等导出。
+- 等价的口径：`.ts` 文件不在覆盖率 `include` 中时 `check:coverage` 不存在 → `pnpm check:coverage` 在 Task 2 状态为 `Command "check:coverage" not found`；旧 `buildVerificationFingerprints` 无 `buildInputs`/`protocolInputs`/`protocolDigest`/`files`，`readSourceInventory` 不存在。
+- RED 演示后已 `git stash pop` 还原（`/tmp/stashpop.log`）。
+
+**GREEN**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 0（日志 `/tmp/checkfast.log`）：`test:unit` 45 文件 / 292 用例全绿且四项覆盖率 100%，`check:coverage` 无问题（`{"issues": []}`），`check:architecture`、`check:fixtures`、`test:integration`（32 文件 / 83 用例）、`check:package` 均退出码 0。
+- 真实场景门禁 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:scenarios`：退出码 1，409 个问题（`/tmp/gate.json`）。本任务负责的 ENG-05 / ENG-07 无未归属问题；剩余问题全部归属后续任务：
+  - ENG-05 的 `environments-by-manifest`、`scripts-by-manifest`（`test-tools-unit/manifest-rules`、`integration/rename-by-manifest-cli`）→ Task 4；
+  - SCN-TEMPLATE-ENGINEERING-003/007、SCN-PROTOCOL-CONTRACT-001/002/005/006/007/009/010/011/012/013、SCN-TEMPLATE-EXAMPLE-012 → Task 10；SCN-SCENARIO-GATE-012~020 → Task 6/7/8；GATE-021~026 → Task 9；ENG-010/011/012 → Task 14/15/16；ENG-006 的标记用例 → Task 10；
+  - 全部含 `weapp` 的绑定（`SCN-TEMPLATE-EXAMPLE-002/004/011`、FLOW、协议矩阵 weapp 义务等）→ Task 17/18 的 weapp 运行。
+
+**命令与退出码**
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| RED：`vitest run --project test-tools-unit <两个新单测>`（旧实现） | 1 | `/tmp/t3-red.log` |
+| `vitest run --project test-tools-unit`（GREEN） | 0 | 158 用例；`/tmp/unit.log` |
+| `vitest run --project integration`（GREEN，含新增 009 与 005 的 `digest-inputs-cli`） | 0 | 32 文件 / 83 用例；`/tmp/integration.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | `/tmp/checkfast.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:scenarios` | 1（409 问题，均归属后续任务） | `/tmp/gate.json` |
+
+**方案与实际的差异**
+- `testProjects[].config` 选择"在 Task 3 直接填好"（五项分别为 `packages/sdk/vitest.config.ts`、`packages/protocol/vitest.config.ts`、`packages/e2e/vitest.config.unit.ts`、`packages/e2e/vitest.config.integration.ts`、`packages/e2e/vitest.config.weapp.ts`），并设为 schema 必填，避免 Task 3 结束时门禁依赖可选字段。
+- `packages[].consumedOperations` 在 Task 3 只落地 schema（product 角色专用，schema 用 `if/then/else` 拒绝非 product 填写；`validateManifest` 亦有同义语义校验），取值按 Task 10 的规划在 Task 10 登记模块路径后填写。
+- `docs/template-guide.md` 第 93 行的替换点地图引用 `manifest.fingerprints.hostRoots`，`check:architecture` 的"清单字段必须存在于 schema"检查因此报 `unknown manifest field manifest.fingerprints.hostRoots`。Task 3 的 Files 未列该文件，但为让 `check:fast` 在同一任务内转绿，做了最小修订（改为 `manifest.fingerprints.sourceRoots`），完整修订仍属 Task 16。这是本任务对规划文件清单的偏离，仅涉及一处字段名。
+- 受控临时根 helper 落在 `packages/e2e/tests/tooling/controlled-root.ts`；为满足 Task 3 起源码清单要求 git 工作区，`scenario-gate-helpers.ts` 的 `fixtureRoot()` 与 `scripts/lib/*.test.ts`、`scripts/check-coverage.test.ts` 已改用该 helper（Task 5 再把其余门禁自测统一收敛）。同时统一了 `idlDigest` → `protocolDigest` 的字段改名（Design 明确要求）。
+- 覆盖率排除理由按硬性措辞登记："只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"；未使用"无法由 unit 加载"的表述——事实是 `weapp-host.test.ts` 会导入 runner，排除依据是执行宿主而非可加载性。
+- 未自研通用能力：源码枚举用 `git ls-files -co --exclude-standard`（含未 `git add` 的新文件、尊重 `.gitignore`）；`buildInputs`/`protocolInputs` 直接复用 git pathspec 通配；覆盖率 include/exclude 由同一清单函数派生并同时供 `vitest.config.ts` 与 `check:coverage` 使用。
+
+**覆盖率统计范围变化前后的文件差集（Review/Acceptance）**
+- 旧有效范围（六个 glob 减去 `**/*.test.ts`、`**/*.d.ts`、生成代码）：49 个文件。
+- 新有效范围（清单 `code` 类减去登记排除）：50 个文件。
+- 差集：仅新增 `packages/e2e/src/vitest.d.ts`（`.d.ts` 不再被单独排除，按 code 类统计，无运行代码故天然 100%）；无移除文件。`packages/e2e/host/weapp/` 下 `setup.ts`、`vite.config.ts`、`protocol-runner.ts`、`example-runner.ts` 按登记排除，`host` 下 `app.js`、`pages/index/index.js` 继续计入并通过 100%。
+- `packages/e2e/tests/` 下的 helper（`controlled-root.ts`、`helpers.ts`、`openspec-stub.ts`、`scenario-gate-helpers.ts`）被分类为 test，不进入覆盖率；`scripts/lib/source-inventory.test.ts`、`scripts/check-coverage.test.ts` 等 `*.test.ts` 同为 test。
+
+**已接受的 Minor**
+- Task 3（config 取值）：见上，Task 3 直接填好并设为必填。
+- Task 3（排除理由措辞）：见上，使用硬性措辞，未写成"无法由 unit 加载"。
+
+**weapp 重跑记录**：N/A（本任务不新增或改动 weapp 用例；`check:fast` 不含 weapp，weapp 证据在 Task 17/18 运行）。
+
+**按需选择结果**：N/A（任务 9 才交付 `test:affected`）。

@@ -4,7 +4,13 @@ import { cliEvidence, fixtureRoot, runGate } from './scenario-gate-helpers.ts';
 
 function input() {
   return {
-    current: { runId: 'r', sourceDigest: 's', specDigest: 's', idlDigest: 'i', fixtureDigest: 'f' },
+    current: {
+      runId: 'r',
+      sourceDigest: 's',
+      specDigest: 's',
+      protocolDigest: 'i',
+      fixtureDigest: 'f',
+    },
     scenarios: [],
     contracts: [],
     flows: [],

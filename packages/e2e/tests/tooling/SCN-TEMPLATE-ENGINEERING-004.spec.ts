@@ -70,10 +70,14 @@ function releaseFixture(registry: string) {
         ],
         requiredCommands: ['check:fast'],
         testProjects: [
-          { name: 'sdk-unit', class: 'unit' },
-          { name: 'integration', class: 'integration' },
+          { name: 'sdk-unit', class: 'unit', config: 'packages/sdk/vitest.config.ts' },
+          { name: 'integration', class: 'integration', config: 'packages/e2e/vitest.config.ts' },
         ],
-        fingerprints: { sourceRoots: ['scripts'], hostRoots: [] },
+        fingerprints: {
+          sourceRoots: ['scripts'],
+          buildInputs: [],
+          protocolInputs: ['proto-gen.lock'],
+        },
         release: { registry, tagPrefix },
       },
       null,
