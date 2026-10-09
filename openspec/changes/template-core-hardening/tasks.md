@@ -207,7 +207,7 @@
   **Commit**
   - `test(template): isolate gate self-tests from live repository state`
 
-- [ ] 6. Fixture 来源模型改为 ID + Requirement 块摘要
+- [x] 6. Fixture 来源模型改为 ID + Requirement 块摘要
 
   **Files**
   - Modify：`packages/e2e/tests/fixtures/fixture.schema.json`（`sources.spec` 改为 `{ requirementDigest }`）；`scripts/check-fixtures.ts` 及单测（按 owner 解析生效 Requirement、规范化摘要、owner 不存在、歧义；`--change` 多值、逗号分隔、空值与不存在报错、帮助文本；命令行无 `--change` 时读取 `SCENARIO_GATE_CHANGES`）；`scripts/lib/spec-sources.ts` 及单测（导出 Requirement 块定位与规范化，块边界按 Design；Change 作用域：只合并主 Spec 与所列 Change、参数与环境变量的解析和校验，供 `check:fixtures` 与任务 7 的 `check:scenarios` 共用）。

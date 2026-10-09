@@ -41,6 +41,7 @@
     "check:architecture",
     "check:coverage",
     "check:fixtures",
+    "fixtures:refresh",
     "check:scenarios",
     "check:package",
     "check:fast",

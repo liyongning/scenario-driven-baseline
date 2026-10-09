@@ -271,3 +271,76 @@
 **weapp 重跑记录**：N/A（本任务不改动 weapp 用例，`check:fast` 不含 weapp）。
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务 `test:integration` 全量运行）。
+
+
+### Task 6 Fixture 来源模型改为 ID + Requirement 块摘要
+
+**Commit message**：`feat(template): bind fixtures to requirement digests instead of spec paths`
+
+**RED（预期失败的反例，已实际执行）**
+- 临时还原 HEAD 旧实现：`git stash push -- scripts/check-fixtures.ts packages/e2e/tests/fixtures/fixture.schema.json`（保留 Task 6 的 `spec-sources.ts`，使新用例可加载 helper），随后运行 6 个新用例：
+  `VERIFY_REPORT_FILE=artifacts/t6-red/reports/integration.json node_modules/.bin/vitest run --project integration packages/e2e/tests/tooling/SCN-SCENARIO-GATE-01{2,3,4,5,7,8}.spec.ts`
+  退出码 **1**，`6 failed | 1 passed (7)`，日志 `/tmp/t6-red-integration.log`；失败点：
+  - 012 `fixture-source-cli` / `fixture-missing-owner-cli`、014、017、018：`AssertionError: expected +0 to be 1`（旧实现不按摘要校验、不识别 `--change`，过期/歧义/非法参数一律返回 0）。
+  - 013 `fixture-refresh-cli`：`AssertionError: expected '' to contain 'SCN-SAMPLE-CONTRACT-002: 来源摘要过期'`（旧实现无 `fixtures:refresh` CLI，输出为空）。
+  - 015 `archive-digest-stability` 在旧实现下**通过**：旧实现根本不校验 Requirement 摘要，因此该 Scenario 的红灯由 012/013 的摘要绑定承担；015 只证明“归档前后摘要稳定 + 不改 Fixture”在真实 CLI 下成立。
+- 新 schema 的反例（与 012 `path-field-rejected` 同一断言）：`sources.spec` 仍写 `path` 或缺 `requirementDigest` 的 manifest 被报 `manifest schema`，退出码 1；旧实现（`additionalProperties: true`、无来源校验）不报。
+- 执行后 `git stash pop` 恢复，工作区无残留（`git stash list` 为空）。
+
+**GREEN**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**，日志 `/tmp/t6-checkfast7.log`：`format:check`、`lint`、`build`、`typecheck`、`check:architecture`、`test:unit`、`check:coverage`、`check:fixtures`、`test:integration`、`check:package` 全通过。
+- `pnpm test:unit`：47 文件 / 317 用例；`Statements 100% (2247/2247)`、`Branches 100% (1453/1453)`、`Functions 100% (417/417)`、`Lines 100% (1989/1989)`。
+- `pnpm test:integration`：40 文件 / 96 用例全通过（含 6 个新用例）。
+- `pnpm check:fixtures`（不带作用域）与 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures` 均 `{"manifests":17,"issues":[]}`；`pnpm check:fixtures --change template-core-hardening` 同样 17/0。
+- 15 个任务内 Fixture 的迁移：`node_modules/.bin/tsx scripts/fixtures-refresh.ts <17 owners>` 输出 `updated: 17, issues: []`；迁移后 17 个 manifest 的 `sources.spec` 键集合恰为 `{requirementDigest}`（Python 逐文件核对），无 `path`。
+
+**命令与退出码**
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 旧实现 + 6 新用例：`vitest run --project integration ...` | 1（RED） | `/tmp/t6-red-integration.log`（6 failed / 1 passed） |
+| `pnpm test:unit` | 0 | 47 文件 / 317 用例，100% 覆盖率 |
+| `pnpm test:integration` | 0 | 40 文件 / 96 用例 |
+| `pnpm check:fixtures`（无作用域） | 0 | `{"manifests":17,"issues":[]}` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures` | 0 | `{"manifests":17,"issues":[]}` |
+| `pnpm check:fixtures --change template-core-hardening` | 0 | `{"manifests":17,"issues":[]}` |
+| `pnpm typecheck` | 0（首次 2，见下） | `/tmp/t6-typecheck3.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` | 0 | `/tmp/t6-checkfast7.log` |
+| `pnpm check:scenarios --change template-core-hardening` | 1（覆盖门禁语义：仍缺后续任务绑定） | `/tmp/t6-scenarios.json`，383 条（见下） |
+| `node_modules/.bin/tsx scripts/fixtures-refresh.ts <17 owners>` | 0 | `updated: 17 / issues: []` |
+
+**报告路径**
+- 单测覆盖率：`artifacts/local/coverage/`；集成报告 `artifacts/local/reports/{unit,integration}.json`（`VERIFY_RUN_ID` 未设置时落 `local`）；本任务新用例的临时报告 `artifacts/t6-new/`、RED 报告 `artifacts/t6-red/`。
+- weapp 报告：本任务未运行（见下）。
+
+**真实归档结果（Review / Acceptance）**
+- 受控临时副本（`openspec: 'real'`，固定版本 `@fission-ai/openspec` 1.6.0）中，主 Spec 有一个 MODIFIED Requirement 与一个 ADDED Requirement，两者下各有 Fixture；归档前 `check:fixtures --change zz-archive` 退出 0。
+- `openspec archive zz-archive -y` 退出 0，stdout：`+ 1 added / ~ 1 modified / Specs updated successfully / Change 'zz-archive' archived as '2026-10-09-zz-archive'`。
+- 归档后不改动任何 Fixture（manifest 文本逐字节相同），`check:fixtures`（不带作用域）退出 0；规范化摘要在 delta 与归档后主 Spec 之间相同：
+  - MODIFIED（`SCN-SAMPLE-CONTRACT-001`）：`33dc7fe34c4703db7f250a28a594dc0fbab0eace23fd6ee29b17e9d3f5b8c436`（归档前 = 归档后）。
+  - ADDED（`SCN-SAMPLE-CONTRACT-003`）：`cbcd30b4431ce213a8b9ef7637b611eef6dc516b580a9258e82a93ea2ffb08eb`（归档前 = 归档后）。
+  - 与规划阶段实验结论一致（`/tmp/t6-015-probe.mts` 复现输出）。
+
+**场景门禁剩余问题归属（383 条）**
+- 369 条 `missing binding for <project>`：Task 7、10–17 尚未登记的 case（协议义务、示例、文档、规模用例等）。
+- 13 条 `checkpoint did not execute`：属 Task 7（`inventory-cli`、`protocol-matrix`）与协议/示例任务的 checkpoint（`derivation-rules` 的 8 个、`sdk-does-not-reexport-network`、`missing-comment-rejected` 的 2 个）。
+- 1 条 `FLOW-TEMPLATE-EXAMPLE-001/normal: missing FLOW binding for weapp`：weapp 绑定在 Task 17/18 的运行中产生。
+- 本任务 6 个 Scenario 侧除 `SCN-SCENARIO-GATE-017/change-scope-scenarios-cli`（Task 7 的 `check:scenarios` 部分）外，012/013/014/015/018 与 017 的 `change-scope-fixtures-cli` 均已 0 问题。无“无法归属后续 Task”的回归项。
+
+**方案与实际的差异**
+- Fixture 迁移用 `pnpm fixtures:refresh` 生成，输出统一为 2 空格缩进 JSON：原 pretty 文件只有 `sources.spec` 2 行变化；原单行 JSON 的 7 个 manifest 被规整为 pretty（合计 `17 files, +135/-26`）。逐键核对确认只丢 `sources.spec.path/sha256`、加 `requirementDigest`，其余来源（`idlFiles`、`gateway`、`commonSdk`、`extraction`、`generatedCompatibility`、`provenance` 等）无变化。
+- 非法作用域时 `check:fixtures` / `fixtures:refresh` 返回不含 `manifests`/`updated`（不输出覆盖结论、不退化为全量运行）；单测与 018 用例以 `not.toHaveProperty('manifests')` 与“过期摘要不得出现”断言该行为。
+- `spec-sources.ts` 的 `readEffectiveSpecs` 保留原签名（内容改为 Requirement 块），既有消费者无需改动；新增 `projectEffectiveSpecs`/`findOwnerRequirement`/`resolveChangeScope` 供 `check:fixtures`（本任务）与 `check:scenarios`（Task 7）共用。
+- Task 6 的 6 个 tooling 用例复用既有 `cliEvidence`（与 GATE-011 一致），未在仓库登记 Fixture 目录：用例在受控临时根内自建 Fixture；`Files` 中的“及 Fixture”由新的 `fixture-gate-helpers.ts` 承担。
+- 修复一处跨用例污染：`runFixtureCli`/`runRefreshCli` 原先继承调用方的 `SCENARIO_GATE_CHANGES`（`check:fast` 带作用域时，受控根读到 `template-core-hardening` 并报“不存在于 active 目录”），现从子进程环境中剔除该变量，仅在用例显式传入时生效。
+- 013 的 `refresh-rejects-invalid` 中，对“无 Fixture 目录的 owner”`refresh` 会先报“没有对应的 Fixture 目录”，两处证据都用“有目录但 owner 不在有效 Spec / 存在歧义”覆盖，规则一致（非零退出且不写入）。
+- 首次 `pnpm typecheck` 暴露 5 处 `exactOptionalPropertyTypes` / `MatcherState` 类型错误（`changes: undefined` 可选属性、测试里误用 `getState().assertions`），已按类型修正，未改语义。
+
+**weapp 重跑记录**：N/A（本任务不改动 weapp 用例，`check:fast` 不含 weapp）。
+- 附带观察（非本任务回归）：`SCN-TEMPLATE-EXAMPLE-005 window-and-timeout` 在一次 `check:fast` 全量运行中因真实计时抖动失败（`expected 1 to be greater than or equal to 2`，日志 `/tmp/t6-checkfast6.log`），单跑与随后全量均通过（`/tmp/t6-rerun-005.log`）。
+
+**按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务按 `check:fast` 全量运行）。
+**OI-CH-02 统计**：本任务无“按需通过、全量失败”记录（上一条为不计入 OI-CH-02 的既有计时抖动，全量与单跑一致通过）。
+
+**优先采用现成方案**
+- Requirement 块定位/规范化复用既有 `remark-parse`/`remark-gfm`/`unified`（FLOW 表）与 `node:crypto` sha256；归档用固定版本官方 OpenSpec CLI（`openspec archive -y`），未自研归档；CLI 运行用仓库既有 `tsx`；无新增依赖、无自研通用基建。
+- 摘要来源与作用域解析直接在 `spec-sources.ts` 内实现（唯一自研点），因为任务契约要求 `check:fixtures` 与 Task 7 的 `check:scenarios` 共用同一套“有效来源合并 + 作用域”语义；已用受控根与真实归档双向验证。

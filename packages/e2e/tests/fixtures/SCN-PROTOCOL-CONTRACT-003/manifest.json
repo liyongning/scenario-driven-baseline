@@ -6,8 +6,7 @@
     "idlCommit": "5539be8f09323709fa65f6568efe22896ec35d24",
     "paymentSemanticCommit": "4e5cb22659fd4f4c36d06ae81256dc1c43e691d9",
     "spec": {
-      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/protocol-contract/spec.md",
-      "sha256": "e18fac44e932aeab68edb5a3bedac7bad31fac57bb54feb204522d289525842b"
+      "requirementDigest": "7a8617d02536336c7ac0fe874e95c17d814a63bde849f638eb22b0c1a771914c"
     },
     "idlFiles": {
       "error_code.go": "10b5ec750907b4f851c926014b3952c916d154b47144f1e932c7b5ead3fc4afc",

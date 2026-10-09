@@ -19,7 +19,7 @@ async function fixture(overrides: Record<string, unknown> = {}) {
     JSON.stringify({
       formatVersion: 1,
       ownerId,
-      sources: { spec: { path: 'spec.md', sha256: 'a'.repeat(64) }, idlCommit: 'b'.repeat(40) },
+      sources: { spec: { requirementDigest: 'a'.repeat(64) }, idlCommit: 'b'.repeat(40) },
       cases: { omitted: 'omitted.json' },
       sha256: { 'omitted.json': digest(data) },
       ...overrides,
@@ -42,6 +42,12 @@ describe('loadFixtureCase', () => {
     const wrongSource = await fixture({ sources: {} });
     await expect(loadFixtureCase({ ...wrongSource, caseKey: 'omitted' })).rejects.toThrow(
       /sources/,
+    );
+    const legacyPath = await fixture({
+      sources: { spec: { path: 'spec.md', sha256: 'a'.repeat(64) } },
+    });
+    await expect(loadFixtureCase({ ...legacyPath, caseKey: 'omitted' })).rejects.toThrow(
+      /requirementDigest/,
     );
     const wrongDigest = await fixture({ sha256: { 'omitted.json': '0'.repeat(64) } });
     await expect(loadFixtureCase({ ...wrongDigest, caseKey: 'omitted' })).rejects.toThrow(/sha256/);
