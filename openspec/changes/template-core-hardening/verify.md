@@ -1740,3 +1740,48 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **结果**：副本 `active changes in copy: []`；`TEMPLATE_COPY: 1`、`SCENARIO_GATE_CHANGES: undefined`；`pnpm build` 退出码 **0**；`pnpm test:integration` → **50 文件 / 104 用例全部通过**、退出码 **0**（日志 `/tmp/fcr-item1-evidence.log`）。
 - **排除项核对**：`SCN-TEMPLATE-ENGINEERING-001`、`SCN-TEMPLATE-ENGINEERING-007`、`SCN-SCENARIO-GATE-026`、`SCN-TEMPLATE-ENGINEERING-008`、`SCN-TEMPLATE-EXAMPLE-008` 均**未出现**在输出中——它们被 `TEMPLATE_COPY` 规则排除，**没有执行**；其余用例全绿。
 - **这一步证明什么、不证明什么**：证明作用域为空时副本不再出现「无内容可提交的归档」失败（第 1 条修复）。不证明「真实归档后的副本仍全绿」，也不覆盖被排除的用例（ENG-001、ENG-008 等）：这两点由「第二轮修复」第 7 条的证据补上（真实归档、不带作用域、不设 `TEMPLATE_COPY`，ENG-001 等确实执行）。
+
+## Task 17 示例删除演练（验收方执行）
+
+**执行者与方式**：由验收方（规划会话）每轮派发一个全新的、不带上下文的 general-purpose Agent（Claude），共 3 轮。三轮提示词相同，只有副本路径不同。
+
+**提示词要点**：
+- 副本路径；先读根 `AGENTS.md` 与 `docs/template-guide.md`；
+- 目标：按指南"移除模板示例"整块删除示例，并让完整验收通过；
+- 规则：
+  - 只在副本内工作；
+  - 禁止读取 `openspec/changes/`（含 `archive/`）与 `artifacts/`，自己生成的报告只列出路径；
+  - 只删除白名单内容，不修改门禁代码、门禁配置与其他能力的 Spec；越不过白名单时如实停下；
+  - 副本中没有 active Change，验收用不带作用域的 `pnpm verify`；weapp 按 `packages/e2e/AGENTS.md` 的约定执行；
+  - 每次猜测都记录；
+  - 可以 `git add`，不提交，不写入任何凭据。
+
+**副本构造**（每轮相同）：
+1. 对待验收提交执行 `git archive`；
+2. 在副本中执行 `pnpm install --offline --frozen-lockfile`；
+3. 按指南"归档已知限制"第 2 条，先把主 Spec 中 SCN-PROTOCOL-CONTRACT-001/002 的标题对齐为最终标题；
+4. 用副本中固定版本的 OpenSpec CLI 执行 `openspec archive template-core-hardening -y`；
+5. 删除该 Change 的归档目录与 `artifacts/`；
+6. `git init`，只做一次初始提交，演练者因此看不到规划和历史。
+
+| 轮次 | 待验收提交 | 结果 | 主要发现 | 处理 |
+|---|---|---|---|---|
+| 1 | `b176e3c` | 失败 | 4 个缺陷：没有 active Change 时 `pnpm verify` 必然失败（ENG-001 写死 Change 路径、ENG-008 要求作用域非空）；weapp 的 PC-008 隐式依赖示例；开发者工具改写受跟踪的 `project.config.json`，导致报告过期；工作区中删除但未暂存的文件让源码摘要报 ENOENT。另有指南笔误、README/AGENTS 中示例描述未加标记 | 与 Final Code Review 合并为 14 条修复（见"Final Code Review 与演练修复"） |
+| 2 | `12f7455` | 失败 | 第 1 轮的缺陷都未复现，weapp 首跑通过。新阻塞：SCN-TEMPLATE-ENGINEERING-008 自身依赖示例存在，示例真正删除后必然失败；GATE-024 超时余量不足；指南有 5 处空白 | 用户裁决 A3：SCN-008 移入 template-example，随示例一起删除；其余见"第二轮修复" |
+| 3 | `3e9501d` | **通过** | 不带作用域的 `pnpm verify` 退出码为 0（check:fast 119.8s、weapp 304.5s、check:scenarios 1.5s），场景门禁 `issues: 0`，全部 Spec 49/49/49；weapp 的 PC-002 首跑通过，PC-008 首跑 120s 挂起，经自动 prepare 后整文件重跑通过（已登记的开发者工具不稳定）。共 72 个文件：4 行新增，4952 行删除 | 顺带指出的残留见"第三轮修复"，第三轮修复后全量 verify 复验通过 |
+
+**第 3 轮猜测记录分类**：
+
+| # | 猜测 | 分类 | 处理 |
+|---|---|---|---|
+| 1 | 指南没有提供裁剪片段的工具，演练者自写脚本，判定规则与 `example-markers.ts` 一致 | 指南缺失需修订 | 登记为后续工作（第三轮第 6 条） |
+| 2 | "全仓库成对标记"只算注释行 | 指南已覆盖但未读到（第二轮已补充说明） | 无需处理 |
+| 3 | 矩阵删除两个键后保留 `{}` | 合理的自主判断 | 无需处理 |
+| 4 | `fixtures:refresh` 与 `pnpm format` 的先后 | 合理的自主判断 | 无需处理 |
+| 5 | 开发者工具残留进程来自另一个工作区，是否可以退出 | 指南缺失需修订 | 已修订（第三轮第 5 条） |
+| 6 | 自行指定 run id | 合理的自主判断 | 无需处理 |
+| 7 | 先跑 `check:fast` 与清单模式，再跑 `pnpm verify` | 指南已覆盖 | 无需处理 |
+
+**证据位置**：会话临时目录 `scratchpad/drill-17c/logs/`（`fast1.log`、`inventory.log`、`verify1.log`、`strip-markers.mjs`）；第 1、2 轮的证据分别在 `drill-17-tools/`、`drill-17b-tools/`。副本不提交。
+
+**结论**：示例删除演练通过；Task 17 验收完成。

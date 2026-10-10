@@ -582,7 +582,7 @@
   **Commit**
   - `docs(template): add architecture document and revise the template guide`
 
-- [ ] 17. 示例删除验证
+- [x] 17. 示例删除验证
 
   **Files**
   - Create：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 及 Fixture：复用任务 5 的仓库副本 helper（`git ls-files -co --exclude-standard` 复制、`git init` 并提交、在副本中 `pnpm install --offline --frozen-lockfile` 且断言 `@daqian/template-sdk` 的 realpath 位于副本内、以固定版本 OpenSpec CLI 归档作用域内（`SCENARIO_GATE_CHANGES=template-core-hardening`）的 active Change 并移除其余 active Change、归档后清除 `SCENARIO_GATE_CHANGES`、`TEMPLATE_COPY=1`），再按白名单删除整目录、整文件、全部 `template-example` 标记片段与对应 `coverageExclusions` 条目，运行 `check:fast` 与 `check:scenarios --inventory`。
