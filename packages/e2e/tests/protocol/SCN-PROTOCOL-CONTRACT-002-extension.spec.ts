@@ -15,7 +15,7 @@ import { buildContractInventory } from '../../../../scripts/lib/contract-invento
 import { lineInRanges, markedLineRanges } from '../../../../scripts/lib/example-markers.ts';
 import { declarationRoot, writeFixtureFile } from '../tooling/declaration-fixture.ts';
 import { declaredObligationKeys, executeMatrixEvidence } from './matrix-evidence.ts';
-import { matrixContext, type MatrixFixture } from './matrix-support.ts';
+import { matrixContext, type MatrixEntry, type MatrixFixture } from './matrix-support.ts';
 
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const declarationPath = 'packages/sdk/src/consumed-operations.ts';
@@ -57,15 +57,15 @@ function markedExampleMethods(source: string): string[] {
   });
 }
 
-/** 调用方源码：只为真正登记在声明里的方法发请求，保证双向对账在两种状态下都是 0 问题。 */
-function callerSourceFor(exampleNames: ReadonlyArray<string>): string {
-  const names = [...exampleNames, 'CreateTradePay'];
-  const calls = names.map(
+/** 调用方源码：只为给定方法发请求，保证声明与调用的双向对账在每种状态下都是 0 问题。 */
+function callerSourceFor(names: ReadonlyArray<string>): string {
+  const unique = [...new Set(names)];
+  const calls = unique.map(
     (name) =>
       `export const ${name[0]!.toLowerCase()}${name.slice(1)} = () => protocol.request(${name}.meta, request, {});`,
   );
   return [
-    `import { ${names.join(', ')} } from '${generatedModule}';`,
+    `import { ${unique.join(', ')} } from '${generatedModule}';`,
     '',
     'declare const protocol: {',
     '  request(meta: unknown, request: unknown, context: unknown): Promise<unknown>;',
@@ -90,28 +90,77 @@ const extensionAuthorityDeclaration = [
   '',
 ].join('\n');
 
+/** 声明源码的拆分结果：数组行（含）之前的头部、标记内条目与标记外条目。 */
+type DeclarationParts = Readonly<{
+  header: ReadonlyArray<string>;
+  markedEntries: ReadonlyArray<string>;
+  outsideEntries: ReadonlyArray<string>;
+}>;
+
 /**
- * 真实声明 + 标记外新增条目：模拟使用方只改声明模块，不碰示例片段。
- * 示例片段已被删除的副本里没有结束标记，此时直接把使用方条目追加到声明数组末尾。
+ * 把声明源码拆成头部、标记内条目与标记外条目：条目边界按花括号层级判定，
+ * 标记区间来自 example-markers 的共享实现，不在用例里另写一份标记语法。
+ */
+function declarationParts(source: string): DeclarationParts {
+  const lines = source.split('\n');
+  const ranges = markedLineRanges(declarationPath, source);
+  const arrayLine = lines.findIndex((line) => line.includes('export const consumedOperations'));
+  if (arrayLine < 0) throw new Error('声明模块未导出 consumedOperations 数组');
+  const endLine = lines.findIndex((line, index) => index > arrayLine && line.trim() === '];');
+  if (endLine < 0) throw new Error('声明模块的数组结尾未按预期匹配');
+  const markedEntries: string[] = [];
+  const outsideEntries: string[] = [];
+  let current: string[] | null = null;
+  let depth = 0;
+  for (let index = arrayLine + 1; index < endLine; index += 1) {
+    const line = lines[index]!;
+    if (current === null) {
+      if (line.trim() !== '{') continue;
+      current = [line];
+      depth = 1;
+      continue;
+    }
+    current.push(line);
+    depth += [...line].filter((character) => character === '{').length;
+    depth -= [...line].filter((character) => character === '}').length;
+    if (depth <= 0) {
+      (lineInRanges(ranges, index + 1) ? markedEntries : outsideEntries).push(current.join('\n'));
+      current = null;
+    }
+  }
+  return { header: lines.slice(0, arrayLine + 1), markedEntries, outsideEntries };
+}
+
+/**
+ * 合成声明：仓库声明的头部 + 指定条目 + 使用方评审依据；缺少 CreateTradePay 导入时补上。
+ * 头部取自标记外（含 generated 导入与声明类型），因此合成结果与仓库声明的形态一致。
+ */
+function syntheticDeclaration(source: string, entries: ReadonlyArray<string>): string {
+  const { header } = declarationParts(source);
+  const text = [...header, ...entries, '];', extensionAuthorityDeclaration.trim(), ''].join('\n');
+  const imported = new RegExp(`^import[^;]*\\bCreateTradePay\\b[^;]*from\\s`, 'm');
+  return imported.test(source)
+    ? text
+    : `import { CreateTradePay } from '${generatedModule}';\n${text}`;
+}
+
+/**
+ * A6 口径：合成声明只取**标记内**的示例条目，再追加使用方新增条目，
+ * 不读使用方写在标记外的条目（重复声明同名接口会让路由与义务重复登记）。
+ * 示例片段已被删除的副本里没有标记，此时合成声明只剩使用方新增条目。
  */
 function extendedDeclaration(source: string): string {
-  const withImport = `import { CreateTradePay } from '${generatedModule}';\n${source}`;
-  // 条目写在示例片段的结束标记之后：模拟使用方在标记外新增，不碰示例片段。
-  const marker = '  // template-example:end\n];';
-  if (withImport.includes(marker))
-    return withImport.replace(
-      marker,
-      `  // template-example:end\n${extensionEntry}\n];${extensionAuthorityDeclaration}`,
-    );
-  // 副本在删除片段后运行过 `pnpm format`：声明数组可能保留多行（`\n];`），
-  // 也可能被折叠成一行空数组（`[];`），两种结尾都要能追加。
-  const multiLine = withImport.lastIndexOf('\n];');
-  if (multiLine !== -1)
-    return `${withImport.slice(0, multiLine)}\n${extensionEntry}${withImport.slice(multiLine)}${extensionAuthorityDeclaration}`;
-  const emptyArray = withImport.lastIndexOf('[]');
-  if (emptyArray !== -1)
-    return `${withImport.slice(0, emptyArray)}[\n${extensionEntry}\n]${withImport.slice(emptyArray + 2)}${extensionAuthorityDeclaration}`;
-  throw new Error('声明模块的数组结尾未按预期匹配');
+  const { markedEntries } = declarationParts(source);
+  const entries =
+    markedEntries.length > 0
+      ? [
+          '  // template-example:begin',
+          ...markedEntries,
+          '  // template-example:end',
+          extensionEntry,
+        ]
+      : [extensionEntry];
+  return syntheticDeclaration(source, entries);
 }
 
 /** 与仓库 Fixture 同形的响应底座：公共响应字段都要有可取证的值（PC-01 的字段义务）。 */
@@ -234,10 +283,11 @@ test(
       'routes-from-declaration',
       'matrix-iterates-declaration',
     ];
-    // 声明与调用都由仓库当前内容派生：示例保留时含示例条目，示例删除后只剩使用方新增的接口。
+    // 声明与调用都由仓库当前内容派生（A6）：只取**标记内**的示例条目，再追加使用方新增的接口，
+    // 不读使用方写在标记外的条目——同一接口声明两次会让方法与义务重复登记，双向对账随之为 1。
     const declarationSource = readFileSync(resolve(repositoryRoot, declarationPath), 'utf8');
     const exampleNames = markedExampleMethods(declarationSource);
-    const declaredNames = [...exampleNames, 'CreateTradePay'];
+    const declaredNames = [...new Set([...exampleNames, 'CreateTradePay'])];
     const methods = allMethods.filter((method) => declaredNames.includes(method.meta.name));
     expect(methods.map((method) => method.meta.name)).toContain('CreateTradePay');
     const operations = methods.map((method) => ({ method }));
@@ -245,19 +295,22 @@ test(
     const controlled = declarationRoot({
       generatedFromRepository: true,
       declaration: extendedDeclaration(declarationSource),
-      caller: callerSourceFor(exampleNames),
+      caller: callerSourceFor(declaredNames),
       prefix: 'protocol-declaration-extension-',
     });
     const root = controlled.root;
     try {
       const baseFixture = JSON.parse(
         readFileSync(resolve(repositoryRoot, fixturePath), 'utf8'),
-      ) as Record<string, unknown>;
-      writeFixtureFile(
-        root,
-        fixturePath,
-        `${JSON.stringify({ ...baseFixture, CreateTradePay: extensionFixture }, null, 2)}\n`,
-      );
+      ) as Record<string, MatrixEntry>;
+      // 矩阵数据同样只取示例键再加使用方新增键：使用方写在标记外的其他键不搬进来（A6）。
+      const fixtureData: Record<string, MatrixEntry> = { CreateTradePay: extensionFixture };
+      for (const name of exampleNames) {
+        const entry = baseFixture[name];
+        if (!entry) throw new Error(`示例键缺少接口 ${name} 的数据`);
+        fixtureData[name] = entry;
+      }
+      writeFixtureFile(root, fixturePath, `${JSON.stringify(fixtureData, null, 2)}\n`);
       const fixture = JSON.parse(readFileSync(join(root, fixturePath), 'utf8')) as MatrixFixture;
 
       // declaration-registered（EX-012 的示例断言）：标记内的示例条目仍恰好是示例的两个接口；

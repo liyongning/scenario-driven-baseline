@@ -82,6 +82,7 @@ function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
     'openspec/specs/template-example/',
     `packages/${test}/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`,
     `packages/${test}/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`,
+    `packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`,
     'template-example:begin',
     'template-example:end',
     `packages/${product}/src/index.ts`,

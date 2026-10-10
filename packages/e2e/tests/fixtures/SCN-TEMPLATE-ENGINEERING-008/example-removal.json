@@ -10,7 +10,8 @@
     ],
     "files": [
       "packages/e2e/host/weapp/example-runner.ts",
-      "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts"
+      "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts",
+      "packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts"
     ],
     "globs": [
       {
