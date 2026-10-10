@@ -10,7 +10,7 @@
 
 ## 允许依赖
 
-- 引擎不导入 ProtoGen 生成代码（依赖规则 `shadow-engine-no-generated`）；生成描述只出现在 `idl-routes.ts` 与 `example/`。
+- 引擎文件（`shadow/` 一级目录下的 `server.ts`、`faults.ts`、`requests.ts`、`routes.ts` 等）不导入 ProtoGen 生成代码（依赖规则 `shadow-engine-no-generated`）；路由来源文件（`idl-routes.ts` 与 `testing/shadow/<业务>/routes.ts`）才是生成描述的接入点。
 - 测试依赖不得进入生产导入图与 tarball。
 
 ## 本地约束

@@ -44,7 +44,7 @@ function renamedTestManifest(): ProjectManifest {
 }
 
 /** 依赖规则生成函数在 CJS 中实现，供 dependency-cruiser 配置与 eslint 配置共用。 */
-type Rule = Readonly<{ name: string; from: { path: string } }>;
+type Rule = Readonly<{ name: string; from: { path: string; pathNot?: string } }>;
 type Rules = Readonly<{
   escapeRegExp(value: string): string;
   packageByRole(manifest: ProjectManifest, role: string): { directory: string; name: string };
@@ -180,6 +180,25 @@ evidence(
     });
   },
 );
+
+test('shadow engine rule covers engine files but not route sources', () => {
+  const rule = ruleByName(
+    rules.dependencyRules(loadProjectManifest(repositoryRoot)),
+    'shadow-engine-no-generated',
+  );
+  const path = new RegExp(rule.from.path);
+  // pathNot 与 dependency-cruiser 同义：命中的引擎文件再被排除项减去。
+  const pathNot = new RegExp(rule.from.pathNot!);
+  const matched = (file: string) => path.test(file) && !pathNot.test(file);
+  // 引擎文件（含后续新增的）受约束。
+  for (const engine of ['server', 'faults', 'requests', 'routes', 'synthetic-engine'])
+    expect(matched(`packages/protocol/testing/shadow/${engine}.ts`), engine).toBe(true);
+  // 路由来源不受限：IDL 路由来源、业务路由目录、示例目录与单测都不在约束内。
+  expect(matched('packages/protocol/testing/shadow/idl-routes.ts')).toBe(false);
+  expect(matched('packages/protocol/testing/shadow/payment/routes.ts')).toBe(false);
+  expect(matched('packages/protocol/testing/shadow/example/routes.ts')).toBe(false);
+  expect(matched('packages/protocol/testing/shadow/server.test.ts')).toBe(false);
+});
 
 test('escapeRegExp escapes regular expression metacharacters', () => {
   expect(rules.escapeRegExp('a.b*c(d)')).toBe('a\\.b\\*c\\(d\\)');

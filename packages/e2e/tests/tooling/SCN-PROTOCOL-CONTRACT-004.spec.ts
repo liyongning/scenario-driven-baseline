@@ -78,6 +78,16 @@ test(
       context.expect(violated.status).not.toBe(0);
       context.expect(violated.stdout + violated.stderr).toContain('shadow-engine-no-generated');
 
+      // 反例：业务路由目录是路由来源，不受引擎约束——导入 generated 时依赖检查通过（PC-03 只约束引擎文件）。
+      const businessRoute = join(root, 'packages/protocol/testing/shadow/payment/routes.ts');
+      mkdirSync(join(root, 'packages/protocol/testing/shadow/payment'), { recursive: true });
+      writeFileSync(
+        businessRoute,
+        "import type { RpcMethodMeta } from '../../../src/generated/std.ts';\nexport const paymentRoute = null as unknown as RpcMethodMeta<unknown, unknown>;\n",
+      );
+      const allowed = depcruise(root, 'packages/protocol/testing/shadow/payment/routes.ts');
+      context.expect(allowed.status, allowed.stdout + allowed.stderr).toBe(0);
+
       // 未修改的仓库中协议包源码通过依赖检查。
       const restored = depcruise(repositoryRoot, 'packages/protocol/src');
       context.expect(restored.status).toBe(0);
