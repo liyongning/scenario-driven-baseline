@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, expectTypeOf, test, vi } from 'vitest';
 import * as protocol from './index';
 import type {
@@ -16,17 +15,34 @@ import {
   QueryTradeRequest,
   type CreateTradePayResponse,
 } from './generated/idl/infra/trade/v1/trade';
-const matrix = JSON.parse(
-  readFileSync(
-    'packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json',
-    'utf8',
-  ),
-) as {
-  CreateTrade: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
-  QueryTrade: { request: Record<string, unknown>; responses: Record<string, unknown>[] };
+/**
+ * 单测自供的请求与响应载荷：协议客户端的公共能力证据不读取示例的协议矩阵 Fixture，
+ * 示例删除后仍能独立运行（ENG-06）。
+ */
+const create = {
+  response: {
+    tradeNo: 'trade-matrix',
+    orderNos: ['order-matrix'],
+    status: 'TRADE_STATUS_PAID',
+    baseResp: {
+      requestId: 'matrix-response',
+      success: false,
+      error: {
+        message: 'matrix-message',
+        details: { field: 'value' },
+        retryable: true,
+        source: 'trade',
+        canonicalCode: 'CANONICAL_ERROR_CODE_UNAVAILABLE',
+        bizCode: '123',
+        bizCodeName: 'MatrixError',
+      },
+      serverTimeMs: '1700000000000',
+      statusCode: '123',
+      statusMsg: 'matrix-status',
+    },
+  },
 };
-const create = { request: matrix.CreateTrade.request, response: matrix.CreateTrade.responses[0]! };
-const query = { request: matrix.QueryTrade.request, response: matrix.QueryTrade.responses[0]! };
+const query = { request: { tradeNo: 'trade-matrix', baseReq: { productId: 'matrix-product' } } };
 
 function cancellation() {
   let stopped = false;

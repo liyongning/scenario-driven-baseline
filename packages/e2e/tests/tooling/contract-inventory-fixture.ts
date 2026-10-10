@@ -3,6 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  declarationRoot,
+  exampleCallerSource,
+  exampleDeclarationSource,
+  repositoryProtocolSource,
+} from './declaration-fixture.ts';
+import {
   loadProjectManifest,
   packageByRole,
   testProjectsByClass,
@@ -44,6 +50,27 @@ export function controlled(root: string) {
     generated: `packages/${protocol.directory}/src/generated`,
     protocolSrc: `packages/${protocol.directory}/src`,
   };
+}
+
+/**
+ * 示例协议义务的受控输入：声明、调用与错误码表由夹具在用例内提供，generated 取自仓库协议包
+ * （不在示例删除白名单内），因此示例删除后仍能派生同样的义务（ENG-06）。
+ */
+export function exampleInventoryRoot(prefix = 'template-example-contract-') {
+  return declarationRoot({
+    generatedFromRepository: true,
+    declaration: exampleDeclarationSource,
+    caller: exampleCallerSource,
+    protocolFiles: {
+      'errors/business-codes.ts': repositoryProtocolSource('errors/business-codes.ts'),
+    },
+    prefix,
+  });
+}
+
+/** 受控临时根内被用例改写的示例协议 generated 文件。 */
+export function inventoryTradeFile(root: string): string {
+  return join(root, controlled(root).generated, 'idl/infra/trade/v1/trade.ts');
 }
 
 export function customMethodFile(

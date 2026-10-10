@@ -1,12 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { declarationRoot } from '../../packages/e2e/tests/tooling/declaration-fixture.ts';
 import {
-  copyGenerated,
   customMethodFile,
-  repositoryRoot,
+  exampleInventoryRoot,
+  inventoryTradeFile,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
@@ -14,7 +13,9 @@ import { buildContractInventory } from './contract-inventory.ts';
 describe('buildContractInventory', () => {
   // 副本内（SCN-SCENARIO-GATE-026）负载叠加时默认 5s 超时不够，显式放宽。
   it('derives obligations for the example protocol only', { timeout: 30_000 }, async () => {
-    const inventory = await buildContractInventory(repositoryRoot);
+    const root = exampleInventoryRoot();
+    const inventory = await buildContractInventory(root.root);
+    root.cleanup();
     expect(inventory.methods).toEqual([
       { name: 'CreateTrade', method: 'POST', path: '/api/base/trade/create' },
       { name: 'QueryTrade', method: 'POST', path: '/api/base/trade/query' },
@@ -104,7 +105,8 @@ describe('buildContractInventory', () => {
     'derives a newly reachable field and leaves it missing without a binding',
     { timeout: 30_000 },
     async () => {
-      const { root, file } = await copyGenerated('template-contract-added-field-');
+      const root = exampleInventoryRoot();
+      const file = inventoryTradeFile(root.root);
       const original = await readFile(file, 'utf8');
       await writeFile(
         file,
@@ -113,9 +115,8 @@ describe('buildContractInventory', () => {
           'export interface QueryTradeResponse {\n  reviewProbe: string;',
         ),
       );
-      const inventory = await buildContractInventory(repositoryRoot, {
-        generatedRoot: join(root, 'generated'),
-      });
+      const inventory = await buildContractInventory(root.root);
+      root.cleanup();
       const obligation = inventory.obligations.find(
         (item) => item.id === 'infra.trade.v1.QueryTrade#response-mapping#review_probe',
       );
@@ -154,7 +155,8 @@ describe('buildContractInventory', () => {
     'keeps unreviewed request fields and unknown encodings visible as pending issues',
     { timeout: 30_000 },
     async () => {
-      const { root, file } = await copyGenerated('template-contract-pending-field-');
+      const root = exampleInventoryRoot();
+      const file = inventoryTradeFile(root.root);
       const original = await readFile(file, 'utf8');
       await writeFile(
         file,
@@ -168,9 +170,8 @@ describe('buildContractInventory', () => {
             'export interface QueryTradeResponse {\n  cycle?: QueryTradeResponse;\n  opaqueProbe: unknown;',
           ),
       );
-      const inventory = await buildContractInventory(repositoryRoot, {
-        generatedRoot: join(root, 'generated'),
-      });
+      const inventory = await buildContractInventory(root.root);
+      root.cleanup();
       expect(inventory.discoveries).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -211,7 +212,8 @@ describe('buildContractInventory', () => {
     'treats a single-params union as oneof branches and rejects malformed shapes',
     { timeout: 30_000 },
     async () => {
-      const { root, file } = await copyGenerated('template-contract-oneof-');
+      const root = exampleInventoryRoot();
+      const file = inventoryTradeFile(root.root);
       const original = await readFile(file, 'utf8');
       const probes = [
         'interface OneofProbe { params: { $case: "alpha"; alpha: string } | { $case: "beta"; beta: string } | { $case: "gamma"; gamma: { nested: string } } }',
@@ -222,9 +224,8 @@ describe('buildContractInventory', () => {
         `${probes}\nexport interface QueryTradeResponse {\n  probe?: OneofProbe | undefined;\n  single?: SingleFieldProbe | undefined;`,
       );
       await writeFile(file, patched);
-      const inventory = await buildContractInventory(repositoryRoot, {
-        generatedRoot: join(root, 'generated'),
-      });
+      const inventory = await buildContractInventory(root.root);
+      root.cleanup();
       expect(inventory.discoveries).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -263,14 +264,13 @@ describe('buildContractInventory', () => {
       );
       expect(inventory.issues).toEqual([]);
 
-      const malformed = await copyGenerated('template-contract-malformed-oneof-');
+      const malformed = exampleInventoryRoot();
       await writeFile(
-        malformed.file,
+        inventoryTradeFile(malformed.root),
         patched.replace('alpha: string }', 'alpha: string; unexpected: string }'),
       );
-      const malformedInventory = await buildContractInventory(repositoryRoot, {
-        generatedRoot: join(malformed.root, 'generated'),
-      });
+      const malformedInventory = await buildContractInventory(malformed.root);
+      malformed.cleanup();
       expect(malformedInventory.issues).toContain(
         'QueryTrade response field probe.params has no approved encoding rule',
       );

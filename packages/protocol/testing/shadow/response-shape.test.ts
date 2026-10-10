@@ -1,5 +1,5 @@
 // @SCN-PROTOCOL-CONTRACT-006/007: Shadow 响应与协议同形校验、非法响应显式认领的 module 证据。
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import ts from 'typescript';
@@ -17,16 +17,72 @@ import { routesFromRpcMethods } from './idl-routes.ts';
 import type { ShadowRoute } from './routes.ts';
 import { createShadowServer } from './server.ts';
 
-/** 真实协议矩阵 Fixture：代表“Fixture JSON”来源；测试代码里的字面量代表“内联 body”来源。 */
-const protocolMatrix = JSON.parse(
-  readFileSync(
-    new URL(
-      '../../../e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json',
-      import.meta.url,
-    ),
-    'utf8',
-  ),
-) as { CreateTrade: { responses: unknown[] }; QueryTrade: { responses: unknown[] } };
+/** 共用的响应上下文样本，与协议矩阵 Fixture 的字段形态一致。 */
+const baseResp = {
+  requestId: 'matrix-response',
+  success: false,
+  error: {
+    message: 'matrix-message',
+    details: { field: 'value' },
+    retryable: true,
+    source: 'trade',
+    canonicalCode: 'CANONICAL_ERROR_CODE_UNAVAILABLE',
+    bizCode: '123',
+    bizCodeName: 'MatrixError',
+  },
+  serverTimeMs: '1700000000000',
+  statusCode: '123',
+  statusMsg: 'matrix-status',
+};
+
+/**
+ * 自供的响应样本：第一组代表“Fixture JSON”来源、`{}` 代表缺省字段、测试代码里的字面量
+ * 代表“内联 body”来源。校验的是 Shadow 的公共构造规则，不读取示例的协议矩阵 Fixture（ENG-06）。
+ */
+const fixtureSamples = {
+  CreateTrade: [
+    {
+      tradeNo: 'trade-matrix',
+      orderNos: ['order-matrix'],
+      status: 'TRADE_STATUS_PAID',
+      baseResp,
+    },
+    {},
+  ],
+  QueryTrade: [
+    {
+      trade: {
+        tradeNo: 'trade-matrix',
+        userId: '9007199254740993',
+        status: 'TRADE_STATUS_PAID',
+        payAmount: '101',
+        channel: 'CHANNEL_WECHAT_VIRTUAL',
+        paidTime: '1700000000000',
+        orders: [
+          {
+            orderNo: 'order-matrix',
+            bizType: 'sku',
+            bizOrderNo: 'biz-order',
+            skuId: 'sku-id',
+            skuName: 'sample-sku',
+            quantity: 2,
+            unitPrice: '100',
+            payAmount: '190',
+            refundedAmount: '10',
+            status: 'ORDER_STATUS_PAID',
+            refundStatus: 'REFUND_STATUS_PARTIAL_REFUNDED',
+            originalAmount: '200',
+            discountAmount: '10',
+          },
+        ],
+        expireTime: '1800000000000',
+        originalAmount: '111',
+        discountAmount: '10',
+      },
+      baseResp,
+    },
+  ],
+};
 
 type MethodSource = Parameters<typeof routesFromRpcMethods>[0][number];
 
@@ -162,13 +218,13 @@ test(
     const queryTrade = validatorFor(QueryTrade.meta);
 
     // conforming-accepted：真实 Fixture 响应与 generated 描述同形。
-    context.expect(createTrade(protocolMatrix.CreateTrade.responses[0])).toEqual([]);
-    context.expect(queryTrade(protocolMatrix.QueryTrade.responses[0])).toEqual([]);
+    context.expect(createTrade(fixtureSamples.CreateTrade[0])).toEqual([]);
+    context.expect(queryTrade(fixtureSamples.QueryTrade[0])).toEqual([]);
     context.expect(createTrade({ status: 'TRADE_STATUS_PAID' })).toEqual([]);
 
     // absent-default-accepted：缺少非 presence 字段不判错（空对象与部分字段都接受）。
     context.expect(createTrade({})).toEqual([]);
-    context.expect(createTrade(protocolMatrix.CreateTrade.responses[1])).toEqual([]);
+    context.expect(createTrade(fixtureSamples.CreateTrade[1])).toEqual([]);
     context.expect(queryTrade({})).toEqual([]);
     context.expect(createTrade({ tradeNo: 'TN-1' })).toEqual([]);
 
@@ -365,7 +421,7 @@ test(
       .expect(() =>
         createShadowServer({
           routes,
-          scenarios: [scenarioWith(protocolMatrix.CreateTrade.responses[0])],
+          scenarios: [scenarioWith(fixtureSamples.CreateTrade[0])],
         }),
       )
       .not.toThrow();
@@ -391,7 +447,7 @@ test(
     context.expect(inlineError).toContain('$.unknownField: 响应类型中不存在的字段');
 
     // both-sources：同一非法体在 Fixture JSON 来源下报出与内联来源一致的错误。
-    const fixtureResponse = protocolMatrix.CreateTrade.responses[0] as Record<string, unknown>;
+    const fixtureResponse = fixtureSamples.CreateTrade[0] as Record<string, unknown>;
     const fixtureError = constructionError(() =>
       createShadowServer({
         routes,

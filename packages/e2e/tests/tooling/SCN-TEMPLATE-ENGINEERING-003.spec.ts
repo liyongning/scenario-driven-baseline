@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
 import { discoverEntryExports, publicDocIssues, type DocRequirement } from './public-doc.ts';
@@ -38,6 +38,85 @@ function removeNearestComment(source: string, needle: string, after = ''): strin
   if (start < 0) throw new Error(`no JSDoc before: ${needle}`);
   const end = source.indexOf('*/', start);
   return source.slice(0, start) + source.slice(end + 2);
+}
+
+/** 受控声明源：与示例同形，示例删除后注释门禁仍可复核（ENG-06）。 */
+const controlledContracts = [
+  '/** 示例状态。 */',
+  'export type ExampleState =',
+  '  /** 尚未到达终态。 */',
+  "  | 'pending'",
+  '  /** 已关闭，不再变化。 */',
+  "  | 'closed'",
+  '  /** 服务端返回未识别的状态。 */',
+  "  | 'unknown';",
+  '',
+  '/** 创建结果。 */',
+  'export type ExampleCreateResult =',
+  '  /** 创建成功。 */',
+  '  | Readonly<{',
+  '      /** 成功判别值。 */',
+  '      ok: true;',
+  '      /** 已创建资源标识。 */',
+  '      reference: string;',
+  '    }>',
+  '  /** 创建失败。 */',
+  '  | Readonly<{',
+  '      /** 失败判别值。 */',
+  '      ok: false;',
+  '      /** 中立错误文案。 */',
+  '      message: string;',
+  '    }>;',
+  '',
+  '/** 观察最终结果。 */',
+  'export type ExampleOutcome = Readonly<{',
+  '  /** 观察结束原因。 */',
+  '  end:',
+  '    /** 资源已完成。 */',
+  "    | 'completed'",
+  '    /** 观察窗口用尽。 */',
+  "    | 'window_elapsed'",
+  '    /** 观察失败。 */',
+  "    | 'failed';",
+  '  /** 最后一次可信状态。 */',
+  '  lastState: ExampleState;',
+  '}>;',
+  '',
+  '/** 示例客户端公共入口。 */',
+  'export interface ExampleClient {',
+  '  /** 创建资源。 */',
+  '  create(ownerId: string): Promise<ExampleCreateResult>;',
+  '  /** 在有界窗口内观察资源状态。 */',
+  '  observe(reference: string): Promise<ExampleOutcome>;',
+  '}',
+  '',
+].join('\n');
+
+/** 受控构建声明文本：与源码同形，用于核对产物声明的注释要求。 */
+const controlledDeclaration = [
+  '/** 示例状态。 */',
+  'export declare type ExampleState =',
+  '  /** 尚未到达终态。 */',
+  "  | 'pending'",
+  '  /** 服务端返回未识别的状态。 */',
+  "  | 'unknown';",
+  '',
+].join('\n');
+
+/** 把受控声明源写进临时包并按其根入口发现注释要求。 */
+function controlledEntry() {
+  const directory = mkdtempSync(join(tmpdir(), 'controlled-entry-'));
+  mkdirSync(join(directory, 'pkg'), { recursive: true });
+  writeFileSync(
+    join(directory, 'pkg/index.ts'),
+    "export type * from './contracts';\nexport * from './contracts';\n",
+  );
+  writeFileSync(join(directory, 'pkg/contracts.ts'), controlledContracts);
+  const requirements = discoverEntryExports({
+    root: directory,
+    entry: join(directory, 'pkg/index.ts'),
+  }).types;
+  return { directory, requirements };
 }
 
 defineCase(
@@ -87,24 +166,20 @@ defineCase(
   },
   async ({ fixture: value, checkpoint, expect }) => {
     const mutations = (value as { mutations: string[] }).mutations;
-    const entry = resolve(productRoot, 'index.ts');
-    const requirements = entryRequirements(entry);
-    const contractsFile = join(root, 'packages', product.directory, 'src/example/contracts.ts');
-    const source = readFileSync(contractsFile, 'utf8');
+    const controlled = controlledEntry();
+    const source = controlledContracts;
+    const requirements = controlled.requirements;
     // 只检查声明在本文件的要求：入口发现的要求可能落在其他文件，放到本文件里检查会误报 missing。
-    const contractsRelative = relative(root, contractsFile).split('\\').join('/');
-    const contractRequirements = requirements.filter((item) => item.file === contractsRelative);
-    const declaration = readFileSync(declarationFiles[0]!, 'utf8');
+    const contractRequirements = requirements.filter((item) => item.file === 'pkg/contracts.ts');
+    const declaration = controlledDeclaration;
 
     await checkpoint('entry-discovery', () => {
       // 检查对象由根入口的导出符号追溯得到，而不是固定文件列表。
       expect(mutations).toContain('entry');
-      expect(requirements.map((item) => item.name)).toContain('ConsumedOperation');
-      expect([...new Set(requirements.map((item) => item.file))].sort()).toEqual([
-        'packages/sdk/src/consumed-operations.ts',
-        'packages/sdk/src/example/contracts.ts',
-        'packages/sdk/src/example/factory.ts',
-      ]);
+      expect([...requirements.map((item) => item.name)].sort()).toEqual(
+        ['ExampleOutcome', 'ExampleCreateResult', 'ExampleClient', 'ExampleState'].sort(),
+      );
+      expect([...new Set(requirements.map((item) => item.file))]).toEqual(['pkg/contracts.ts']);
       // 入口新导出一个缺少注释的类型时被拒绝；入口不导出时不在检查范围。
       const directory = mkdtempSync(join(tmpdir(), 'entry-discovery-'));
       try {
@@ -190,6 +265,7 @@ defineCase(
         ]),
       ).toContain('ExampleState.unknown: missing Chinese JSDoc');
     });
+    rmSync(controlled.directory, { recursive: true, force: true });
   },
   { fixtureRoot },
 );

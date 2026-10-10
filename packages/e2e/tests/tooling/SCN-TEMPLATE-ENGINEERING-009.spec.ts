@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { cliEvidence } from './scenario-gate-helpers.ts';
@@ -10,12 +10,16 @@ import { repositoryRoot } from './helpers.ts';
 const tsx = resolve(repositoryRoot, 'node_modules/.bin/tsx');
 const coverageScript = resolve(repositoryRoot, 'scripts/check-coverage.ts');
 
-const allowedExclusions = [
-  'packages/e2e/host/weapp/example-runner.ts',
-  'packages/e2e/host/weapp/protocol-runner.ts',
-  'packages/e2e/host/weapp/setup.ts',
-  'packages/e2e/host/weapp/vite.config.ts',
-];
+/**
+ * 允许排除的覆盖率例外由宿主目录派生，不写死名单：只有顶层 TS 文件可能只能在开发者工具
+ * 内运行；示例删除后 `example-runner.ts` 随文件消失，期望值随之收敛（ENG-06）。
+ */
+const allowedExclusions = readdirSync(join(repositoryRoot, 'packages/e2e/host/weapp'), {
+  withFileTypes: true,
+})
+  .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+  .map((entry) => `packages/e2e/host/weapp/${entry.name}`)
+  .sort();
 
 function manifestWith(quality: Record<string, unknown>) {
   return {

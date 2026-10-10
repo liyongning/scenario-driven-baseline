@@ -1,8 +1,12 @@
+// template-example:begin
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { expect, test, type TestContext } from 'vitest';
+import type { TestContext } from 'vitest';
+// template-example:end
+import { expect, test } from 'vitest';
 import { consumedOperations } from './consumed-operations';
 
+// template-example:begin
 /** 模块类证据：把手写断言登记为 scenario-evidence，交由场景门禁对账。 */
 async function annotate(context: TestContext, before: number, checkpoints: string[]) {
   await context.annotate(
@@ -10,6 +14,7 @@ async function annotate(context: TestContext, before: number, checkpoints: strin
     'scenario-evidence',
   );
 }
+// template-example:end
 
 // 标记外的断言与示例无关：声明被清空时同样成立（EX-09）。
 test('每条声明的 method 都是 generated 方法描述', () => {

@@ -9,8 +9,12 @@ import {
 import {
   declarationRoot,
   defaultGeneratedFiles,
+  exampleCallerSource,
+  exampleDeclarationSource,
   syntheticMethodFile,
+  writeFixtureFile,
 } from './declaration-fixture.ts';
+import { controlled } from './contract-inventory-fixture.ts';
 
 type InventoryOutput = {
   contracts?: Array<{ id: string; cases: string[]; requiredIn: string[] }>;
@@ -74,6 +78,10 @@ cliEvidence(
     const fixture = fixtureRoot();
     try {
       writeSpec(fixture.root, syntheticSpec);
+      // 声明与调用由用例自供：受控根镜像仓库源码前先写入，示例删除后义务派生仍有输入（ENG-06）。
+      const paths = controlled(fixture.root);
+      writeFixtureFile(fixture.root, paths.declaration, exampleDeclarationSource);
+      writeFixtureFile(fixture.root, paths.caller, exampleCallerSource);
       enableInventory(fixture.root, { realSources: true });
       const output = runGate(fixture.root, ['--inventory']).output as InventoryOutput | undefined;
       const contracts = output?.contracts ?? [];

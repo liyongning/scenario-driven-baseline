@@ -12,7 +12,8 @@ import { consumedOperations } from '@daqian/template-sdk';
 function declaredMethod(name: string) {
   const operation = consumedOperations.find((item) => item.method.meta.name === name);
   const meta = operation?.method.meta;
-  if (!meta) throw new Error(`消费接口声明中没有 ${name}`);
+  // 声明里没有该接口时正常结束：宿主只按消费接口声明执行，不因缺少示例路由抛错。
+  if (!meta) return undefined;
   if (!meta.method || !meta.path || !meta.requestCodec)
     throw new Error(`消费接口 ${name} 的方法描述不是 HTTP 方法`);
   return meta;
@@ -43,9 +44,13 @@ type ProtocolSuiteInput = Readonly<{
   methods: readonly ProtocolSuiteMethod[];
 }>;
 
+/** 声明中可执行的 HTTP 方法描述；缺失或非 HTTP 由 `declaredMethod` 判定。 */
+type DeclaredMethod = NonNullable<ReturnType<typeof declaredMethod>>;
+
 /** 最小宿主只装配协议公共入口；网络始终由协议包的真实 wx.request 适配器提供。 */
 export async function runProtocolCase(input: ProtocolCaseInput) {
   const meta = declaredMethod(input.name);
+  if (!meta) return { ok: false as const, error: { code: 'undeclared-method' } };
   const client = createProtocolClient({
     gatewayBaseUrl: input.gatewayBaseUrl,
     getAccessToken: () => input.accessToken,
@@ -93,8 +98,7 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
     return serializable(value);
   };
 
-  const runMethod = async (spec: ProtocolSuiteMethod) => {
-    const meta = declaredMethod(spec.name);
+  const runMethod = async (spec: ProtocolSuiteMethod, meta: DeclaredMethod) => {
     const codec = meta.responseCodec;
     const message = (source: Record<string, unknown>) => meta.requestCodec!.fromJSON(source);
     const serialize = (
@@ -223,7 +227,14 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
     };
   };
 
+  // 按消费接口声明遍历：声明外的矩阵项被跳过，声明为空时正常返回空结果集（SCN-008）。
   const suites: Record<string, Awaited<ReturnType<typeof runMethod>>> = {};
-  for (const spec of input.methods) suites[spec.name] = await runMethod(spec);
+  for (const operation of consumedOperations) {
+    const name = operation.method.meta.name;
+    const spec = input.methods.find((item) => item.name === name);
+    const meta = declaredMethod(name);
+    if (!spec || !meta) continue;
+    suites[name] = await runMethod(spec, meta);
+  }
   return { suites };
 }

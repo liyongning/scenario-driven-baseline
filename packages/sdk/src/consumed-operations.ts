@@ -31,9 +31,11 @@ export type ConsumedOperation = Readonly<{
   requestFields: Readonly<Record<string, ConsumedRequestField>>;
 }>;
 
+// template-example:begin
 /** 请求字段策略的评审依据；门禁不再按方法名保存这张表。 */
 const requestAuthority =
   'protocol-contract Spec PC-01；本 Change Design“IDL 义务派生改为针对示例接口（任务 2）”';
+// template-example:end
 
 /** 产品包消费的协议接口：门禁据此派生协议义务并做声明与调用的双向对账。 */
 export const consumedOperations: ReadonlyArray<ConsumedOperation> = [

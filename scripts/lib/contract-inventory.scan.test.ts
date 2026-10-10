@@ -11,8 +11,9 @@ import {
 import {
   businessErrorNames,
   controlled,
-  copyGenerated,
   customMethodFile,
+  exampleInventoryRoot,
+  inventoryTradeFile,
   repositoryRoot,
   requiredIn,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
@@ -217,9 +218,11 @@ test(
       await assertion();
       executed.push(name);
     };
-    const inventory = await buildContractInventory(repositoryRoot);
-    const declarationSource = await readFile(
-      join(repositoryRoot, 'packages/sdk/src/consumed-operations.ts'),
+    // 示例协议的义务由受控输入派生，示例删除后同一事实仍可复核（ENG-06）。
+    const example = exampleInventoryRoot('template-contract-001-');
+    const inventory = await buildContractInventory(example.root);
+    const declarationSource = readFileSync(
+      join(example.root, controlled(example.root).declaration),
       'utf8',
     );
 
@@ -376,7 +379,8 @@ test(
       }
     });
     await check('pending-reported', async () => {
-      const { root, file } = await copyGenerated('template-contract-derivation-');
+      const root = exampleInventoryRoot('template-contract-derivation-');
+      const file = inventoryTradeFile(root.root);
       const original = await readFile(file, 'utf8');
       await writeFile(
         file,
@@ -385,9 +389,8 @@ test(
           'export interface QueryTradeRequest {\n  reviewProbe: string;',
         ),
       );
-      const mutated = await buildContractInventory(repositoryRoot, {
-        generatedRoot: join(root, 'generated'),
-      });
+      const mutated = await buildContractInventory(root.root);
+      root.cleanup();
       context.expect(mutated.discoveries).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -429,6 +432,7 @@ test(
       }),
       'scenario-evidence',
     );
+    example.cleanup();
   },
 );
 
@@ -578,7 +582,9 @@ test(
       executed.push(name);
     };
 
-    const obligations = (await buildContractInventory(repositoryRoot)).obligations;
+    const root = exampleInventoryRoot('template-contract-010-');
+    const obligations = (await buildContractInventory(root.root)).obligations;
+    root.cleanup();
     const headerObligations = obligations.filter((item) => item.id.endsWith('#header-base-req#$'));
 
     await check('obligation-header', () => {

@@ -5,6 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
+import {
+  declarationRoot,
+  exampleCallerSource,
+  exampleDeclarationSource,
+  repositoryProtocolSource,
+} from '../../packages/e2e/tests/tooling/declaration-fixture.ts';
 import { environmentClassOf } from '../../packages/e2e/src/cases/define-case.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 import { buildVerificationFingerprints } from './fingerprints.ts';
@@ -326,7 +332,18 @@ evidence(
       const manifest = loadProjectManifest(repositoryRoot);
       const integrationAndPlatform = testProjectsByClass(manifest, ['integration', 'platform']);
       const integrationOnly = testProjectsByClass(manifest, ['integration']);
-      const inventory = await buildContractInventory(repositoryRoot);
+      // 义务运行环境由清单派生；声明取自受控输入，示例删除后仍能复核同一事实（ENG-06）。
+      const root = declarationRoot({
+        generatedFromRepository: true,
+        declaration: exampleDeclarationSource,
+        caller: exampleCallerSource,
+        protocolFiles: {
+          'errors/business-codes.ts': repositoryProtocolSource('errors/business-codes.ts'),
+        },
+        prefix: 'template-manifest-005-',
+      });
+      const inventory = await buildContractInventory(root.root);
+      root.cleanup();
       const obligationEnvironments = new Set(
         inventory.obligations.flatMap((item) => item.requiredIn),
       );
