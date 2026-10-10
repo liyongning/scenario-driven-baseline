@@ -1372,3 +1372,11 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：新增断言 `expect(() => createShadowServer({ ..., scenarios: [scenarioWith({ rawBody: '{', contentType: 'application/json' })] })).toThrow(/rawBody 必须显式声明 malformed/)`——修复前 `scenarioWith` 里这一形态构造成功且静默放行；断言只有在该 step 不声明 `malformed` 时才通过，声明了 `malformed` 的三处新用例同时覆盖"声明即放行"的另一侧。
 - **记录修正**：Task 12 段原有「补 `malformed` 声明的步骤 0 处」已在该段就地改注，指向本条。
 - **提交**：`fix(template): require malformed claims for rawBody shadow steps`。
+
+### 第 8 条 · Task 10（I-3）：协议矩阵的"空声明"断言恒真
+
+- **根因**：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts:541-545` 在 `declaredNames.length === 0` 时断言 `expect(declaredObligationKeys()).toEqual([])`，而 `declaredObligationKeys()` 本身就是"把空声明按义务展开"的结果：无论门禁派生是否出错，它都必然是空数组，属于恒真断言（断言审查清单里的第 1 类）。
+- **改动**：改成核验**真实派生结果** `inventory.obligations`——除 `idl.error-contract#`（由 IDL 错误契约派生、不属于消费接口派生的矩阵范围）之外的义务必须为空；同时要求 `idl.error-contract#` 义务数量大于 0，作为"这是同一份真实 inventory、不是空集合"的存在性证据。非空声明分支的断言保持原样。
+- **证据**：`pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` → 2 文件 / 2 用例通过、退出码 0（`SCN-PROTOCOL-CONTRACT-002 protocol-matrix` 4076ms）；`SCN-TEMPLATE-ENGINEERING-008` 的 `empty-declaration-matrix` checkpoint 仍断言同一 inventory 里 `idl.error-contract#business-error#` 恰好 1 条且 `requiredIn=['integration']`，与本条的存在性断言互相印证。
+- **反例**：把 `declaredObligationKeys()` 换成恒真的空数组断言时，即使门禁多派生出一条义务也不会失败；新断言取 `inventory.obligations`，多派生一条即 F`toBeGreaterThan(0)`/`toEqual([])` 失败。
+- **提交**：`fix(template): assert the real derived obligations when the declaration is empty`。

@@ -547,13 +547,19 @@ defineCase(
     });
 
     await checkpoint('obligations-covered', () => {
-      const derived = declaredObligationKeys();
-      // 声明为空时按消费接口派生的义务为空并结束（业务错误码义务不在矩阵范围内）。
+      // 声明为空时核验真实派生结果：不能拿"由空声明算出来的结果"自证（那样恒真）。
+      // 业务错误码义务由 IDL 错误契约派生、不属于消费接口派生的矩阵范围，作为反恒真的存在性证据。
       if (declaredNames.length === 0) {
-        expect(derived).toEqual([]);
+        expect(
+          inventory.obligations.filter((item) => !item.id.startsWith('idl.error-contract#')),
+        ).toEqual([]);
+        expect(
+          inventory.obligations.filter((item) => item.id.startsWith('idl.error-contract#')).length,
+        ).toBeGreaterThan(0);
         expect(routes).toEqual([]);
         return;
       }
+      const derived = declaredObligationKeys();
       expect(derived.length).toBeGreaterThan(0);
       expect(covered.size).toBe(derived.length);
       expect(inventory.methods.map((item) => item.name).sort()).toEqual([...declaredNames].sort());
