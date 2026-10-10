@@ -86,9 +86,7 @@ export async function checkFixtures(
     const spec = manifest.sources.spec;
     const owner = findOwnerRequirement(projection.requirements, entry.name);
     if (!owner)
-      issues.push(
-        `${entry.name}: 在有效 Spec 中不存在（归档目录中残留的同名 Scenario 不能放行）`,
-      );
+      issues.push(`${entry.name}: 在有效 Spec 中不存在（归档目录中残留的同名 Scenario 不能放行）`);
     else if (!scoped && owner.changes.length > 1)
       issues.push(
         `${entry.name}: 多个 active Change 修改同一 Requirement（${owner.changes.join(', ')}），请用 --change 指定作用域`,
