@@ -89,31 +89,32 @@ evidence(
   'full-trigger-rules',
   ['full-run-triggers', 'trigger-reason-printed'],
   async (context, check) => {
-    const manifest = loadProjectManifest(process.cwd());
-    const testDirectory = 'packages/e2e';
-    await check('full-run-triggers', () => {
-      const cases: ReadonlyArray<readonly [string, string]> = [
-        ['project.manifest.json', '清单文件'],
-        ['tsconfig.test.json', '构建输入'],
-        ['proto-gen.lock', '协议来源输入'],
-        ['packages/e2e/vitest.config.unit.ts', '工具配置'],
-        ['package.json', '构建输入'],
-        ['packages/protocol/src/adapters/network/wechat.ts', '平台适配目录'],
-        ['packages/e2e/host/weapp/app.js', '宿主目录'],
-        ['packages/e2e/src/drivers/weapp.ts', '驱动目录'],
-      ];
-      for (const [path, label] of cases) {
-        const reasons = fullTriggers(manifest, [path], testDirectory);
-        expect(reasons, path).toHaveLength(1);
-        expect(reasons[0], path).toContain(path);
-        expect(reasons[0], path).toContain(label);
-      }
-      expect(
-        fullTriggers(manifest, ['packages/sdk/src/runtime/default.ts'], testDirectory),
-      ).toEqual([]);
-    });
     const fixture = createAffectedFixture();
     try {
+      // 受控根自带清单：全量触发规则不读仓库根，示例删除后仍成立（concrete-assertions 扫描范围见 SCN-026）。
+      const manifest = loadProjectManifest(fixture.root);
+      const testDirectory = 'packages/e2e';
+      await check('full-run-triggers', () => {
+        const cases: ReadonlyArray<readonly [string, string]> = [
+          ['project.manifest.json', '清单文件'],
+          ['tsconfig.test.json', '构建输入'],
+          ['proto-gen.lock', '协议来源输入'],
+          ['packages/e2e/vitest.config.unit.ts', '工具配置'],
+          ['package.json', '构建输入'],
+          ['packages/protocol/src/adapters/network/wechat.ts', '平台适配目录'],
+          ['packages/e2e/host/weapp/app.js', '宿主目录'],
+          ['packages/e2e/src/drivers/weapp.ts', '驱动目录'],
+        ];
+        for (const [path, label] of cases) {
+          const reasons = fullTriggers(manifest, [path], testDirectory);
+          expect(reasons, path).toHaveLength(1);
+          expect(reasons[0], path).toContain(path);
+          expect(reasons[0], path).toContain(label);
+        }
+        expect(
+          fullTriggers(manifest, ['packages/sample-product/src/core.ts'], testDirectory),
+        ).toEqual([]);
+      });
       fixture.write('packages/e2e/src/drivers/platform.ts', 'export const driver = 2;\n');
       const plan = await planFor(fixture);
       await check('trigger-reason-printed', () => {

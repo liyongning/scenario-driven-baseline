@@ -182,6 +182,7 @@ defineCase(
           'scripts/check-scenarios.checkpoint.test.ts',
           'scripts/check-scenarios.gate.test.ts',
           'scripts/lib/scenario-gate.evidence.test.ts',
+          'scripts/test-affected.evidence.test.ts',
           ...probe.gateSelfTestSpecs,
         ];
         for (const relative of sources) {
