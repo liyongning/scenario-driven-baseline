@@ -309,6 +309,8 @@ evidence(
           '',
           '`pnpm check:fast`、`pnpm install`、`pnpm --filter x build`、`pnpm nope`',
           '',
+          '`VERIFY_RUN_ID=<run-id> pnpm check:fast`、`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`',
+          '',
           '## 初始化方式',
           '',
           '`manifest.packages[].directory`、`manifest.nope.deeper`、`manifest.fingerprints.sourceRoots.x`',
@@ -330,10 +332,12 @@ evidence(
           expect.arrayContaining([
             'unregistered Scenario ID SCN-SAMPLE-999',
             'unknown pnpm command nope',
+            'unknown environment variable SCN-SCENARIO_GATE_CHANGES',
             'unknown manifest field manifest.nope.deeper',
             'unknown manifest field manifest.fingerprints.sourceRoots.x',
           ]),
         );
+      context.expect(errors).not.toContain('unknown environment variable VERIFY_RUN_ID');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-001');
       context.expect(errors).not.toContain('unknown pnpm command check:fast');
       context.expect(errors).not.toContain('unknown pnpm command install');

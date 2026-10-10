@@ -1407,3 +1407,37 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **证据**：`pnpm weapp:prepare` 退出码 0、24.7s（日志 `/tmp/tc12-prepare.log`）；对照演练：固定等待版本在同一次演练里两次失败（`verify-3.log`），本机不等待额外秒数、探测首次即通过。
 - **反例**：固定 sleep 不构成判定依据——`verify-3.log` 两次运行之间已有间隔仍然失败；新实现只有在 `checkVersion()` 真正读到版本号时才返回，否则以非零退出码失败，`verify` 据此判失败而不是让用例随机红。
 - **提交**：`fix(template): probe devtools readiness before running weapp specs`。
+
+### 第 9 条 · Task 15/16：指南补齐三处 SHALL 内容
+
+- **根因**：Final Code Review 指出指南缺 ENG-09、PC-01、PC-05 三处 SHALL 要求的陈述：ENG-09 要求在指南写明 Claude Code 版本下限与 `CLAUDE.local.md` 的开头约定；PC-01 要求能力地图写明"新增消费接口"的操作；PC-05 要求在能力地图注明删除 `runtime.nextRequestId` 是破坏性变更。
+- **改动**（只改 `docs/template-guide.md`，不动规划语义）：
+  - 能力地图「渐进式项目地图与 CLAUDE.md 配对」承载文件列补"Claude Code 版本不低于 v2.1.277"；「使用方约定」新增一条：根与各级 `CLAUDE.md` 首个非空行固定为 `@AGENTS.md`，本地的 `CLAUDE.local.md` 同样必须以 `@AGENTS.md` 开头，配对由 `pnpm check:project-map` 核对（ENG-09）。
+  - 能力地图「IDL 协议义务派生与消费接口双向对账」补矩阵 Fixture 链接，并在验证方式列写明新增消费接口只有两步：声明里登记方法与请求字段策略、矩阵 Fixture 里补该接口名的键，不需要改门禁脚本或矩阵用例代码（PC-01）。
+  - 能力地图「X-Request-Id 按公司规范」验证方式列注明删除 `runtime.nextRequestId` 是协议包与产品包公共 API 的破坏性变更（双格式类型声明随之变化），宿主无法再覆盖或注入请求 ID（PC-05）。
+- **证据**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:architecture` 退出码 0、`{"issues": []}`（能力地图每行仍有 architecture.md 同名节）；`pnpm check:project-map` 退出码 0、`{"issues": []}`；`pnpm exec prettier --write docs/template-guide.md` 退出码 0。
+- **反例**：三处 SHALL 缺一时，指南与 Spec 的表述不一致——能力地图不再说明"新增消费接口只改声明与矩阵 Fixture"，读者会去改门禁脚本；删除 `runtime.nextRequestId` 的破坏性也没有任何指南线索。事实检查覆盖不到的文本缺口靠本条的逐句比对发现。
+- **提交**：`fix(template): document the guide SHALLs for ENG-09, PC-01 and PC-05`（`20d89b1`，该提交只改 `docs/template-guide.md`；本条验收记录随第 10 条提交落地）。
+
+### 第 10 条 · Task 15/16：指南笔误、清单派生措辞与示例绑定文档
+
+- **根因**（逐条）：
+  - 指南第 101 行把作用域变量写成 `SCN-SCENARIO_GATE_CHANGES=...`（笔误），照抄执行得到的是未知变量；同时没写"删除示例后至少 `git add -A` 或提交"这一步。
+  - 第 72 行收尾验收仍写"三项证明"，与统一入口 `pnpm verify` 不一致。
+  - 第 64 行仍要求手改 `vitest.config.ts`、`eslint.config.js`、`.dependency-cruiser.cjs` 里的包名 glob，而这三处已按清单派生。
+  - 示例描述散落在 `README.md`、`docs/architecture.md`、`packages/sdk/AGENTS.md`、`packages/e2e/AGENTS.md`、`packages/e2e/host/weapp/AGENTS.md` 与 ENG-001 Fixture 的 `sdkExports`，删除示例后会留下悬挂引用或写死的示例导出名。
+- **改动**：
+  - `docs/template-guide.md`：笔误改为不带作用域的运行口径并补 `git add -A`/提交前置（仍在 active Change 中时按第 4 条带作用域）；第 72 行改为 `pnpm verify`；第 64 行改为"glob 已按清单派生，不要手改"；两处预热描述统一为同一个数值"约 25 秒"，并写明 `weapp:prepare` 轮询到读到版本号为止、以退出码为就绪判定。
+  - 示例绑定文档：`README.md` 三包表把"示例能力（`src/example/`）"改为与示例无关的业务能力表述；`docs/architecture.md` 去掉"写法模板给在示例 `contracts.test.ts`（随示例删除）"，改为就近单测；`packages/sdk/AGENTS.md` 的分层指引去掉 `src/example/` 参照；`packages/e2e/AGENTS.md` 测试目录说明去掉 `tests/example/`；`packages/e2e/host/weapp/AGENTS.md` 的对外入口与覆盖率排除两条去掉 `example-runner.ts`。以上均按"改写为与示例无关的表述"处理，不加标记（Markdown 标记按整行识别，行内标记不会被裁剪逻辑识别，反而留下悬挂文字）。
+  - ENG-001 Fixture：5 个 case 文件里的 `sdkExports` 写死了示例导出名（`ExampleConfigurationError`、`createExampleClient`）；该字段已不再被断言使用（`SCN-TEMPLATE-ENGINEERING-001` 的导出集合改由 `discoverEntryExports` 从产品包根入口计算），因此直接删除字段与 `SCN-TEMPLATE-ENGINEERING-001.spec.ts` 里对应的类型成员，并 `pnpm fixtures:refresh SCN-TEMPLATE-ENGINEERING-001` 更新摘要。
+  - 事实检查增强（拦住不可执行的命令写法）：`scripts/check-architecture.ts` 新增 `templateEnvironmentNames` 白名单（`SCENARIO_GATE_CHANGES`、`TEMPLATE_COPY`、`TEST_AFFECTED_PARTIAL`、`VERIFY_REPORT_FILE`、`VERIFY_RUN_ID`、`WECHAT_DEVTOOLS_CLI`）与 `environmentPrefixes()`，行内代码里出现表外的 `NAME=` 前缀即报 `unknown environment variable <NAME>`；变量名允许小写字母与连字符，所以 `SCN-SCENARIO_GATE_CHANGES=` 这类笔误会命中，`==` 比较不会。
+- **证据**：
+  - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:architecture` 退出码 0、`{"issues": []}`（说明修正后的指南不含表外变量、能力地图与 architecture.md 同名节仍对齐）。
+  - `pnpm check:project-map` 退出码 0、`{"issues": []}`（各级 `AGENTS.md` 与 `CLAUDE.md` 结构未受影响）。
+  - `pnpm exec vitest run --project test-tools-unit scripts/check-architecture.test.ts` → 16 用例通过、退出码 0（新增断言：`VERIFY_RUN_ID=` 不报错，`SCN-SCENARIO_GATE_CHANGES=` 报 `unknown environment variable`）。
+  - `pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts` → 6 用例通过、退出码 0（删掉 `sdkExports` 后各消费方断言不受影响）。
+  - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures` → `manifests: 19, issues: []`、退出码 0。
+- **反例**：
+  - 事实检查：把指南恢复成修复前的第 101 行写法（`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`）时，`check:architecture` 非零退出并报 `unknown environment variable SCN-SCENARIO_GATE_CHANGES`；单测 `guide-facts-consistent` 用同一形态断言该报错存在、且 `VERIFY_RUN_ID=` 不误报。
+  - ENG-001 Fixture：保留 `sdkExports` 会在示例删除后指向不存在的导出名，属于"门禁依赖示例"；删除后 `check:fixtures` 摘要与内容一致（`fixtures:refresh` 的 `updated` 列表只有 `SCN-TEMPLATE-ENGINEERING-001`）。
+- **提交**：`fix(template): correct the example-removal guide wording and example-bound docs`。

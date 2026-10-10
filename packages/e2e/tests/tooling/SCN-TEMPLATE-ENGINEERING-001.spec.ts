@@ -133,7 +133,6 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
       const fixture = value as {
         sdkVersion: string;
         protocolVersion: string;
-        sdkExports: string[];
         protocolExport: string;
       };
       if (caseKey.endsWith('esm-consumer')) {

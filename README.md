@@ -4,11 +4,11 @@
 
 使用入口见 [模板使用指南](docs/template-guide.md)，设计理由见 [技术架构文档](docs/architecture.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
-| Workspace 目录    | 包名                      | 职责                                                                                     |
-| ----------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
-| packages/sdk      | @daqian/template-sdk      | 公共入口与示例能力（`src/example/`）：工厂校验装配，核心编排端口，适配器负责外部协议映射 |
-| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow                           |
-| packages/e2e      | @daqian/template-e2e      | private 测试工程，不发布                                                                 |
+| Workspace 目录    | 包名                      | 职责                                                                                                              |
+| ----------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| packages/sdk      | @daqian/template-sdk      | 公共入口与业务能力：工厂校验装配，核心编排端口，适配器负责外部协议映射，业务模块按工厂 → 核心 → 端口 → 适配器分层 |
+| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow                                                    |
+| packages/e2e      | @daqian/template-e2e      | private 测试工程，不发布                                                                                          |
 
 消费方只安装产品包。产品包采用独立版本，协议依赖固定到精确版本，发布统一由 SDK 发布入口处理；不需要发布能力时可按指南“包发布”替换点整块删除。
 

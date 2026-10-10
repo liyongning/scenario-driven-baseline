@@ -6,7 +6,7 @@
 
 ## 对外入口
 
-- `protocol-runner.ts` 与 `example-runner.ts` 是注入小程序页面后调用的宿主函数；`app.js` 与 `pages/index/` 是小程序本身。
+- `protocol-runner.ts` 是注入小程序页面后调用的宿主函数；`app.js` 与 `pages/index/` 是小程序本身。
 
 ## 允许依赖
 
@@ -15,7 +15,7 @@
 
 ## 本地约束
 
-- `setup.ts`、`vite.config.ts`、`protocol-runner.ts`、`example-runner.ts` 只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担，是 Design 允许的覆盖率排除项。
+- `setup.ts`、`vite.config.ts`、`protocol-runner.ts` 只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担，是 Design 允许的覆盖率排除项。
 - 示例相关的宿主代码与构建段用 `<!-- template-example:begin/end -->` 或 `// template-example:begin/end` 包裹。
 
 ## 子模块

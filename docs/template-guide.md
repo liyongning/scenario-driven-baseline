@@ -47,7 +47,7 @@
 4. **运行约定（有 active Change 时）**：仓库存在正在交付的 active Change 时，任何可能触发副本用例的运行都要带作用域——全量运行用 `pnpm verify --change <change>`，单独运行 `check:fast` 或 `test:affected` 时设置 `SCENARIO_GATE_CHANGES=<change>`。副本据此归档对应 Change；没有 active Change 时不带作用域，副本也无需归档。这条约定同样适用于复刻验收的演练副本。
 5. **快速门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:fast`。它依次运行 `pnpm proto:validate`、`pnpm proto:status`、`pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm check:architecture`、`pnpm test:unit`、`pnpm check:coverage`、`pnpm check:fixtures`、`pnpm test:integration` 与 `pnpm check:package`，手写代码四项覆盖率要求 100%。
 6. **按需运行**：`pnpm test:affected [--base <ref>] [--scenario <ID...>] [--dry-run]` 只跑受改动的 Spec、Fixture、代码与门禁模块影响的用例；改动命中清单、构建输入或工具配置时退化为全量 `pnpm check:fast` 并打印原因。按需运行的报告带 `partial` 标记，场景门禁会拒收，所以它不能替代全量证据。节奏：每个任务结束时按需运行，至少每 3 个任务与交回前、验收前全量运行。
-7. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒；每个文件一份报告，失败时整文件重跑。
+7. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒（`pnpm weapp:prepare` 会轮询到能读到版本号为止，就绪与否以该命令的退出码为准，不依赖固定等待）；每个文件一份报告，失败时整文件重跑。
 8. **场景门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:scenarios`，用 unit、integration 与全部 weapp 报告对账 Spec、绑定与证据；退出码 0 且问题数为 0 才算通过。默认读取 `artifacts/<run-id>/reports/`，也可用 `--report` 逐个指定报告。
 9. **归档**：`/change archive <change>`。归档前确认清单、绑定、报告与来源摘要仍然一致。
 
@@ -61,7 +61,7 @@
 4. **仓库已有 OpenSpec 根与活跃 Change**：不要整体覆盖使用方的 `openspec/`。按需把模板的主 Spec 以 `ADDED` delta 引入到使用方自己的第一个 Change 中；存量 Scenario 还没有 `json verification` 元数据时，用 `SCENARIO_GATE_CHANGES` 与 `--change` 限定作用域分批补齐，再逐批用场景门禁验收，避免一次改动全部 Spec 让证据对不上。
 5. **新建第一个 Change**：在使用方仓库里用一个 Change 完成改造（依据适配评估的结论）：
    - 改根 [project.manifest.json](../project.manifest.json)：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许目录、必需命令、测试项目与摘要目录；发布能力仍在时还要改 `manifest.release` 的项（如 `tagPrefix`）。改名范围自定：只改产品包，或连 protocol/e2e 包一起改，改后都要让清单、锁文件与门禁一致。
-   - 包名或目录改动后同步：各包 `package.json` 与 `publishConfig`、[pnpm-lock.yaml](../pnpm-lock.yaml)（跑一次 `pnpm install` 更新软链与锁文件）；根 [package.json](../package.json) 的 build 过滤与脚本；[tsconfig.base.json](../tsconfig.base.json)、[tsconfig.test.json](../tsconfig.test.json)、[vitest.config.ts](../vitest.config.ts)、[eslint.config.js](../eslint.config.js)、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 中含旧包名或旧路径的 glob（注意 `(sdk|e2e)` 这类交替组，按字面替换会漏改）；以及 [AGENTS.md](../AGENTS.md)、[README.md](../README.md) 中作为示例出现的包路径。
+   - 包名或目录改动后同步：各包 `package.json` 与 `publishConfig`、[pnpm-lock.yaml](../pnpm-lock.yaml)（跑一次 `pnpm install` 更新软链与锁文件）；根 [package.json](../package.json) 的 build 过滤与脚本；[tsconfig.base.json](../tsconfig.base.json)、[tsconfig.test.json](../tsconfig.test.json)、[vitest.config.ts](../vitest.config.ts)、[eslint.config.js](../eslint.config.js)、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 中（包名与路径的 glob 已按清单派生：`.dependency-cruiser.cjs` 与 `eslint.config.js` 直接读 `project.manifest.json`，`vitest.config.ts` 的测试项目也由清单生成，改清单即可，不要手改其中的包名 glob）；以及 [AGENTS.md](../AGENTS.md)、[README.md](../README.md) 中作为示例出现的包路径。
    - 按"替换点地图"替换或删除可替换点：协议来源、运行平台、包发布。
    - 新增自己的业务模块：按工厂 → 核心 → 端口 → 适配器分层，业务目录之间不得互相导入，就近单测覆盖新代码以满足手写代码 100% 阈值。
    <!-- template-example:begin -->
@@ -69,7 +69,7 @@
    <!-- template-example:end -->
    - 分层守卫按目录模式自动覆盖 `src/` 下除 `runtime/` 外的全部业务模块，新增模块无需修改配置：[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `domain-core-no-generated`（core/ports 不得导入 generated）、`core-no-platform-or-node`（不得依赖 Node 内置模块）、`domain-isolation`（业务模块互不导入），以及 [eslint.config.js](../eslint.config.js) 的 `no-restricted-globals: wx`。业务模块须使用 `core/`、`ports/` 目录名才受约束。需要对外时在 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 导出。
 6. **先加后删**：自己的业务覆盖到示例承担的能力后，再按下一节的删除白名单移除示例；删除时对应的 Scenario、FLOW、Fixture 与用例一并处理。
-7. **验收**：用"从方案到验收"的三项证明收尾：`pnpm check:fast`、逐文件 weapp、场景门禁。
+7. **验收**：用统一入口收尾——`pnpm verify`（没有 active Change 时按运行约定不带作用域），它按运行约定把快速门禁、逐文件 weapp 与场景门禁对账串成一次运行；需要单独补证据时再按"从方案到验收"逐项运行。
 
 五条维护规则：
 
@@ -83,7 +83,7 @@
 
 **扩展更多包**：清单 schema 与读取方当前认定 product、protocol、test 三种角色各一个包；角色、包数量与允许目录由 [project.manifest.schema.json](../project.manifest.schema.json) 与 [scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts) 共同约束，扩展时同步修改两处与对应门禁。
 
-**已知限制**：小程序自动化仍不稳定，开发者工具在同一主进程上重复 `launch` 可能挂起，预热约 25 秒只能消除冷启动超时；平台能力替身目前只有文字标准（[packages/e2e/src/drivers](../packages/e2e/src/drivers)），没有代码样例；替换点地图列出主要接缝，完整影响范围以 `git grep` 与门禁报错为准（例如写死旧包名的测试、平台删除后失去覆盖来源的单测、依赖清单内容的单测），照着改即可；替换点地图只经过模拟演练，尚未在真实使用方验证，真实使用中的发现请记入上面的模板反馈日志。
+**已知限制**：小程序自动化仍不稳定，开发者工具在同一主进程上重复 `launch` 可能挂起，预热约 25 秒只能消除冷启动超时（`weapp:prepare` 的就绪探测读不到版本号会直接失败，不再让首个 case 随机超时）；平台能力替身目前只有文字标准（[packages/e2e/src/drivers](../packages/e2e/src/drivers)），没有代码样例；替换点地图列出主要接缝，完整影响范围以 `git grep` 与门禁报错为准（例如写死旧包名的测试、平台删除后失去覆盖来源的单测、依赖清单内容的单测），照着改即可；替换点地图只经过模拟演练，尚未在真实使用方验证，真实使用中的发现请记入上面的模板反馈日志。
 
 ## 移除模板示例
 
@@ -98,7 +98,7 @@
 
 **片段标记**：共享文件中只属于示例的片段用成对注释包裹——代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。架构检查会校验标记成对出现、不嵌套；共享文件中引用示例、但没有被标记包裹的内容会被视为门禁依赖示例，示例删除演练会把它暴露出来。
 
-删除后运行 `SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast` 与场景门禁清单模式（`pnpm check:scenarios --inventory`）确认仍然全绿；完整验收（含平台报告）由复刻验收的示例删除演练承担。
+删除后先把改动 `git add -A` 或提交（未跟踪/已删除但未暂存的文件不会进入报告，门禁会读到过期结论），再运行 `pnpm check:fast` 与场景门禁清单模式（`pnpm check:scenarios --inventory`）确认仍然全绿；本节的删除发生在初始化阶段、副本里没有 active Change 时按运行约定不带作用域（仍在交付 active Change 时按「从方案到验收」第 4 条带作用域）。完整验收（含平台报告）由复刻验收的示例删除演练承担。
 
 ## 归档已知限制
 

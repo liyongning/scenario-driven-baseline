@@ -158,7 +158,7 @@ Spec 定义需求与 Scenario，Scenario 自带 `json verification` 元数据（
 
 #### 实现机制与关键文件
 
-`tsconfig.test.json` 把 `*.test.ts` 纳入 typecheck，`pnpm typecheck` 因此会真实编译反面断言；写法模板给在 `packages/sdk/src/example/contracts.test.ts`（随示例删除），规则写在 [packages/sdk/AGENTS.md](../packages/sdk/AGENTS.md)。
+`tsconfig.test.json` 把 `*.test.ts` 纳入 typecheck，`pnpm typecheck` 因此会真实编译反面断言；写法模板给在就近单测（与实现同目录的 `*.test.ts`）里，规则写在 [packages/sdk/AGENTS.md](../packages/sdk/AGENTS.md)。
 
 #### 关键设计决策与被否决的方案
 

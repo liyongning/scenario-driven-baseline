@@ -16,11 +16,11 @@
     "package-boundaries": "package-boundaries.json"
   },
   "sha256": {
-    "protocol-network-esm-consumer.json": "790d90166fce4224689458e9aac66b4df40c114055968f906653dd7dcf38eb42",
-    "protocol-network-commonjs-consumer.json": "790d90166fce4224689458e9aac66b4df40c114055968f906653dd7dcf38eb42",
-    "protocol-network-types-consumer.json": "790d90166fce4224689458e9aac66b4df40c114055968f906653dd7dcf38eb42",
+    "protocol-network-esm-consumer.json": "d4b2f82a0fddc8c4c83c418110fc8752f150e96aa53cf779be41c6127a9a0365",
+    "protocol-network-commonjs-consumer.json": "d4b2f82a0fddc8c4c83c418110fc8752f150e96aa53cf779be41c6127a9a0365",
+    "protocol-network-types-consumer.json": "d4b2f82a0fddc8c4c83c418110fc8752f150e96aa53cf779be41c6127a9a0365",
     "sdk-does-not-reexport-network.json": "d4b2f82a0fddc8c4c83c418110fc8752f150e96aa53cf779be41c6127a9a0365",
-    "sdk-only-consumer.json": "790d90166fce4224689458e9aac66b4df40c114055968f906653dd7dcf38eb42",
-    "package-boundaries.json": "790d90166fce4224689458e9aac66b4df40c114055968f906653dd7dcf38eb42"
+    "sdk-only-consumer.json": "d4b2f82a0fddc8c4c83c418110fc8752f150e96aa53cf779be41c6127a9a0365",
+    "package-boundaries.json": "d4b2f82a0fddc8c4c83c418110fc8752f150e96aa53cf779be41c6127a9a0365"
   }
 }

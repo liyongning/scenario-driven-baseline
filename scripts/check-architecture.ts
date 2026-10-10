@@ -50,6 +50,15 @@ const guideSections = {
 } as const;
 /** pnpm 内置命令不作为根 package.json 的脚本核对。 */
 const pnpmBuiltins = new Set(['install', 'add', 'remove', 'exec', 'dlx']);
+/** 模板命令识别的具名环境变量；行内代码里出现表外的 `NAME=` 前缀视为不可执行的命令写法。 */
+const templateEnvironmentNames = new Set([
+  'SCENARIO_GATE_CHANGES',
+  'TEMPLATE_COPY',
+  'TEST_AFFECTED_PARTIAL',
+  'VERIFY_REPORT_FILE',
+  'VERIFY_RUN_ID',
+  'WECHAT_DEVTOOLS_CLI',
+]);
 /** 指南「移除模板示例」必须逐项写明的删除白名单；包路径按清单角色派生，与 ENG-06 的清单一致。 */
 function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
   const product = packageByRole(manifest, 'product').directory;
@@ -97,6 +106,16 @@ function pnpmCommands(code: string): string[] {
 function manifestFields(code: string): string[] {
   const match = /^manifest\.[A-Za-z0-9_.[\]]+$/.exec(code.trim());
   return match ? [match[0]] : [];
+}
+
+/**
+ * 取行内代码里作为命令前缀的具名环境变量，如 `VERIFY_RUN_ID=<run-id> pnpm check:fast` 的 `VERIFY_RUN_ID`；
+ * `NAME` 允许小写字母与连字符，以便把 `SCN-SCENARIO_GATE_CHANGES=...` 这类笔误也识别出来；`==` 比较不算。
+ */
+function environmentPrefixes(code: string): string[] {
+  return [...code.matchAll(/(?:^|[\s(（"'`])([A-Z][A-Za-z0-9_-]{2,})=(?!=)/g)].map(
+    (match) => match[1]!,
+  );
 }
 
 /** 按点号分段解析清单 schema 的 properties/items；数组元素字段写作 `packages[]`。 */
@@ -159,6 +178,8 @@ async function checkTemplateGuide(
         errors.push(`unknown pnpm command ${command}`);
     for (const field of manifestFields(code))
       if (!manifestFieldExists(schema, field)) errors.push(`unknown manifest field ${field}`);
+    for (const name of environmentPrefixes(code))
+      if (!templateEnvironmentNames.has(name)) errors.push(`unknown environment variable ${name}`);
   }
   return errors;
 }

@@ -11,7 +11,7 @@
 新业务按示例组织 integration、FLOW、Fixture 和 reporter 绑定；场景事实来自有效 Spec，测试只消费公开包入口并保留实际证据。工具门禁的反例使用受控临时仓库，不把替身结果冒充 SDK 运行证据。
 
 - 测试期望来自有效 Spec、IDL 与 Design，不能从实现、现有返回值或 Fixture 反推。
-- `tests/example/` 放单项行为，跨阶段流程使用独立的 `FLOW-*.spec.ts` 并在同一次运行中从公共入口执行到底；`tests/protocol/` 放协议集成，`tests/tooling/` 放 CLI 门禁验证，`tests/weapp/` 放小程序用例。`src/` 只放 harness、driver、用例绑定、Fixture 装载和报告工具；`host/weapp/` 只作最小测试宿主。
+- 单项行为用例放各自的业务目录，跨阶段流程使用独立的 `FLOW-*.spec.ts` 并在同一次运行中从公共入口执行到底；`tests/protocol/` 放协议集成，`tests/tooling/` 放 CLI 门禁验证，`tests/weapp/` 放小程序用例。`src/` 只放 harness、driver、用例绑定、Fixture 装载和报告工具；`host/weapp/` 只作最小测试宿主。
 - 测试文件所有者为场景或 FLOW；同名 `tests/fixtures/<owner-id>/manifest.json` 记录 Spec 路径与来源摘要，case 数据独立成 JSON；步骤和断言在 `*.spec.ts`。不得把 fixtures 宣称为完整测试用例 DSL，也不在协议 testing 里维护场景集合。
 - 使用稳定 caseId 和具体检查点绑定，一个 case 可以覆盖多个场景或协议义务；FLOW 必需阶段须在同一次运行贯通，禁止把多个隔离测试拼接为流程通过。新增场景或流程必须同步绑定和数据，失效/归档按 Spec 生命周期处理，不回收 ID 表示另一种行为。
 - 集成测试消费 SDK 包与协议依赖包构建后的公开入口；仅替换外部 HTTP 服务和端侧平台 API。不得 mock SDK 核心/基建映射/协议客户端/codec；平台适配细节的单测留在产品包。weapp 必须实际经过开发者工具 `wx.request`。
@@ -50,7 +50,7 @@
 
 执行约定：
 
-1. 退出主进程、清理残留进程与预热已由统一入口自动执行：`pnpm verify` 按 `project.manifest.json` 中 platform 项目登记的 `perFile: true` 与 `prepare: "weapp:prepare"` 逐文件运行，每个文件前先执行 `pnpm weapp:prepare`——`/Applications/wechatwebdevtools.app/Contents/MacOS/cli quit`，仍有残留时执行 `pkill -f wechatwebdevtools.app`，再用 `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（约 25 秒）。不预热时，首个 case 的冷启动常超过 30 秒启动等待而必然失败，重跑也无济于事。`cli open` 的退出码不可靠（已观察到返回 255 但 DevTools 已可用），`weapp:prepare` 不以它判断是否就绪；预热只能消除冷启动超时，不能消除 120 秒挂起，挂起仍按第 2 条整文件重跑。
+1. 退出主进程、清理残留进程与预热已由统一入口自动执行：`pnpm verify` 按 `project.manifest.json` 中 platform 项目登记的 `perFile: true` 与 `prepare: "weapp:prepare"` 逐文件运行，每个文件前先执行 `pnpm weapp:prepare`——`/Applications/wechatwebdevtools.app/Contents/MacOS/cli quit`，仍有残留时执行 `pkill -f wechatwebdevtools.app`，再用 `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（约 25 秒），随后轮询 `automator.launch` + `checkVersion()` 直到能读到版本号为止——就绪与否以 `weapp:prepare` 的退出码为准。不预热时，首个 case 的冷启动常超过 30 秒启动等待而必然失败，重跑也无济于事。`cli open` 的退出码不可靠（已观察到返回 255 但 DevTools 已可用），`weapp:prepare` 不以它判断是否就绪；预热只能消除冷启动超时，不能消除 120 秒挂起，挂起仍按第 2 条整文件重跑。
 2. 出现上述失败时，`pnpm verify` 会自动先执行一次 `pnpm weapp:prepare` 再重跑失败用例所在的整个文件。手工单跑（例如调试某个文件）时须自行执行第 1 条的退出与预热，并按同样方式整文件重跑，用新的完整报告替换该文件的旧报告；重跑通过即为有效证据。不要用 `-t` 只跑单个 case：被过滤掉的 case 会以 skipped 写入报告，汇入场景门禁时造成重复绑定。不得把这类失败判定为业务失败，也不得据此修改断言、跳过用例或缩小统计范围。
 3. 验收记录中写明哪些文件是重跑取得证据的（自动重跑或手工重跑），以及每次失败的现象。
 
