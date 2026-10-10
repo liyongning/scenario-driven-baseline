@@ -2,23 +2,23 @@
 
 ### Requirement: EX-09 示例的消费接口声明
 
-示例 SHALL 把自己实际消费的协议接口登记在产品包的消费接口声明模块中：项目清单中 SDK 包（product 角色）的 `packages[].consumedOperations` MUST 指向 `packages/sdk/src/consumed-operations.ts`，该模块导出的 `consumedOperations` 数组 MUST 恰好包含示例使用的 `CreateTrade` 与 `QueryTrade` 两个元素，每个元素为 `{ method, requestFields }`（结构见 protocol-contract PC-01）：`method` MUST 直接引用 generated 中由 `createMethod` 产出的方法常量，SHALL NOT 手写接口名、HTTP 方法、路径或请求/响应类型；`requestFields` 登记示例请求字段的映射策略，内容与原门禁脚本中这两个方法的请求字段策略一致，迁入后门禁脚本不再保留该策略表。声明与示例适配器中的实际调用 MUST 一一对应：示例不得调用未声明的方法，也不得声明未调用的方法。
+示例 SHALL 把自己实际消费的协议接口登记在产品包的消费接口声明模块中：项目清单中 SDK 包（product 角色）的 `packages[].consumedOperations` MUST 指向 `packages/sdk/src/consumed-operations.ts`，该模块导出的 `consumedOperations` 数组中，标记内的示例条目 MUST 恰好是示例使用的 `CreateTrade` 与 `QueryTrade` 两个元素；数组 MAY 同时包含使用方自己的条目（写在标记外），以便使用方按"先加后删"在示例仍存在时新增自己的消费接口。每个元素为 `{ method, requestFields }`（结构见 protocol-contract PC-01）：`method` MUST 直接引用 generated 中由 `createMethod` 产出的方法常量，SHALL NOT 手写接口名、HTTP 方法、路径或请求/响应类型；`requestFields` 登记示例请求字段的映射策略，内容与原门禁脚本中这两个方法的请求字段策略一致，迁入后门禁脚本不再保留该策略表。声明与产品包中的实际调用 MUST 一一对应：不得调用未声明的方法，也不得声明未调用的方法。
 
-协议义务派生（protocol-contract PC-01）对示例接口的义务 SHALL 只来自这份声明：派生出的接口集合恰好为 `CreateTrade`、`QueryTrade`，请求字段映射义务取自声明的 `requestFields`，义务 ID 前缀为这两个方法描述在 generated 中的声明文件（`idl/infra/trade/v1/trade.ts`）推导出的 IDL 包名 `infra.trade.v1`，不再读取 `testing/shadow/example/` 下的示例路由或示例 Fixture。
+协议义务派生（protocol-contract PC-01）对示例接口的义务 SHALL 只来自这份声明：派生出的接口集合包含 `CreateTrade`、`QueryTrade`（其余接口来自使用方条目），请求字段映射义务取自声明的 `requestFields`，义务 ID 前缀为这两个方法描述在 generated 中的声明文件（`idl/infra/trade/v1/trade.ts`）推导出的 IDL 包名 `infra.trade.v1`，不再读取 `testing/shadow/example/` 下的示例路由或示例 Fixture。
 
-声明模块中的示例条目属于模板示例删除白名单，MUST 用 `// template-example:begin` 与 `// template-example:end` 标记包裹。声明模块的单测同样分两部分：标记外只断言"每个元素的 `method` 都是 generated 中的方法描述"，与示例无关、删除示例后仍然成立；"恰好是 `CreateTrade`、`QueryTrade`"的示例断言及其对本 Scenario 的证据绑定 MUST 位于标记内。按白名单删除示例后，该模块保留且 `consumedOperations` 为空数组是合法状态。
+声明模块中的示例条目属于模板示例删除白名单，MUST 用 `// template-example:begin` 与 `// template-example:end` 标记包裹。声明模块的单测同样分两部分：标记外只断言"每个元素的 `method` 都是 generated 中的方法描述"，与示例无关、删除示例后仍然成立；"标记内的示例条目恰好是 `CreateTrade`、`QueryTrade`"的示例断言及其对本 Scenario 的证据绑定 MUST 位于标记内。按白名单删除示例后，该模块保留且 `consumedOperations` 为空数组是合法状态。
 
 #### Scenario: SCN-TEMPLATE-EXAMPLE-012 示例接口由消费接口声明派生义务
 - **WHEN** 读取项目清单中 SDK 包的 `consumedOperations` 指向的模块，并对当前仓库运行协议义务派生及其声明与实际调用的双向检查
-- **THEN** 声明恰好为两个 `{ method, requestFields }` 元素，`method` 分别是 generated 中的 `CreateTrade`、`QueryTrade` 方法常量（引用同一常量，而非手写副本），`requestFields` 登记了示例请求字段策略；示例条目及单测中的示例断言都位于 `template-example:begin/end` 标记内，标记外的单测只断言每个元素的 `method` 都是 generated 方法描述；双向检查报出的"未声明的调用"与"未使用的声明"均为 0；派生出的接口义务恰好覆盖这两个方法，请求字段义务取自声明的 `requestFields`，义务 ID 以 `infra.trade.v1` 为前缀，且派生过程不读取示例 Shadow 路由。
+- **THEN** 声明中标记内的示例条目恰好为两个 `{ method, requestFields }` 元素（标记外的使用方条目不影响该判定），`method` 分别是 generated 中的 `CreateTrade`、`QueryTrade` 方法常量（引用同一常量，而非手写副本），`requestFields` 登记了示例请求字段策略；示例条目及单测中的示例断言都位于 `template-example:begin/end` 标记内，标记外的单测只断言每个元素的 `method` 都是 generated 方法描述；双向检查报出的"未声明的调用"与"未使用的声明"均为 0；派生出的接口义务包含这两个方法，请求字段义务取自声明的 `requestFields`，义务 ID 以 `infra.trade.v1` 为前缀，且派生过程不读取示例 Shadow 路由。
 
 ```json verification
 {
   "formatVersion": 2,
   "checkpoints": {
-    "declaration-registered": "清单中 SDK 包的 consumedOperations 指向 packages/sdk/src/consumed-operations.ts，模块导出的数组恰好是两个 { method, requestFields } 元素，method 为 generated 的 CreateTrade、QueryTrade 方法常量，requestFields 登记示例请求字段策略",
+    "declaration-registered": "清单中 SDK 包的 consumedOperations 指向 packages/sdk/src/consumed-operations.ts，模块导出的数组中标记内的示例条目恰好是两个 { method, requestFields } 元素（允许标记外的使用方条目），method 为 generated 的 CreateTrade、QueryTrade 方法常量，requestFields 登记示例请求字段策略",
     "declaration-matches-calls": "声明与示例实际调用的双向检查中，未声明的调用与未使用的声明均为 0",
-    "obligations-from-declaration": "派生出的接口义务恰好覆盖 CreateTrade、QueryTrade，请求字段义务取自声明的 requestFields，义务 ID 以由其 generated 声明文件推导的 infra.trade.v1 为前缀，不读取示例 Shadow 路由",
+    "obligations-from-declaration": "派生出的接口义务包含 CreateTrade、QueryTrade，请求字段义务取自声明的 requestFields，义务 ID 以由其 generated 声明文件推导的 infra.trade.v1 为前缀，不读取示例 Shadow 路由",
     "example-entries-marked": "声明模块的示例条目与单测中的示例断言位于 template-example:begin/end 标记内，标记外的单测只断言每个元素的 method 都是 generated 方法描述"
   },
   "cases": [

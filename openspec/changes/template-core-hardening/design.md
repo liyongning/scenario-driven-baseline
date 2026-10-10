@@ -464,7 +464,7 @@ module 类证据（手写 `annotate`）适用同一规则。
 | SCN-PROTOCOL-CONTRACT-008（请求 ID） | 原写"经公共 SDK 入口"，唯一 SDK 入口是示例 | 改为经协议包公共入口 `createProtocolClient` 发请求，不依赖示例 |
 | `packages/e2e/host/weapp/app.js`、`setup.ts`、`vite.config.ts`、`src/drivers/weapp-host.test.ts` | 注册与配置示例运行器 | 示例相关片段用标记包裹（见下） |
 | SCN-TEMPLATE-ENGINEERING-001 的 Fixture `sdkExports` | 写死示例导出名 | 改为从产品包根入口实际导出计算 |
-| `consumed-operations.ts` 的单测 | 断言恰好是 CreateTrade、QueryTrade | 示例断言用标记包裹；标记外只断言"每个元素都是 generated 方法描述" |
+| `consumed-operations.ts` 的单测 | 断言恰好是 CreateTrade、QueryTrade | 示例断言用标记包裹，且只针对标记内的示例条目（允许标记外有使用方条目，Apply 期间用户裁决修订 A5，2026-10-10：支付 SDK 复刻演练发现"整份声明恰好两个"使使用方无法先加后删）；标记外只断言"每个元素都是 generated 方法描述" |
 | 指南与 AGENTS 中指向示例文件的链接、`SCN-TEMPLATE-EXAMPLE-*` 引用 | 删除后断链，ENG-06 的事实检查失败 | 示例段落用标记包裹 |
 
 | `SCN-SCENARIO-GATE-026` 的事实核验条目中引用 SCN-TEMPLATE-EXAMPLE-012 的部分 | 示例删除后用例不存在 | 用 `template-example` 标记包裹 |
