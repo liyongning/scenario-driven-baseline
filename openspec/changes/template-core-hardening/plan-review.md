@@ -12,8 +12,8 @@
 
 - Reviewed input paths: proposal.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, specs/template-example/spec.md, design.md, tasks.md
 - Canonicalization version: 1
-- Reviewed digest: 2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026
-- Current digest: 2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026
+- Reviewed digest: 284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303
+- Current digest: 284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303
 
 ## Review Summary
 
@@ -83,11 +83,12 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | Apply 期间用户裁决修订 3 | 39e9fbf67b392fb075c81f8e65579f0d05b6be1e153688ba0d55e22ed929f501 | Approved（用户裁决） | 0 | 0 | 13 | SCN-008 随示例一起删除（A3）；登记根入口不导出的裁决（A4）；`openspec validate --strict` 通过 |
 | Apply 期间用户裁决修订 4 | 6ef30dcf6cd2dc7a7e15c9c579e9b39d09198a61300bba89944a18a2ce81cb0a | Approved（用户裁决） | 0 | 0 | 13 | EX-09 只约束示例条目（A5）；`openspec validate --strict` 通过 |
 | Apply 期间用户裁决修订 5 | 2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026 | Approved（用户裁决） | 0 | 0 | 13 | "新增消费接口"回归用例随示例删除（A6）；`openspec validate --strict` 通过 |
+| 任务 18 计划内修订 | 284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303 | Approved（用户确认） | 0 | 0 | 13 | 按任务 18 契约关闭 design OI-CH-02，结论经用户 2026-10-10 确认（维持现节奏，并增加交付前无作用域完整运行）；只改开放问题表，不改需求与任务契约 |
 
 ## Gate Decision
 
 - Decision: PASS
-- Blocking reason: None。第 4 次审查后的两条 Important 已按用户裁决修正并经用户确认；放行依据为用户裁决，而非第 5 次独立审查。2026-10-10 Apply 期间按用户裁决修订随机源措辞（A1），同日按用户裁决修订 SCN-008 场景门禁口径（A2），并将 SCN-008 移入 template-example、随示例一起删除（A3），并将 EX-09 改为只约束示例条目（A5），将"新增消费接口"回归用例加入删除白名单（A6），digest 随之更新。
+- Blocking reason: None。第 4 次审查后的两条 Important 已按用户裁决修正并经用户确认；放行依据为用户裁决，而非第 5 次独立审查。2026-10-10 Apply 期间按用户裁决修订随机源措辞（A1），同日按用户裁决修订 SCN-008 场景门禁口径（A2），并将 SCN-008 移入 template-example、随示例一起删除（A3），并将 EX-09 改为只约束示例条目（A5），将"新增消费接口"回归用例加入删除白名单（A6），按任务 18 契约关闭 OI-CH-02，digest 随之更新。
 - Accepted Minor findings: R3-M1、M2、M4、M6、M8、M10 与 R4-M3、M5（outdated 例外、`testProjects[].config` 可选时机、排除理由措辞、`environmentClass` 强制条件、请求体 requestId 写死点、`check:project-map` 脚本、scripts 值中的命令名、任务 4 副本 helper 时机），实施方可在 Apply 中直接处理；R3-M3/M5/M7/M9 与 R4-M1/M2/M4/M6 已修正。
 - Freshness check command: `/Users/liyongning/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-core-hardening --check-review openspec/changes/template-core-hardening/plan-review.md`
 
@@ -102,8 +103,8 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
   "prompt_provenance": "skill/change/references/plan-reviewer-prompt.md",
   "reviewed_at": "2026-10-10T00:00:00Z",
   "canonicalization_version": 1,
-  "reviewed_sha256": "2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026",
-  "current_sha256": "2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026",
+  "reviewed_sha256": "284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303",
+  "current_sha256": "284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303",
   "reviewer_status": "Approved",
   "gate": "PASS",
   "critical": 0,

@@ -1932,3 +1932,73 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **终态复验（记录本节的提交本身）**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r5-final-2`（HEAD `37b0ff3`）→ 退出码 **0**；`check:fast` 通过（172752ms）、`test:e2e:weapp` 通过（652287ms）、`check:scenarios` 通过（1502ms）（日志 `artifacts/r5-final/logs/verify2.log`）。
 - **独立复跑门禁（终态）**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r5-final-2 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r5-final/logs/scenarios2.log`）；`git status` 干净，报告没有过期。文档改动另经 `pnpm format:check`、`pnpm lint`、`pnpm check:architecture` 复验（`artifacts/r5-final/logs/docfmt.log`、`doclint.log`、`docarch.log`，退出码均为 0）。
 - **说明**：`r5-final-2` 之后只提交本节这条记录（仅 `verify.md`），没有触碰源码、测试、Fixture 或规划文件。
+
+## Task 18 支付 SDK 复刻演练（验收方执行）
+
+**执行者与方式**：由验收方（规划会话）每轮派发一个全新的、不带上下文的 general-purpose Agent（Claude），共 3 轮。三轮提示词相同，只有副本路径不同。副本构造与 Task 17 演练相同（`git archive` → 离线安装 → 对齐 PC-001/002 标题 → 归档本 Change → 删除归档目录与 `artifacts/` → `git init` 单一提交）。
+
+**输入**：从归档 `2026-09-22-headless-payment-sdk` 的 payment-sdk Spec 中摘出 SDK-01、SDK-03~06 与 FLOW-PAYSDK-001（只要求 normal case）。SDK-07、环境选择与 Live 宿主不在范围内；Scenario ID 须按本仓库规则重新分配。
+
+**提示词要点**：
+- 形态为 SDK + IDL（使用仓库已有的 generated 代码）+ 小程序；
+- 自建 Change（openspec-workflow），豁免 Plan Review 与 Archive；
+- 只在副本内工作，不读 `openspec/changes/archive/` 与 `artifacts/`；
+- 不修改门禁代码与门禁配置，遇到缺陷如实停下；
+- 验收用 `pnpm verify --change <演练 Change>`，weapp 按 `packages/e2e/AGENTS.md` 执行；
+- 每次猜测都记录；不提交，不写入凭据。
+
+| 轮次 | 待验收提交 | 结果 | 主要发现 | 处理 |
+|---|---|---|---|---|
+| 1 | `721a2a2` | 失败（实施前试验即停） | EX-09 要求整份声明"恰好"是示例的两个接口，与"先加后删"矛盾；协议矩阵不支持 oneof 响应（CreateTradePay 的 `pay_params`）；`omitted` 样例只覆盖 `product_id` | 用户裁决 A5；其余见"第四轮修复" |
+| 2 | `98ca149` | 失败（check:fast） | 支付自身的 SCN-PAYMENT-SDK-001~008 与 FLOW 在 integration、weapp 均通过；被模板自身两个用例挡住：extension 回归用例写死 `CreateTradePay` 导致重复声明；示例删除副本把使用方的矩阵键一并删除，且断言声明为空 | 用户裁决 A6；其余见"第五轮修复" |
+| 3 | `e3032b3` | **通过** | `pnpm verify --change add-weapp-payment-sdk` 中 check:fast 通过；weapp 的 `payment/SCN-PAYMENT-SDK-003` 两次 120s 挂起（已登记的开发者工具不稳定），手工 prepare 后整文件通过，`verify --from test:e2e:weapp` 续跑退出码 0；场景门禁 `mode: complete`、`issues: []`，协议义务 709/709，FLOW 4/4。验收方用演练报告独立复跑 `check:scenarios`，结果相同。演练者按指南删除了模板示例（共用的 `QueryTrade` 在同一次删除中移出标记），门禁代码与配置未改动 | 见下方分类，均为登记项 |
+
+**第 3 轮执行环境说明**：演练中途 Agent 两次因网络中断停止，均带原上下文续跑。其中一段时间开发者工具被其他任务占用，期间演练者未运行任何 weapp 步骤；weapp 证据全部取自开发者工具空闲后的运行。
+
+**问题准入口径**（用户 2026-10-10 确认）：演练发现的问题，只有摩擦成本很高、使用方无法发现，或导致无法验收（复刻要求达不到）时才在本 Change 修复；使用方能自己发现、摩擦低的只登记。第 1、2 轮的阻塞都属于"无法验收"，已修复；第 3 轮没有这三类问题。
+
+**第 3 轮猜测与发现分类**：
+
+| # | 内容 | 分类 | 处理 |
+|---|---|---|---|
+| 猜测 1~8 | 支付字段取值、13 个错误码与文案、结束原因形态、请求字段落地、`mode` 校验、errCode 解析、查询失败重试、不在输入范围的契约 | 合理的自主判断（原项目契约不在输入中） | 无需处理 |
+| 猜测 9~11 | FLOW 表位置与绑定、weapp 一个绑定覆盖多个 case、删除后 `git add -A` 只暂存 | 合理的自主判断 | 无需处理 |
+| 发现 1 | 示例与使用方共用接口时，示例在的情况下 ENG-008 报"未声明的调用：QueryTrade"，"先通过完整门禁再删示例"做不到，演练者提前删除示例 | 指引不够明确；门禁报错直接指出原因，删除示例即可解决 | 登记，不修 |
+| 发现 2 | `protocol/testing/shadow/bootstrap.test.ts` 写死 testing 入口导出名，新增业务路由导出时需要同步 | 需要额外理解；单测报错可直接发现 | 登记，不修 |
+| 发现 3 | 注释门禁要求 `Extract<…>` 联合类型的每个成员都有中文 JSDoc | 需要额外理解；门禁报错可直接发现 | 登记，不修 |
+| 发现 4 | 平台能力替身没有代码样例；演练者用 `evaluate` 注入自包含函数的做法在真机可行 | 模板缺失能力；指南已写明限制，演练中自行解决 | 登记，可作为后续 Change 的输入 |
+| 发现 5 | 删除示例后，主 Spec PC-01/SCN-PROTOCOL-CONTRACT-001 仍写"仓库声明 CreateTrade 与 QueryTrade"；指南"从方案到验收"第 10 步仍指向 `tests/example/**` 且不在标记内 | 删除后的文字残留；不影响门禁，使用方可发现 | 登记，不修 |
+| 发现 6 | weapp 同一文件连续挂起 | 已登记的开发者工具不稳定 | 无需处理 |
+| 发现 7 | 演练 Agent 的上下文被自动附上原仓库的根 AGENTS.md | 演练环境问题，不是模板问题；演练者以副本内文件为准 | 无需处理 |
+
+**xueshan 反馈复核**（Design 列出的 #1 #3 #4 #6 #13 #14 #15 #18 #19 #20 #22 #23 #25 #42 #53 #58 #62 及 FCR2-I1）：第 3 轮演练中均未复现。
+- 多 active Change 互相污染（#1）：作用域运行与副本归档正常。
+- 写死问题（#3 #4 #14 #19）：新增业务模块、驱动、宿主 runner 与测试项目都经清单登记生效，没有需要改门禁脚本的地方。
+- 覆盖率与摘要（#6 #22 #23）：覆盖率四项 100%，`payment-runner.ts` 经 `coverageExclusions` 登记。
+- Shadow（#13 #15 #42 #53）：使用方新增的业务路由经 Shadow 正常编排与校验，长等待 FLOW 在 integration 与 weapp 均通过，演练中没有出现未记录请求或放宽步数的情况。
+- 归档后路径（#18 #62）：副本归档本 Change 后门禁 0 问题。
+- 门禁自测依赖实时状态（#20 #25）：门禁自测在使用方仓库中通过。
+- checkpoint（#58）：0 问题。
+- FCR2-I1：产品新增的 CreateTradePay 产生义务；QueryTrade 只在标记内声明时，双向对账报出"未声明的调用"。
+
+**OI-CH-02 统计与结论**：Task 9~15 的按需运行因入口缺陷（unit 步骤为空）记为无效基线；修复后的有效样本中，"按需通过、全量失败"0 次。实施中漏掉的问题都出在按需与全量都覆盖不到的状态（归档后无作用域、使用方新增接口）。结论经用户 2026-10-10 确认：维持"每个 Task 按需、至少每 3 个 Task 与交回前、验收前全量"，不能只跑按需；带作用域交付的 Change 交付前须在已归档无作用域状态完整运行一次。已写入指南"从方案到验收"，design 中 OI-CH-02 关闭。
+
+**证据位置**：会话临时目录 `scratchpad/drill-18c/`（副本内 `artifacts/pay-verify-1/reports/`、`docs/template-feedback.md`、演练 Change 的 `verify.md`；验收方复跑日志 `logs/scenarios-check.log`）；第 1、2 轮在 `drill-18/`、`drill-18b/`。副本不提交。
+
+## Task 17 复核（A6 之后）
+
+A6 把 extension 回归用例加入删除白名单，删除逻辑在第五轮改为只删示例键。Task 17 不再重做演练，依据以下证据复核：
+- 第五轮自动化证据：使用方形态（标记外 CreateTradePay 与共用 QueryTrade）下删除副本 `check:fast` 退出码 0（`artifacts/r5c-008b`）；模板仓库形态下删除后声明为空、义务为空的断言通过（`artifacts/r5t-008`）。
+- Task 18 第 3 轮：演练者在使用方仓库中按白名单真实删除示例（含 A6 新增项），随后完整验收通过、场景门禁 0 问题。
+
+**结论**：Task 17 复核通过，重新勾选。
+
+## 最终验收
+
+在 `e3032b3` 加本节修订（指南 OI-CH-02 结论与无作用域约定、design 关闭 OI-CH-02、plan-review 摘要更新）的工作区上，验收方执行：
+- `pnpm verify --change template-core-hardening --run-id core-final-acceptance`：退出码 **0**；check:fast 176.4s、test:e2e:weapp 287.9s（5 个文件逐个 prepare，全部首跑通过，无重跑）、check:scenarios 1.5s。
+- 独立 `VERIFY_RUN_ID=core-final-acceptance pnpm check:scenarios`：退出码 0，`mode: complete`，`issues: []`。
+- 规划摘要 `284e4d09…`，freshness PASS；`openspec validate template-core-hardening --strict` 通过。
+- 日志：会话临时目录 `scratchpad/final/verify.log`、`scenarios.log`。
+
+**结论**：Task 17 复核通过、Task 18 完成；Apply 阶段的全部任务完成。
