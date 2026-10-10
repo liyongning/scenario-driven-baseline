@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadProjectManifest, packageByRole, type ProjectManifest } from './project-manifest.ts';
 
 /** 手写源码清单中的文件分类：手写代码、测试支撑与静态资源。 */
@@ -36,6 +38,8 @@ export function assertGitWorkTree(root: string): void {
 /**
  * 用 git 列出路径下的已跟踪文件与未被忽略的新文件。
  * 路径按 git pathspec 处理（支持末段与其他段通配），被 `.gitignore` 忽略的产物自然排除。
+ * 工作区里已删除但尚未暂存删除的文件仍在索引中（`git ls-files -c` 会列出），
+ * 这里统一剔除磁盘上不存在的路径：下游按清单读取内容，不留 ENOENT 崩溃点。
  */
 export function listGitFiles(root: string, patterns: ReadonlyArray<string>): string[] {
   if (patterns.length === 0) return [];
@@ -45,7 +49,10 @@ export function listGitFiles(root: string, patterns: ReadonlyArray<string>): str
     stdio: ['ignore', 'pipe', 'ignore'],
     maxBuffer: 64 * 1024 * 1024,
   });
-  return output.split('\n').filter((path) => path.length > 0);
+  return output
+    .split('\n')
+    .filter((path) => path.length > 0)
+    .filter((path) => existsSync(join(root, path)));
 }
 
 /** 固定排除：生成代码目录，以及各级 AGENTS.md 与 CLAUDE.md。 */

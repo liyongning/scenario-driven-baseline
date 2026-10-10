@@ -99,6 +99,26 @@ describe('source inventory', () => {
     }
   });
 
+  it('drops tracked files deleted from the worktree but not yet staged', () => {
+    const fixture = createControlledRoot({
+      manifest: manifestWith(['scripts']),
+      files: { 'scripts/kept.ts': 'kept', 'scripts/removed.ts': 'removed' },
+    });
+    try {
+      expect(listGitFiles(fixture.root, ['scripts'])).toEqual([
+        'scripts/kept.ts',
+        'scripts/removed.ts',
+      ]);
+      // 反例：文件已从工作区删除、但还没 `git rm`（索引里仍在），
+      // `git ls-files -co` 仍会列出它；清单必须剔除，否则下游读取内容时报 ENOENT。
+      rmSync(join(fixture.root, 'scripts/removed.ts'));
+      expect(listGitFiles(fixture.root, ['scripts'])).toEqual(['scripts/kept.ts']);
+      expect(codeFiles(readSourceInventory(fixture.root))).toEqual(['scripts/kept.ts']);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it('classifies each file by the documented order', () => {
     expect(classifySourceFile('packages/sample-test/tests/helper.ts', 'packages/sample-test')).toBe(
       'test',

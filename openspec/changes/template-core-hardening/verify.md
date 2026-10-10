@@ -1337,3 +1337,12 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures`：`manifests: 19, issues: []`，退出码 0（证明门禁仍按清单路径读源码）。
 - **反例**：`packages/sdk/dist/index.d.ts` 修复前导出 `export { consumedOperations } from './consumed-operations';`（原始内容见本 Change 提交前的 `packages/sdk/src/index.ts`）；若有人把声明再当公共 API 导出，`grep` 的退出码会变回 0。
 - **提交**：`fix(template): keep the consumed-operations declaration package-internal`。
+
+### 第 5 条 · Task 3：源码清单剔除工作区已删除但未暂存的路径
+
+- **根因**：`scripts/lib/source-inventory.ts:42` 的 `git ls-files -co` 会列出「工作区已删除、但索引里还在（未 `git rm`/未暂存删除）」的文件，下游 `readSourceInventory` 按清单 `readFileSync` 读内容 → `ENOENT` 崩溃。演练副本里出现过这条崩溃路径（先删文件再跑门禁）。
+- **改动**：`listGitFiles` 在 `git ls-files -co` 之后统一过滤掉磁盘上不存在的路径（`existsSync(join(root, path))`）。用 `existsSync` 而不是 `git ls-files --deleted` 做差集：`--deleted` 只覆盖索引态，`-co` 的另一个来源是未跟踪新文件，两套口径叠加反而更容易漏；单次 `existsSync` 判定与现有实现同一处收敛，无额外进程与状态。
+- **证据**：
+  - 单测 `scripts/lib/source-inventory.test.ts` 新增用例 `drops tracked files deleted from the worktree but not yet staged`：RED（旧实现）断言 `['scripts/kept.ts']` 时得到 `['scripts/kept.ts','scripts/removed.ts']`；GREEN 后 `scripts/lib/source-inventory.test.ts` 4 用例通过（`pnpm exec vitest run --project test-tools-unit scripts/lib/source-inventory.test.ts`，退出码 0，同一命令在 `scripts/lib/source-inventory.test.ts scripts/check-fixtures.test.ts` 下 2 文件 / 11 用例通过、961ms）。
+  - 反例：`rmSync('scripts/removed.ts')` 后 `listGitFiles` 仍应返回该路径（旧行为）；对应 `codeFiles(readSourceInventory(root))` 从 `['scripts/kept.ts','scripts/removed.ts']` 变为 `['scripts/kept.ts']`，不再给下游留下 `ENOENT`。
+- **提交**：`fix(template): drop worktree-deleted paths from the source inventory`。
