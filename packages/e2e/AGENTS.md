@@ -21,6 +21,20 @@
 - 根 reporter 分别收集 unit 与 integration/weapp 报告，携带同次运行、源码/Spec/IDL/实际 Fixture 摘要及项目；module 无外部 Fixture 时明确 null，不能豁免测试源码 freshness。按 verification v2 分类汇总全部 Spec、行为 E2E、IDL 和 FLOW 覆盖/通过，unit 不抵扣公共 E2E。`tests/tooling` 通过真实 CLI 验证门禁正向与反例，受控工具输入不得冒充被测 SDK 运行证据。
 - 新增 IDL 字段不能只刷新来源摘要而跳过覆盖；固定 Go 来源与 generated 来源分开核验，不得改写旧 Go 取数证据或自动覆盖兼容基线。
 
+### 断言反模式
+
+以下写法看起来通过，实际什么都没验证；每条都给出正确写法。
+
+- 恒真断言：`expect.any(...)`、`expect.anything()`、`expect.objectContaining({})` 只证明“存在某个值”。改为断言具体的值、顺序或次数。
+- checkpoint 名实不符：先读 verification 块登记的检查点含义，再让断言覆盖这层含义；不要只覆盖名字里的一小部分。
+- 循环空转：`for (const item of list) expect(...)` 在 `list` 为空时零次执行。先断言长度，或改成逐项具体断言。
+- 单飞合并下计数恒真：请求被合并时按“实际发出的次数”断言恒等于 1。改为断言合并前后的可观察结果，或让 Fixture 状态序列精确决定次数。
+- 只断言“没有抛错”：`await expect(run()).resolves` 只能证明没有抛错。必须断言返回值、调用顺序/次数或后续动作没有发生。
+
+### 断言审查清单
+
+供独立评审使用：对每个 checkpoint，先读 verification 块中登记的含义，再判断“如果实现以某种方式出错，这条断言是否会失败”；不会失败的断言即为无效证据。
+
 ### 外部交互替身的设计标准
 
 凡 SDK 需要与外部交互的地方，测试都在仓库内用替身闭环：
@@ -41,3 +55,20 @@
 3. 验收记录中写明哪些文件是重跑取得证据的（自动重跑或手工重跑），以及每次失败的现象。
 
 本模板不追求在小程序生态下建设完整通用的自动化流程，因此暂不修改 driver。如需彻底消除，可在后续 Change 中让 driver 在每次 launch 前退出主进程，或让同一文件内的 case 复用一次启动。
+
+### 子模块
+
+- `packages/e2e/src/cases`：用例绑定、Fixture 装载与协议结果核对。
+- `packages/e2e/src/drivers`：外部交互替身驱动，替换端侧平台 API。
+- `packages/e2e/src/reporters`：报告收集与场景门禁汇总。
+- `packages/e2e/host/weapp`：最小微信小程序测试宿主。
+
+<!-- template-example:begin -->
+
+- `packages/e2e/tests/example`：模板示例用例。
+
+<!-- template-example:end -->
+
+- `packages/e2e/tests/protocol`：协议集成用例。
+- `packages/e2e/tests/tooling`：CLI 门禁正向与反例验证。
+- `packages/e2e/tests/weapp`：小程序用例，经真实 `wx.request` 访问 Shadow。

@@ -515,7 +515,7 @@
   **Commit**
   - `refactor(template): enforce max-lines and split oversized modules`
 
-- [ ] 15. 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
+- [x] 15. 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
 
   **Files**
   - Create：各模块目录的 `AGENTS.md`（五节骨架）与全部 `CLAUDE.md`（首行 `@AGENTS.md`），范围按清单 `moduleRoots`。

@@ -10,6 +10,14 @@
 - [模板使用指南](docs/template-guide.md)
 - [项目清单](project.manifest.json)
 
+### 项目地图
+
+仓库是清单驱动的三包模板，规则按层级渐进展开：本文件写全局规则，包级文件写包级规则，模块文件只写本模块的边界。包、模块与 AGENTS 配对由 `pnpm check:project-map` 机械核对。
+
+- `packages/sdk`（产品包）：SDK 公共入口与业务分层，规则见 [packages/sdk/AGENTS.md](packages/sdk/AGENTS.md)。
+- `packages/protocol`（协议包）：协议引擎、平台适配与测试用 Shadow，规则见 [packages/protocol/AGENTS.md](packages/protocol/AGENTS.md)。
+- `packages/e2e`（测试包）：行为与工程用例、驱动与报告，规则见 [packages/e2e/AGENTS.md](packages/e2e/AGENTS.md)。
+
 ### 项目清单
 
 工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，字段与约束的唯一权威是 [project.manifest.schema.json](project.manifest.schema.json)；架构检查、场景门禁、协议义务、源码摘要与包发布都只从清单读取包、必需命令、测试项目与发布设置，不在门禁脚本里写死。
@@ -65,6 +73,8 @@
 9. 发布由用户显式触发的统一入口完成，可在本地或其他受控执行器运行，不依赖或交付 Pipeline/Runner。
 10. ProtoGen Consumer 按产品实际依赖在 IDL 仓库登记；项目内使用根 devDependency，通过 `pnpm proto:*` 或 `pnpm exec` 调用，安装/升级时核对私有 registry 的最新正式版本并保存精确版本与锁文件。
 11. 小程序自动化复用本机微信开发者工具与 miniprogram-automator，不开发 UI 自动化框架或工具控制器，不以 CI 环境缺失阻断本地运行。
+12. 优先采用现成方案：遇到问题先查官方文档与业界或社区的成熟方案，查不到再做实验，最后才考虑自研；引入框架生态时优先使用官方脚手架。确需自研通用能力时，在 Design 中写明已查过哪些方案、为何不采用。
+13. 能力变化同步架构文档：新增或改变能力的 Change 在 Design 阶段同步更新架构文档 `docs/architecture.md`（回答“解决什么问题、为什么这样设计”，与指南“怎么用、怎么换”分工）。
 
 ### 外部交互替身的设计标准
 

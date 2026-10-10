@@ -7,7 +7,7 @@ import {
   writeProjectManifest,
   writeRepositoryPackages,
 } from './scenario-gate-helpers.ts';
-import { repositoryRoot, writeTemplateGuideFixture } from './helpers.ts';
+import { repositoryRoot, writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
 
 cliEvidence(
   'SCN-SCENARIO-GATE-008',
@@ -64,6 +64,7 @@ cliEvidence(
         'scenario-gate.config.schema.json scripts/verification.schema.json scripts/flow.schema.json',
       );
       writeTemplateGuideFixture(fixture.root);
+      writeProjectMapFixture(fixture.root);
       const restored = runArchitecture(fixture.root);
       await check('restored-passes', () => {
         context.expect(restored.status).toBe(0);

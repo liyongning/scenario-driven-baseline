@@ -4,7 +4,10 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { writeTemplateGuideFixture } from '../packages/e2e/tests/tooling/helpers.ts';
+import {
+  writeProjectMapFixture,
+  writeTemplateGuideFixture,
+} from '../packages/e2e/tests/tooling/helpers.ts';
 import { checkArchitecture, cruiseArguments, runArchitectureCli } from './check-architecture';
 import { loadProjectManifest } from './lib/project-manifest.ts';
 
@@ -27,6 +30,7 @@ function fixture() {
     writeFileSync(join(dir, 'package.json'), readFileSync(`packages/${name}/package.json`));
   }
   writeTemplateGuideFixture(root);
+  writeProjectMapFixture(root);
   // 默认 CLI 分支调用真实 depcruise：放一个可执行替身，验证参数组装与退出码传递，不依赖真实解析。
   mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
   writeFileSync(join(root, 'node_modules/.bin/depcruise'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });

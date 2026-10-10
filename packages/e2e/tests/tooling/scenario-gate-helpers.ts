@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
 import { createControlledRoot } from './controlled-root.ts';
-import { writeTemplateGuideFixture } from './helpers.ts';
+import { writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
 import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
 
 /** 仓库根由模块位置推导，门禁自测不依赖调用方的工作目录。 */
@@ -84,6 +84,7 @@ export function writeRepositoryPackages(root: string) {
       readFileSync(join(repositoryRoot, 'packages', pkg.directory, 'package.json')),
     );
   }
+  writeProjectMapFixture(root);
 }
 
 export type InventoryOptions = Readonly<{
@@ -184,6 +185,21 @@ export function runArchitecture(root: string) {
       '--dependency-exit-code',
       '0',
     ],
+    { cwd: repositoryRoot, encoding: 'utf8' },
+  );
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    output: result.stdout ? (JSON.parse(result.stdout) as { issues: string[] }) : undefined,
+  };
+}
+
+/** 运行项目地图检查 CLI：stdout 为 { issues }，退出码非零表示存在违规。 */
+export function runProjectMap(root: string) {
+  const result = spawnSync(
+    tsx,
+    [resolve(repositoryRoot, 'scripts/check-project-map.ts'), '--root', root],
     { cwd: repositoryRoot, encoding: 'utf8' },
   );
   return {

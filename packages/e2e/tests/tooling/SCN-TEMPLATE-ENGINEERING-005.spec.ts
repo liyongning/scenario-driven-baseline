@@ -25,7 +25,7 @@ import {
   verification,
   writeSpec,
 } from './scenario-gate-helpers.ts';
-import { writeTemplateGuideFixture, repositoryRoot } from './helpers.ts';
+import { writeProjectMapFixture, writeTemplateGuideFixture, repositoryRoot } from './helpers.ts';
 import { createControlledRoot } from './controlled-root.ts';
 import { planCommand } from '../../../../scripts/run-by-manifest.ts';
 
@@ -131,6 +131,7 @@ function architectureFixture(manifest: FixtureManifest) {
     );
   }
   writeTemplateGuideFixture(root);
+  writeProjectMapFixture(root);
   return root;
 }
 
@@ -226,6 +227,7 @@ cliEvidence(
         join(root, 'project.manifest.json'),
         JSON.stringify(manifestFixture({ product: renamed }), null, 2),
       );
+      writeProjectMapFixture(root);
       const result = runArchitecture(root);
       context.expect(result.output?.issues).toEqual([]);
       context.expect(result.status).toBe(0);

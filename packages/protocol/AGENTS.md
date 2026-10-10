@@ -25,3 +25,11 @@
 ### IDL 协议义务派生
 
 协议义务派生的方法集合来自示例协议的 `CreateTrade`、`QueryTrade`；字段策略与待定项以 `protocol-contract` 的 PC-01 为准，派生器“待定字段为 0”是完成条件。新增 IDL 字段不能只刷新来源摘要而跳过覆盖。
+
+### 子模块
+
+- `packages/protocol/src/adapters`：平台网络适配，实现 `HttpPort`。
+- `packages/protocol/src/errors`：业务错误码映射，保留原始 IDL 描述。
+- `packages/protocol/src/ports`：网络端口与公共请求上下文边界。
+- `packages/protocol/src/transport`：公共 Header/BaseReq、通信错误与请求 ID。
+- `packages/protocol/testing/shadow`：测试用 Shadow 网关，只服务测试。

@@ -18,6 +18,7 @@
     "test:affected": "tsx scripts/test-affected.ts",
     "test:e2e:weapp": "tsx scripts/run-by-manifest.ts test:e2e:weapp",
     "check:architecture": "tsx scripts/check-architecture.ts",
+    "check:project-map": "tsx scripts/check-project-map.ts",
     "check:coverage": "tsx scripts/check-coverage.ts",
     "check:fixtures": "tsx scripts/check-fixtures.ts",
     "fixtures:refresh": "tsx scripts/fixtures-refresh.ts",

@@ -1,6 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
@@ -134,6 +142,88 @@ export function writeTemplateGuideFixture(root: string) {
     const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
     if (!current.includes(link))
       writeFileSync(path, `${current.trimEnd()}\n\n${link}\n`.trimStart());
+  }
+}
+
+/** 模块级 AGENTS.md 的固定五节骨架；没有内容的节写「无」，不得删节。 */
+export function moduleSkeleton(): string {
+  const sections = ['职责', '对外入口', '允许依赖', '本地约束', '子模块'];
+  return `# AGENTS.md\n\n${sections.map((name) => `## ${name}\n\n无\n`).join('\n')}`;
+}
+
+/** 覆盖或追加一个二级标题小节：已有同名小节时先删除，保证夹具可重复生成。 */
+function replaceSection(path: string, heading: string, lines: ReadonlyArray<string>): void {
+  const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const kept: string[] = [];
+  let skipping = false;
+  for (const line of existing.split('\n')) {
+    if (/^##\s+/.test(line)) skipping = line.trim() === `## ${heading}`;
+    if (!skipping) kept.push(line);
+  }
+  const body = lines.length > 0 ? lines.join('\n') : '无';
+  const content = `${kept.join('\n').trimEnd()}\n\n## ${heading}\n\n${body}\n`;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content);
+}
+
+/** 模块目录：清单 `moduleRoots` 每个根下的一级子目录，生成目录、夹具与隐藏目录不算模块。 */
+function fixtureModules(root: string, packages: ReadonlyArray<FixturePackage>): string[] {
+  const modules: string[] = [];
+  for (const pkg of packages) {
+    for (const moduleRoot of pkg.moduleRoots ?? ['src']) {
+      const base = join(root, 'packages', pkg.directory, moduleRoot);
+      if (!existsSync(base)) continue;
+      for (const entry of readdirSync(base, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+        if (['generated', 'fixtures', 'node_modules'].includes(entry.name)) continue;
+        modules.push(`packages/${pkg.directory}/${moduleRoot}/${entry.name}`);
+      }
+    }
+  }
+  return modules;
+}
+
+type FixturePackage = Readonly<{
+  directory: string;
+  role: string;
+  moduleRoots?: ReadonlyArray<string>;
+}>;
+
+/**
+ * 项目地图夹具：根「项目地图」小节、各包「子模块」小节、模块级 AGENTS.md 骨架与全部 CLAUDE.md 配对。
+ * 内容按清单与真实目录生成，架构检查的其余夹具只需在最后调用一次即可保持合法。
+ */
+export function writeProjectMapFixture(root: string): void {
+  const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as {
+    packages: ReadonlyArray<FixturePackage>;
+  };
+  const modules = fixtureModules(root, manifest.packages);
+  for (const module of modules) {
+    const agents = join(root, module, 'AGENTS.md');
+    if (!existsSync(agents)) writeFileSync(agents, moduleSkeleton());
+  }
+  replaceSection(
+    join(root, 'AGENTS.md'),
+    '项目地图',
+    manifest.packages.map(
+      (pkg) =>
+        `- \`packages/${pkg.directory}\`（${pkg.role}）：[AGENTS](packages/${pkg.directory}/AGENTS.md)`,
+    ),
+  );
+  for (const pkg of manifest.packages) {
+    const listed = modules.filter((module) => module.startsWith(`packages/${pkg.directory}/`));
+    replaceSection(
+      join(root, 'packages', pkg.directory, 'AGENTS.md'),
+      '子模块',
+      listed.map((module) => `- \`${module}\``),
+    );
+  }
+  for (const agents of [
+    'AGENTS.md',
+    ...manifest.packages.map((pkg) => `packages/${pkg.directory}/AGENTS.md`),
+    ...modules.map((module) => `${module}/AGENTS.md`),
+  ]) {
+    writeFileSync(join(root, agents.replace(/AGENTS\.md$/, 'CLAUDE.md')), '@AGENTS.md\n');
   }
 }
 

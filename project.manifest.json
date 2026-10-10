@@ -49,7 +49,8 @@
     "check:fast",
     "weapp:prepare",
     "verify",
-    "check"
+    "check",
+    "check:project-map"
   ],
   "testProjects": [
     {

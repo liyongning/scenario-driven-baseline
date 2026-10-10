@@ -995,3 +995,72 @@
 - 格式基线用现成 Prettier CLI（`prettier --check .`）与仓库既有 `.prettierignore`，受控根复制同一份 `.prettierrc.json`/`.prettierignore`，未自研格式检查。
 - 用例断言上报复用既有 `cliEvidence` / `evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `createControlledRoot`，未新建夹具框架。
 - 未新增任何运行时或开发依赖；本任务**无自研通用能力**。
+
+### Task 15 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
+
+**Commit message**：`docs(template): add progressive project map with paired CLAUDE.md`
+
+**RED（预期失败的反例，已实际执行）**
+- 为不污染工作区，RED 在 `git archive HEAD` 得到的干净副本 `/tmp/t15-red` 中采集（该副本保留 HEAD 的文档、`package.json`、清单与 `check-architecture.ts`，只放入本任务新增的用例与共享夹具 `writeProjectMapFixture`/`runProjectMap`，不含 `scripts/check-project-map.ts` 与各模块 AGENTS/CLAUDE）。副本内 `git init` 以满足源码清单对 git 工作区的要求。
+  - 011 的 module case 先失败：`vitest run --project test-tools-unit scripts/check-project-map.test.ts` 退出码 **1**，`Cannot find module './check-project-map.ts'`（`/tmp/t15-red-unit.log`）。
+  - 011 的 engineering case 先失败：`vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-011.spec.ts` 退出码 **1**（`/tmp/t15-red-integration.log`）：HEAD 的 `check-architecture.ts` 未接线项目地图，`runArchitecture` 对新增模块目录不报错，`wired-into-architecture` 取到 `undefined`。
+  - “现仓库运行 `check:project-map` 报缺失”：把本任务的 `scripts/check-project-map.ts` 单独放入 HEAD 副本后运行 `tsx scripts/check-project-map.ts`，退出码 **1**，**38** 条 issue，首条为 `missing packages/sdk/src/example/AGENTS.md`（`/tmp/t15-red-check.log`）；HEAD 的根 `package.json` 无 `check:project-map` 脚本（`git show HEAD:package.json | grep -c check:project-map` = 0）。
+
+**GREEN**
+- `pnpm test:unit` 退出码 **0**：63 文件 / 368 用例（较 Task 14 的 62/366 增加 011 的 module case）；覆盖率 Statements **3241/3241**、Branches **2148/2148**、Functions **593/593**、Lines **2865/2865**，四项 **100%**（`/tmp/t15-unit.log`）。`scripts/check-project-map.ts` 单文件 100%（128/128、66/66、22/22、108/108）。
+- `pnpm lint`、`pnpm format:check`、`pnpm typecheck` 退出码 **0**（`/tmp/t15-lint.log`、`/tmp/t15-format.log`、`/tmp/t15-typecheck.log`）。
+- `pnpm check:architecture` 退出码 **0**，`issues: []`，dependency-cruiser `no dependency violations found (83 modules, 181 dependencies)`。
+- 011 两个 case 直接运行通过：module `project-map-rules` 506ms、engineering `project-map-violations-cli` 5942ms（全量 verify 内，`/tmp/t15-verify.log`）。
+- 受影响夹具适配后定向复跑：`SCN-SCENARIO-GATE-008`、`SCN-TEMPLATE-ENGINEERING-002`、`-005`、`-006`（共 18 用例）连同 `-011` 的 1 个 engineering case，合计 **19** 用例退出码 **0**（`/tmp/t15-tooling-subset.log`）。
+- 作用域内 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**（`/tmp/t15-checkfast.log`）：单测 63/368、覆盖率四项 100%、集成 53 文件 / 116 用例（含新增 011）、`check:fixtures` 与 `check:package` 均 `issues: []`。
+- 模块级 AGENTS.md 加载确认：仓库新增 **19** 个模块/包/根 AGENTS.md 与 **19** 个 CLAUDE.md（根 1 + 包 3 + 模块 15），每个 CLAUDE.md 首个非空行为 `@AGENTS.md`，由 `check:project-map` 的双向配对检查逐项核验（`/tmp/t15-checkfast.log` 的 `issues: []` 即该检查通过）；`.claude`/`generated`/`fixtures` 等目录不参与。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 011 module case（RED，干净 HEAD 副本） | 1 | `Cannot find module './check-project-map.ts'`，`/tmp/t15-red-unit.log` |
+| 011 engineering case（RED，干净 HEAD 副本） | 1 | `wired-into-architecture` 取到 `undefined`，`/tmp/t15-red-integration.log` |
+| `tsx scripts/check-project-map.ts`（RED，HEAD 副本 + 仅检查器） | 1 | 38 条 issue，`/tmp/t15-red-check.log` |
+| `pnpm test:unit`（GREEN） | 0 | 63 文件 / 368 用例，覆盖率四项 100%，`/tmp/t15-unit.log` |
+| `pnpm lint` / `pnpm format:check` / `pnpm typecheck` | 0 | `/tmp/t15-lint.log`、`/tmp/t15-format.log`、`/tmp/t15-typecheck.log` |
+| `pnpm check:architecture` | 0 | `issues: []`，83 modules / 181 dependencies |
+| 既有 tooling 夹具定向复跑（008/002/005/006/011） | 0 | 19 用例，`/tmp/t15-tooling-subset.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fast` | 0 | 63/368 单测 + 53/116 集成，`/tmp/t15-checkfast.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm test:affected` | 0 | run id `affected-20261010T011835Z`，全量触发 `check:fast`（退出码 0），`/tmp/t15-affected.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t15` | 1 | check:fast **0**（119363ms）、weapp **0**（220869ms）、check:scenarios **1**（1619ms、4 条），`/tmp/t15-verify.log` |
+
+**报告路径**：`artifacts/core-hardening-t15/reports/{unit.json,integration.json}`；weapp 逐文件报告 `artifacts/core-hardening-t15/reports/weapp/<文件名>.json`；覆盖率 `artifacts/core-hardening-t15/coverage/`。`check:scenarios` 结论以 stdout JSON 为准（完整输出在 `/tmp/t15-verify.log`；单独复算在 `/tmp/t15-gate2.log`）。
+
+**场景门禁剩余问题归属（4 条，6 → 4）**
+- `SCN-TEMPLATE-ENGINEERING-011` 两条（`project-map-rules`、`project-map-violations-cli`）已在本任务绑定并执行，**清零**。
+- `SCN-TEMPLATE-ENGINEERING-012`：2 条（`architecture-doc-rules`、`architecture-doc-violations-cli`）→ **Task 16**。
+- `SCN-TEMPLATE-ENGINEERING-008`：2 条（`example-removal-fast`、`example-removal-scenarios`）→ **Task 17 自动化部分**（用例由本会话交付，演练与勾选由验收方执行）。
+- 无过期报告、无未登记 checkpoint、无 `did not execute` / `no executed assertions` 回归项。
+
+**Review / Acceptance**
+- 19 个模块/包/根 AGENTS.md 的内容按实际文件与依赖逐个核对：模块五节均为 `职责 / 对外入口 / 允许依赖 / 本地约束 / 子模块`，无内容的节写「无」；包级「子模块」列出的目录与 `moduleDirectories` 实测一致（sdk：`example`、`runtime`；protocol：`adapters`、`errors`、`ports`、`transport`、`testing/shadow`；e2e：`src/cases`、`src/drivers`、`src/reporters`、`host/weapp`、`tests/example`、`tests/protocol`、`tests/tooling`、`tests/weapp`）；`generated/` 与 `tests/fixtures/` 未登记。
+- `packages/e2e/AGENTS.md` 的「断言反模式」5 条各附正确写法（恒真断言、checkpoint 名实不符、循环空转、单飞合并下计数恒真、只断言没有抛错），「断言审查清单」给出“先读登记含义、再看断言会不会因实现出错而失败”的评审判据。
+- 包级规则只写在包级文件，模块文件只写本模块边界与链接，未复制上级规则。
+
+**方案与实际的差异**（含 Task 15 Files 之外的改动；均为按契约补充或同步受影响产物，未改规划语义）
+1. **既有“架构根”夹具必须补齐项目地图**（Task 15 Files 未列，但 `check:architecture` 新增调用后 `toEqual([])` 的既有断言会失败）：`scripts/check-architecture.test.ts` 的 `fixture()`、`packages/e2e/tests/tooling/scenario-gate-helpers.ts` 的 `writeRepositoryPackages` 各补一次 `writeProjectMapFixture(root)`；`SCN-SCENARIO-GATE-008.spec.ts` 在恢复阶段重写根 AGENTS.md 后重新补齐项目地图；`SCN-TEMPLATE-ENGINEERING-005.spec.ts` 的 `architectureFixture` 补一次、`rename-by-manifest` 在按清单改名后重新生成。断言语义未改，只更新夹具输入。
+2. **根 AGENTS 的“能力变化同步架构文档”用行内代码而非链接**：`docs/architecture.md` 由 Task 16 创建，此刻写成相对链接会被架构检查判为断链（AGENTS/README 的相对链接必须可解析）；Task 16 建文档后改为链接（ENG-10 要求链接）。
+3. **新增共享夹具落在既有 helper**：`moduleSkeleton`/`writeProjectMapFixture` 加在 `packages/e2e/tests/tooling/helpers.ts`，`runProjectMap` 加在 `scenario-gate-helpers.ts`，与既有 `writeTemplateGuideFixture`/`runArchitecture` 同址，避免新建第二套夹具文件。
+4. **CLI 分支的覆盖率登记**：`check-project-map.ts` 的进程入口（`if (process.argv[1] && …)`）用既有的 `/* v8 ignore start/stop */` 包裹——真实进程级行为由 011 的 integration case 承担，unit 覆盖率仍需四项 100%，与 `check-architecture.ts`、`run-by-manifest.ts` 的登记方式一致。
+5. **RED 在 HEAD 副本补采**：本任务在同一会话内连续实施与验证，为给出可复现的“先失败”证据，用 `git archive HEAD` 建 `/tmp/t15-red` 复现实现前的状态；副本只含新用例与新夹具，不含检查器、接线与模块文档（详见 RED 段）。
+6. **清单 `moduleRoots` 已在 Task 3 登记**：本任务只向 `requiredCommands` 追加 `check:project-map`；未改包目录、包名与 `moduleRoots`。
+7. **Minor（用户指定，Task 15）**：根 `package.json` 新增 `"check:project-map": "tsx scripts/check-project-map.ts"`，紧邻 `check:architecture`，并由清单 `requiredCommands` 纳入架构检查。
+
+**weapp 重跑记录**：本任务无 weapp 源码改动。全量 `verify`（run id `core-hardening-t15`）weapp 步骤退出码 **0**（220869ms），5 个文件首跑全绿、**无重跑**：`SCN-PROTOCOL-CONTRACT-002` 11840ms、`SCN-PROTOCOL-CONTRACT-008` 11514ms、`FLOW-TEMPLATE-EXAMPLE-001` 11537ms、`SCN-TEMPLATE-EXAMPLE-002` 15433ms、`SCN-TEMPLATE-EXAMPLE-004` 11555ms。
+
+**按需选择结果**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T011835Z`）退出码 **0**：本轮改动含 `package.json`（构建输入）、`project.manifest.json`（清单）与 `packages/e2e/host/weapp/`、`packages/e2e/src/drivers/` 下的 AGENTS/CLAUDE（宿主/驱动目录），全部命中全量触发路径，选择规则升级为全量 `check:fast`（退出码 0），未退化为精确子集，未发现选择错误。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。全量 `verify` 的 `check:scenarios` 退出码 1 由 **4 条尚未交付的后续任务 case（012 与 008）**引起，不是回归，也不属于“按需子集漏测”，故不计入。
+
+**优先采用现成方案**
+- 项目地图结构检查复用既有 `unified`/`remark-parse`/`unist-util-visit` Markdown 解析链（与 `check-architecture.ts`、`example-markers.ts` 同源），未自研 Markdown 解析；路径集合用既有的 `git`/清单派生方式，未在脚本里写死包名与目录。
+- CLAUDE.md 配对使用官方约定的 `@AGENTS.md` 导入行，未使用软链接（Windows 检出会退化、编辑工具拒绝写入），符合 Design 已核实结论。
+- 用例断言上报复用既有 `cliEvidence`/`evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `minimalManifest`/`createControlledRoot` 与 `writeTemplateGuideFixture`，未新建夹具框架。
+- 未新增任何运行时或开发依赖；本任务**无自研通用能力**。
