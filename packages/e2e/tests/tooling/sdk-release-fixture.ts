@@ -144,15 +144,24 @@ export function createGitFixture() {
 }
 
 export function releaseSnapshot(before: ReadonlySet<string>): string {
-  const directory = readdirSync(tmpdir())
+  const candidates = readdirSync(tmpdir())
     .filter(
       (name) =>
         name.startsWith('template-sdk-release-') &&
         !name.startsWith('template-sdk-release-auth-') &&
         !before.has(name),
     )
-    .map((name) => ({ name, mtime: statSync(join(tmpdir(), name)).mtimeMs }))
-    .sort((left, right) => right.mtime - left.mtime)[0]?.name;
-  if (!directory) throw new Error('release snapshot directory not found');
-  return join(tmpdir(), directory, 'release-record.json');
+    .flatMap((name) => {
+      // 系统临时目录可能被并行运行的其它进程共用：候选目录在 readdir 与 stat 之间被清理时
+      // 跳过它，而不是让 ENOENT 盖掉用例真正的结论。
+      const snapshot = join(tmpdir(), name, 'release-record.json');
+      try {
+        return [{ snapshot, mtime: statSync(snapshot).mtimeMs }];
+      } catch {
+        return [];
+      }
+    })
+    .sort((left, right) => right.mtime - left.mtime);
+  if (candidates.length === 0) throw new Error('release snapshot directory not found');
+  return candidates[0]!.snapshot;
 }

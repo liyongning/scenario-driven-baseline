@@ -13,7 +13,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import {
   cleanSource,
   cleanupReleaseRoots,
@@ -35,6 +35,17 @@ import {
 afterEach(() => {
   vi.unstubAllEnvs();
   cleanupReleaseRoots();
+});
+
+/**
+ * 每个用例独占一份 TMPDIR：release 的暂存目录建在系统临时目录下，并行的其它用例文件
+ * （例如 `sdk-release.plan.test.ts`）会创建并清理同类目录；不隔离时按"新增目录"查找快照
+ * 可能读到别人正在删除的目录，`statSync` 抛 ENOENT 盖掉真正的结论。
+ */
+beforeEach(() => {
+  const isolated = mkdtempSync(join(tmpdir(), 'sdk-release-tmp-'));
+  releaseRoots.push(isolated);
+  vi.stubEnv('TMPDIR', isolated);
 });
 
 test('a product build failure blocks publication and leaves no success result', async () => {
