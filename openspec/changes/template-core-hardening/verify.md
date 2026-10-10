@@ -1380,3 +1380,20 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **证据**：`pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` → 2 文件 / 2 用例通过、退出码 0（`SCN-PROTOCOL-CONTRACT-002 protocol-matrix` 4076ms）；`SCN-TEMPLATE-ENGINEERING-008` 的 `empty-declaration-matrix` checkpoint 仍断言同一 inventory 里 `idl.error-contract#business-error#` 恰好 1 条且 `requiredIn=['integration']`，与本条的存在性断言互相印证。
 - **反例**：把 `declaredObligationKeys()` 换成恒真的空数组断言时，即使门禁多派生出一条义务也不会失败；新断言取 `inventory.obligations`，多派生一条即 F`toBeGreaterThan(0)`/`toEqual([])` 失败。
 - **提交**：`fix(template): assert the real derived obligations when the declaration is empty`。
+
+### 第 4 条 · Task 3：开发者工具改写的项目配置让验收报告一跑完就过期
+
+- **根因**：`packages/e2e/host/weapp/project.config.json` 受 git 跟踪，而微信开发者工具打开项目时会改写它（实测删掉末尾换行）。该文件在清单 `fingerprints.sourceRoots` 的 `packages/e2e/host` 覆盖范围内，所以一次完整 `pnpm verify`（内含 weapp 用例）跑完，源码摘要就与报告不一致——演练 `scenarios.log:2899` 记录到 181 条 stale，变化文件正是它（`integration/all-errors is stale … 变化文件（共 1 个）：packages/e2e/host/weapp/project.config.json`）。
+- **改动**：
+  - 仓库只跟踪模板 `packages/e2e/host/weapp/project.config.template.json`，内容与原来的 `project.config.json` 逐字节相同。
+  - 新增 `scripts/lib/weapp-project-config.ts`：`writeProjectConfig(hostDirectory)` 由模板幂等生成 `project.config.json`（先复制再覆盖，开发者工具改写后重跑会还原）。
+  - `.gitignore` 忽略生成物；`scripts/weapp-prepare.ts` 的 `prepareWeapp` 与宿主 Vitest `globalSetup`（`packages/e2e/host/weapp/setup.ts`，供手工 `pnpm test:e2e:weapp` 不经 `weapp:prepare` 时使用）都在启动前生成一次。
+  - `hostProject(root)` 从 `planWeappPrepare` 中抽出，供生成与预热共用（仍按清单里的测试包目录派生，不写死包目录）。
+- **证据**：
+  - 修复前：`git ls-tree 367f7d7 packages/e2e/host/weapp/` 仍列出 `project.config.json`（受跟踪）；`scenarios.log:2899` 的 stale 变化文件为 `packages/e2e/host/weapp/project.config.json`。
+  - `pnpm weapp:prepare` 退出码 0（30.6s，日志 `/tmp/tc4-prepare.log`）；生成物与模板 `diff` 退出码 0；`git status --porcelain packages/e2e/host/weapp/` 不含该文件。
+  - 反例（模拟开发者工具改写）：把生成物末尾换行删掉（270 → 269 字节）后，`git status --porcelain packages/e2e/host/weapp/` 仍只有本条自己的改动，源码清单不再包含该文件，摘要不再可能因它变化。
+  - 单测：`pnpm exec vitest run --project test-tools-unit scripts/lib/weapp-project-config.test.ts` → 1 用例通过、退出码 0（覆盖模板生成与"改写后重新生成"两侧）。
+  - 收尾证据（完整 `pnpm verify --change template-core-hardening` 之后单独再跑 `check:scenarios`、问题数为 0）见本节末尾「最终全量验收」。
+- **偏差**：模板重命名（`git mv`）被并入第 5 条提交 `d893185`（该提交里它是 0 行内容变化的纯重命名）；本条提交只含 `.gitignore`、`scripts/weapp-prepare.ts`、`packages/e2e/host/weapp/setup.ts` 与新增的 `scripts/lib/weapp-project-config.{ts,test.ts}`。
+- **提交**：`fix(template): generate the weapp devtools config from a tracked template`。
