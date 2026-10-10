@@ -218,11 +218,13 @@ export function cliEvidence(
     context: TestContext,
     check: (name: string, assertion: () => void | Promise<void>) => Promise<void>,
   ) => void | Promise<void>,
+  options: Readonly<{ timeoutMs?: number }> = {},
 ) {
   test(
     `${id} ${caseId}`,
     {
-      timeout: 30_000,
+      // 默认 30s；并发重负载下会超出预算的用例（例如 GATE-024 的多次 verify 续跑）可显式提高。
+      timeout: options.timeoutMs ?? 30_000,
       meta: {
         scenarioCase: {
           ownerId: id,
