@@ -141,7 +141,13 @@ export function affectedCommands(
   if (plan.related.length > 0 && unitProjects.length > 0)
     commands.push({
       command: 'vitest',
-      args: ['related', ...plan.related, '--project', ...unitProjects, '--run'],
+      // 每个项目各带一个 `--project`：Vitest 的该选项只接受一个值，空格分隔的其余项目名会被当成路径过滤器。
+      args: [
+        'related',
+        ...plan.related,
+        ...unitProjects.flatMap((name) => ['--project', name]),
+        '--run',
+      ],
       env: {
         VERIFY_RUN_ID: plan.runId,
         TEST_AFFECTED_PARTIAL: '1',

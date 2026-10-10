@@ -384,6 +384,12 @@ evidence(
         expect(related?.args).toContain('--project');
         expect(related?.args).toContain('product-unit');
         expect(related?.args).toContain('test-tools-unit');
+        // 每个 unit 项目必须单独跟在 `--project` 之后：空格分隔的其余项目名会被 Vitest 当成路径过滤器。
+        for (const project of ['product-unit', 'test-tools-unit']) {
+          const index = related?.args.indexOf(project) ?? -1;
+          expect(index).toBeGreaterThan(0);
+          expect(related?.args[index - 1]).toBe('--project');
+        }
         expect(related?.args).not.toContain('--coverage');
         expect(related?.env?.TEST_AFFECTED_PARTIAL).toBe('1');
       });

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cliEvidence } from './scenario-gate-helpers.ts';
 import { createAffectedFixture } from './affected-fixture.ts';
 
@@ -103,6 +105,24 @@ cliEvidence(
               .some((line) => line.includes('vitest related') && line.includes(scriptsSource)),
           )
           .toBe(true);
+        // 行为断言：真实运行按需入口，unit 步骤必须跑出改动文件对应的测试文件，不得无命中退出。
+        const behavior = createAffectedFixture();
+        try {
+          behavior.write(scriptsSource, 'export const sampled = 3;\n');
+          const run = behavior.run([]);
+          context.expect(run.status).toBe(0);
+          context.expect(run.output).not.toContain('No test files found');
+          const runId = /run id (affected-\d{8}T\d{6}Z)/.exec(run.output)?.[1] ?? '';
+          const report = JSON.parse(
+            readFileSync(join(behavior.root, 'artifacts', runId, 'reports', 'unit.json'), 'utf8'),
+          ) as { tests: ReadonlyArray<{ file: string }> };
+          context.expect(report.tests.length).toBeGreaterThan(0);
+          context
+            .expect(report.tests.map((test) => test.file))
+            .toContain('scripts/lib/affected-sample.test.ts');
+        } finally {
+          behavior.cleanup();
+        }
       });
       await check('plan-printed', () => {
         context.expect(result.output).toContain('步骤（');

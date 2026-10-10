@@ -188,12 +188,38 @@ const toolingSpec = [
   '',
 ].join('\n');
 
-/** 替身 vitest：按 VERIFY_REPORT_FILE 写出报告，TEST_AFFECTED_PARTIAL=1 时带 partial 标记。 */
+/**
+ * 替身 vitest：按 VERIFY_REPORT_FILE 写出报告，TEST_AFFECTED_PARTIAL=1 时带 partial 标记。
+ * `related` 模式按 Vitest 的参数语义解析：`--project` 每次只取一个值，其余位置参数是路径过滤器；
+ * 解析出的测试文件由 related 文件推导（同名 `.test.ts`），无命中即打印 Vitest 的 `No test files found`。
+ */
 const vitestStub = [
-  "import { mkdirSync, writeFileSync } from 'node:fs';",
+  "import { existsSync, mkdirSync, writeFileSync } from 'node:fs';",
   "import { dirname } from 'node:path';",
   '',
+  'const args = process.argv.slice(2);',
   'const file = process.env.VERIFY_REPORT_FILE;',
+  'const tests = [];',
+  "if (args[0] === 'related') {",
+  '  const related = [];',
+  '  const filters = [];',
+  '  let sawFlag = false;',
+  '  for (let index = 1; index < args.length; index += 1) {',
+  '    const arg = args[index];',
+  "    if (arg === '--project') {",
+  '      index += 1;',
+  '      sawFlag = true;',
+  "    } else if (arg.startsWith('-')) sawFlag = true;",
+  '    else if (sawFlag) filters.push(arg);',
+  '    else related.push(arg);',
+  '  }',
+  '  for (const source of related) {',
+  "    const candidate = source.replace(/\\.ts$/, '.test.ts');",
+  '    if (existsSync(candidate) && filters.every((filter) => candidate.includes(filter)))',
+  "      tests.push({ file: candidate, fullName: candidate, status: 'passed', assertions: 1 });",
+  '  }',
+  "  if (tests.length === 0) process.stdout.write('No test files found, exiting with code 0\\n');",
+  '}',
   'if (file) {',
   '  mkdirSync(dirname(file), { recursive: true });',
   '  writeFileSync(',
@@ -205,7 +231,7 @@ const vitestStub = [
   "      protocolDigest: 'stub',",
   "      fixtureDigest: 'stub',",
   "      ...(process.env.TEST_AFFECTED_PARTIAL === '1' ? { partial: true } : {}),",
-  '      tests: [],',
+  '      tests,',
   '    }),',
   '  );',
   '}',
