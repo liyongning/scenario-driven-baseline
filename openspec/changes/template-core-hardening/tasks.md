@@ -342,7 +342,7 @@
   **Commit**
   - `feat(template): add affected-scenario test selection with partial reports`
 
-- [x] 10. 协议义务以消费接口声明派生与注释门禁按入口发现
+- [ ] 10. 协议义务以消费接口声明派生与注释门禁按入口发现
 
   **Files**
   - Create：`packages/sdk/src/consumed-operations.ts`（导出 `consumedOperations`，元素为 `{ method, requestFields }`，数组显式标注元素类型；示例条目所依赖的 import 语句与条目一起放在 `template-example` 标记内；示例的 `CreateTrade`、`QueryTrade` 条目及其 `requestFields`（自 `contract-inventory.ts` 的 `requestPolicies` 原样迁入）用 `// template-example:begin/end` 包裹）及单测（标记外只断言每个元素的 `method` 都是 generated 方法描述；"恰好是 CreateTrade、QueryTrade"的示例断言及 SCN-TEMPLATE-EXAMPLE-012 的证据绑定在标记内）；清单 product 包登记 `consumedOperations`。
@@ -582,7 +582,7 @@
   **Commit**
   - `docs(template): add architecture document and revise the template guide`
 
-- [x] 17. 示例删除验证
+- [ ] 17. 示例删除验证
 
   **Files**
   - Create：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 及 Fixture：复用任务 5 的仓库副本 helper（`git ls-files -co --exclude-standard` 复制、`git init` 并提交、在副本中 `pnpm install --offline --frozen-lockfile` 且断言 `@daqian/template-sdk` 的 realpath 位于副本内、以固定版本 OpenSpec CLI 归档作用域内（`SCENARIO_GATE_CHANGES=template-core-hardening`）的 active Change 并移除其余 active Change、归档后清除 `SCENARIO_GATE_CHANGES`、`TEMPLATE_COPY=1`），再按白名单删除整目录、整文件、全部 `template-example` 标记片段与对应 `coverageExclusions` 条目，运行 `check:fast` 与 `check:scenarios --inventory`。
