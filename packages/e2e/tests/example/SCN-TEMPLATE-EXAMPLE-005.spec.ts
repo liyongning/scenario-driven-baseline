@@ -37,17 +37,21 @@ defineCase(
       'window-and-timeout',
       {
         QueryTrade: {
-          expectedRequests: Array.from({ length: 10 }, () => ({ recordOnly: true })),
-          steps: [{ ...pending, delayMs: 100 }, ...Array.from({ length: 9 }, () => pending)],
+          // 步骤数必须覆盖窗口内可能发出的全部请求：超出 expectedRequests 的请求会被 Shadow 判为
+          // unexpected request（409），所以这里按上限留足（每轮至少间隔 intervalMs，窗口内不超过 ~11 次）。
+          expectedRequests: Array.from({ length: 24 }, () => ({ recordOnly: true })),
+          steps: [{ ...pending, delayMs: 500 }, ...Array.from({ length: 23 }, () => pending)],
         },
       },
       environmentClass,
     );
     restore = installWx();
+    // 窗口远大于"单次超时 + 间隔"（1500ms 对 200ms + 150ms）：计时抖动或 CPU 争用不会把轮询
+    // 压到窗口结束前只发出一次请求；语义仍是"单次超时只结束该次请求、窗口内继续查询"。
     const result = await exampleClient(server.url, {
-      requestTimeoutMs: 50,
-      intervalMs: 30,
-      windowMs: 140,
+      requestTimeoutMs: 200,
+      intervalMs: 150,
+      windowMs: 1_500,
     }).observe({ id: 'resource-005', externalRef: 'example-005' });
     await checkpoint('request-timeout-local', () =>
       expect(server!.records().length).toBeGreaterThanOrEqual(2),
