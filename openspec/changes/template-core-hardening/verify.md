@@ -1304,7 +1304,10 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 001：探针路径改为用例在临时根里自造（`mkdtempSync` + `git init` + 写入 `openspec/changes/probe-change/tasks.md`），不再引用主仓库某个 active Change 的路径。
   - 008：`copy: archive scoped change` 只在 `git status --porcelain` 非空时才提交；`assertCopyConstruction` 改为「作用域为空时跳过归档断言，只断言副本中没有 active Change」；作用域非空时行为不变。
   - `SCN-SCENARIO-GATE-026` 等其它使用仓库副本 helper 的用例逐条核对：只断言「作用域内 Change 不在 active 目录」，作用域为空时天然成立，无需改动。
-- **证据（无作用域全绿）**：临时脚本 `/tmp/tcfix-item1-evidence.mts` 走 `createRepositoryCopy` 构造副本、归档本 Change、清空 `SCENARIO_GATE_CHANGES`，再跑一次全量 `test:integration` → `/tmp/tcfix-item1-evidence.log`：副本 `active changes: []`、`TEMPLATE_COPY=1`、`SCENARIO_GATE_CHANGES: undefined`、`build exit: 0`、`test:integration` 50 文件 / 104 用例全绿（22.45s，exit 0）；5 个 `TEMPLATE_COPY` 排除项（ENGINEERING-001、ENGINEERING-007、GATE-026、ENGINEERING-008、EXAMPLE-008）均 `present in output: false`。
+- **证据（副本内 `test:integration` 全绿）**：临时脚本 `/tmp/tcfix-item1-evidence.mts` 走 `createRepositoryCopy` 构造副本，再跑一次全量 `test:integration`。两次运行的 `copyEnvironment()` 都设 `TEMPLATE_COPY=1` 并清空副本内的 `SCENARIO_GATE_CHANGES`，差别只在宿主有没有作用域：
+  - **A. 作用域为空**（宿主未设 `SCENARIO_GATE_CHANGES`，脚本打印 `scope from env: []`）：副本里没有可归档的作用域，本 Change 按 helper 规则被**直接移出副本（不是归档）**，主 Spec 不含本 Change 的 delta。结果：`active changes: []`、`TEMPLATE_COPY=1`、`SCENARIO_GATE_CHANGES: undefined`、`build exit: 0`、`test:integration` 50 文件 / 104 用例全绿（22.55s，exit 0）；5 个 `TEMPLATE_COPY` 排除项（ENGINEERING-001、ENGINEERING-007、GATE-026、ENGINEERING-008、EXAMPLE-008）都 `present in output: false`——也就是这一轮里 ENG-001、ENG-008 等**没有真实执行**。日志 `/tmp/fcr-item1-evidence.log`。
+  - **B. 作用域非空**（宿主设 `SCENARIO_GATE_CHANGES=template-core-hardening`，脚本打印 `scope from env: [ 'template-core-hardening' ]`）：副本里走真实归档，主 Spec 合入本 Change 的 delta；其余与 A 相同（同样 `TEMPLATE_COPY=1`，5 个排除项都没执行）。日志 `/tmp/tcfix-item1-evidence.log`。
+  - 两次都只覆盖 `test:integration`，都没有让被排除的副本用例真实执行。「真实归档 + 不带作用域 + 不设 `TEMPLATE_COPY`」的 `check:fast` 全绿证据见「第二轮修复」第 7 条。
 - **反例**：修复前同一场景在演练副本里 008 两条 case 全失败、001 `package-boundaries` 失败（`drill-17-tools/verify-2.log:402-445`，`Test Files 2 failed | 41 passed`）。
 - **提交**：`fix(template): construct copy probes without an active change`。
 
@@ -1522,6 +1525,119 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - `pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts scripts/test-affected.evidence.test.ts` → 2 文件 / 17 用例通过、退出码 **0**（`/tmp/fcr-affected-unit.log`）。
 - **反例（修复前）**：`pnpm lint` 退出码 1（副本日志 `/tmp/s008-probe-2.log`：`scripts/test-affected.test.ts 719 > 600`、`scripts/test-affected.ts 334 > 300`、`'_prepare' is assigned a value but never used`）；`pnpm test:unit` 退出码 1（`ERROR: Coverage for statements (99.97%)` / `branches (99.81%)`，未覆盖 `scripts/test-affected.ts:166,230,367` 与 `scripts/lib/affected-analysis.ts:39`，日志 `/tmp/fcr-coverage-before.log`）。
 
+## 第二轮修复（示例删除演练第二轮 + 修复复核）
+
+> 背景：第二轮示例删除演练（证据目录 `scratchpad/drill-17b-tools/`、副本 `drill-17b/repo`，本轮只读引用）确认第一轮暴露的 4 个缺陷都没有再出现、weapp 两个文件首跑即通过；同时复核提出 F1–F6 与演练猜测 1/2/4。用户裁决规划修订 A3，并追加「A3 白名单与 Scenario ID 检查」口径。本节按复核清单第 0–8 条逐条登记根因、改动、证据（命令 / 退出码 / 日志路径）与反例。
+
+### 第 0 条 · A3 规划修订与实施（T17 自动化 + 指南 / 门禁）
+
+- **根因**：`SCN-TEMPLATE-ENGINEERING-008` 证明的是"删除模板示例后门禁仍全绿"，但它在示例被真正删除后**必然失败**——`assertWhitelistOnly` 要求副本里还有可删目录、`matrixKeys.length > 0`；对使用方又是长期开销。用户裁决把它移入 `template-example` 的 EX-10，随示例一起删除；ENG-06 保留删除保证与副本构造规定，SCN-026 改为引用 ENG-06 的副本规定。
+- **规划修订（单独提交）**：`51516cd docs(openspec): move example-removal proof into template-example by user decision`，含 `design.md`、`plan-review.md`、`specs/scenario-gate/spec.md`、`specs/template-engineering/spec.md`、`specs/template-example/spec.md`、`tasks.md` 共 6 个文件；`freshness=PASS`（digest `39e9fbf6…`）。
+- **改动 a~f**：
+  - a) 指南删除白名单补齐 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 与 `packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`：`docs/template-guide.md`、`scripts/check-architecture.ts` 的 `exampleWhitelistEntries`、`packages/e2e/tests/tooling/helpers.ts` 的 `writeTemplateGuideFixture`、`scripts/check-architecture.test.ts` 的指南夹具。
+  - b) `packages/e2e/vitest.config.integration.ts` 的 `copyCreatingSpecs` 中 ENGINEERING-008 与 EXAMPLE-008 条目、`include` 的 `tests/example/` 部分用 `// template-example:begin` / `// template-example:end` 包裹——示例在时与删除后，A2 的期望集合推导都成立。
+  - c) `scripts/lib/dependency-rules.cjs` 注释去掉 `testing/shadow/example/`，改为与示例无关的表述或加标记。
+  - d) SCN-008 自证：`assertWhitelistOnly` 追加"白名单路径在副本中都已不存在""集成配置不再引用已删除用例与示例目录"；`no-recursive-copy` 改为由 `copyCreatingSpecs` 派生（仍存在的排除条目都在配置里、自身已不在）。
+  - e) SCN-006 白名单完整性反例同步：删掉指南里 `openspec/specs/template-example/` 后必须报缺失。
+  - f) `SCN-SCENARIO-GATE-026` 与 `SCN-TEMPLATE-ENGINEERING-008` 的 Fixture 来源摘要按新 Requirement 正文刷新（3 份 JSON）。
+- **追加裁决（Scenario ID 检查口径）**：
+  - `scripts/check-architecture.ts` 的 `extractScenarioIds` 收窄为"只看 ID 后面的字符"：后随 `.` 或 `/` 时视为文件名 / 目录名的一部分，不算 Scenario 引用；`.../SCN-X-001` 位于路径末尾（后随反引号、空格、行尾或中文标点）仍按引用检查。
+  - 反例单测 6 条：`SCN-SAMPLE-998` / `997`（路径内，不报）、`996`（路径末尾，报）、`995。`（中文标点，报）、`994 的引用`（空格，报）、`993` / `992`（行尾 / 文末，报）。`check-architecture.test.ts` 第 42、189 行的"应无问题"夹具按新口径自然恢复，未放宽任何断言。
+  - 指南能力地图"模板示例解耦与删除白名单"行整块用 `template-example` 标记包裹；Markdown 表格不能在行间插注释，因此这一行单独成一块表，随示例一起删除。
+  - **实施中自己引入的回归**：把 SCN-008 的用例与 Fixture 加进 `removal.files` 后，`assertWhitelistOnly` 原有的 `for (const file of removal.files) expect(value.coverageExcluded).toContain(file)` 必然失败——它把"白名单里的每个文件都必须出现在 `coverageExclusions` 里"当成事实，而这只在 `removal.files` 恰好等于 `example-runner.ts`（唯一同时被覆盖排除的白名单文件）时成立。按 Spec「同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目」改为派生断言：期望集合 = 清单原有排除项中位于删除面下者，多一条、少一条都失败。
+- **证据**：
+  - `pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm check:architecture`、`pnpm check:fixtures` 全部退出码 0（`/tmp/tch2/gates1.log`；`check:architecture` 输出 `{"issues":[]}`，`check:fixtures` 输出 `{"manifests":19,"issues":[]}`）。
+  - `pnpm test:unit` 退出码 0，65 文件 / 377 用例；`pnpm check:coverage` 退出码 0（`/tmp/tch2/unit1.log`）。
+  - 副本 `check:fast` 退出码 0（`/tmp/tch2/scope-evidence.log`，详见第 7 条）。
+- **反例**：改完 a~f 但未修覆盖率断言时，副本 `check:fast` 退出码 **1**：SCN-008 两条 case 都在 `assertWhitelistOnly` 失败（`Test Files 1 failed | 54 passed`、`Tests 2 failed | 117 passed`、`check:fast exit: 1`）；失败副本保留在 `/var/folders/4f/q224nvmj26z8z7tnv1cs5tm00000gn/T/tch2-scope-HPF9MM`，摘录 `/tmp/tch2/scope-evidence-fail-excerpt.log`。修好断言后同一条命令退出码 0。
+- **提交**：`51516cd`（规划）、`97e8d73`（实现）、`c4d456f`（补救）。
+- **提交过程的偏离**：第 0 条与第 2 条落在同一个文件上，拆提交时 `29c1fe1` 误把"仅含第 2 条 hunk"的版本写回该文件，覆盖掉第 0 条 d) 的新增断言；随后用 `c4d456f fix(template): restore the example-removal proof dropped by the previous commit` 把文件复原到第 0 条版本。为遵守"不改写已有提交历史"，选择向前补提交而不是 amend；最终文件与拆分前逐字节一致（`diff -q` 通过）。
+
+### 第 1 条 · T9：被选中的 unit 文件与 `vitest related` 共用报告名（复核 F1）
+
+- **根因**：`scripts/lib/affected-commands.ts` 里 `vitest related` 与被选中的 unit 类文件都写 `artifacts/<run-id>/reports/unit.json`，后写的覆盖先写的；related 选中了改动文件却一个用例都没跑时，被覆盖的报告让 `affectedReportIssues` 读到非 0，漏报（靠 `passWithNoTests` 兜底）。实测路径：改 `packages/protocol/testing/shadow/server.ts` 后 related 无命中，unit 报告被逐文件运行覆盖。
+- **改动**：被选中的 unit 文件改写到独立报告 `unit-files`；`related` 仍写 `unit`，核对只读 `unit` 这一步的真实结果；`scripts/test-affected.test.ts` 把"unit 类项目的报告名合并为 unit"换成"related 与被选中的 unit 文件各写一份报告，不互相覆盖"的组合单测。
+- **证据**：`pnpm test:unit` 退出码 0（65 文件 / 377 用例，`/tmp/tch2/unit1.log`）；全量 `pnpm verify` 三步全绿（见「第二轮完成标准复验」）。
+- **反例**：新单测同时构造 `related` 与非空 unit 文件列表，断言两者 `VERIFY_REPORT_FILE` 分别是 `unit.json` 与 `unit-files.json`；改动前两者都是 `unit.json`，断言不成立（单测在改动前为红）。
+- **提交**：`a1f0d8a fix(template): give selected unit files their own report name`。
+
+### 第 2 条 · T17：SCN-008 内层 `check:fast` 失败被 ENOENT 掩盖（复核 F4）
+
+- **根因**：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 的 `runRemoval` 里，`fast`（`pnpm check:fast`）的状态从未被检查，紧接着无条件跑 `probeSharedBindingBreak(copy)`；探针读 `artifacts/<run-id>/reports/integration.json`——内层 `check:fast` 失败时这份报告根本不存在，于是抛出 `ENOENT`，把真正的失败原因（`fast.status`）盖掉，且证据里的 `fastStatus` 与 `fastOutput` 也没落盘。
+- **改动**：`fast.status !== 0` 时先把整段输出写进日志（`t17-copy-check-fast.log`）再抛错，探针移到这之后；清单模式输出解析失败时也带上日志路径与 `cause`。内层失败现在一定以"退出码 + 日志路径"呈现。
+- **证据**：`pnpm test:unit` / `pnpm typecheck` 退出码 0（`/tmp/tch2/gates1.log`、`/tmp/tch2/unit1.log`）；第 7 条的副本 `check:fast` 退出码 0 即该用例真实跑通的证据（`/tmp/tch2/scope-evidence.log` 中 `SCN-TEMPLATE-ENGINEERING-008` 出现在执行清单里）。内层日志路径 `/var/folders/4f/.../T/t17-copy-check-fast.log`。
+- **反例（构造性）**：修复前的代码顺序可由 `git show 0b64cdb~1:packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 复现——`const fast = run(...)` 之后直接 `const probe = probeSharedBindingBreak(copy)`，中间没有状态判断与落盘；把副本内任意门禁改成失败即可看到抛出的错误是 `ENOENT ... reports/integration.json` 而不是 `check:fast` 的真实输出。第一轮演练未触发这一路径（那一轮 `git commit` 在更早处就抛错了，见 `drill-17-tools/verify-2.log`）。
+- **提交**：`29c1fe1 fix(template): log the copy fast-gate output before probing reports`。
+
+### 第 3 条 · weapp 就绪探测加超时（复核 F6）
+
+- **根因**：`scripts/weapp-prepare.ts` 的就绪探测只有单次尝试超时与次数上限，没有总预算；`automator.launch`（`miniprogram-automator`）与 `checkVersion`（内部 `Tool.getInfo`）都可能**一直不返回**，只有次数上限时整体会挂死。
+- **改动**：新增 `withTimeout` 与总预算 `totalTimeoutMs: 180_000`；每次尝试的超时取 `min(attemptTimeoutMs, 剩余预算)`，预算耗尽即明确失败（错误信息含预算与最后一次错误），`launch` 后无论成败都 `disconnect`。
+- **证据**：`pnpm typecheck`、`pnpm lint` 退出码 0（`/tmp/tch2/gates1.log`）；全量 `pnpm verify` 的 `test:e2e:weapp` 步骤退出码 0（见下），即真实环境里探测按新逻辑就绪并跑完 5 个 weapp 文件。
+- **反例**：`planWeappPrepare` 的预算由单测固定断言（`attemptTimeoutMs` / `intervalMs` / `attemptCount` / 新增 `totalTimeoutMs`），超出预算时的失败文案为 `微信开发者工具在 180000ms 预算内未就绪`，与"只依赖固定 sleep"的行为区分开。
+- **提交**：`5aa842d fix(template): bound the weapp prepare readiness probe`。
+
+### 第 4 条 · T5：`test-affected.evidence.test.ts` 读真实仓库清单（复核 F2）
+
+- **根因**：`scripts/test-affected.evidence.test.ts` 的 `full-run-triggers` 用 `loadProjectManifest(process.cwd())` 读**真实仓库**的清单与路径（`packages/protocol/src/adapters/network/wechat.ts`、`packages/e2e/host/weapp/app.js`、`packages/sdk/src/runtime/default.ts`），删除示例或改仓库布局就会失效；而且它没有列进 SCN-026 的 concrete-assertions 扫描范围，断了也没人拦。
+- **改动**：改用受控根 `createAffectedFixture()` 自带的清单与示例路径（`packages/sample-product/src/core.ts`）；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts` 的 `sources` 清单加入 `scripts/test-affected.evidence.test.ts`。
+- **证据**：`pnpm test:unit` 退出码 0（`/tmp/tch2/unit1.log`）；`pnpm check:architecture` 退出码 0（`/tmp/tch2/gates1.log`）；`SCN-SCENARIO-GATE-026` 在副本与全量 verify 中均通过。
+- **反例**：把该用例的 `loadProjectManifest` 换回 `process.cwd()` 或从 `sources` 清单里去掉它，SCN-026 的 concrete-assertions 检查会失败（该用例正是"不许依赖仓库根真实文件、必须出现在扫描清单里"的守卫）。
+- **提交**：`97099a4 fix(template): read the affected evidence manifest from a controlled root`。
+
+### 第 5 条 · `GATE-024` 副本超时 30s → 60s
+
+- **根因**：`SCN-SCENARIO-GATE-024`（verify-resume-cli）在演练的全量并发下实测 28.66s，逼近 `cliEvidence` 的默认 30s 超时，演练中有一次超时失败——与用例语义无关的计时抖动。
+- **改动**：`packages/e2e/tests/tooling/scenario-gate-helpers.ts` 的 `cliEvidence` 支持 `{ timeoutMs }`（默认仍是 30s）；GATE-024 显式传 `60_000`。按已授权规则（副本 / 重负载用例可补显式超时）执行。
+- **证据**：`pnpm test:unit`、`pnpm typecheck` 退出码 0（`/tmp/tch2/unit1.log`、`/tmp/tch2/gates1.log`）；全量 `pnpm verify` 的 `test:integration` 中 GATE-024 通过（`/tmp/tch2/verify-round2.log`）。
+- **反例**：其余 `cliEvidence` 用例不传 `timeoutMs`，超时仍为 30s；只有 GATE-024 放宽，未整体放宽。
+- **提交**：`0b64cdb fix(template): raise the verify-resume evidence timeout to 60s`。
+
+### 第 6 条 · 指南五处修订
+
+- **根因 / 改动**（`docs/template-guide.md`）：
+  1. 原文把"未跟踪 / 已删除未暂存的文件不会进入报告"当成不 add 就不更新的理由，与实际行为不符：源码清单取自 `git ls-files -co --exclude-standard`，未跟踪的新文件**会**进入清单，而工作区里已删除但尚未暂存删除的文件会在读取前被剔除。照实改写。
+  2. 删除片段后会留下空行与折行差异：补上"先运行 `pnpm format`"。
+  3. 演练猜测 4：补写 `pnpm verify --from test:e2e:<项目名> --run-id <run-id>` 的续跑方式（在平台步骤中断后补齐平台与门禁证据）。
+  4. "移除模板示例"一节写明清单模式下哪些问题属于预期：`requiredIn` 含平台项目的用例会报 `missing binding`，副本里预期存在、不代表删除有问题。
+  5. "全仓库所有成对标记"只包括注释行；字符串字面量与 Spec 正文里的同名文字不算标记，也不参与裁剪。
+- **证据**：`pnpm format:check`、`pnpm lint` 退出码 0（`/tmp/tch2/gates1.log`）；`pnpm check:architecture` 退出码 0（ENG-006 的 `guide-facts-consistent` 仍通过，说明改写后的行内命令与清单字段引用都合法）。
+- **反例**：改动前第 1 条的理由与源码清单实现相矛盾（`scripts/lib/source-inventory.ts` 的 `git ls-files -co` 与"剔除已删除路径"两步）；第 3 条的 `--from` 续跑在第 1 轮演练里是"指南已覆盖但未读到"的猜测项（第二轮复核 F5 直接判为错误）。
+- **提交**：`f2828b0 fix(template): correct the guide's example-removal instructions`。
+
+### 第 7 条 · 第 1 条无作用域证据照实改写 + 新证据（复核 F3）
+
+- **根因**：上一轮 verify.md 把"无作用域证据"写成"副本已归档本 Change"，实际是作用域为空、本 Change 被 helper **直接移出**（不是归档），并且设了 `TEMPLATE_COPY=1`、ENG-001 与 ENG-008 都被排除；两处日志路径也不一致。
+- **改动**：照实改写「Final Code Review 与演练修复」与「无作用域证据」两处描述（作用域为空 = 直接移出、`TEMPLATE_COPY=1`、5 个排除项都没执行），并明确这一步**不**证明"真实归档后的副本仍全绿"。
+- **新证据（真实归档、不带作用域、不设 `TEMPLATE_COPY`）**：
+  - **脚本**：`/tmp/tch2/scope-evidence.mts`（宿主先设 `SCENARIO_GATE_CHANGES=template-core-hardening` 让 `createRepositoryCopy` 走真实归档；跑副本门禁前删除副本环境里的 `TEMPLATE_COPY` 与 `SCENARIO_GATE_CHANGES`，并清掉宿主进程自己的作用域）。
+  - **命令**：`pnpm exec tsx /tmp/tch2/scope-evidence.mts`；**退出码 0**（日志 `/tmp/tch2/scope-evidence.log`）。
+  - **副本状态**：`copy root: /var/folders/4f/q224nvmj26z8z7tnv1cs5tm00000gn/T/tch2-scope-wlRdos`；`active changes in copy: []`；`archived changes in copy: ["2026-09-22-headless-payment-sdk","2026-09-30-template-example","2026-10-02-generalize-template","2026-10-02-remove-payment-business","2026-10-10-template-core-hardening"]`——本 Change 是**真实归档**；`main spec registers SCN-TEMPLATE-ENGINEERING-008: false`（已随 A3 移出 template-engineering）；`TEMPLATE_COPY: undefined SCENARIO_GATE_CHANGES: undefined`。
+  - **结果**：副本 `pnpm check:fast` **退出码 0**；`test:unit` 65 文件 / 377 用例全绿；`test:integration` **55 文件 / 119 用例全绿**；5 个曾经被 `TEMPLATE_COPY` 排除的用例（`SCN-TEMPLATE-ENGINEERING-001`、`-007`、`SCN-SCENARIO-GATE-026`、`SCN-TEMPLATE-ENGINEERING-008`、`SCN-TEMPLATE-EXAMPLE-008`）**都真实执行**（`present in output: true`）。
+- **反例**：修复前同一条命令退出码 1（见第 0 条反例：SCN-008 在 `assertWhitelistOnly` 失败，`Test Files 1 failed | 54 passed`）。
+- **提交**：并入「第二轮修复」的 verify.md 提交（`docs(openspec): record the second-round fixes in verify.md`）。
+
+### 第 8 条 · 只登记：主 Spec 里描述示例的句子删除后过时（不修）
+
+- **登记为已知限制，交给后续 Change**：删除示例后，以下主 Spec 文字会变成对不存在的实现的描述——
+  - `template-engineering` 的覆盖率排除说明里"四项含 `example-runner.ts`"；
+  - `protocol-contract` 的 `discoverExampleRoutes`；
+  - `scenario-gate` 中的 `SCN-TEMPLATE-EXAMPLE-012` 等示例条目。
+- **为什么不修**：这些是主 Spec（`openspec/specs/**`）的正文语义，改它属于规划语义变更，超出本轮"修复实现"的授权；按 A3 的口径，示例删除的验收证据已移入 `template-example`，这些句子的清理应随示例正式移除的那个 Change 一起做。
+- **证据**：`rg -n 'example-runner|discoverExampleRoutes|SCN-TEMPLATE-EXAMPLE-012' openspec/specs/`（本轮只读取，未改动 `openspec/specs/**`；`git status` 中该目录无改动）。
+- **提交**：并入「第二轮修复」的 verify.md 提交。
+
+### 第二轮完成标准复验（复核清单第三节）
+
+- **全量验收入口**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id feat-template-core-hardening-20261010T060456Z`
+  - **退出码 0**（日志 `/tmp/tch2/verify-round2.log`；文件末尾三行即三步结论）。
+  - 三步：`check:fast` **通过（165342ms）**、`test:e2e:weapp` **通过（479035ms）**、`check:scenarios` **通过（1494ms）**，退出码均为 0。
+  - 报告目录：`artifacts/feat-template-core-hardening-20261010T060456Z/`（`reports/unit.json`、`reports/integration.json`、`reports/weapp/`、`coverage/`）。
+  - **weapp 逐文件（5 个文件，每个文件前都真实执行一次 `pnpm weapp:prepare`）：`SCN-PROTOCOL-CONTRACT-002`（9288ms）、`SCN-PROTOCOL-CONTRACT-008`（9441ms）首跑即过；`FLOW-TEMPLATE-EXAMPLE-001`（9554ms）、`SCN-TEMPLATE-EXAMPLE-002`（9512ms）首跑即过；`SCN-TEMPLATE-EXAMPLE-004` 首跑在 120000ms 用例超时失败（`Test timed out in 120000ms`），按 `packages/e2e/AGENTS.md` 的逐文件规则重新 `weapp:prepare` 后整文件重跑，10.03s 通过（该文件 `weapp:prepare` 共执行 2 次，本步合计 6 次）。属于已记录的"小程序自动化冷启动不稳定"已知限制，未使用 `-t`。
+- **独立 `check:scenarios`**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=feat-template-core-hardening-20261010T060456Z pnpm check:scenarios` → **退出码 0**、`mode: complete`、`issues: 0`（日志 `/tmp/tch2/check-scenarios-round2.log`）；覆盖汇总 `allSpec required 61 / executed 61 / passed 61`、`protocol required 639 / executed 639 / passed 639`、`flows 2/2/2`。这一步在完整 verify 之后单独跑、问题数为 0，说明报告没有因为开发者工具改写受跟踪文件而过期（第 4 条目标达成）。
+- **第 7 条要求的无作用域证据**：见本节第 7 条（真实归档、不带作用域、不设 `TEMPLATE_COPY` 的副本 `check:fast` 退出码 0，ENG-001 等 5 个用例真实执行）。
+- **任务勾选**：本轮受影响的 Task 先取消勾选（`dd27f4b`），修复与复验通过后重新勾选（`docs(openspec): recheck tasks after the second-round fixes`）；Task 17、18 按交接要求保持未勾选。
+
 ## 完成标准复验
 
 修复清单第三节要求三份收尾证据：全部修复后的全量 `pnpm verify --change template-core-hardening`（新 run id、各步退出码为 0）、之后再单独跑一次 `check:scenarios`（问题数为 0），以及清单第 1 条要求的无作用域证据。以下按顺序登记。
@@ -1545,8 +1661,8 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 
 ### 无作用域证据（清单第 1 条要求）
 
-- **脚本**：`/tmp/tcfix-item1-evidence.mts`（复用 `packages/e2e/tests/tooling/repository-copy.ts` 的 `createRepositoryCopy`，副本内已归档本 Change、`delete env.SCENARIO_GATE_CHANGES`、`TEMPLATE_COPY=1`）。
-- **命令**：`pnpm exec tsx /tmp/tcfix-item1-evidence.mts`（宿主环境未设 `SCENARIO_GATE_CHANGES`，`scope from env: []`）。
+- **脚本**：`/tmp/tcfix-item1-evidence.mts`（复用 `packages/e2e/tests/tooling/repository-copy.ts` 的 `createRepositoryCopy`；宿主未设 `SCENARIO_GATE_CHANGES`，所以 `scopedChangeNames()` 为空，副本里本 Change **没有归档、而是被直接移出**，主 Spec 不含本 Change 的 delta；`copyEnvironment()` 设 `TEMPLATE_COPY=1` 并清空副本内作用域）。
+- **命令**：`pnpm exec tsx /tmp/tcfix-item1-evidence.mts`（`scope from env: []`）。
 - **结果**：副本 `active changes in copy: []`；`TEMPLATE_COPY: 1`、`SCENARIO_GATE_CHANGES: undefined`；`pnpm build` 退出码 **0**；`pnpm test:integration` → **50 文件 / 104 用例全部通过**、退出码 **0**（日志 `/tmp/fcr-item1-evidence.log`）。
-- **排除项核对**：`SCN-TEMPLATE-ENGINEERING-001`、`SCN-TEMPLATE-ENGINEERING-007`、`SCN-SCENARIO-GATE-026`、`SCN-TEMPLATE-ENGINEERING-008`、`SCN-TEMPLATE-EXAMPLE-008` 均**未出现**在输出中，即只被 `TEMPLATE_COPY` 规则排除，其余用例全绿。
-- **对应修复**：第 1 条把 `SCN-TEMPLATE-ENGINEERING-001.spec.ts` 里写死的本 Change `tasks.md` 路径改为用例自建的临时根，并让 `SCN-008` 的 `assertCopyConstruction` 在作用域为空时跳过归档、断言副本无 active Change 后继续；本条证据证明作用域为空时不再出现「无内容可提交的归档」失败。
+- **排除项核对**：`SCN-TEMPLATE-ENGINEERING-001`、`SCN-TEMPLATE-ENGINEERING-007`、`SCN-SCENARIO-GATE-026`、`SCN-TEMPLATE-ENGINEERING-008`、`SCN-TEMPLATE-EXAMPLE-008` 均**未出现**在输出中——它们被 `TEMPLATE_COPY` 规则排除，**没有执行**；其余用例全绿。
+- **这一步证明什么、不证明什么**：证明作用域为空时副本不再出现「无内容可提交的归档」失败（第 1 条修复）。不证明「真实归档后的副本仍全绿」，也不覆盖被排除的用例（ENG-001、ENG-008 等）：这两点由「第二轮修复」第 7 条的证据补上（真实归档、不带作用域、不设 `TEMPLATE_COPY`，ENG-001 等确实执行）。
