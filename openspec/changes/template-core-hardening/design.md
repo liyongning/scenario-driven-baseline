@@ -491,7 +491,7 @@ module 类证据（手写 `annotate`）适用同一规则。
 
 **验收**：分两层。
 
-- 自动化（SCN-TEMPLATE-ENGINEERING-008）：在临时副本中按白名单删除后，`check:fast` 通过，场景门禁清单模式（`--inventory`）问题数为 0。临时副本中无法运行小程序，所以这一层不要求平台报告。副本的构造方式：
+- 自动化（SCN-TEMPLATE-ENGINEERING-008）：在临时副本中按白名单删除后，`check:fast` 通过，场景门禁清单模式（`--inventory`）除"被 `TEMPLATE_COPY=1` 排除的会创建副本的用例"与平台项目的缺失绑定外，问题数为 0。临时副本中无法运行小程序，所以这一层不要求平台报告。门禁的绑定来自运行报告：被排除的用例在副本里没有报告；平台项目（清单 `class` 为 `platform`，例如 weapp）在副本中也不运行。所以门禁必然报这两类缺失绑定。断言要求问题集合恰好等于由根 `vitest.config.ts` 排除列表与清单平台项目推导出的这些缺失项，不手写名单，多一条或少一条都算失败（Apply 期间用户裁决修订，2026-10-10）。副本的构造方式：
   - 用 `git ls-files -co --exclude-standard` 复制当前工作区，`git init` 并做一次提交，然后在副本中执行 `pnpm install --offline --frozen-lockfile`，从本机 pnpm store 安装依赖。各包 `node_modules` 中的 workspace 链接因此指向副本内的包目录，而不是原仓库；`copy-construction` 断言副本中 `@daqian/template-sdk` 的 realpath 位于副本内。不采用链接原仓库 `node_modules` 的方式：pnpm 的 workspace 链接会解析回原仓库，副本里测的就不是删除后的代码；
   - 模拟"当前 Change 已交付"的模板状态：对作用域内的 active Change（`SCENARIO_GATE_CHANGES` 所列，未设置时为空）执行 `openspec archive <name> -y`，其余 active Change 的目录直接从副本中移除（它们是尚未交付的后续工作，例如 `template-web-absorption`）。不这样做，本 Change 自带的 `template-example` delta 会在示例删除后变成悬空修改；
   - 归档完成后，副本内的运行环境清除 `SCENARIO_GATE_CHANGES`：被归档的 Change 已不在 active 目录，变量继续生效会触发"Change 不存在"错误；

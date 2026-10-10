@@ -12,8 +12,8 @@
 
 - Reviewed input paths: proposal.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, specs/template-example/spec.md, design.md, tasks.md
 - Canonicalization version: 1
-- Reviewed digest: 14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1
-- Current digest: 14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1
+- Reviewed digest: 4d72484291f3f8493ec8f3932d68e13aa740dcbdcb27a3d5605147e2199523bd
+- Current digest: 4d72484291f3f8493ec8f3932d68e13aa740dcbdcb27a3d5605147e2199523bd
 
 ## Review Summary
 
@@ -61,6 +61,7 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | R4-I1 | Important | protocol-contract PC-01、PC-01/SCN-002 矩阵、ENG-06/SCN-008；design 协议义务 | "声明为空时义务清单为空"与"错误码义务来自 `businessErrors`"冲突，删除副本中必然失败 | 用户裁决"修正后由用户认可通过"；统一改为"按消费接口派生的义务为空"，写明业务错误码义务不受影响；用户确认 diff | resolved |
 | R4-I2 | Important | design 技术架构文档、ENG-10、任务 16 | 架构文档演进记录链接到 Change 目录，会随归档与演练删目录断链，长期约定每次归档都会触发门禁失败 | 演进记录只写 Change 名称纯文本，相对链接只指向已存在的归档目录；用户确认 diff | resolved |
 | A1 | Important | protocol-contract PC-05、SCN-PROTOCOL-CONTRACT-009；design X-Request-Id | Apply 任务 13 实测小程序宿主（基础库 3.10.3）没有 `crypto`，"由 `crypto.getRandomValues` 生成"不可实现；公司规范只规定格式，并未要求随机数的生成方式 | 用户裁决：默认随机源改为 `Math.random`，全平台同一实现，不设平台点位，生成器保持同步；注明请求 ID 只用于链路追踪、不要求密码学安全；格式、头名、与 `BaseReq.requestId` 同值、宿主不可覆盖、内部注入参数均不变 | resolved |
+| A2 | Important | template-engineering SCN-TEMPLATE-ENGINEERING-008 `scenario-gate-green`；design 示例删除验收 | Apply 任务 17 发现：副本中按防递归规则排除的会创建副本的用例没有运行报告，门禁必然报缺少绑定，"问题数为 0"按字面不可达 | 用户裁决"精确扣除排除项"：问题集合须恰好等于由 `vitest.config.ts` 排除列表推导出的缺失项，多一条或少一条均失败，其余为 0；实施中发现平台项目（weapp）在副本中同样不可能产生绑定，按 WHEN 中"清单模式不要求平台报告"补入由清单 `class=platform` 派生的缺失绑定（A2 补充） | resolved |
 | R3-M1 ~ R3-M10 | Minor | 见第 3 次审查记录 | outdated 例外、`testProjects[].config` 可选时机、`test:affected` 作用域、排除理由措辞、proposal 未列 `nextRequestId` 破坏性变更、`environmentClass` 强制条件、EX-012 纳入 GATE-026 的任务归属、请求体 requestId 的写死点、proposal 中 verify 参数写法、`check:project-map` 脚本 | 不触发修复，记录为 advisory | accepted |
 
 ### Re-review Attempts
@@ -73,11 +74,13 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | 4 | 7ea018b48dd632a3537c3a25d5947a6f2820f55c4dc6cc2f7fd3508f3fe308f4 | Issues Found | 0 | 2 | 13 | 用户授权的额外审查；R3-I1 确认解决；新增 2 条 Important（均为措辞级矛盾）。admitted blockers 由 1 增至 2，触发 Review Non-Convergence，停止并请用户决定 |
 | 用户裁决 | f42e312797a3460a7e0399ff430c959e77f0505ee57838855836f15747682dd8 | Approved（用户裁决） | 0 | 0 | 13 | 用户选择"修正后由用户认可通过"；Bridge 修正 R4-I1、R4-I2 及 R4-M1、M2、M4、M6，`openspec validate --strict` 通过，用户确认 diff 后放行 |
 | Apply 期间用户裁决修订 | 14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1 | Approved（用户裁决） | 0 | 0 | 13 | 任务 13 发现小程序宿主没有 `crypto`；用户裁决改用 `Math.random`，修订 PC-05、SCN-009 与 design 的随机源措辞（A1），`openspec validate --strict` 通过 |
+| Apply 期间用户裁决修订 2 | 8ddc5d01b814f19fe2ab3ecb0d9d9e37ef903763a61430a6cd1fe9ed5f3bc15b | Approved（用户裁决） | 0 | 0 | 13 | 任务 17 发现 SCN-008 的场景门禁口径与防递归排除冲突；用户裁决精确扣除排除项（A2），`openspec validate --strict` 通过 |
+| Apply 期间修订 2 补充 | 4d72484291f3f8493ec8f3932d68e13aa740dcbdcb27a3d5605147e2199523bd | Approved（用户裁决范围内的措辞补充） | 0 | 0 | 13 | 期望集合补入清单平台项目的缺失绑定，与 SCN-008 WHEN"不要求平台报告"一致；`openspec validate --strict` 通过 |
 
 ## Gate Decision
 
 - Decision: PASS
-- Blocking reason: None。第 4 次审查后的两条 Important 已按用户裁决修正并经用户确认；放行依据为用户裁决，而非第 5 次独立审查。2026-10-10 Apply 期间按用户裁决修订随机源措辞（A1），digest 随之更新。
+- Blocking reason: None。第 4 次审查后的两条 Important 已按用户裁决修正并经用户确认；放行依据为用户裁决，而非第 5 次独立审查。2026-10-10 Apply 期间按用户裁决修订随机源措辞（A1），同日按用户裁决修订 SCN-008 场景门禁口径（A2），digest 随之更新。
 - Accepted Minor findings: R3-M1、M2、M4、M6、M8、M10 与 R4-M3、M5（outdated 例外、`testProjects[].config` 可选时机、排除理由措辞、`environmentClass` 强制条件、请求体 requestId 写死点、`check:project-map` 脚本、scripts 值中的命令名、任务 4 副本 helper 时机），实施方可在 Apply 中直接处理；R3-M3/M5/M7/M9 与 R4-M1/M2/M4/M6 已修正。
 - Freshness check command: `/Users/liyongning/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-core-hardening --check-review openspec/changes/template-core-hardening/plan-review.md`
 
@@ -88,12 +91,12 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
   "version": 1,
   "change": "template-core-hardening",
   "schema": "openspec-workflow",
-  "reviewer": "user decision after independent review attempt 4; amended by user decision during apply (A1)",
+  "reviewer": "user decision after independent review attempt 4; amended by user decision during apply (A1, A2)",
   "prompt_provenance": "skill/change/references/plan-reviewer-prompt.md",
   "reviewed_at": "2026-10-10T00:00:00Z",
   "canonicalization_version": 1,
-  "reviewed_sha256": "14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1",
-  "current_sha256": "14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1",
+  "reviewed_sha256": "4d72484291f3f8493ec8f3932d68e13aa740dcbdcb27a3d5605147e2199523bd",
+  "current_sha256": "4d72484291f3f8493ec8f3932d68e13aa740dcbdcb27a3d5605147e2199523bd",
   "reviewer_status": "Approved",
   "gate": "PASS",
   "critical": 0,
