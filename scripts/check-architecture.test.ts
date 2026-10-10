@@ -270,7 +270,7 @@ evidence(
       const guide = readFileSync(join(partial, 'docs/template-guide.md'), 'utf8');
       writeFileSync(
         join(partial, 'docs/template-guide.md'),
-        guide.replace('`openspec/specs/template-example/`；', ''),
+        guide.replace('`openspec/specs/template-example/`', ''),
       );
       context
         .expect(await checkArchitecture(partial, 0))
@@ -305,6 +305,12 @@ evidence(
           '',
           '`SCN-SAMPLE-001`、`SCN-SAMPLE-999`',
           '',
+          '路径里的 ID 不算引用：`packages/e2e/tests/fixtures/SCN-SAMPLE-998/evidence.json`、`packages/e2e/tests/tooling/SCN-SAMPLE-997.spec.ts`',
+          '路径末尾的 ID 仍算引用：`packages/e2e/tests/fixtures/SCN-SAMPLE-996`',
+          '后面跟中文标点 SCN-SAMPLE-995。',
+          '后面跟空格 SCN-SAMPLE-994 的引用',
+          'SCN-SAMPLE-993',
+          '',
           '## 从方案到验收',
           '',
           '`pnpm check:fast`、`pnpm install`、`pnpm --filter x build`、`pnpm nope`',
@@ -323,6 +329,7 @@ evidence(
           '',
           '### 包发布',
           '',
+          'SCN-SAMPLE-992',
         ].join('\n'),
       );
       const errors = await checkArchitecture(root, 0);
@@ -339,6 +346,13 @@ evidence(
         );
       context.expect(errors).not.toContain('unknown environment variable VERIFY_RUN_ID');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-001');
+      context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-998');
+      context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-997');
+      context.expect(errors).toContain('unregistered Scenario ID SCN-SAMPLE-996');
+      context.expect(errors).toContain('unregistered Scenario ID SCN-SAMPLE-995');
+      context.expect(errors).toContain('unregistered Scenario ID SCN-SAMPLE-994');
+      context.expect(errors).toContain('unregistered Scenario ID SCN-SAMPLE-993');
+      context.expect(errors).toContain('unregistered Scenario ID SCN-SAMPLE-992');
       context.expect(errors).not.toContain('unknown pnpm command check:fast');
       context.expect(errors).not.toContain('unknown pnpm command install');
       context.expect(errors.some((error) => error.includes('--filter'))).toBe(false);

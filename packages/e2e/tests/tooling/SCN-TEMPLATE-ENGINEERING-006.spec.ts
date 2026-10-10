@@ -74,14 +74,26 @@ cliEvidence(
       const partial = guideRoot();
       writeFileSync(
         guidePath(partial),
-        readFileSync(guidePath(partial), 'utf8').replace(
-          '`openspec/specs/template-example/`；',
-          '',
-        ),
+        readFileSync(guidePath(partial), 'utf8').replace('`openspec/specs/template-example/`', ''),
       );
       context
         .expect(issuesOf(partial))
         .toContain('missing removal whitelist entry openspec/specs/template-example/');
+
+      // 示例删除验收自身的用例同样必须在白名单里列明（A3：它随示例一起删除）。
+      const acceptance = guideRoot();
+      writeFileSync(
+        guidePath(acceptance),
+        readFileSync(guidePath(acceptance), 'utf8').replace(
+          '`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`',
+          '',
+        ),
+      );
+      context
+        .expect(issuesOf(acceptance))
+        .toContain(
+          'missing removal whitelist entry packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts',
+        );
     });
 
     await check('guide-links-resolve', () => {

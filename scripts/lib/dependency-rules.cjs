@@ -110,12 +110,12 @@ function dependencyRules(manifest) {
       from: { path: `^packages/${productDir}/${productRoot}/[^/]+/(core|ports)/` },
       to: { path: `^packages/${protocolDir}/(src/|dist/)?generated/` },
     },
-    // Shadow 引擎只接收中立路由（PC-03）；协议来源经 testing/shadow/idl-routes.ts 与 testing/shadow/example/ 接入，引擎文件不得导入 ProtoGen 生成代码。
+    // Shadow 引擎只接收中立路由（PC-03）；协议来源由测试侧的路由来源文件（idl-routes.ts 等）接入，引擎文件不得导入 ProtoGen 生成代码。
     {
       name: 'shadow-engine-no-generated',
       severity: 'error',
       comment:
-        'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在 idl-routes.ts 与 example/ 中出现。',
+        'Shadow 引擎（server/faults/requests/routes）必须与协议来源解耦；生成描述只在中立路由来源文件（idl-routes.ts 等）中出现。',
       from: {
         path: `^packages/${protocolDir}/(?:${moduleRoots(protocol)
           .map((root) => escapeRegExp(root))
