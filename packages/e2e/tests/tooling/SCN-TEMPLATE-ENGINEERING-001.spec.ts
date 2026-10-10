@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll } from 'vitest';
 import { defineCase } from '../../src/cases/define-case.ts';
@@ -220,19 +222,25 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
             expect(inputs).toContain(`packages/${pkg.directory}/package.json`);
           expect(inputs.some((path) => path.startsWith('openspec/'))).toBe(false);
           // 清单新增构建输入后，无需修改测试即可纳入复制输入。
+          // 探针路径由用例自己在临时根里造：不依赖主仓库当前存在某个 active Change
+          // （Change 归档后 openspec/changes/<name> 不再存在，写死路径会随归档失效）。
+          const probeInput = 'openspec/changes/probe-change/tasks.md';
           const augmented = {
             ...manifest,
             fingerprints: {
               ...manifest.fingerprints,
-              buildInputs: [
-                ...manifest.fingerprints.buildInputs,
-                'openspec/changes/template-core-hardening/tasks.md',
-              ],
+              buildInputs: [...manifest.fingerprints.buildInputs, probeInput],
             },
           };
-          expect(buildCopyInputs(root, augmented)).toContain(
-            'openspec/changes/template-core-hardening/tasks.md',
-          );
+          const probeRoot = mkdtempSync(join(tmpdir(), 'template-build-inputs-'));
+          try {
+            mkdirSync(join(probeRoot, 'openspec/changes/probe-change'), { recursive: true });
+            writeFileSync(join(probeRoot, probeInput), '# probe change\n');
+            run('git', ['init', '-q'], probeRoot);
+            expect(buildCopyInputs(probeRoot, augmented)).toContain(probeInput);
+          } finally {
+            rmSync(probeRoot, { recursive: true, force: true });
+          }
         });
       }
     },

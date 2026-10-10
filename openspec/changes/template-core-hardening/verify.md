@@ -1286,3 +1286,24 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - 期望集合推导复用既有能力与自身输出：排除列表用具名导出直接 `import`（Node ESM 原生，无解析器）；用例名取门禁自己的 `--inventory` 输出（`scenarios[].verification.cases[]`）；平台项目取清单 `testProjectsByClass(manifest, ['platform'])`。未自研第二套 Scenario/case 解析器，未新增依赖。
 - 副本构造、Change 归档、`TEMPLATE_COPY` 守卫、门禁运行全部复用 Task 5 的仓库副本 helper 与既有 `check:fast`/`check:scenarios` 入口；反例探针只改写副本内既有报告文件后复跑同一门禁，未新增门禁能力或夹具框架。
 - 本任务**无自研通用能力、未新增任何运行时或开发依赖**。
+
+---
+
+## Final Code Review 与演练修复
+
+**范围**：验收方对 Task 17 自动化部分与示例删除演练日志的最终代码评审共 14 条。先取消勾选受影响的 Task（`39385c7 docs(openspec): uncheck tasks under final review`），再逐条修复、复验、自审，最后重新勾选；Task 17 / 18 仍不勾选。每条（或同一 Task 的几条）单独提交，提交信息见各条；本节逐条登记根因、改动、证据（命令、退出码、日志路径）与反例。
+
+**证据基线**：只读演练副本 `/private/tmp/claude-501/-Users-liyongning-Projects-workspace-sdk-template/f9f56b99-68ab-4be9-a947-7e43849bb047/scratchpad/drill-17/repo`，日志在同级 `drill-17-tools/`；本目录内不做任何改动。
+
+### 第 1 条 · Task 3/4 + Task 17：无 active Change 时副本构造必然失败
+
+- **根因**：两处把「本 Change 仍在 active」当成事实。
+  1. `SCN-TEMPLATE-ENGINEERING-001.spec.ts` 的复制输入探针把 `openspec/changes/template-core-hardening/tasks.md` 追加进清单 `fingerprints.buildInputs`，归档后该路径不存在、`git ls-files` 匹配不到 → 断言失败（演练 `drill-17-tools/verify-2.log:422`：`expected [ '.dependency-cruiser.cjs', …(345) ] to include 'openspec/changes/template-core-harden…'`）。核心 Change 归档后主仓库会一直处于这个状态。
+  2. `SCN-TEMPLATE-ENGINEERING-008.spec.ts` 的仓库副本构造要求 `scopedChangeNames().length > 0`，归档后固定执行 `git commit -m "copy: archive scoped change"`；作用域为空时没有可提交内容 → `git commit` 退出码非 0 → 抛错（演练 `verify-2.log:403`：`Error: git -c commit.gpgsign=false commit -q -m copy: archive scoped change:`）。
+- **改动**：
+  - 001：探针路径改为用例在临时根里自造（`mkdtempSync` + `git init` + 写入 `openspec/changes/probe-change/tasks.md`），不再引用主仓库某个 active Change 的路径。
+  - 008：`copy: archive scoped change` 只在 `git status --porcelain` 非空时才提交；`assertCopyConstruction` 改为「作用域为空时跳过归档断言，只断言副本中没有 active Change」；作用域非空时行为不变。
+  - `SCN-SCENARIO-GATE-026` 等其它使用仓库副本 helper 的用例逐条核对：只断言「作用域内 Change 不在 active 目录」，作用域为空时天然成立，无需改动。
+- **证据（无作用域全绿）**：临时脚本 `/tmp/tcfix-item1-evidence.mts` 走 `createRepositoryCopy` 构造副本、归档本 Change、清空 `SCENARIO_GATE_CHANGES`，再跑一次全量 `test:integration` → `/tmp/tcfix-item1-evidence.log`：副本 `active changes: []`、`TEMPLATE_COPY=1`、`SCENARIO_GATE_CHANGES: undefined`、`build exit: 0`、`test:integration` 50 文件 / 104 用例全绿（22.45s，exit 0）；5 个 `TEMPLATE_COPY` 排除项（ENGINEERING-001、ENGINEERING-007、GATE-026、ENGINEERING-008、EXAMPLE-008）均 `present in output: false`。
+- **反例**：修复前同一场景在演练副本里 008 两条 case 全失败、001 `package-boundaries` 失败（`drill-17-tools/verify-2.log:402-445`，`Test Files 2 failed | 41 passed`）。
+- **提交**：`fix(template): construct copy probes without an active change`。

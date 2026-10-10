@@ -329,14 +329,17 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
     const archivedFormat = run(copy, 'pnpm', ['format']);
     if (archivedFormat.status !== 0) throw new Error(`format failed: ${archivedFormat.output}`);
     git(copy.root, ['add', '-A']);
-    git(copy.root, [
-      '-c',
-      'commit.gpgsign=false',
-      'commit',
-      '-q',
-      '-m',
-      'copy: archive scoped change',
-    ]);
+    // 作用域为空（主仓库已归档本 Change）时没有归档动作，可能没有可提交的内容：跳过提交即可，
+    // 副本此时已经是交付状态。
+    if (git(copy.root, ['status', '--porcelain']) !== '')
+      git(copy.root, [
+        '-c',
+        'commit.gpgsign=false',
+        'commit',
+        '-q',
+        '-m',
+        'copy: archive scoped change',
+      ]);
     const declarationPath = packageByRole(loadProjectManifest(copy.root), 'product')
       .consumedOperations![0]!;
     const manifestPath = join(copy.root, 'project.manifest.json');
@@ -410,10 +413,12 @@ function assertCopyConstruction(value: Evidence, expect: Expect) {
   expect(value.copy.env.SCENARIO_GATE_CHANGES).toBeUndefined();
   expect(git(value.copy.root, ['rev-parse', '--is-inside-work-tree'])).toBe('true');
   const scope = scopedChangeNames();
-  expect(scope.length).toBeGreaterThan(0);
-  const archived = readdirSync(join(value.copy.root, 'openspec/changes/archive'));
-  for (const name of scope)
-    expect(archived.some((entry) => entry === name || entry.endsWith(`-${name}`))).toBe(true);
+  // 作用域为空（主仓库已归档本 Change）时没有归档动作：跳过归档断言，只要求副本处于交付态。
+  if (scope.length > 0) {
+    const archived = readdirSync(join(value.copy.root, 'openspec/changes/archive'));
+    for (const name of scope)
+      expect(archived.some((entry) => entry === name || entry.endsWith(`-${name}`))).toBe(true);
+  }
   expect(
     readdirSync(join(value.copy.root, 'openspec/changes')).filter((entry) => entry !== 'archive'),
   ).toEqual([]);
