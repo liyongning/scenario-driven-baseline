@@ -573,7 +573,7 @@
 5. 工程用例夹具在受控根内自带 `packages/protocol`（名 `@daqian/template-protocol`）的最小 generated 结构：Task 10 之前 `contract-inventory` 仍从 `infra/trade/v1/trade.ts` 推导，缺该文件时真实门禁会报错，故夹具提供同名最小产物；Task 10 去掉写死后该夹具可简化。
 6. 退化为全量时沿用默认报告位置（不设置 `VERIFY_RUN_ID`）：全量路径不写 partial 报告，`affected-<时间戳>` 只用于按需路径的 `artifacts/<run-id>/reports/`。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：本任务首轮全量 `test:integration` 的 1 处红是 GATE-026 副本内默认 5s 超时（`/tmp/t9-integration-full.log`），不属于「按需通过但全量失败」，已按超时偏离单独登记；补超时后全量连续 2 次全绿。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：本任务首轮全量 `test:integration` 的 1 处红是 GATE-026 副本内默认 5s 超时（`/tmp/t9-integration-full.log`），不属于「按需通过但全量失败」，已按超时偏离单独登记；补超时后全量连续 2 次全绿。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - integration / platform 用例的代码改动选择按 GATE-13 用 dependency-cruiser `--reaches`，unit 类项目用 Vitest `related`，未自研导入图或影响面分析。
@@ -669,7 +669,7 @@
 6. Fixture 摘要刷新：`pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002|SCN-TEMPLATE-ENGINEERING-001|SCN-TEMPLATE-ENGINEERING-003`（键改名、导出集合改为由根入口计算、检查要求随入口变化）。
 7. 实施中为定位 007 而临时做的探针文件（`.probe007.mts`、`/tmp/probe-*.mts`）与 `HEAD` 快照（`/tmp/head-repo`）只用于诊断，均未进入工作区。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：本任务结束时按需入口退化为全量 `check:fast` 并通过；全量 `verify` 的第 3 步 `check:scenarios` 非零是任务进行中的既定状态（22 条全部归属后续任务 11–17、协议义务问题 0 条），与"按需通过但全量发现新增失败"不同类。本任务执行中出现的 1 处红（007 副本 `not-to-unresolvable`）在提交前已按上面第 1 条修复。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：本任务结束时按需入口退化为全量 `check:fast` 并通过；全量 `verify` 的第 3 步 `check:scenarios` 非零是任务进行中的既定状态（22 条全部归属后续任务 11–17、协议义务问题 0 条），与"按需通过但全量发现新增失败"不同类。本任务执行中出现的 1 处红（007 副本 `not-to-unresolvable`）在提交前已按上面第 1 条修复。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - 矩阵用例的声明遍历直接用 generated 方法常量携带的 `meta`（`RpcMethodMeta`：`name`/`method`/`path`/`requestType`/`responseType`/codec），未自研路由描述。
@@ -744,7 +744,7 @@
 - 16 个改动文件被 `test:affected` 转为 12 个步骤：3 个 unit 项目走 `vitest related`（`sdk-unit` 无相关文件，退出码 0），`integration` 逐文件 6 个（示例 5 + 协议矩阵 1），`weapp` 逐文件 4 个；全部退出码 0。
 - 未退化为全量：`packages/protocol/testing/**` 与 `packages/e2e/tests/**` 不在"清单/宿主/驱动"全量触发路径上（本任务未改 `project.manifest.json`、`packages/e2e/host/`、`packages/e2e/src/`）。选择结果为精确子集，`artifacts/local/reports/` 沿用默认位置且无 partial 标记。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：全量首跑的红色来自 `FLOW-TEMPLATE-EXAMPLE-001` 的 weapp 断言前 120s 挂起（AGENTS 已登记的基础设施抖动，整文件复跑即通过），不属于"按需通过但全量发现新增失败"；`check:scenarios` 的非零是 19 条全部归属后续任务 12–17 的 `missing binding`，与按需选择无关。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：全量首跑的红色来自 `FLOW-TEMPLATE-EXAMPLE-001` 的 weapp 断言前 120s 挂起（AGENTS 已登记的基础设施抖动，整文件复跑即通过），不属于"按需通过但全量发现新增失败"；`check:scenarios` 的非零是 19 条全部归属后续任务 12–17 的 `missing binding`，与按需选择无关。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - 路径转换复用 express 5 内建的 `:param` 路由参数，只把 IDL 侧的 `{name}` 模板用一条正则规范化；未自研路由器、路径匹配器或协议解析器。
@@ -821,7 +821,7 @@
 - 12 个改动文件被 `test:affected` 检出 1 个场景 ID（`SCN-PROTOCOL-CONTRACT-002`），转为 3 步、退出码均 0：`vitest related`（`sdk-unit`/`protocol-unit`/`test-tools-unit`）、`integration` 逐文件 1 个、`weapp` 逐文件 1 个。
 - 未退化为全量：`packages/protocol/testing/**` 与 `packages/e2e/tests/**` 不在"清单/宿主/驱动"全量触发路径上（本任务未改 `project.manifest.json`、`packages/e2e/host/`、`packages/e2e/src/`）。选择结果为精确子集。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：全量三项中 `check:fast`、`test:e2e:weapp` 退出码 0；`check:scenarios` 非零来自 16 条全部归属后续任务 13–17 的 `missing binding`，与按需选择无关，也不构成"按需通过但全量发现新增失败"。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。说明：全量三项中 `check:fast`、`test:e2e:weapp` 退出码 0；`check:scenarios` 非零来自 16 条全部归属后续任务 13–17 的 `missing binding`，与按需选择无关，也不构成"按需通过但全量发现新增失败"。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - 响应结构校验复用 TypeScript 编译器 API（`ts.Program`/`ts.TypeChecker`，仓库既有 `typescript` 依赖）派生可达字段，未自研类型解析或引入 JSON Schema 生成器。
@@ -904,7 +904,7 @@
 **按需选择结果**
 - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T001933Z`）退出码 **0**：23 个改动文件中 `packages/e2e/host/weapp/protocol-runner.ts` 与 `packages/e2e/src/drivers/weapp-host.test.ts` 落在宿主/驱动目录 → **全量触发 `pnpm check:fast`**，未退化为精确子集；全量退出码 0。选择规则按契约生效（宿主/驱动目录即全量触发路径），未发现选择错误。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。本次按需运行因宿主/驱动改动升级为全量并全绿；全量三项中 `check:scenarios` 非零来自 9 条全部归属 Task 14–17 的 `missing binding`，不构成新增失败。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。本次按需运行因宿主/驱动改动升级为全量并全绿；全量三项中 `check:scenarios` 非零来自 9 条全部归属 Task 14–17 的 `missing binding`，不构成新增失败。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - **例外登记（用户裁决）**：随机源直接用平台内置 `Math.random`，不引入 `nanoid/non-secure` 等库。理由：实现只有几行，而协议包要同时发布 ESM 与 CJS 两种格式，为一个非安全随机后缀增加运行时依赖不划算；公司规范只规定格式，请求 ID 只用于链路追踪、不是凭据。
@@ -988,13 +988,142 @@
 - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T005120Z`）退出码 **0**：39 个改动文件命中全量触发，原因是 `eslint.config.js` 属工具配置（全量触发路径），未退化为精确子集；全量 `check:fast` 退出码 0。选择规则按契约生效，未发现选择错误。
 - 首次按需运行（`affected-20261010T004948Z`）同样升级为全量，但全量在 `contract-inventory.derivation.test.ts` 的 30s 超时处失败（差异 5 第 3 条），修复后重跑通过。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。需要说明的一次事件：首次按需运行升级为全量后失败（30s 超时，属本任务拆分引起的负载变化，已在按需流程内发现并修复），随后全量 `verify`（`core-hardening-t14b`）又在 `SCN-TEMPLATE-EXAMPLE-005` 计时抖动处失败，再跑 `core-hardening-t14c` 全绿。两次失败都不属于「按需子集漏测、全量才暴露」的选择规则缺陷（前者是全量自身超时，后者是与本任务无关的已知抖动），故计 0，并在此如实登记事件与证据。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。需要说明的一次事件：首次按需运行升级为全量后失败（30s 超时，属本任务拆分引起的负载变化，已在按需流程内发现并修复），随后全量 `verify`（`core-hardening-t14b`）又在 `SCN-TEMPLATE-EXAMPLE-005` 计时抖动处失败，再跑 `core-hardening-t14c` 全绿。两次失败都不属于「按需子集漏测、全量才暴露」的选择规则缺陷（前者是全量自身超时，后者是与本任务无关的已知抖动），故计 0，并在此如实登记事件与证据。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - 行数上限直接用 ESLint 内置 `max-lines` 的 `skipBlankLines`/`skipComments`，豁免用配置块 `max-lines: 'off'`，未自研行数统计；测试文件集合与豁免来源都从清单派生，未在门禁脚本里写死清单。
 - 格式基线用现成 Prettier CLI（`prettier --check .`）与仓库既有 `.prettierignore`，受控根复制同一份 `.prettierrc.json`/`.prettierignore`，未自研格式检查。
 - 用例断言上报复用既有 `cliEvidence` / `evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `createControlledRoot`，未新建夹具框架。
 - 未新增任何运行时或开发依赖；本任务**无自研通用能力**。
+
+### Task 9 交付物缺陷修复（fix commits `29e322a`、`f89546d`）
+
+Task 16 实施期间按 ENG-06 运行约定执行 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`，发现 Task 9 交付的按需入口存在两处缺陷。经用户裁决授权，在 Task 16 提交前单独修复并提交，**不改规划语义**（未改 proposal/specs/design/tasks，未改任何 Scenario 的 checkpoints）。
+
+**缺陷 1：unit 步骤从未真正运行（`29e322a`）**
+
+- 现象：`pnpm test:affected` 退出码 0，但 unit 步骤只输出 `No test files found, exiting with code 0`，没有任何用例结果（`/tmp/t16-affected.log`，1.9KB）。
+- 根因：`scripts/test-affected.ts` 组装的是 `vitest related <改动文件> --project sdk-unit protocol-unit test-tools-unit --run`。Vitest 5.0.3 的 `--project` 只接受一个值，其后的项目名被当成**路径过滤器**：只有第一个项目生效，其余项目名成为过滤器，命中不到文件即“无测试文件”并以 0 退出。
+- 四份实测日志：
+  1. `/tmp/t16-related-3.log`：空格分隔三项目 → `No test files found`（`projects: sdk-unit`）。
+  2. `/tmp/t16-run3.log`：同参数换成 `vitest run <文件>` 形态，Vitest 直接打印 `filter: <文件>, protocol-unit, test-tools-unit`，退出码 **1**，证明后两个名字被当作过滤器。
+  3. `/tmp/t16-related-1.log`：只给 `--project test-tools-unit` → 16 用例通过。
+  4. `/tmp/t16-related-repeat.log`：重复旗标 `--project sdk-unit --project protocol-unit --project test-tools-unit` → protocol-unit 7 文件 + test-tools-unit 1 文件，36 用例通过。
+- 修复：改为 `unitProjects.flatMap((name) => ['--project', name])`，每个项目各带一个旗标，与既有 `scripts/run-by-manifest.ts` 的写法一致。
+
+**缺陷 2：受控根/副本继承调用方的按需运行环境（`f89546d`）**
+
+- 现象：修复缺陷 1 后按需运行真的跑起了 unit 用例，`scripts/test-affected.test.ts` 两条「写入 partial 报告后门禁拒收，全量报告被接受」立刻变红（`/tmp/t16-affected2.log`：`integration.json: partial 报告来自按需运行…`）。
+- 根因：`pnpm test:affected` 给 unit 步骤注入 `TEST_AFFECTED_PARTIAL=1` 与 `VERIFY_REPORT_FILE`/`VERIFY_RUN_ID`；`createControlledRoot` 的 env 是 `{...process.env, …}`（只剔除了 `SCENARIO_GATE_CHANGES`），于是夹具内 `writeFullReport` 调用的替身 vitest 也被判为 partial，写出 partial 报告。同一份夹具在按需与全量下行为不同，这正是「按需与全量分叉」的一类来源；此前 unit 步骤为空，该缺陷被完全掩盖。
+- 取证：`TEST_AFFECTED_PARTIAL=1 pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts` 退出码 **1**、2 条 AssertionError（`/tmp/t16-partial-env.log`）；不带该变量退出码 **0**（`/tmp/t16-partial-noenv.log`）。
+- 修复：按 `repository-copy.ts` 的既有做法，`createControlledRoot` 的环境剔除 `VERIFY_REPORT_FILE`、`VERIFY_RUN_ID`、`TEST_AFFECTED_PARTIAL`（与既有 `SCENARIO_GATE_CHANGES` 同一处理），`repository-copy.ts` 的 `copyEnvironment()` 补上 `TEST_AFFECTED_PARTIAL`。修复后带/不带该变量均退出码 0（`/tmp/t16-partial-env2.log`）。
+
+**按用户要求的双层防退化**
+
+- module 断言（`scripts/test-affected.test.ts` 的 `unit-related-selection`）：`product-unit` 与 `test-tools-unit` 在参数中的前一项都必须是 `--project`；只保留 `toContain` 不足以发现退化（本轮就是这样漏掉的）。
+- 行为断言（`SCN-SCENARIO-GATE-021` 的 `tooling-selection`，未新增 checkpoint、未改 Spec）：在仓库副本中改动 `scripts/lib/affected-sample.ts`，**真实运行** `test:affected`，断言退出码 0、输出不含 `No test files found`、unit 报告中出现该源文件对应的 `scripts/lib/affected-sample.test.ts` 且用例数大于 0。为让该断言能识别「项目名退化为过滤器」，替身 vitest 按 Vitest 的真实参数语义解析（`--project` 每次只取一个值，其余位置参数是路径过滤器），无命中时打印 `No test files found` 并写 0 用例。
+- RED：把实现临时改回缺陷写法后，module 断言报 `expected 'product-unit' to be '--project'`（`/tmp/t16-fix-red-unit.log`），行为断言报 `expected 'No test files found, exiting with code 0' not to contain 'No test files found'`（`/tmp/t16-fix-red-int.log`）；恢复修复后两份均绿（`/tmp/t16-fix-unit.log`、`/tmp/t16-fix-int.log`）。
+
+**同类问题排查（用户要求第 3 项：检查 scripts/ 下所有拼外部命令的地方）**
+
+| 位置 | 命令与多值参数 | 结论 |
+| --- | --- | --- |
+| `scripts/test-affected.ts:144` | `vitest related … --project` | **缺陷，已修**（空格分隔 → 每项目一个旗标） |
+| `scripts/run-by-manifest.ts:33` | `vitest run --project` | 正确：`for (const name of projects) args.push('--project', name)` |
+| `scripts/verify.ts:130` | `vitest run --project <单个>` | 正确：一步一个项目名 |
+| `scripts/lib/affected-analysis.ts` | `depcruise … --reaches <正则>` | 正确：多文件用 `\|` 合并成单个正则，本就不该重复旗标 |
+| `scripts/check-architecture.ts` `cruiseArguments` | `depcruise --config/--output-type` + 多个目录 | 正确：目录是位置参数，选项均单值 |
+| `scripts/weapp-prepare.ts` | `cli quit` / `pkill -f` / `cli open --project <host>` | 正确：均单值 |
+| `scripts/lib/release-plan.ts`、`scripts/check-package.ts` | `pnpm --filter <包> pack/run build` | 正确：一条命令一个过滤器 |
+| `scripts/check-fixtures.ts`、`fixtures-refresh.ts`、`check-scenarios.ts` | `--change`、`--report`、`--scenario` | 正确：这些是本仓库自己的 CLI，逗号/重复值由各自解析器负责，不经外部工具的多值旗标语义 |
+| `scripts/lib/scenario-precheck.ts` | `openspec --version` | 正确：单值 |
+| `scripts/lib/source-inventory.ts` | `git ls-files -co --exclude-standard -- <patterns…>` | 正确：`--` 之后的路径本就是位置参数 |
+
+结论：除 `test-affected.ts` 外，未发现第二处「多值旗标用空格分隔」。同时按第 2 项的同类思路检查了环境泄漏：`repository-copy.ts` 已剔除 `VERIFY_*` 但漏了 `TEST_AFFECTED_PARTIAL`，已在本次一并补上（见缺陷 2）。
+
+**修复提交后的验证**
+
+- `pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts` 退出码 **0**（12 用例）；带 `TEST_AFFECTED_PARTIAL=1` 同样 **0**。
+- 定向集成复跑（020/021/022/005/006/011/012）退出码 **0**（`/tmp/t16-fix-int.log`、`/tmp/t16-fix-int2.log`）。
+- 作用域内 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` 退出码 **0**（单测 369、集成 117，覆盖率四项 100%，`/tmp/t16-checkfast3.log`、`/tmp/t16-checkfast4.log`）。
+
+**OI-CH-02 重新统计**
+
+- **无效基线**：Task 9–16 各轮按需运行的 unit 步骤实际为空（`No test files found` 且退出码 0），这些轮次的按需结论不构成有效证据，已在各任务段落的 OI-CH-02 行标注「无效基线」，不计入统计。
+- **补跑 Task 13 提交点**（b551b27，用修复后的入口、`--base b551b27^`，日志 `/tmp/t13-affected-rerun.log`）：该提交的改动含 `packages/e2e/host/weapp/` 与 `packages/e2e/src/drivers/`，按规则升级为全量 `pnpm check:fast`（`全量触发`），退出码 **0**，单测 56 文件/365 用例、集成 51 文件/113 用例全部通过，与该任务当时的全量 `verify` 结论一致。
+- **补跑 Task 16 提交点**（修复提交 `f89546d` 为基线，日志 `/tmp/t16-affected-final.log`）：退出码 **0**，未升级为全量，unit 步骤**真实执行** 7 文件/63 用例（含 `scripts/check-architecture.test.ts`），与该任务全量 `verify` 的结论一致。
+- **重新统计**：补跑点「按需通过、全量失败」**0** 次；Task 9–15 轮次因基线无效不计入。修复后未再出现「按需与全量结论不一致」的情况。
+
+### Task 16 技术架构文档与指南修订
+
+**Commit**：`docs(template): add architecture document and revise the template guide`
+
+**RED**
+
+- `/tmp/t16-red-unit.log`：`vitest run --project test-tools-unit scripts/check-architecture.test.ts` 退出码 **1**，006 新增的 `guide-rules` 与 012 新增的 `architecture-doc-rules` 各 1 条失败（16 测试 2 failed）。
+- `/tmp/t16-red-integration.log`：012 的 `architecture-doc-violations-cli` 与 006 的 `guide-violations-cli` 失败（3 测试 2 failed）。
+- `/tmp/t16-red-check.log`：干净 HEAD 副本 + 新检查器运行 `pnpm check:architecture` 退出码 **1**，20 条 issue（`missing docs/architecture.md` + 5 条缺章节 + 14 条白名单缺项）。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| `pnpm check:architecture` | 0 | `issues: []`，83 modules / 181 dependencies，`/tmp/t16-arch.log` |
+| `vitest run --project test-tools-unit scripts/check-architecture.test.ts` | 0 | 16 用例，`/tmp/t16-unit-arch2.log` |
+| 定向集成子集（002/005/006/012/GATE-008/GATE-011） | 0 | 21 用例，`/tmp/t16-tooling-subset3.log` |
+| `pnpm test:unit` | 0 | 63 文件 / 369 用例，覆盖率四项 **100%**（3291/2172/604/2910），`/tmp/t16-unit2.log` |
+| `pnpm lint` / `pnpm format:check` / `pnpm typecheck` | 0 | `/tmp/t16-lint2.log`、`/tmp/t16-format.log`、`/tmp/t16-typecheck.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fast` | 0 | 单测 369 + 集成 117，`/tmp/t16-checkfast4.log`（首跑 `/tmp/t16-checkfast.log` 因 `SCN-TEMPLATE-EXAMPLE-005` 计时抖动失败，`/tmp/t16-checkfast2.log` 通过） |
+| `SCENARIO_GATE_CHANGES=… pnpm test:affected` | 0 | run id `affected-20261010T020412Z`，unit 步骤 7 文件 / 63 用例，`/tmp/t16-affected-final.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t16b` | 1 | check:fast **0**（118164ms）、weapp **0**（366941ms）、check:scenarios **1**（1380ms、2 条），`/tmp/t16-verify2.log` |
+
+**报告路径**：`artifacts/core-hardening-t16b/reports/{unit.json,integration.json}`；weapp 逐文件报告 `artifacts/core-hardening-t16b/reports/weapp/<文件名>.json`；覆盖率 `artifacts/core-hardening-t16b/coverage/`。`check:scenarios` 结论以 stdout JSON 为准（完整输出见 `/tmp/t16-verify2.log`）。
+
+**无上下文 Agent 验收（Task 16 Verification 要求）**
+
+- 实验设置：另起一个**不带上下文**的子代理，提示词只含一个问题（"这个模板的质量体系如何防止'门禁全绿但其实没有检查到'？"）与一条硬约束（**只允许读取** `docs/architecture.md`，不读其他文件与 git 历史、不执行命令），并要求指出文档不足之处。
+- 回答摘录（覆盖本 Change 机制）：仍按手写源码清单派生覆盖率（`check:coverage`，否决 glob 维护 `include`）、checkpoint 双向对账（声明与执行都必须一致、skip 不计覆盖）、报告与 Fixture 按来源摘要绑定（旧报告失效）、`partial` 报告被场景门禁拒收、门禁自身由合成反例与受控根自测（否决"改仓库实时状态再还原"）、IDL 义务与调用点双向对账（`method#request#field`）、证据分类（behavior/module/engineering 不可互相抵扣）与清单不回退、按入口发现需注释的手写类型（否决清单里手列类型名）。
+- 结论：**部分能**。给出的理由是：上述机制方向上都能让"没真正检查"无法通过；但文档未写明 5 处细节——(1) 来源摘要覆盖哪些输入、如何计算；(2) checkpoint 的"执行"如何被机器强制确认；(3) 100% 覆盖率的口径（行/分支/函数）与被排除文件是否另有证据要求；(4) 文档与指南的内容准确性只由评审与复刻验收保证、不做机械检查；(5) 复刻验收是方法而非可机械复算的门禁。
+- 处置：**本会话未在该实验之后改动 `docs/architecture.md`**，使已记录的全量 `verify`（`core-hardening-t16b`）与被提交的文档内容一致。上述 5 处属"文档详略"层面的观察，是否需要补写由验收方判定；若补写，必须重跑 `check:fast` 与全量 `verify` 以保持证据一致。
+
+**场景门禁剩余问题归属（2 条，4 → 2）**
+
+- `SCN-TEMPLATE-ENGINEERING-012` 两条（`architecture-doc-rules`、`architecture-doc-violations-cli`）已在本任务绑定并执行，**清零**。
+- `SCN-TEMPLATE-ENGINEERING-008`：2 条（`example-removal-fast`、`example-removal-scenarios` 的 `missing binding for integration`）→ **Task 17 自动化部分**（用例由本会话交付，演练与勾选由验收方执行）。
+- 无过期报告、无未登记 checkpoint、无 `did not execute` / `no executed assertions` 回归项。
+
+**Review / Acceptance**
+
+- 四部分齐全：`docs/architecture.md` 的细节层 33 个 `###` 能力节覆盖指南「能力地图」28 行标题，每节固定「解决的问题 / 实现机制与关键文件 / 关键设计决策与被否决的方案 / 演进记录」；演进记录用 Change 名纯文本，本 Change 只写 `template-core-hardening`，未链接 `openspec/changes/`。
+- 设计理由逐一核对四个归档 Change 的 design：`2026-09-22-headless-payment-sdk`、`2026-09-30-template-example`、`2026-10-02-generalize-template`、`2026-10-02-remove-payment-business`；被否决的方案均能在归档或本 Change 的 design 中找到出处。
+- 归档已知限制为**实测**结论（openspec 1.6.0）：要求全量 REMOVED → `Spec must have at least one requirement` + `Aborted. No files were changed.`；保留 ID 改标题 → `current spec contains scenario(s) not present in the modified block`。
+- 指南 19 项删除白名单逐项与清单角色派生，章节、运行约定、复刻验收与示例片段标记（`<!-- template-example:begin/end -->`）均由 ENG-06/ENG-10 机械核验；根 `AGENTS.md` 删除 `artifacts/<run-id>/tasks/` 要求并改链接，`README.md` 链接架构文档。
+
+**方案与实际的差异**（含 Task 16 Files 之外的改动；均为按契约补充或同步受影响产物，未改规划语义）
+
+1. **既有架构夹具必须能生成"清单一致"的指南与架构文档**：`packages/e2e/tests/tooling/helpers.ts` 的 `writeTemplateGuideFixture` 改为按清单角色的包目录派生白名单文本（默认 `sdk`/`protocol`/`e2e`），并新增 `writeArchitectureFixture`；`SCN-TEMPLATE-ENGINEERING-005.spec.ts` 的 `architectureFixture` 按清单传目录、`rename-by-manifest` 在按清单改名后重写指南。原因是删除白名单由清单派生（ENG-06 新增检查），005 原夹具用的是 `sample-sdk`/`sample-protocol` 目录，改名后必然与指南不一致。
+2. **夹具文案避免误触"未登记 pnpm 命令"**：`helpers.ts` 指南夹具中 `fixtures:refresh` 由行内代码改为纯文本（夹具清单只声明 `check:fast`，行内代码会按 `pnpm` 命令核对）。
+3. **抽取 Markdown 解析共用模块**：新增 `scripts/lib/markdown-docs.ts` 与 `scripts/lib/architecture-doc.ts`，`check-architecture.ts` 改为复用前者（原文件内的同名实现删除）。原因既是 Task 16 需要表格解析，也是 Task 14 的行数上限：继续在 `check-architecture.ts` 内堆实现会超限。
+4. **覆盖率四项 100% 需要补分支**：`capabilityMapNames` 原用 `?? []` 兜底产生不可达分支，改为按 Markdown AST 的必然结构直接取子节点；012 的 `architecture-links-resolve` 增加一条**可解析**的相对链接，覆盖断链检查的另一侧分支。断言语义未改。
+5. **用户裁决要求的 fix commits 不计入本任务**：`29e322a`、`f89546d` 是 Task 9 交付物缺陷修复，单独提交并在上文单列。
+
+**weapp 重跑记录**：本任务无 weapp 源码改动。全量 `verify`（run id `core-hardening-t16b`）weapp 步骤退出码 **0**（366941ms）：`SCN-PROTOCOL-CONTRACT-002` 11439ms 首跑通过；`SCN-PROTOCOL-CONTRACT-008` 首次断言前 **120012ms 挂起失败、断言数 0**（`packages/e2e/AGENTS.md` 记录的主进程挂起现象），`pnpm verify` 自动 `weapp:prepare` 后**整文件重跑 11150ms 通过**；`FLOW-TEMPLATE-EXAMPLE-001` 11491ms、`SCN-TEMPLATE-EXAMPLE-002` 11443ms、`SCN-TEMPLATE-EXAMPLE-004` 11430ms 均首跑通过。与 Task 13 记录的同一现象一致。
+
+**按需选择结果**
+
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T020412Z`）退出码 **0**：改动 14 个文件（文档、脚本、tooling 夹具）未命中任何全量触发路径，退化为 1 个步骤 `vitest related <8 个代码改动文件> --project sdk-unit --project protocol-unit --project test-tools-unit --run`，unit 步骤真实执行 **7 文件 / 63 用例**全部通过，与全量 `check:fast` 的单测结论一致。
+- 首次按需运行（`/tmp/t16-affected.log`）因 Task 9 缺陷 unit 步骤为空，已按上文标为**无效基线**。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次。首轮按需运行无效（unit 步骤为空，见「Task 9 交付物缺陷修复」）；补跑（`/tmp/t16-affected-final.log`）unit 步骤真实执行且与全量一致。全量 `verify` 的 `check:scenarios` 退出码 1 由 **2 条尚未交付的 `SCN-TEMPLATE-ENGINEERING-008` case（Task 17 自动化部分）**引起，不是回归，也不属于"按需子集漏测"。
+
+**附记（非本任务回归的计时抖动）**：全量 `verify` 首跑（run id `core-hardening-t16`，`/tmp/t16-verify.log`）在 `SCN-TEMPLATE-EXAMPLE-006 host-cancel` 失败（`expected [] to have a length of 1`，取消竞态），该文件单跑连续 3 次通过（`/tmp/t16-ex006-1..3.log`），此后所有全量运行通过。现象与 Task 11/14 记录的示例计时抖动同类，本任务未改动示例与运行时。
+
+**优先采用现成方案**
+
+- Markdown 解析复用既有 `unified` + `remark-parse` 链（与 `check-architecture.ts`、`example-markers.ts` 同源）；表格只对指南「能力地图」启用官方 `remark-gfm`（`markdown-docs.ts` 注释说明为何与断链检查用的解析链分开，避免自动链接改变既有断链判定）。
+- 相对链接解析、根文件链接补齐复用既有 `linkTarget`/`linkRootDocument`；删除白名单、章节清单、能力节清单全部由清单与指南派生，未自研第二套清单格式。
+- 用例复用既有 `cliEvidence`/`evidence` 包装与受控根 helper，未新建夹具框架；未新增任何依赖（`remark-gfm` 已在 Task 6/15 使用）。
+
 
 ### Task 15 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
 
@@ -1057,7 +1186,7 @@
 **按需选择结果**
 - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T011835Z`）退出码 **0**：本轮改动含 `package.json`（构建输入）、`project.manifest.json`（清单）与 `packages/e2e/host/weapp/`、`packages/e2e/src/drivers/` 下的 AGENTS/CLAUDE（宿主/驱动目录），全部命中全量触发路径，选择规则升级为全量 `check:fast`（退出码 0），未退化为精确子集，未发现选择错误。
 
-**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。全量 `verify` 的 `check:scenarios` 退出码 1 由 **4 条尚未交付的后续任务 case（012 与 008）**引起，不是回归，也不属于“按需子集漏测”，故不计入。
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。全量 `verify` 的 `check:scenarios` 退出码 1 由 **4 条尚未交付的后续任务 case（012 与 008）**引起，不是回归，也不属于“按需子集漏测”，故不计入。 附注（Task 9 交付物缺陷修复后修订）：本轮按需运行的 unit 步骤实际为空（根因与证据见「Task 9 交付物缺陷修复」），该轮按需结果标为**无效基线**，不计入 OI-CH-02。
 
 **优先采用现成方案**
 - 项目地图结构检查复用既有 `unified`/`remark-parse`/`unist-util-visit` Markdown 解析链（与 `check-architecture.ts`、`example-markers.ts` 同源），未自研 Markdown 解析；路径集合用既有的 `git`/清单派生方式，未在脚本里写死包名与目录。

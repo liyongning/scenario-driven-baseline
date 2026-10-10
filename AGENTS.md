@@ -8,6 +8,7 @@
 - 使用 `openspec list` 查看当前 Change；生命周期状态以当前物理仓库为根。
 - [仓库与跨仓库参考](README.md)
 - [模板使用指南](docs/template-guide.md)
+- [技术架构文档](docs/architecture.md)
 - [项目清单](project.manifest.json)
 
 ### 项目地图
@@ -58,7 +59,7 @@
 
 ### 场景门禁与归档
 
-门禁读取 `openspec/specs/**`，再合并未归档 active Change 的 Spec delta；`archive/` 只保存历史。Scenario/FLOW 的格式来自 `scenario-gate.config.json`，每个 Scenario 只能有一个 verification 块，FLOW 表必须位于 Requirement 正文。归档或同步前运行完整场景门禁，确认清单、绑定、报告和来源摘要仍一致，并把验收索引保存到 `artifacts/<run-id>/tasks/`。
+门禁读取 `openspec/specs/**`，再合并未归档 active Change 的 Spec delta；`archive/` 只保存历史。Scenario/FLOW 的格式来自 `scenario-gate.config.json`，每个 Scenario 只能有一个 verification 块，FLOW 表必须位于 Requirement 正文。归档或同步前运行完整场景门禁，确认清单、绑定、报告和来源摘要仍一致；验收结论写在 Change 的 verify 记录里，`artifacts/` 只是本地运行产物目录。
 
 ### 执行规则
 
@@ -74,7 +75,7 @@
 10. ProtoGen Consumer 按产品实际依赖在 IDL 仓库登记；项目内使用根 devDependency，通过 `pnpm proto:*` 或 `pnpm exec` 调用，安装/升级时核对私有 registry 的最新正式版本并保存精确版本与锁文件。
 11. 小程序自动化复用本机微信开发者工具与 miniprogram-automator，不开发 UI 自动化框架或工具控制器，不以 CI 环境缺失阻断本地运行。
 12. 优先采用现成方案：遇到问题先查官方文档与业界或社区的成熟方案，查不到再做实验，最后才考虑自研；引入框架生态时优先使用官方脚手架。确需自研通用能力时，在 Design 中写明已查过哪些方案、为何不采用。
-13. 能力变化同步架构文档：新增或改变能力的 Change 在 Design 阶段同步更新架构文档 `docs/architecture.md`（回答“解决什么问题、为什么这样设计”，与指南“怎么用、怎么换”分工）。
+13. 能力变化同步架构文档：新增或改变能力的 Change 在 Design 阶段同步更新 [技术架构文档](docs/architecture.md)（回答“解决什么问题、为什么这样设计”，与指南“怎么用、怎么换”分工）；文档细节层按指南「能力地图」逐项成节。
 
 ### 外部交互替身的设计标准
 

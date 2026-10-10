@@ -102,20 +102,93 @@ export function runScenarioCli(input: CoverageInput) {
   }
 }
 
-/** 临时架构根的合法使用指南：规定章节齐全，且不含 Scenario ID、pnpm 命令与清单字段引用。 */
-export function writeTemplateGuideFixture(root: string) {
+/** 在根 AGENTS.md 与 README.md 中补一条指向文档的相对链接（已存在则跳过）。 */
+function linkRootDocument(root: string, link: string) {
+  for (const file of ['AGENTS.md', 'README.md']) {
+    const path = join(root, file);
+    const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
+    if (!current.includes(link))
+      writeFileSync(path, `${current.trimEnd()}\n\n${link}\n`.trimStart());
+  }
+}
+
+/** 临时架构根的合法技术架构文档：与指南能力地图同名，四部分齐全。 */
+export function writeArchitectureFixture(root: string) {
+  const sections = ['解决的问题', '实现机制与关键文件', '关键设计决策与被否决的方案', '演进记录'];
+  const document = [
+    '# 技术架构',
+    '',
+    '## 粗略层',
+    '',
+    '（临时根占位）',
+    '',
+    '## 细节层',
+    '',
+    '### 临时能力',
+    '',
+    ...sections.flatMap((name) => [`#### ${name}`, '', '（临时根占位）', '']),
+  ].join('\n');
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs/architecture.md'), document);
+  linkRootDocument(root, '[技术架构](docs/architecture.md)');
+}
+
+/**
+ * 临时架构根的合法使用指南：规定章节齐全、删除白名单完整、能力地图与架构文档同名，
+ * 且不含 Scenario ID、pnpm 命令与清单字段引用。
+ */
+export function writeTemplateGuideFixture(
+  root: string,
+  directories: { product: string; protocol: string; test: string } = {
+    product: 'sdk',
+    protocol: 'protocol',
+    test: 'e2e',
+  },
+) {
+  const { product, protocol, test } = directories;
   const guide = [
     '# 模板使用指南',
     '',
     '## 能力地图',
     '',
-    '（临时根占位）',
+    '| 能力 | 承载文件 | 验证方式 |',
+    '| --- | --- | --- |',
+    '| 临时能力 | 临时根占位 | 无 |',
     '',
     '## 从方案到验收',
     '',
     '（临时根占位）',
     '',
     '## 初始化方式',
+    '',
+    '（临时根占位）',
+    '',
+    '## 移除模板示例',
+    '',
+    `删除白名单：\`packages/${product}/src/example/\`、\`packages/${protocol}/testing/shadow/example/\`、`,
+    `\`packages/${test}/tests/example/\`、\`packages/${test}/tests/weapp/example/\`、`,
+    `\`packages/${test}/host/weapp/example-runner.ts\`、\`packages/${test}/tests/fixtures/\` 下的`,
+    '`SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`、',
+    `\`packages/${test}/tests/tooling/SCN-TEMPLATE-EXAMPLE-*\`、\`openspec/specs/template-example/\`；`,
+    '片段从 `template-example:begin` 到 `template-example:end`；',
+    `\`packages/${product}/src/index.ts\` 的示例导出、\`consumed-operations.ts\` 的示例条目、`,
+    `\`packages/${test}/host/weapp/app.js\`、\`packages/${test}/src/drivers/weapp-host.test.ts\` 中的示例运行器片段；`,
+    '`protocol-matrix.json` 中的示例键删除后用 fixtures:refresh 重算摘要；',
+    '同步 `coverageExclusions`。',
+    '',
+    '## 归档已知限制',
+    '',
+    '（临时根占位）',
+    '',
+    '## 版本对齐',
+    '',
+    '（临时根占位）',
+    '',
+    '## 使用方约定',
+    '',
+    '（临时根占位）',
+    '',
+    '## 复刻验收',
     '',
     '（临时根占位）',
     '',
@@ -136,13 +209,8 @@ export function writeTemplateGuideFixture(root: string) {
   ].join('\n');
   mkdirSync(join(root, 'docs'), { recursive: true });
   writeFileSync(join(root, 'docs/template-guide.md'), guide);
-  const link = '[模板使用指南](docs/template-guide.md)';
-  for (const file of ['AGENTS.md', 'README.md']) {
-    const path = join(root, file);
-    const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
-    if (!current.includes(link))
-      writeFileSync(path, `${current.trimEnd()}\n\n${link}\n`.trimStart());
-  }
+  writeArchitectureFixture(root);
+  linkRootDocument(root, '[模板使用指南](docs/template-guide.md)');
 }
 
 /** 模块级 AGENTS.md 的固定五节骨架；没有内容的节写「无」，不得删节。 */

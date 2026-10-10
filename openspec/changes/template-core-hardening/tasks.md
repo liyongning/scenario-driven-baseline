@@ -548,7 +548,7 @@
   **Commit**
   - `docs(template): add progressive project map with paired CLAUDE.md`
 
-- [ ] 16. 技术架构文档与指南修订
+- [x] 16. 技术架构文档与指南修订
 
   **Files**
   - Create：`docs/architecture.md`（粗略层与按能力的细节层，存量内容从四个归档 Change 的 design 整理；本 Change 新增能力的演进记录只写 Change 名称纯文本，不链接 `openspec/changes/template-core-hardening/`）。

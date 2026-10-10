@@ -3,20 +3,20 @@ import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
 import { checkProjectMap } from './check-project-map.ts';
+import { checkArchitectureDoc, guideRelativePath } from './lib/architecture-doc.ts';
 import { checkExampleMarkers } from './lib/example-markers.ts';
+import { headingsOf, linkTarget, linksTo, markdown, relativeLinks } from './lib/markdown-docs.ts';
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 import { loadScenarioConfig, matchesAny } from './lib/scenario-config.ts';
 import {
   errorMessage,
   loadProjectManifest,
+  packageByRole,
   projectManifestSchemaUrl,
   type ProjectManifest,
 } from './lib/project-manifest.ts';
-import { nodeText } from './lib/spec-inventory.ts';
 import { readEffectiveSpecs } from './lib/spec-sources.ts';
 
 /** 依赖与平台规则的路径按清单角色生成；实现与 dependency-cruiser 配置共用同一份 CJS 模块。 */
@@ -33,37 +33,49 @@ type Manifest = {
   scripts?: Record<string, string>;
 };
 
-/** 使用指南的路径与固定章节标题；架构检查按标题层级与文字判定。 */
-const guideRelativePath = 'docs/template-guide.md';
+/** 使用指南的固定章节标题；架构检查按标题层级与文字判定。 */
 const guideSections = {
-  level2: ['能力地图', '从方案到验收', '初始化方式', '替换点地图'],
+  level2: [
+    '能力地图',
+    '从方案到验收',
+    '初始化方式',
+    '移除模板示例',
+    '归档已知限制',
+    '版本对齐',
+    '使用方约定',
+    '复刻验收',
+    '替换点地图',
+  ],
   level3: ['协议来源', '运行平台', '包发布'],
 } as const;
 /** pnpm 内置命令不作为根 package.json 的脚本核对。 */
 const pnpmBuiltins = new Set(['install', 'add', 'remove', 'exec', 'dlx']);
-
-function markdown(content: string) {
-  return unified().use(remarkParse).parse(content);
-}
-
-function linksIn(content: string): string[] {
-  const urls: string[] = [];
-  visit(markdown(content), 'link', (node) => {
-    urls.push(node.url);
-  });
-  return urls;
-}
-
-function linkTarget(baseFile: string, url: string): string {
-  return resolve(dirname(baseFile), decodeURIComponent(url.split('#')[0]!));
-}
-
-/** 文件存在且其中任一链接解析到目标文件。 */
-function linksTo(filePath: string, target: string): boolean {
-  if (!existsSync(filePath)) return false;
-  return linksIn(readFileSync(filePath, 'utf8')).some(
-    (url) => linkTarget(filePath, url) === target,
-  );
+/** 指南「移除模板示例」必须逐项写明的删除白名单；包路径按清单角色派生，与 ENG-06 的清单一致。 */
+function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
+  const product = packageByRole(manifest, 'product').directory;
+  const protocol = packageByRole(manifest, 'protocol').directory;
+  const test = packageByRole(manifest, 'test').directory;
+  return [
+    `packages/${product}/src/example/`,
+    `packages/${protocol}/testing/shadow/example/`,
+    `packages/${test}/tests/example/`,
+    `packages/${test}/tests/weapp/example/`,
+    `packages/${test}/host/weapp/example-runner.ts`,
+    `packages/${test}/tests/fixtures/`,
+    'SCN-TEMPLATE-EXAMPLE-*',
+    'FLOW-TEMPLATE-EXAMPLE-*',
+    `packages/${test}/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`,
+    'openspec/specs/template-example/',
+    'template-example:begin',
+    'template-example:end',
+    `packages/${product}/src/index.ts`,
+    'consumed-operations.ts',
+    `packages/${test}/host/weapp/app.js`,
+    `packages/${test}/src/drivers/weapp-host.test.ts`,
+    'protocol-matrix.json',
+    'fixtures:refresh',
+    'coverageExclusions',
+  ];
 }
 
 /** 按项目配置的格式从全文中提取 Scenario ID 词元。 */
@@ -101,10 +113,11 @@ function manifestFieldExists(schema: unknown, field: string): boolean {
   return true;
 }
 
-/** 使用指南的结构与机械可核对事实：存在、链接、章节、相对链接、Scenario ID、pnpm 命令与清单字段。 */
+/** 使用指南的结构与机械可核对事实：存在、链接、章节、删除白名单、相对链接、Scenario ID、pnpm 命令与清单字段。 */
 async function checkTemplateGuide(
   root: string,
   scripts: Record<string, string>,
+  manifest: ProjectManifest,
 ): Promise<string[]> {
   const errors: string[] = [];
   const guideFile = join(root, guideRelativePath);
@@ -115,16 +128,14 @@ async function checkTemplateGuide(
   if (!linksTo(join(root, 'README.md'), target))
     errors.push(`README.md does not link ${guideRelativePath}`);
   const content = readFileSync(guideFile, 'utf8');
-  const headings = new Set<string>();
-  visit(markdown(content), 'heading', (node) => {
-    headings.add(`${node.depth}:${nodeText(node)}`);
-  });
+  const headings = new Set(headingsOf(content).map((node) => `${node.depth}:${node.text}`));
   for (const section of guideSections.level2)
     if (!headings.has(`2:${section}`)) errors.push(`missing guide section ## ${section}`);
   for (const section of guideSections.level3)
     if (!headings.has(`3:${section}`)) errors.push(`missing guide section ### ${section}`);
-  for (const url of linksIn(content)) {
-    if (/^(https?:|#|mailto:)/.test(url)) continue;
+  for (const entry of exampleWhitelistEntries(manifest))
+    if (!content.includes(entry)) errors.push(`missing removal whitelist entry ${entry}`);
+  for (const url of relativeLinks(content)) {
     if (!existsSync(linkTarget(guideFile, url)))
       errors.push(`broken link ${guideRelativePath} -> ${url}`);
   }
@@ -220,7 +231,8 @@ export async function checkArchitecture(
   errors.push(...checkSchemaDocumentation(root));
   errors.push(...checkExampleMarkers(root, manifest));
   errors.push(...checkProjectMap(root, manifest));
-  errors.push(...(await checkTemplateGuide(root, scripts)));
+  errors.push(...(await checkTemplateGuide(root, scripts, manifest)));
+  errors.push(...checkArchitectureDoc(root));
   return errors;
 }
 

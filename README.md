@@ -2,7 +2,7 @@
 
 通用 TypeScript Headless SDK 工作区模板：三个包（产品包、协议包、private 测试工程）加一个可复制的示例能力，按“按示例扩展新业务”的分层扩展新业务。工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，改包、命令、测试项目或发布设置时先改清单。
 
-使用入口见 [模板使用指南](docs/template-guide.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
+使用入口见 [模板使用指南](docs/template-guide.md)，设计理由见 [技术架构文档](docs/architecture.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
 | Workspace 目录    | 包名                      | 职责                                                                                     |
 | ----------------- | ------------------------- | ---------------------------------------------------------------------------------------- |
@@ -25,6 +25,7 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 
 - [Agent 工作入口](AGENTS.md)
 - [模板使用指南](docs/template-guide.md)
+- [技术架构文档](docs/architecture.md)
 - [有效能力 Spec](openspec/specs/)
 - [工具准备记录](docs/engineering/bootstrap.md)
 

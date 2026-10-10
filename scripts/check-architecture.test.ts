@@ -260,7 +260,21 @@ evidence(
       writeFileSync(join(root, 'docs/template-guide.md'), '# guide\n\n## 能力地图\n');
       const errors = await checkArchitecture(root, 0);
       context.expect(errors).toContain('missing guide section ## 从方案到验收');
+      context.expect(errors).toContain('missing guide section ## 移除模板示例');
+      context.expect(errors).toContain('missing guide section ## 归档已知限制');
+      context.expect(errors).toContain('missing guide section ## 版本对齐');
+      context.expect(errors).toContain('missing guide section ## 使用方约定');
+      context.expect(errors).toContain('missing guide section ## 复刻验收');
       context.expect(errors).toContain('missing guide section ### 包发布');
+      const partial = fixture();
+      const guide = readFileSync(join(partial, 'docs/template-guide.md'), 'utf8');
+      writeFileSync(
+        join(partial, 'docs/template-guide.md'),
+        guide.replace('`openspec/specs/template-example/`；', ''),
+      );
+      context
+        .expect(await checkArchitecture(partial, 0))
+        .toContain('missing removal whitelist entry openspec/specs/template-example/');
     });
 
     await check('guide-links-resolve', async () => {
@@ -325,6 +339,62 @@ evidence(
       context.expect(errors).not.toContain('unknown pnpm command install');
       context.expect(errors.some((error) => error.includes('--filter'))).toBe(false);
       context.expect(errors).not.toContain('unknown manifest field manifest.packages[].directory');
+    });
+  },
+);
+
+evidence(
+  'SCN-TEMPLATE-ENGINEERING-012',
+  'architecture-doc-rules',
+  ['architecture-present-and-linked', 'capability-sections', 'architecture-links-resolve'],
+  async (context, check) => {
+    await check('architecture-present-and-linked', async () => {
+      const missing = fixture();
+      rmSync(join(missing, 'docs/architecture.md'));
+      context.expect(await checkArchitecture(missing, 0)).toContain('missing docs/architecture.md');
+
+      const unlinked = fixture();
+      writeFileSync(join(unlinked, 'AGENTS.md'), '# facts\n');
+      writeFileSync(join(unlinked, 'README.md'), '# facts\n');
+      const errors = await checkArchitecture(unlinked, 0);
+      context.expect(errors).toContain('AGENTS.md does not link docs/architecture.md');
+      context.expect(errors).toContain('README.md does not link docs/architecture.md');
+    });
+
+    await check('capability-sections', async () => {
+      const root = fixture();
+      const guide = readFileSync(join(root, 'docs/template-guide.md'), 'utf8');
+      writeFileSync(
+        join(root, 'docs/template-guide.md'),
+        guide.replace(
+          '| 临时能力 | 临时根占位 | 无 |',
+          '| 临时能力 | 临时根占位 | 无 |\n| 未登记能力 | 临时根占位 | 无 |',
+        ),
+      );
+      context
+        .expect(await checkArchitecture(root, 0))
+        .toContain('docs/architecture.md: missing capability section 未登记能力');
+
+      const noTable = fixture();
+      writeFileSync(
+        join(noTable, 'docs/template-guide.md'),
+        '# 指南\n\n## 能力地图\n\n（缺表格）\n',
+      );
+      context
+        .expect(await checkArchitecture(noTable, 0))
+        .toContain('docs/template-guide.md: capability map table not found');
+    });
+
+    await check('architecture-links-resolve', async () => {
+      const root = fixture();
+      writeFileSync(
+        join(root, 'docs/architecture.md'),
+        `${readFileSync(join(root, 'docs/architecture.md'), 'utf8')}\n[存在](template-guide.md)、[缺失](missing.md)\n`,
+      );
+      const errors = await checkArchitecture(root, 0);
+      context
+        .expect(errors.filter((error) => error.startsWith('broken link')))
+        .toEqual(['broken link docs/architecture.md -> missing.md']);
     });
   },
 );

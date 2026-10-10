@@ -63,7 +63,25 @@ cliEvidence(
       writeFileSync(guidePath(root), '# guide\n\n## 能力地图\n');
       const issues = issuesOf(root);
       context.expect(issues).toContain('missing guide section ## 从方案到验收');
+      context.expect(issues).toContain('missing guide section ## 移除模板示例');
+      context.expect(issues).toContain('missing guide section ## 归档已知限制');
+      context.expect(issues).toContain('missing guide section ## 版本对齐');
+      context.expect(issues).toContain('missing guide section ## 使用方约定');
+      context.expect(issues).toContain('missing guide section ## 复刻验收');
       context.expect(issues).toContain('missing guide section ### 包发布');
+
+      // 白名单缺项：章节齐全但少写一项也非零退出。
+      const partial = guideRoot();
+      writeFileSync(
+        guidePath(partial),
+        readFileSync(guidePath(partial), 'utf8').replace(
+          '`openspec/specs/template-example/`；',
+          '',
+        ),
+      );
+      context
+        .expect(issuesOf(partial))
+        .toContain('missing removal whitelist entry openspec/specs/template-example/');
     });
 
     await check('guide-links-resolve', () => {
