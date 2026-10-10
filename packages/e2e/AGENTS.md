@@ -43,6 +43,7 @@
 - 平台或第三方能力（例如小程序收银台、系统能力）由平台能力替身承载：在产品包中定义端口，适配器调用真实平台 API，替身放在 `packages/e2e/src/drivers/`，经用例注入。
 - 不提供“真实服务端 + 替身”或“替身服务端 + 真实平台能力”的混合模式；真实外部验收由真实消费方项目承担，不在本仓库进行。
 - weapp 用例仍通过真实 `wx.request` 访问 Shadow，证明平台网络适配的真实性。
+- 平台能力替身在 weapp 宿主里的注入限制：`miniprogram-automator` 的 `mockWxMethod` 只接受固定返回值或函数声明字符串，不会把调用方的回调（`success`/`fail`/`complete`）传给实现函数，因此只能编排 `success` 路径；失败路径（`fail`、错误码、超时）由 integration 用例承担，或改由用例在调用宿主 runner 前注入替身实现。
 
 ### 微信开发者工具自动化的注意事项
 
@@ -53,7 +54,8 @@
 1. 退出主进程、清理残留进程与预热已由统一入口自动执行：`pnpm verify` 按 `project.manifest.json` 中 platform 项目登记的 `perFile: true` 与 `prepare: "weapp:prepare"` 逐文件运行，每个文件前先执行 `pnpm weapp:prepare`——`/Applications/wechatwebdevtools.app/Contents/MacOS/cli quit`，仍有残留时执行 `pkill -f wechatwebdevtools.app`，再用 `cli open --project <仓库根>/packages/e2e/host/weapp` 预热（约 25 秒），随后轮询 `automator.launch` + `checkVersion()` 直到能读到版本号为止——就绪与否以 `weapp:prepare` 的退出码为准。不预热时，首个 case 的冷启动常超过 30 秒启动等待而必然失败，重跑也无济于事。`cli open` 的退出码不可靠（已观察到返回 255 但 DevTools 已可用），`weapp:prepare` 不以它判断是否就绪；预热只能消除冷启动超时，不能消除 120 秒挂起，挂起仍按第 2 条整文件重跑。
 2. 出现上述失败时，`pnpm verify` 会自动先执行一次 `pnpm weapp:prepare` 再重跑失败用例所在的整个文件。手工单跑（例如调试某个文件）时须自行执行第 1 条的退出与预热，并按同样方式整文件重跑，用新的完整报告替换该文件的旧报告；重跑通过即为有效证据。不要用 `-t` 只跑单个 case：被过滤掉的 case 会以 skipped 写入报告，汇入场景门禁时造成重复绑定。不得把这类失败判定为业务失败，也不得据此修改断言、跳过用例或缩小统计范围。
 3. 验收记录中写明哪些文件是重跑取得证据的（自动重跑或手工重跑），以及每次失败的现象。
-4. `pnpm weapp:prepare` 会**无条件**退出并杀掉开发者工具主进程（`cli quit`，仍有残留时 `pkill -f wechatwebdevtools.app`），不是"只在需要时才重启"。同一台机器上有多个工作区或会话并行使用开发者工具时，这一步会打断别人的运行；多工作区共用同一台机器时请错开使用，不要在别人跑 weapp 用例时执行预热或整次 `pnpm verify`。
+4. 运行 `pnpm weapp:prepare` 或整次 `pnpm verify` 前先确认开发者工具没被别人占用：`pgrep -fl wechatwebdevtools.app` 有输出说明主进程正在运行（可能是别的工作区或会话），先确认再动手。
+5. `pnpm weapp:prepare` 会**无条件**退出并杀掉开发者工具主进程（`cli quit`，仍有残留时 `pkill -f wechatwebdevtools.app`），不是"只在需要时才重启"。同一台机器上有多个工作区或会话并行使用开发者工具时，这一步会打断别人的运行；多工作区共用同一台机器时请错开使用，不要在别人跑 weapp 用例时执行预热或整次 `pnpm verify`。
 
 本模板不追求在小程序生态下建设完整通用的自动化流程，因此暂不修改 driver。如需彻底消除，可在后续 Change 中让 driver 在每次 launch 前退出主进程，或让同一文件内的 case 复用一次启动。
 
