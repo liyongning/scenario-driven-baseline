@@ -54,7 +54,7 @@
 4. **运行约定（有 active Change 时）**：仓库存在正在交付的 active Change 时，任何可能触发副本用例的运行都要带作用域——全量运行用 `pnpm verify --change <change>`，单独运行 `check:fast` 或 `test:affected` 时设置 `SCENARIO_GATE_CHANGES=<change>`。副本据此归档对应 Change；没有 active Change 时不带作用域，副本也无需归档。这条约定同样适用于复刻验收的演练副本。
 5. **快速门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:fast`。它依次运行 `pnpm proto:validate`、`pnpm proto:status`、`pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm check:architecture`、`pnpm test:unit`、`pnpm check:coverage`、`pnpm check:fixtures`、`pnpm test:integration` 与 `pnpm check:package`，手写代码四项覆盖率要求 100%。
 6. **按需运行**：`pnpm test:affected [--base <ref>] [--scenario <ID...>] [--dry-run]` 只跑受改动的 Spec、Fixture、代码与门禁模块影响的用例；改动命中清单、构建输入或工具配置时退化为全量 `pnpm check:fast` 并打印原因。按需运行的报告带 `partial` 标记，场景门禁会拒收，所以它不能替代全量证据。节奏：每个任务结束时按需运行，至少每 3 个任务与交回前、验收前全量运行。
-7. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒（`pnpm weapp:prepare` 会轮询到能读到版本号为止，就绪与否以该命令的退出码为准，不依赖固定等待）；每个文件一份报告，失败时整文件重跑。
+7. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒（`pnpm weapp:prepare` 会轮询到能读到版本号为止，就绪与否以该命令的退出码为准，不依赖固定等待）；每个文件一份报告，失败时整文件重跑。整次 `pnpm verify` 在平台步骤中断（例如开发者工具掉线、某个文件超时）时，按它打印的提示用 `pnpm verify --from test:e2e:<项目名> --run-id <run-id>` 续跑：跳过此前已通过的步骤、沿用同一 run id 重新生成该步及之后的报告，补齐平台与门禁证据，不必从头再跑。
 8. **场景门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:scenarios`，用 unit、integration 与全部 weapp 报告对账 Spec、绑定与证据；退出码 0 且问题数为 0 才算通过。默认读取 `artifacts/<run-id>/reports/`，也可用 `--report` 逐个指定报告。
 9. **归档**：`/change archive <change>`。归档前确认清单、绑定、报告与来源摘要仍然一致。
 
@@ -103,9 +103,9 @@
 - JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`），删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。
 - 同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目。
 
-**片段标记**：共享文件中只属于示例的片段用成对注释包裹——代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。架构检查会校验标记成对出现、不嵌套；共享文件中引用示例、但没有被标记包裹的内容会被视为门禁依赖示例，示例删除演练会把它暴露出来。
+**片段标记**：共享文件中只属于示例的片段用成对注释包裹——代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。只有注释行里的标记才算标记：字符串字面量与 Spec 正文中出现的同名文字不参与裁剪，也不会被当成标记。架构检查会校验标记成对出现、不嵌套；共享文件中引用示例、但没有被标记包裹的内容会被视为门禁依赖示例，示例删除演练会把它暴露出来。
 
-删除后先把改动 `git add -A` 或提交（未跟踪/已删除但未暂存的文件不会进入报告，门禁会读到过期结论），再运行 `pnpm check:fast` 与场景门禁清单模式（`pnpm check:scenarios --inventory`）确认仍然全绿；本节的删除发生在初始化阶段、副本里没有 active Change 时按运行约定不带作用域（仍在交付 active Change 时按「从方案到验收」第 4 条带作用域）。完整验收（含平台报告）由复刻验收的示例删除演练承担。
+删除后先运行 `pnpm format`（片段删除会留下空行与折行差异），再把改动 `git add -A` 或提交：源码清单取自 `git ls-files -co --exclude-standard`，未跟踪的新文件会进入清单，而工作区里已删除但尚未暂存删除的文件会在读取前被剔除——不 add 或提交，删除就不会反映到源码摘要，门禁会读到过期结论。然后运行 `pnpm check:fast` 与场景门禁清单模式（`pnpm check:scenarios --inventory`）：清单模式不要求平台报告，所以 `requiredIn` 含平台项目的用例会报 `missing binding`，这类问题在副本里预期存在、不代表删除有问题；除此之外应全绿。本节的删除发生在初始化阶段、副本里没有 active Change 时按运行约定不带作用域（仍在交付 active Change 时按「从方案到验收」第 4 条带作用域）。完整验收（含平台报告）由复刻验收的示例删除演练承担。
 
 ## 归档已知限制
 
