@@ -1322,3 +1322,18 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **代价**：宿主 runner 打包体积 14.37 kB → 70.87 kB（gzip 4.66 kB → 13.22 kB），因为 generated IDL 入口模块进了 bundle；这是共享能力证据不再依赖产品声明的直接结果。
 - **同文件跨越**：`protocol-runner.ts` 里「消费接口声明不经 SDK 根入口导出，改按源码路径读取」这一行属第 3 条（同一条提交承载，见第 3 条）。
 - **提交**：`fix(template): source weapp request-id evidence from generated idl`。
+
+### 第 3 条 · Task 10（用户已裁决）：SDK 根入口不再导出消费接口声明
+
+- **根因**：`packages/sdk/src/index.ts` 把包内实现 `consumed-operations.ts` 的类型与常量当公共 API 导出（`consumedOperations`、`ConsumedMethod`、`ConsumedOperation`、`ConsumedRequestField`）。声明模块是门禁的分析输入，不应固化成产品公共接口；示例删除后它还留在 `dist` 声明里。
+- **改动**（不改规划语义）：
+  - `packages/sdk/src/index.ts`：删除上述 4 个导出，只保留 `template-example` 标记内的示例客户端导出，并把「声明是包内实现、门禁与用例都按清单登记的源码路径读取」写进入口注释。
+  - 消费点改为按源码/分析路径读取：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`、`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts`、`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts` 直接用相对路径 import `packages/sdk/src/consumed-operations.ts`；宿主 `protocol-runner.ts` 用 `../../../sdk/src/consumed-operations`（该行随第 2 条提交）。
+  - 清单 `packages[role=product].consumedOperations = ["packages/sdk/src/consumed-operations.ts"]` 未变，`check-fixtures` / `check-scenarios` 仍按清单读源码。
+- **证据**：
+  - `pnpm build` 退出码 0（`/tmp/tc3-build.log`）；`grep -n "consumedOperations\|ConsumedMethod\|ConsumedOperation\|ConsumedRequestField" packages/sdk/dist/index.d.ts packages/sdk/dist/index.d.cts packages/sdk/dist/index.js packages/sdk/dist/index.cjs` 退出码 1（四处产物均不再出现这些名字）。
+  - `pnpm typecheck` 退出码 0。
+  - `pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`：2 文件 / 2 用例通过，退出码 0（365ms / 4076ms）。
+  - `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures`：`manifests: 19, issues: []`，退出码 0（证明门禁仍按清单路径读源码）。
+- **反例**：`packages/sdk/dist/index.d.ts` 修复前导出 `export { consumedOperations } from './consumed-operations';`（原始内容见本 Change 提交前的 `packages/sdk/src/index.ts`）；若有人把声明再当公共 API 导出，`grep` 的退出码会变回 0。
+- **提交**：`fix(template): keep the consumed-operations declaration package-internal`。

@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { test } from 'vitest';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+// 消费接口声明不经 SDK 根入口导出：按源码读取（清单登记该模块路径，门禁同样读源码）。
+import { consumedOperations } from '../../../../packages/sdk/src/consumed-operations.ts';
 import { repositoryRoot } from './helpers.ts';
 
 /** 声明模块由清单登记；用例不写死示例导出名（EX-09）。 */
@@ -36,21 +38,7 @@ test(
   },
   async (context) => {
     const before = context.expect.getState().assertionCalls;
-    const sdk = (await import('@daqian/template-sdk')) as {
-      consumedOperations: ReadonlyArray<{
-        readonly method: {
-          readonly meta: {
-            readonly name: string;
-            readonly method: string;
-            readonly path: string;
-            readonly requestType: string;
-            readonly responseType: string;
-          };
-        };
-        readonly requestFields: Readonly<Record<string, unknown>>;
-      }>;
-    };
-    const operations = sdk.consumedOperations;
+    const operations = consumedOperations;
     const names = operations.map((operation) => operation.method.meta.name);
 
     // declaration-registered：清单登记声明模块，模块恰好两个 { method, requestFields } 元素，

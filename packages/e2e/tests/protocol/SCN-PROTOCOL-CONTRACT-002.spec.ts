@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
 import { createProtocolClient } from '@daqian/template-protocol';
 import type { HttpPort } from '@daqian/template-protocol';
-import { consumedOperations } from '@daqian/template-sdk';
+// 消费接口声明不经 SDK 根入口导出：按源码读取（清单登记该模块路径，门禁同样读源码）。
+import { consumedOperations } from '../../../../packages/sdk/src/consumed-operations.ts';
 import {
   compareJsonPresence,
   createShadowServer,
