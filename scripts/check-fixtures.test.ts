@@ -84,6 +84,8 @@ function writeFixture(
     path?: string;
     sha256?: string;
     omitDigest?: boolean;
+    /** 直接给出的 sources 内容：用于构造缺失 spec 的来源（反例）。 */
+    sources?: unknown;
   }>,
 ) {
   const directory = join(fixturesOf(root), owner);
@@ -94,7 +96,7 @@ function writeFixture(
   const manifest = {
     formatVersion: 1,
     ownerId: owner,
-    sources: {
+    sources: spec.sources ?? {
       spec: spec.path
         ? { path: spec.path, sha256: spec.sha256 ?? sha('missing') }
         : spec.omitDigest
@@ -252,6 +254,14 @@ evidence(
         repositoryRoot: empty.root,
       });
       context.expect(missing.issues.join('\n')).toContain('manifest schema');
+      // 反例：来源里只写别的键、不写 spec 时，不能绕过 owner 与摘要检查（演练复现：issues 为空）。
+      const noteOnly = createRoot();
+      writeFixture(noteOnly, 'SCN-SAMPLE-CONTRACT-001', { sources: { note: 'x' } });
+      const bypass = await checkFixtures({
+        fixtureRoot: fixturesOf(noteOnly),
+        repositoryRoot: noteOnly.root,
+      });
+      context.expect(bypass.issues.join('\n')).toContain('manifest schema');
     });
   },
 );
@@ -409,7 +419,17 @@ evidence(
 );
 
 test('reports missing, invalid, mismatched and undeclared fixture manifests', async () => {
-  const root = createRoot();
+  // 干净 Fixture 的来源必须指向有效 Spec 中的 Scenario：schema 现在要求 sources.spec，
+  // 这里给它一个真实存在的 Requirement 块与对应摘要。
+  const cleanBlock = [
+    '### Requirement: BASE-04 干净 Fixture 的来源',
+    '',
+    '#### Scenario: SCN-SAMPLE-CONTRACT-004 干净用例',
+    '',
+    '- **WHEN** 读取来源',
+    '- **THEN** 不报问题',
+  ].join('\n');
+  const root = createRoot({ spec: `${baseSpec}\n${cleanBlock}\n` });
   const fixtures = fixturesOf(root);
   mkdirSync(join(fixtures, 'SCN-SAMPLE-CONTRACT-009'), { recursive: true });
   const invalid = join(fixtures, 'SCN-SAMPLE-CONTRACT-010');
@@ -455,7 +475,10 @@ test('reports missing, invalid, mismatched and undeclared fixture manifests', as
     JSON.stringify({
       formatVersion: 1,
       ownerId: 'SCN-SAMPLE-CONTRACT-004',
-      sources: { idlCommit: 'a'.repeat(40) },
+      sources: {
+        idlCommit: 'a'.repeat(40),
+        spec: { requirementDigest: sha(normalizeRequirementBlock(cleanBlock)) },
+      },
       cases: { case: 'case.json' },
       sha256: { 'case.json': sha('{}') },
     }),

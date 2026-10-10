@@ -21,6 +21,9 @@
     "sources": {
       "type": "object",
       "minProperties": 1,
+      "required": [
+        "spec"
+      ],
       "properties": {
         "spec": {
           "type": "object",

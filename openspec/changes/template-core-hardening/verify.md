@@ -1346,3 +1346,17 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 单测 `scripts/lib/source-inventory.test.ts` 新增用例 `drops tracked files deleted from the worktree but not yet staged`：RED（旧实现）断言 `['scripts/kept.ts']` 时得到 `['scripts/kept.ts','scripts/removed.ts']`；GREEN 后 `scripts/lib/source-inventory.test.ts` 4 用例通过（`pnpm exec vitest run --project test-tools-unit scripts/lib/source-inventory.test.ts`，退出码 0，同一命令在 `scripts/lib/source-inventory.test.ts scripts/check-fixtures.test.ts` 下 2 文件 / 11 用例通过、961ms）。
   - 反例：`rmSync('scripts/removed.ts')` 后 `listGitFiles` 仍应返回该路径（旧行为）；对应 `codeFiles(readSourceInventory(root))` 从 `['scripts/kept.ts','scripts/removed.ts']` 变为 `['scripts/kept.ts']`，不再给下游留下 `ENOENT`。
 - **提交**：`fix(template): drop worktree-deleted paths from the source inventory`。
+
+### 第 7 条 · Task 6：Fixture 不写 `sources.spec` 即跳过 owner 与摘要检查
+
+- **根因**：`scripts/check-fixtures.ts:85` 用 `const spec = manifest.sources.spec; if (spec?.requirementDigest) { … }` 包裹 owner 存在性与来源摘要检查，Fixture 来源里只要不写 `spec`（或写了 `spec` 但没有 `requirementDigest`）就整段跳过。演练复现：新建 `SCN-TEMPLATE-ENGINEERING-999/manifest.json`、`sources` 只写 `{"note":"x"}`，`check:fixtures` 的 `issues` 为空。
+- **改动**：
+  - `packages/e2e/tests/fixtures/fixture.schema.json`：`sources` 增加 `"required": ["spec"]`（`minProperties: 1` 保留）。
+  - `scripts/check-fixtures.ts`：`Manifest.sources.spec` 改为必需字段，去掉可选分支，无条件按目录名解析 owner 并比对来源摘要——不存在「不声明来源即不校验」的路径。
+  - `scripts/check-fixtures.test.ts`：`writeFixture` 支持直接给 `sources`（构造缺失 `spec` 的反例）；`reports missing, invalid, mismatched and undeclared fixture manifests` 里的干净 Fixture 补上真实 Requirement 块与摘要（schema 变严后的连带修正）。
+- **证据**：
+  - 修复后复现同一反例：`packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-999/manifest.json`（`sources` 只有 `note`）→ `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures`：`manifests: 20`、`issues: ["SCN-TEMPLATE-ENGINEERING-999: manifest schema data/sources must have required property 'spec'"]`、进程退出码 1；随后删除该 Fixture 目录（`git status` 只剩本条的 schema 改动）。
+  - 正向：同一命令在仓库内为 `manifests: 19, issues: []`、退出码 0。
+  - 单测：`pnpm exec vitest run --project test-tools-unit scripts/lib/source-inventory.test.ts scripts/check-fixtures.test.ts` → 2 文件 / 11 用例通过（891ms 级），其中 `scripts/check-fixtures.test.ts` 7 用例含新增的 note-only 反例与摘要修正后的干净 Fixture。
+- **反例口径**：断言的是 `issues` 里出现 `manifest schema`（schema 层拦截），不是"恰好一条问题"——owner/摘要检查现在无条件执行，schema 判断先失败时不再进入摘要比对。
+- **提交**：`fix(template): require fixture spec sources and always resolve owners`。

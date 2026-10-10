@@ -18,7 +18,7 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
 type Manifest = Readonly<{
   formatVersion: number;
   ownerId: string;
-  sources: Readonly<{ spec?: Readonly<{ requirementDigest?: string }> }> &
+  sources: Readonly<{ spec: Readonly<{ requirementDigest: string }> }> &
     Readonly<Record<string, unknown>>;
   cases: Readonly<Record<string, string>>;
   supportingFiles?: Readonly<Record<string, string>>;
@@ -81,20 +81,20 @@ export async function checkFixtures(
     }
     if (manifest.ownerId !== entry.name)
       issues.push(`${entry.name}: ownerId ${manifest.ownerId} does not match directory`);
+    // 每个 Fixture 都按目录名解析 owner：sources.spec 由 schema 保证存在，
+    // 不存在"不写来源即跳过 owner 与摘要检查"的路径。
     const spec = manifest.sources.spec;
-    if (spec?.requirementDigest) {
-      const owner = findOwnerRequirement(projection.requirements, entry.name);
-      if (!owner)
-        issues.push(
-          `${entry.name}: 在有效 Spec 中不存在（归档目录中残留的同名 Scenario 不能放行）`,
-        );
-      else if (!scoped && owner.changes.length > 1)
-        issues.push(
-          `${entry.name}: 多个 active Change 修改同一 Requirement（${owner.changes.join(', ')}），请用 --change 指定作用域`,
-        );
-      else if (requirementDigest(owner.block) !== spec.requirementDigest)
-        issues.push(`${entry.name}: 来源摘要过期（运行 pnpm fixtures:refresh ${entry.name}）`);
-    }
+    const owner = findOwnerRequirement(projection.requirements, entry.name);
+    if (!owner)
+      issues.push(
+        `${entry.name}: 在有效 Spec 中不存在（归档目录中残留的同名 Scenario 不能放行）`,
+      );
+    else if (!scoped && owner.changes.length > 1)
+      issues.push(
+        `${entry.name}: 多个 active Change 修改同一 Requirement（${owner.changes.join(', ')}），请用 --change 指定作用域`,
+      );
+    else if (requirementDigest(owner.block) !== spec.requirementDigest)
+      issues.push(`${entry.name}: 来源摘要过期（运行 pnpm fixtures:refresh ${entry.name}）`);
     const declared = new Set([
       'manifest.json',
       ...Object.values(manifest.cases),
