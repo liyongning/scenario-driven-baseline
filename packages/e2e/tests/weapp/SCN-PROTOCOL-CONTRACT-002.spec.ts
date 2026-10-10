@@ -13,6 +13,17 @@ import {
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../src/drivers/weapp.ts';
+import {
+  decodedAt,
+  matrixContext,
+  missingOmissionSamples,
+  omittedSample,
+  responseEvidence,
+  wireAt,
+  type MatrixEntry,
+  type MatrixFixture,
+  type RequestContext,
+} from '../protocol/matrix-support.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -31,16 +42,12 @@ afterEach(async () => {
   running.clear();
 });
 
-type MatrixEntry = Readonly<{
-  request: Record<string, unknown>;
-  responses: Record<string, unknown>[];
-}>;
-type MatrixFixture = Readonly<Record<string, MatrixEntry>>;
 type ProtocolResult = Readonly<{
   ok: boolean;
   httpStatus?: number;
   wire?: Record<string, unknown>;
-  decodedProjection?: Record<string, unknown>;
+  /** 解码结果的 JSON 投影（oneof 已按选中分支展开）：与共享纯函数的解码路径口径一致。 */
+  decoded?: unknown;
   code?: string;
 }>;
 type MethodSuite = Readonly<{
@@ -86,18 +93,20 @@ const declaredObligationCases = () =>
     ),
   );
 
-const camel = (value: string) =>
-  value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+/** Fixture 请求体去掉基请求（宿主客户端按公共上下文填充 BaseReq）。 */
 const inputBody = (fixture: MatrixFixture, name: string) => {
-  const value = structuredClone(entryOf(fixture, name).request);
+  const value = structuredClone(entryOf(fixture, name).request) as Record<string, unknown>;
   delete value.baseReq;
   return value;
 };
-const expectedBody = (fixture: MatrixFixture, name: string, sparse = false) => {
-  const value = structuredClone(entryOf(fixture, name).request);
-  if (sparse) delete (value.baseReq as Record<string, unknown>).productId;
-  return value;
-};
+
+/** 期望请求体：样例请求体 + 公共客户端按上下文填充的 BaseReq（请求 ID 动态，稍后去掉）。 */
+function expectedBody(request: Record<string, unknown>, context: RequestContext) {
+  const body = structuredClone(request) as Record<string, unknown>;
+  delete body.baseReq;
+  const productId = context.productId;
+  return { ...body, baseReq: productId === undefined ? {} : { productId } };
+}
 
 /** 请求 ID 每次都变：核验请求体其余字段前先去掉它，只由格式与请求头相等核验（PC-05）。 */
 function withoutDynamicRequestId(body: unknown): unknown {
@@ -105,25 +114,7 @@ function withoutDynamicRequestId(body: unknown): unknown {
   if (clone?.baseReq) delete clone.baseReq.requestId;
   return clone;
 }
-function valueAt(root: unknown, path: string): unknown {
-  let value = root;
-  for (const part of path.split('.').map(camel)) {
-    if (Array.isArray(value)) value = value[0];
-    value =
-      value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined;
-  }
-  return value;
-}
-function serializable(value: unknown): unknown {
-  if (typeof value === 'bigint') return value.toString();
-  if (Array.isArray(value)) return value.map(serializable);
-  if (value && typeof value === 'object')
-    return Object.fromEntries(
-      Object.entries(value).map(([key, child]) => [key, serializable(child)]),
-    );
-  return value;
-}
-const decodedAt = (root: unknown, path: string) => serializable(valueAt(root, path));
+
 function encodingMatches(caseKey: string, value: unknown): boolean {
   if (
     caseKey.endsWith('json-string') ||
@@ -169,36 +160,38 @@ defineCase(
   async ({ fixture: value, checkpoint, expect, environmentClass }) => {
     const fixture = value as MatrixFixture;
     const covered = new Set<string>();
+    const context = matrixContext();
     const planned = operations.map((operation) => {
       const name = nameOf(operation);
-      const responses = entryOf(fixture, name).responses;
+      const entry = entryOf(fixture, name);
+      const base = inputBody(fixture, name);
+      // 每条响应一条取证请求、每个声明 omitted 的字段一条逐字段省略样例，最后一条不配置上下文。
+      const samples = [
+        ...entry.responses.map(() => ({ request: base, context })),
+        ...(entry.omitted ?? []).map((path) => {
+          const sample = omittedSample(entry, path, context);
+          return { request: sample.request, context: sample.context };
+        }),
+        { request: base, context: {} as RequestContext },
+      ];
       return {
         name,
-        request: inputBody(fixture, name),
-        sparseRequest: inputBody(fixture, name),
-        responseCount: responses.length,
-        responsePaths: inventory.discoveries
-          .filter(
-            (item) =>
-              item.method === name &&
-              item.direction === 'response' &&
-              item.applicability === 'applicable',
-          )
-          .map((item) => item.path),
+        request: base,
+        samples,
+        responseCount: entry.responses.length,
         // 请求 ID 每次都变，请求只记录不比对；随后由本用例逐字段核验请求体（PC-05）。
         expectedRequests: [
-          ...responses.map(() => ({ recordOnly: true as const })),
-          { recordOnly: true as const },
+          ...samples.map(() => ({ recordOnly: true as const })),
           ...Array.from({ length: 6 }, () => ({ recordOnly: true as const })),
         ],
         // 与 expectedRequests 一一对应的请求体期望，逐字段核验时使用（去掉动态请求 ID）。
         bodyExpectations: [
-          ...responses.map(() => expectedBody(fixture, name)),
-          expectedBody(fixture, name, true),
-          ...Array.from({ length: 6 }, () => expectedBody(fixture, name)),
+          ...samples.map((sample) => expectedBody(sample.request, sample.context)),
+          ...Array.from({ length: 6 }, () => expectedBody(base, context)),
         ],
         steps: [
-          ...responses.map((body) => ({ body })),
+          ...entry.responses.map((body) => ({ body })),
+          ...(entry.omitted ?? []).map(() => ({ body: {} as Record<string, unknown> })),
           { body: {} },
           { body: success },
           { body: business },
@@ -237,14 +230,12 @@ defineCase(
       args: {
         gatewayBaseUrl: server.url,
         accessToken: 'fixture-token',
-        productId: 'matrix-product',
+        requestContext: context,
         timeoutMs: 10_000,
         methods: planned.map((item) => ({
           name: item.name,
           request: item.request,
-          sparseRequest: item.sparseRequest,
-          responseCount: item.responseCount,
-          responsePaths: item.responsePaths,
+          samples: item.samples,
         })),
       },
     })) as SuiteResult;
@@ -260,16 +251,51 @@ defineCase(
     });
     expect([...server.verify(), ...bodyIssues]).toEqual([]);
 
+    const missingEvidence: string[] = [];
+    const missingSamples: string[] = [];
     for (const operation of operations) {
       const name = nameOf(operation);
       const meta = operation.method.meta;
       const suite = result.suites[name]!;
-      const responses = entryOf(fixture, name).responses;
+      const entry = entryOf(fixture, name);
       const methodRecords = records.filter((record) => record.methodName === name);
-      const richRecord = methodRecords[0]!;
-      const sparseRecord = methodRecords[responses.length]!;
+      // 矩阵取证请求最先发出：逐义务核验只看这段记录，后面的故障、超时与取消请求不参与。
+      const matrixRecords = methodRecords.slice(
+        0,
+        entry.responses.length + (entry.omitted ?? []).length + 1,
+      );
+      const richRecord = matrixRecords[0]!;
+      // 最后一条矩阵请求不配置公共请求上下文：提供"上下文省略"的证据（PC-01）。
+      const unconfiguredRecord = matrixRecords.at(-1)!;
+      const omittedRecordIndex = new Map(
+        (entry.omitted ?? []).map((path, index) => [path, entry.responses.length + index]),
+      );
+      const responseSamples = suite.matrix
+        .slice(0, entry.responses.length)
+        .map((item) => ({ decoded: item.decoded, wire: item.wire }));
       const responseCodec = meta.responseCodec;
-      const emptyDecoded = responseCodec.fromJSON({});
+      const emptyDecoded = responseCodec.toJSON(responseCodec.fromJSON({}));
+
+      /** 请求侧取样：省略类用声明的逐字段样例，其余取第一条字段存在/缺失的请求。 */
+      const requestEvidence = (caseKey: string, path: string): number => {
+        const wanted = caseKey === 'omitted' || caseKey.endsWith('absent');
+        const declared = omittedRecordIndex.get(path);
+        if (wanted && declared !== undefined) return declared;
+        for (const [index, record] of matrixRecords.entries()) {
+          const defined = wireAt(record.rawBody, path) !== undefined;
+          if (defined !== wanted) return index;
+        }
+        return -1;
+      };
+
+      // 声明了 omitted 却没有逐字段省略样例：按义务 ID 报出（反例）。
+      const omittedFields = obligationsOf(name)
+        .filter((item) => item.id.includes('#request-mapping#') && item.cases.includes('omitted'))
+        .map((item) =>
+          item.id.slice(item.id.indexOf('#request-mapping#') + '#request-mapping#'.length),
+        );
+      for (const path of missingOmissionSamples(omittedFields, entry))
+        missingSamples.push(`${name}#request-mapping#${path}`);
 
       for (const obligation of obligationsOf(name)) {
         const match = obligation.id.match(/#([^#]+)#(.+)$/)!;
@@ -279,27 +305,28 @@ defineCase(
           covered.add(`${obligation.id}/${caseKey}`);
           await checkpoint(`${obligation.id}/${caseKey}`, () => {
             if (category === 'http-route') {
-              expect(methodRecords.every((record) => record.methodName === name)).toBe(true);
+              expect(matrixRecords.every((record) => record.methodName === name)).toBe(true);
               return;
             }
             if (category === 'request-mapping') {
-              const actual = valueAt(
-                caseKey === 'omitted' ? sparseRecord.rawBody : richRecord.rawBody,
-                path,
-              );
+              const index = requestEvidence(caseKey, path);
+              if (index < 0) {
+                missingEvidence.push(`${obligation.id}/${caseKey}`);
+                return;
+              }
+              const actual = wireAt(matrixRecords[index]!.rawBody, path);
               if (caseKey === 'omitted') expect(actual).toBeUndefined();
               else expect(actual).toBeDefined();
               return;
             }
             if (category === 'header-base-req') {
-              const omitted = caseKey.endsWith('omitted');
-              const record = omitted ? sparseRecord : richRecord;
+              const record = caseKey.endsWith('omitted') ? unconfiguredRecord : richRecord;
               const facts: Record<string, boolean> = {
                 authorization: record.headers.authorization === 'Bearer fixture-token',
                 'content-type': String(record.headers['content-type']).startsWith(
                   'application/json',
                 ),
-                'x-product-id-configured': record.headers['x-product-id'] === 'matrix-product',
+                'x-product-id-configured': record.headers['x-product-id'] === context.productId,
                 'x-product-id-omitted': record.headers['x-product-id'] === undefined,
                 // 请求 ID 每次都变：核验头名、格式，以及头与 BaseReq.requestId 同值（PC-05）。
                 'x-request-id-header':
@@ -309,17 +336,20 @@ defineCase(
                   typeof record.headers['x-request-id'] === 'string' &&
                   requestIdPattern.test(record.headers['x-request-id']),
                 'base-req-request-id':
-                  valueAt(record.rawBody, 'base_req.request_id') === record.headers['x-request-id'],
+                  wireAt(record.rawBody, 'base_req.request_id') === record.headers['x-request-id'],
                 'base-req-product-id-configured':
-                  valueAt(record.rawBody, 'base_req.product_id') === 'matrix-product',
+                  wireAt(record.rawBody, 'base_req.product_id') === context.productId,
                 'base-req-product-id-omitted':
-                  valueAt(record.rawBody, 'base_req.product_id') === undefined,
-                'lane-configured': record.headers.lane === 'matrix-lane',
+                  wireAt(record.rawBody, 'base_req.product_id') === undefined,
+                'lane-configured': record.headers.lane === context.lane,
                 'lane-omitted': record.headers.lane === undefined,
-                'app-version-configured': record.headers.app_version === '1.2.3',
+                'app-version-configured': record.headers.app_version === context.appVersion,
                 'app-version-omitted': record.headers.app_version === undefined,
               };
-              expect(facts[caseKey]).toBe(true);
+              expect(
+                facts[caseKey],
+                `${caseKey}：${JSON.stringify({ headers: record.headers, body: record.rawBody })}`,
+              ).toBe(true);
               return;
             }
             if (
@@ -328,38 +358,51 @@ defineCase(
             ) {
               const responsePath =
                 category === 'response-mapping' ? path : path.slice('response.'.length);
-              const rich = suite.matrix[0]!;
-              const absent = suite.matrix.at(-1)!;
-              if (
-                caseKey === 'wire-absent' ||
-                caseKey.endsWith('optional-absence') ||
-                caseKey.endsWith('oneof-absence')
-              ) {
-                expect(valueAt(absent.wire, responsePath)).toBeUndefined();
-              } else if (caseKey === 'decoded-absence') {
-                expect(absent.decodedProjection?.[responsePath]).toBeUndefined();
-              } else if (caseKey === 'decoded-default') {
-                expect(absent.decodedProjection?.[responsePath]).toEqual(
-                  decodedAt(emptyDecoded, responsePath),
-                );
-              } else if (caseKey.startsWith('response-')) {
-                expect(encodingMatches(caseKey, valueAt(rich.wire, responsePath))).toBe(true);
-              } else if (caseKey === 'decoded-value' || caseKey === 'decoded-branch') {
-                expect(rich.decodedProjection?.[responsePath]).toEqual(
-                  decodedAt(responseCodec.fromJSON(responses[0]), responsePath),
-                );
-                expect(rich.decodedProjection?.[responsePath]).toBeDefined();
-              } else {
-                expect(valueAt(rich.wire, responsePath)).toBeDefined();
+              const evidence = responseEvidence(caseKey, responsePath, responseSamples);
+              if (evidence.kind === 'missing') {
+                missingEvidence.push(`${obligation.id}/${caseKey}`);
+                return;
               }
+              const rich =
+                evidence.kind === 'absent' ? suite.matrix.at(-1)! : suite.matrix[evidence.index]!;
+              expect(rich.ok).toBe(true);
+              if (!rich.ok) return;
+              if (evidence.kind === 'absent') {
+                if (caseKey === 'decoded-absence')
+                  expect(decodedAt(rich.decoded, responsePath)).toBeUndefined();
+                else if (caseKey === 'decoded-default')
+                  expect(decodedAt(rich.decoded, responsePath)).toEqual(
+                    decodedAt(emptyDecoded, responsePath),
+                  );
+                else expect(wireAt(rich.wire, responsePath)).toBeUndefined();
+                return;
+              }
+              if (caseKey.startsWith('response-')) {
+                expect(encodingMatches(caseKey, wireAt(rich.wire, responsePath))).toBe(true);
+                return;
+              }
+              if (caseKey === 'decoded-value' || caseKey === 'decoded-branch') {
+                // 解码值按取证响应比对：oneof 分支子字段由选中该分支的响应取证。
+                expect(decodedAt(rich.decoded, responsePath)).toEqual(
+                  decodedAt(
+                    responseCodec.toJSON(responseCodec.fromJSON(entry.responses[evidence.index])),
+                    responsePath,
+                  ),
+                );
+                expect(decodedAt(rich.decoded, responsePath)).toBeDefined();
+                return;
+              }
+              expect(wireAt(rich.wire, responsePath)).toBeDefined();
               return;
             }
             if (category === 'encoding-boundary') {
               const requestPath = path.slice('request.'.length);
-              const actual = valueAt(
-                caseKey.endsWith('absent') ? sparseRecord.rawBody : richRecord.rawBody,
-                requestPath,
-              );
+              const index = requestEvidence(caseKey, requestPath);
+              if (index < 0) {
+                missingEvidence.push(`${obligation.id}/${caseKey}`);
+                return;
+              }
+              const actual = wireAt(methodRecords[index]!.rawBody, requestPath);
               if (caseKey.endsWith('absent')) expect(actual).toBeUndefined();
               else expect(encodingMatches(caseKey, actual)).toBe(true);
               return;
@@ -370,7 +413,7 @@ defineCase(
               ),
               'response-handling/business-error': Boolean(
                 suite.response.business.ok &&
-                valueAt(suite.response.business.wire, 'base_resp.status_code') === '123',
+                wireAt(suite.response.business.wire, 'base_resp.status_code') === '123',
               ),
               'response-handling/http-error': Boolean(
                 suite.response.http.ok && suite.response.http.httpStatus === 503,
@@ -431,12 +474,16 @@ defineCase(
       expect(derived.length).toBeGreaterThan(0);
       expect(covered.size).toBe(derived.length);
       expect(inventory.methods.map((item) => item.name).sort()).toEqual([...declaredNames].sort());
+      // 声明了 omitted 的字段必须有逐字段省略样例；每条派生义务都要有取证请求/响应。
+      expect(missingSamples, '声明 omitted 却没有省略样例的字段').toEqual([]);
+      expect(missingEvidence, '找不到取证响应的义务').toEqual([]);
     });
 
     await checkpoint('real-client-path', () => {
       for (const name of declaredNames) {
+        const entry = entryOf(fixture, name);
         expect(records.filter((record) => record.methodName === name).length).toBe(
-          entryOf(fixture, name).responses.length + 7,
+          entry.responses.length + (entry.omitted ?? []).length + 7,
         );
         expect(result.suites[name]!.matrix.every((item) => item.ok)).toBe(true);
       }

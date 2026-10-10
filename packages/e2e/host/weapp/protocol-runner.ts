@@ -52,18 +52,25 @@ type ProtocolCaseInput = Readonly<{
   timeoutMs: number;
 }>;
 
+/** 一条矩阵取证请求：请求体与它自己的公共请求上下文（`{}` 表示不配置上下文，PC-01）。 */
+type ProtocolSuiteSample = Readonly<{
+  request: Record<string, unknown>;
+  context: Readonly<Record<string, string>>;
+}>;
+
 type ProtocolSuiteMethod = Readonly<{
   name: string;
+  /** 基请求：共享证据分支使用；矩阵取证与逐字段省略样例见 samples。 */
   request: Record<string, unknown>;
-  sparseRequest: Record<string, unknown>;
-  responseCount: number;
-  responsePaths: readonly string[];
+  /** 矩阵取证请求：每条响应一条、每个声明 omitted 的字段一条逐字段省略样例、一条不配置上下文。 */
+  samples: readonly ProtocolSuiteSample[];
 }>;
 
 type ProtocolSuiteInput = Readonly<{
   gatewayBaseUrl: string;
   accessToken: string;
-  productId: string;
+  /** 公共请求上下文：写入 BaseReq 与请求头；逐字段省略样例由各自的 context 覆盖。 */
+  requestContext: Readonly<Record<string, string>>;
   timeoutMs: number;
   methods: readonly ProtocolSuiteMethod[];
   /**
@@ -102,31 +109,11 @@ export async function runProtocolCase(input: ProtocolCaseInput) {
 
 /** 单次自动化连接内执行整份协议矩阵与通信故障；所有发出的请求仍走真实 wx.request。 */
 export async function runProtocolSuite(input: ProtocolSuiteInput) {
-  const camel = (value: string) =>
-    value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
-  const serializable = (value: unknown): unknown => {
-    if (typeof value === 'bigint') return value.toString();
-    if (Array.isArray(value)) return value.map(serializable);
-    if (value && typeof value === 'object') {
-      return Object.fromEntries(
-        Object.entries(value).map(([key, child]) => [key, serializable(child)]),
-      );
-    }
-    return value;
-  };
-  const decodedAt = (rootValue: unknown, path: string) => {
-    let value = rootValue;
-    for (const part of path.split('.').map(camel)) {
-      if (Array.isArray(value)) value = value[0];
-      value =
-        value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined;
-    }
-    return serializable(value);
-  };
-
   const runMethod = async (spec: ProtocolSuiteMethod, meta: DeclaredMethod) => {
     const codec = meta.responseCodec;
     const message = (source: Record<string, unknown>) => meta.requestCodec!.fromJSON(source);
+    // 解码结果按 JSON 投影返回（oneof 已按选中分支展开、int64 已转字符串），
+    // 解码路径的比对由用例侧的共享纯函数按同一口径完成。
     const serialize = (
       result: Awaited<ReturnType<ReturnType<typeof createProtocolClient>['request']>>,
     ) =>
@@ -136,38 +123,31 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
             httpStatus: result.value.http.status,
             wire: result.value.wire,
             decoded: codec.toJSON(result.value.data),
-            decodedProjection: Object.fromEntries(
-              spec.responsePaths.map((path) => [path, decodedAt(result.value.data, path)]),
-            ),
           }
         : { ok: false, code: result.error.code };
+    const contextOf = (options: Readonly<{ context?: Readonly<Record<string, string>> }>) =>
+      options.context ?? input.requestContext;
     const make = (
       options: Readonly<{
-        configured?: boolean;
+        context?: Readonly<Record<string, string>>;
         token?: () => unknown;
         nowMs?: () => number;
         sleepMs?: (ms: number) => Promise<void>;
       }> = {},
-    ) =>
-      createProtocolClient({
+    ) => {
+      const context = contextOf(options);
+      return createProtocolClient({
         gatewayBaseUrl: input.gatewayBaseUrl,
         getAccessToken: (options.token ?? (() => input.accessToken)) as () =>
           string | null | Promise<string | null>,
         http: createWechatMiniappHttp(),
-        ...(options.configured === false
-          ? {}
-          : {
-              requestContext: {
-                productId: input.productId,
-                lane: 'matrix-lane',
-                appVersion: '1.2.3',
-              },
-            }),
+        ...(Object.keys(context).length === 0 ? {} : { requestContext: context }),
         runtime: {
           nowMs: options.nowMs ?? (() => Date.now()),
           sleepMs: options.sleepMs ?? (() => new Promise(() => undefined)),
         },
       });
+    };
     const call = (
       source = spec.request,
       timeoutMs = input.timeoutMs,
@@ -178,9 +158,11 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
       });
 
     const matrix = [];
-    for (let index = 0; index < spec.responseCount; index += 1)
-      matrix.push(serialize(await call()));
-    matrix.push(serialize(await call(spec.sparseRequest, input.timeoutMs, { configured: false })));
+    // 逐条发送矩阵取证请求：每条响应一条、每个逐字段省略样例一条、一条不配置上下文。
+    for (const sample of spec.samples)
+      matrix.push(
+        serialize(await call(sample.request, input.timeoutMs, { context: sample.context })),
+      );
     const response = {
       success: serialize(await call()),
       business: serialize(await call()),

@@ -47,7 +47,7 @@ defineCase(
   },
   async ({ fixture, checkpoint, expect }) => {
     const sample = fixture as WireFixture;
-    // 本用例自带的请求序列（矩阵 1 次、稀疏 1 次、共享证据 4 次、在途超时 1 次、网络分支 1 次）：
+    // 本用例自带的请求序列（矩阵 1 次、不配置上下文 1 次、共享证据 4 次、在途超时 1 次、网络分支 1 次）：
     // 宿主按 generated IDL 直发，不依赖 SDK 的消费接口声明，删掉模板示例后这些请求照常发出。
     const steps = [
       { body: sample.response },
@@ -92,7 +92,7 @@ defineCase(
       args: {
         gatewayBaseUrl: server.url,
         accessToken: 'fixture-token',
-        productId: 'matrix-product',
+        requestContext: { productId: 'matrix-product' },
         timeoutMs: 10_000,
         // 共享能力的宿主证据只依赖协议来源（generated IDL 不在示例删除白名单内）。
         idl: 'generated',
@@ -100,9 +100,11 @@ defineCase(
           {
             name: 'CreateTrade',
             request: source,
-            sparseRequest: source,
-            responseCount: 1,
-            responsePaths: [],
+            // 矩阵 1 条（带上下文）+ 1 条不配置上下文：两条都走真实 wx.request。
+            samples: [
+              { request: source, context: { productId: 'matrix-product' } },
+              { request: source, context: {} },
+            ],
           },
         ],
       },

@@ -139,7 +139,7 @@ describe('official minimal weapp host', () => {
   });
   // template-example:end
 
-  it('returns protocol projections without nested bigint values', async () => {
+  it('returns decoded results without nested bigint values', async () => {
     const request = vi.fn((options: { success(value: unknown): void; complete?(): void }) => {
       void Promise.resolve().then(() => {
         options.success({
@@ -156,15 +156,13 @@ describe('official minimal weapp host', () => {
     const result = await runProtocolSuite({
       gatewayBaseUrl: 'https://fixture.invalid',
       accessToken: 'fixture-token',
-      productId: 'product-projection',
+      requestContext: { productId: 'product-projection' },
       timeoutMs: 100,
       methods: [
         {
           name: 'CreateTrade',
           request: { bizType: 'projection' },
-          sparseRequest: { bizType: 'projection' },
-          responseCount: 1,
-          responsePaths: ['base_resp', 'base_resp.status_code'],
+          samples: [{ request: { bizType: 'projection' }, context: { productId: 'projection' } }],
         },
       ],
     });
