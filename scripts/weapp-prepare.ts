@@ -33,10 +33,36 @@ export function planWeappPrepare(root: string, cli = defaultDevtoolsCli): Prepar
 
 /* v8 ignore start -- 真实执行（退出、清理、预热与就绪探测）由 pnpm verify 的逐文件运行承担。 */
 
-/** 就绪探测预算：`cli open` 返回时项目常常还没载入完，固定 sleep 覆盖不了这个波动。 */
-const readyProbe = { attemptTimeoutMs: 30_000, intervalMs: 5_000, attemptCount: 12 };
+/**
+ * 就绪探测预算：`cli open` 返回时项目常常还没载入完，固定 sleep 覆盖不了这个波动。
+ * 每次尝试与整个探测都设上限：`automator.launch` / `checkVersion`（内部 `Tool.getInfo`）
+ * 都可能一直不返回，只靠 fixed sleep 或只设单次超时会让 `weapp:prepare` 永久挂起。
+ */
+const readyProbe = {
+  attemptTimeoutMs: 30_000,
+  intervalMs: 5_000,
+  attemptCount: 12,
+  totalTimeoutMs: 180_000,
+};
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 给一个可能永不完成的 promise 套上超时；调用方负责处理迟到结果。 */
+function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} 超过 ${ms}ms 未返回`)), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 /**
  * 就绪判定：反复尝试连接开发者工具并读取版本号，直到成功一次。
@@ -45,26 +71,38 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 async function waitForDevtoolsReady(host: string, cli: string): Promise<void> {
   const { default: automator } = await import('miniprogram-automator');
+  const deadline = Date.now() + readyProbe.totalTimeoutMs;
   let lastError: unknown;
   for (let attempt = 0; attempt < readyProbe.attemptCount; attempt += 1) {
-    let miniProgram: { disconnect(): void; checkVersion(): Promise<void> } | undefined;
-    try {
-      miniProgram = await automator.launch({
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    const budget = Math.min(readyProbe.attemptTimeoutMs, remaining);
+    // launch 与 checkVersion 都可能卡住：整体套超时，迟到的连接在 resolve 后自行断开。
+    const work = (async () => {
+      const miniProgram = await automator.launch({
         projectPath: host,
         cliPath: cli,
         trustProject: true,
         timeout: readyProbe.attemptTimeoutMs,
       });
-      await miniProgram.checkVersion();
+      try {
+        await miniProgram.checkVersion();
+      } finally {
+        miniProgram.disconnect();
+      }
+    })();
+    work.catch(() => undefined);
+    try {
+      await withTimeout(work, budget, `第 ${attempt + 1} 次微信开发者工具就绪探测`);
       return;
     } catch (error) {
       lastError = error;
-    } finally {
-      miniProgram?.disconnect();
     }
     await sleep(readyProbe.intervalMs);
   }
-  throw new Error(`微信开发者工具未就绪：${String(lastError)}`);
+  throw new Error(
+    `微信开发者工具在 ${readyProbe.totalTimeoutMs}ms 预算内未就绪：${String(lastError)}`,
+  );
 }
 
 export async function prepareWeapp(root: string): Promise<number> {
