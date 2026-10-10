@@ -1507,7 +1507,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 
 - **根因**：第 7 条把一处 `issues.push(...)` 写成多行后没有执行格式化，`format:check` 在仓库与副本里都会失败。
 - **改动**：`pnpm exec prettier --write scripts/check-fixtures.ts`；diff 只涉及那一行的折行（对照 `/tmp/check-fixtures.before.ts`），无语义变化。
-- **证据**：修复前 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` → `[warn] scripts/check-fixtures.ts`、退出码 **1**（`/tmp/repo-check-fast-1.log`）；修复后 `format:check` 通过（其后各步的日志见完成标准复验）。
+- **证据**：修复前 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` → `[warn] scripts/check-fixtures.ts`、退出码 **1**（`/tmp/repo-check-fast-1.log`）；修复后 `format:check` 通过（完整 `check:fast` 的日志见「完成标准复验」，`/tmp/fcr-verify-1.log` 第 20 行起）。
 
 ### 第 11 条 连带 · 按需入口的文件超限与单测覆盖率缺口
 
@@ -1521,3 +1521,32 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - `pnpm test:unit` → 65 文件 / 377 用例通过，`statements / branches / functions / lines` 全部 **100%**，退出码 **0**。
   - `pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts scripts/test-affected.evidence.test.ts` → 2 文件 / 17 用例通过、退出码 **0**（`/tmp/fcr-affected-unit.log`）。
 - **反例（修复前）**：`pnpm lint` 退出码 1（副本日志 `/tmp/s008-probe-2.log`：`scripts/test-affected.test.ts 719 > 600`、`scripts/test-affected.ts 334 > 300`、`'_prepare' is assigned a value but never used`）；`pnpm test:unit` 退出码 1（`ERROR: Coverage for statements (99.97%)` / `branches (99.81%)`，未覆盖 `scripts/test-affected.ts:166,230,367` 与 `scripts/lib/affected-analysis.ts:39`，日志 `/tmp/fcr-coverage-before.log`）。
+
+## 完成标准复验
+
+修复清单第三节要求三份收尾证据：全部修复后的全量 `pnpm verify --change template-core-hardening`（新 run id、各步退出码为 0）、之后再单独跑一次 `check:scenarios`（问题数为 0），以及清单第 1 条要求的无作用域证据。以下按顺序登记。
+
+### 全量 `pnpm verify --change template-core-hardening`
+
+- **命令**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id feat-template-core-hardening-20261010T044824Z`
+- **退出码**：**0**（日志 `/tmp/fcr-verify-1.log`，末三行即三步结论）。
+- **三步逐条**：
+  - `check:fast`：**通过（164421ms）**，退出码 0。
+  - `test:e2e:weapp`：**通过（307737ms）**，退出码 0。
+  - `check:scenarios`：**通过（1510ms）**，退出码 0。
+- **报告目录**：`artifacts/feat-template-core-hardening-20261010T044824Z/`（`reports/integration.json`、`reports/unit.json`、`reports/weapp/` 下 5 份 perFile 报告与 `coverage/`）。
+- **与修复前对照**：修复前该步集合在副本里由第 3/7/11 条连带回归放大成红（`/tmp/s008-probe-2.log`）；本轮全量三步全绿。
+
+### 独立 `check:scenarios`（清单第 4 条要求）
+
+- **命令**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=feat-template-core-hardening-20261010T044824Z pnpm check:scenarios`
+- **退出码**：**0**；输出 `mode: complete`、`"issues": []`；覆盖汇总 `allSpec required 61 / executed 61 / passed 61`（日志 `/tmp/fcr-check-scenarios.log`）。
+- **说明**：`check:scenarios` 由 `VERIFY_RUN_ID` 定位 `artifacts/<run-id>/reports/` 下的报告（`scripts/check-scenarios.ts:182`），因此显式传同一 run id，读到的就是上一步全量 verify 产出的报告；本次独立复跑问题数为 0，说明完整 verify 跑完后报告没有过期（第 4 条目标达成，`packages/e2e/host/weapp/project.config.json` 不再受开发者工具改写影响）。
+
+### 无作用域证据（清单第 1 条要求）
+
+- **脚本**：`/tmp/tcfix-item1-evidence.mts`（复用 `packages/e2e/tests/tooling/repository-copy.ts` 的 `createRepositoryCopy`，副本内已归档本 Change、`delete env.SCENARIO_GATE_CHANGES`、`TEMPLATE_COPY=1`）。
+- **命令**：`pnpm exec tsx /tmp/tcfix-item1-evidence.mts`（宿主环境未设 `SCENARIO_GATE_CHANGES`，`scope from env: []`）。
+- **结果**：副本 `active changes in copy: []`；`TEMPLATE_COPY: 1`、`SCENARIO_GATE_CHANGES: undefined`；`pnpm build` 退出码 **0**；`pnpm test:integration` → **50 文件 / 104 用例全部通过**、退出码 **0**（日志 `/tmp/fcr-item1-evidence.log`）。
+- **排除项核对**：`SCN-TEMPLATE-ENGINEERING-001`、`SCN-TEMPLATE-ENGINEERING-007`、`SCN-SCENARIO-GATE-026`、`SCN-TEMPLATE-ENGINEERING-008`、`SCN-TEMPLATE-EXAMPLE-008` 均**未出现**在输出中，即只被 `TEMPLATE_COPY` 规则排除，其余用例全绿。
+- **对应修复**：第 1 条把 `SCN-TEMPLATE-ENGINEERING-001.spec.ts` 里写死的本 Change `tasks.md` 路径改为用例自建的临时根，并让 `SCN-008` 的 `assertCopyConstruction` 在作用域为空时跳过归档、断言副本无 active Change 后继续；本条证据证明作用域为空时不再出现「无内容可提交的归档」失败。
