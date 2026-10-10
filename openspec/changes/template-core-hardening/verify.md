@@ -1639,6 +1639,79 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **第 7 条要求的无作用域证据**：见本节第 7 条（真实归档、不带作用域、不设 `TEMPLATE_COPY` 的副本 `check:fast` 退出码 0，ENG-001 等 5 个用例真实执行）。
 - **任务勾选**：本轮受影响的 Task 先取消勾选（`dd27f4b`），修复与复验通过后重新勾选（`docs(openspec): recheck tasks after the second-round fixes`）；Task 17、18 按交接要求保持未勾选。
 
+## 第三轮修复（示例删除演练第三轮）
+
+> 背景：第三轮示例删除演练（证据目录 `scratchpad/drill-17c/logs/`、副本 `drill-17c/repo`，本轮只读引用）按白名单删除示例后，不带作用域的 `pnpm verify` 退出码为 0、场景门禁 0 问题、没有阻塞；演练另指出 6 处低成本残留。本节按清单第 1–6 条逐条登记根因、改动、证据与反例。**不涉及规划语义**：只改实现、注释、文档与门禁的检查范围。
+
+### 第 1 条 · T16：技术架构文档里的 SCN-008 引用未加标记 + 事实检查是否覆盖架构文档
+
+- **根因**：`docs/architecture.md` 的「模板示例解耦与删除白名单」一节写着"删除后的全绿证据由 `SCN-TEMPLATE-ENGINEERING-008` 在隔离副本中承担"，这句话没有 `template-example` 标记；删除示例后该 Scenario 不再登记，这句话就成了悬空引用。而事实检查只扫 `docs/template-guide.md`，架构文档里的 Scenario ID 一直没人核对。
+- **改动**：
+  - `docs/architecture.md`：这句话单独成段并用 `<!-- template-example:begin -->` / `<!-- template-example:end -->` 包裹，随示例一起删除。
+  - **事实检查覆盖架构文档**（评估结论：实现成本低，做）：新增 `scripts/lib/scenario-ids.ts`，把 `extractScenarioIds`（A3 裁决的路径口径：ID 后紧跟 `.` 或 `/` 不算引用）与 `unregisteredScenarioIds` 抽出来共用；`scripts/check-architecture.ts` 除指南外也对 `docs/architecture.md` 做同一检查，架构文档的错误带文档名后缀 `(docs/architecture.md)`，指南沿用不带后缀的既有文案（既有用例与 checkpoint 依赖它）。
+  - `scripts/check-architecture.test.ts` 补反例：临时根的架构文档写入未登记的 `SCN-SAMPLE-991` → 报 `unregistered Scenario ID SCN-SAMPLE-991 (docs/architecture.md)`；写入路径形式的 `SCN-SAMPLE-990` → 不报；恢复原文后不再报。
+- **证据**：`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm check:architecture`（`{"issues":[]}`）、`pnpm test:unit`（65 文件 / 378 用例）、`pnpm check:coverage`（四项 100%，新 lib 计入覆盖率范围）、`pnpm check:fixtures` 全部退出码 0（日志 `/tmp/tch3/gates.log`）。
+- **反例**：见上（未登记 ID 报错、路径形式不报、恢复后不报）。另：本仓库 `docs/architecture.md` 里出现的 21 个 Scenario ID 全部已在有效 Spec 登记，加检查后 `check:architecture` 仍是 0 问题——没有把既有引用误判成悬空。
+- **提交**：`62e6c9d`。
+
+### 第 2 条 · T15：根 AGENTS.md 的协议义务派生写了示例接口
+
+- **根因**：根 `AGENTS.md`「IDL 协议义务派生」一节写"协议义务派生针对示例协议的 `CreateTrade`、`QueryTrade` 两个 HTTP 方法"，把派生说成了针对示例接口；示例删除后这句话与实际实现（按消费接口声明派生）不符。
+- **改动**：改写为与示例无关的表述——"协议义务派生按产品包登记的消费接口声明（`manifest.packages[].consumedOperations`）派生：派生出哪些方法、每个方法的请求字段策略与义务 ID 都来自声明，不在门禁里写死接口名"；PC-01 与"待定字段为 0"等其余规定不动，未加标记（整节与示例无关）。
+- **证据**：`pnpm check:architecture` 退出码 0（根 AGENTS.md 的链接检查与文档事实检查都通过）、`pnpm format:check` 退出码 0（`/tmp/tch3/gates.log`）。
+- **反例**：改写前后这条规范都不含 Scenario ID 与示例文件名；区别只在"针对示例接口"这一与实际实现不符的表述。
+- **提交**：`d776c13`。
+
+### 第 3 条 · T10：`consumed-operations.test.ts` 删除示例后只剩循环空转
+
+- **根因**：标记外的用例写成 `for (const operation of consumedOperations) { expect(...) }`。删除示例后声明为空数组，循环零次执行，一条断言都不会跑——正是 `packages/e2e/AGENTS.md` 点名的"循环空转"反模式；它证明不了任何东西，却让用例显示为通过。
+- **改动**（`packages/sdk/src/consumed-operations.test.ts`，标记外区域）：
+  - 新增结构子类型 `DeclaredOperation` 与纯函数 `declarationIssues`：逐条收集"缺接口名 / 缺请求类型 / 缺响应类型 / 请求字段路径为空 / 没有映射策略 / 没有评审依据"。
+  - 新用例"受控输入下声明格式校验会报出缺失项"：合法输入 → `[]`；分别注入缺接口名、空 `cases`、空字段路径、空 `authority` 的受控输入 → 精确断言报出的问题（证明校验不是空转）。
+  - 新用例"真实声明满足格式校验，声明为空是合法状态"：`expect(declarationIssues(consumedOperations)).toEqual([])` 无论声明是否为空都会实际执行；为空时另断言 `consumedOperations` 仍是空数组。
+- **证据**：`pnpm test:unit` 退出码 0，65 文件 / **378** 用例（本轮 +1：原来 1 条空转用例换成 2 条有效用例），`sdk-unit` 中 `consumed-operations.test.ts` 通过；`pnpm check:coverage` 退出码 0（`/tmp/tch3/gates.log`）。
+- **反例**：改动前的写法在声明为空时 `assertionCalls` 为 0——循环体一次都不进；改动后用受控输入驱动同一份校验逻辑，四条负例各自让断言失败。
+- **提交**：`2629cd3`。
+
+### 第 4 条 · T10/T12：其余残留的示例字样
+
+- **根因**：三处标记外的写法仍绑着示例名。
+- **改动**：
+  - `packages/protocol/testing/shadow/bootstrap.test.ts`：把"标记外再用 `names.filter((name) => !name.startsWith('discoverExample'))` 反推通用出口"改成"示例出口只在标记内登记的数组 `exampleExports`（删除示例后该数组为空，断言仍然成立且继续拦住多余出口）"；`expect(names).toEqual([...generic, ...exampleExports].sort())`，`discoverExampleRoutes` 的存在性断言留在标记内。
+  - `packages/sdk/src/consumed-operations.test.ts`：删掉注释里的"（EX-09）"引用（随第 3 条一并改写，注释改为与示例无关的说明）。
+  - `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-009.spec.ts`：注释里的"示例删除后 `example-runner.ts` 随文件消失"改为"宿主文件增删时期望值随之收敛，不需要手改名单（ENG-06）"——SCN-009 是共享能力证据，不绑定示例文件。
+- **证据**：`pnpm test:unit` 退出码 0（`protocol-unit` 的 `bootstrap.test.ts` 通过）；`pnpm lint`、`pnpm typecheck` 退出码 0（`/tmp/tch3/gates.log`）。
+- **反例**：删除示例后 `exampleExports` 变成空数组，`expect(names).toEqual([...generic].sort())` 仍然拦截"多出未登记的出口"；若把示例出口直接从数组里删掉（不放在标记内），示例存在时该断言会失败。
+- **提交**：`2ad8a78`。
+
+### 第 5 条 · T15：共用一台机器时 `weapp:prepare` 会打断别人
+
+- **根因**：`pnpm weapp:prepare` 无条件退出并杀掉开发者工具主进程（`cli quit`，残留时 `pkill`），但 `packages/e2e/AGENTS.md` 只描述了它"退出主进程并预热"，没有提示多工作区/多会话共用一台机器时的相互影响。
+- **改动**：在「微信开发者工具自动化的注意事项」的执行约定里新增第 4 条：明确 `weapp:prepare` **无条件**退出并杀掉主进程，不是"只在需要时才重启"；同一台机器上多个工作区或会话并行使用开发者工具时这一步会打断别人的运行，多工作区共用时请错开使用，不要在别人跑 weapp 用例时执行预热或整次 `pnpm verify`。
+- **证据**：`pnpm format:check`、`pnpm lint` 退出码 0（`/tmp/tch3/gates.log`）；该文件是包级 AGENTS.md，`check:architecture` 只校验其中的链接。
+- **反例**：本轮全量 `pnpm verify` 期间只有一个会话在跑（见「第三轮完成标准复验」），未出现相互打断；这条约定是给多会话并存场景的。
+- **提交**：`01c0029`。
+
+### 第 6 条 · 只登记、不实施的两项后续工作
+
+1. **指南没有提供裁剪片段的现成工具**：三轮演练都各自写了自己的 strip 脚本（`drill-17c/logs/strip-markers.mjs` 等），指南只描述"用成对标记包裹、删除标记之间的内容"，没有提供仓库内的裁剪命令。后续可以加一个受控的 `pnpm` 脚本（例如 `scripts/strip-example-markers.ts`）并纳入门禁自测；本轮不改。
+2. **主 Spec 中描述示例的句子删除后会过时**（上一轮已登记，这里补充证据）：
+   - `openspec/specs/protocol-contract/spec.md:13`；
+   - `openspec/specs/template-engineering/spec.md:286`、`:294`；
+   - 另见第二轮登记的 `template-engineering`（覆盖率排除四项含 `example-runner.ts`）、`protocol-contract`（`discoverExampleRoutes`）、`scenario-gate`（`SCN-TEMPLATE-EXAMPLE-012`）。
+   这些是主 Spec 正文，改它属于规划语义变更；应随"示例正式移除"的那个 Change 一起做。本轮只读取，未改动 `openspec/specs/**`。
+- **变更 vs 规划语义**：以上两条都不改本轮代码，只登记为后续工作。
+
+### 第三轮完成标准复验
+
+- **全量验收入口**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id feat-template-core-hardening-20261010T063533Z`
+  - **退出码 0**（日志 `/tmp/tch3/verify-round3.log`；文件末尾三行即三步结论）。
+  - 三步：`check:fast` **通过（167768ms）**、`test:e2e:weapp` **通过（452189ms）**、`check:scenarios` **通过（1550ms）**，退出码均为 0。
+  - 报告目录：`artifacts/feat-template-core-hardening-20261010T063533Z/`（`reports/unit.json`、`reports/integration.json`、`reports/weapp/`、`coverage/`）。
+  - weapp 逐文件（5 个文件，每个文件前都真实执行一次 `pnpm weapp:prepare`）：`SCN-PROTOCOL-CONTRACT-002`（9363ms）、`SCN-PROTOCOL-CONTRACT-008`（9841ms）、`FLOW-TEMPLATE-EXAMPLE-001`（9759ms）、`SCN-TEMPLATE-EXAMPLE-002`（10292ms）首跑即过；`SCN-TEMPLATE-EXAMPLE-004` 首跑在 120000ms 用例超时失败（`Test timed out in 120000ms`），按 `packages/e2e/AGENTS.md` 的逐文件规则重新 `weapp:prepare` 后整文件重跑，9.69s 通过（该文件 prepare 执行 2 次，本步合计 6 次）。属于已登记的"小程序自动化冷启动不稳定"已知限制，未使用 `-t`。
+- **独立 `check:scenarios`**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=feat-template-core-hardening-20261010T063533Z pnpm check:scenarios` → **退出码 0**、`mode: complete`、`issues: 0`；覆盖汇总 `allSpec required 61 / executed 61 / passed 61`、`protocol 639/639/639`（日志 `/tmp/tch3/check-scenarios-round3.log`）。在完整 verify 之后单独跑仍为 0 问题，说明报告没有过期。
+- **任务勾选**：本轮不改任务状态（第 4/5/6/8/9/15/16 已在第二轮重新勾选）；Task 17、18 保持未勾选，Task 17 的演练记录由验收方写入本文件。本轮未改动 `tasks.md`。
+
 ## 完成标准复验
 
 修复清单第三节要求三份收尾证据：全部修复后的全量 `pnpm verify --change template-core-hardening`（新 run id、各步退出码为 0）、之后再单独跑一次 `check:scenarios`（问题数为 0），以及清单第 1 条要求的无作用域证据。以下按顺序登记。
