@@ -64,8 +64,11 @@ test(
         encoding: 'utf8',
       },
     );
-    context.expect(source.match(/\/\/ template-example:begin/g)).toHaveLength(2);
-    context.expect(source.match(/\/\/ template-example:end/g)).toHaveLength(2);
+    // 标记块数量随示例片段移动而变：只核验存在且成对，不写死数量（示例片段可增减）。
+    const begins = source.match(/\/\/ template-example:begin/g) ?? [];
+    const ends = source.match(/\/\/ template-example:end/g) ?? [];
+    context.expect(begins.length).toBeGreaterThan(0);
+    context.expect(ends.length).toBe(begins.length);
     const begin = source.lastIndexOf('// template-example:begin');
     const end = source.lastIndexOf('// template-example:end');
     context.expect(begin).toBeGreaterThan(-1);

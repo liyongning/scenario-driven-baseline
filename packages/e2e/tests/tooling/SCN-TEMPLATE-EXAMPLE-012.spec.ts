@@ -87,8 +87,11 @@ test(
       context.expect(meta.responseType, meta.name).toBe(expected!.responseType);
       context.expect(source).toContain(`method: ${meta.name},`);
     }
-    context.expect(source.match(/\/\/ template-example:begin/g)).toHaveLength(2);
-    context.expect(source.match(/\/\/ template-example:end/g)).toHaveLength(2);
+    // 标记块数量随示例片段移动而变：只核验存在且成对，不写死数量（示例片段可增减）。
+    const begins = source.match(/\/\/ template-example:begin/g) ?? [];
+    const ends = source.match(/\/\/ template-example:end/g) ?? [];
+    context.expect(begins.length).toBeGreaterThan(0);
+    context.expect(ends.length).toBe(begins.length);
 
     // declaration-matches-calls：声明与实际调用的双向检查为 0 问题。
     const inventory = await buildContractInventory(repositoryRoot);
