@@ -134,7 +134,7 @@
   **Commit**
   - `feat(template): derive fingerprints and coverage scope from one source inventory`
 
-- [x] 4. 去除写死拓扑与通用规则反例
+- [ ] 4. 去除写死拓扑与通用规则反例
 
   **Files**
   - Modify：`packages/e2e/src/cases/define-case.ts` 及单测（`environment: string` 运行时按清单校验；上下文新增 `environmentClass`）。
@@ -172,7 +172,7 @@
   **Commit**
   - `refactor(template): remove hard-coded topology from gates, configs and tooling tests`
 
-- [x] 5. 门禁自测隔离
+- [ ] 5. 门禁自测隔离
 
   **Files**
   - Modify：`scripts/*.test.ts`、`scripts/lib/*.test.ts` 与 `packages/e2e/tests/tooling/` 中对仓库实时状态运行门禁的用例（以 `git grep -n "process.cwd()" -- scripts packages/e2e/tests/tooling` 的命中为准），改为受控临时根并断言具体结果；`check-scenarios.ts` 的 FLOW 分支覆盖由测试输入提供。
@@ -207,7 +207,7 @@
   **Commit**
   - `test(template): isolate gate self-tests from live repository state`
 
-- [x] 6. Fixture 来源模型改为 ID + Requirement 块摘要
+- [ ] 6. Fixture 来源模型改为 ID + Requirement 块摘要
 
   **Files**
   - Modify：`packages/e2e/tests/fixtures/fixture.schema.json`（`sources.spec` 改为 `{ requirementDigest }`）；`scripts/check-fixtures.ts` 及单测（按 owner 解析生效 Requirement、规范化摘要、owner 不存在、歧义；`--change` 多值、逗号分隔、空值与不存在报错、帮助文本；命令行无 `--change` 时读取 `SCENARIO_GATE_CHANGES`）；`scripts/lib/spec-sources.ts` 及单测（导出 Requirement 块定位与规范化，块边界按 Design；Change 作用域：只合并主 Spec 与所列 Change、参数与环境变量的解析和校验，供 `check:fixtures` 与任务 7 的 `check:scenarios` 共用）。
@@ -273,7 +273,7 @@
   **Commit**
   - `feat(template): reconcile checkpoints both ways and scope the gate by change`
 
-- [x] 8. 统一验收入口与过期说明
+- [ ] 8. 统一验收入口与过期说明
 
   **Files**
   - Create：`scripts/verify.ts` 及单测（默认 run id 规则；三步顺序；`--from <命令名>`；`--change` 经 `SCENARIO_GATE_CHANGES` 传给全部步骤，未传时不设置；perFile 项目逐文件运行、每文件前执行 `prepare`、每文件一份 `reports/<项目名>/<文件名>.json`、失败先 `prepare` 再整文件重跑一次、续跑跳过已有通过报告的文件；各步耗时与结论）；根 `package.json` 新增 `verify`，`check` 改为调用 `verify`；清单 `requiredCommands` 加入 `verify`。
@@ -308,7 +308,7 @@
   **Commit**
   - `feat(template): add a single verify entry and explain stale reports`
 
-- [x] 9. 按需测试入口
+- [ ] 9. 按需测试入口
 
   **Files**
   - Create：`scripts/test-affected.ts` 及单测（全量触发、Spec/Fixture/代码/`scripts/` 选择规则、扩展到所有环境、`--scenario`、`--dry-run`、计划打印；run id 取 `affected-<YYYYMMDDTHHmmssZ>`）；根 `package.json` 新增 `test:affected`；清单 `requiredCommands` 加入。
@@ -515,7 +515,7 @@
   **Commit**
   - `refactor(template): enforce max-lines and split oversized modules`
 
-- [x] 15. 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
+- [ ] 15. 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
 
   **Files**
   - Create：各模块目录的 `AGENTS.md`（五节骨架）与全部 `CLAUDE.md`（首行 `@AGENTS.md`），范围按清单 `moduleRoots`。
@@ -548,7 +548,7 @@
   **Commit**
   - `docs(template): add progressive project map with paired CLAUDE.md`
 
-- [x] 16. 技术架构文档与指南修订
+- [ ] 16. 技术架构文档与指南修订
 
   **Files**
   - Create：`docs/architecture.md`（粗略层与按能力的细节层，存量内容从四个归档 Change 的 design 整理；本 Change 新增能力的演进记录只写 Change 名称纯文本，不链接 `openspec/changes/template-core-hardening/`）。
