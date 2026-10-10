@@ -31,17 +31,53 @@ export function planWeappPrepare(root: string, cli = defaultDevtoolsCli): Prepar
   ];
 }
 
-/* v8 ignore start -- 真实执行（退出、清理与预热）由 pnpm verify 的逐文件运行承担。 */
-export function prepareWeapp(root: string): number {
+/* v8 ignore start -- 真实执行（退出、清理、预热与就绪探测）由 pnpm verify 的逐文件运行承担。 */
+
+/** 就绪探测预算：`cli open` 返回时项目常常还没载入完，固定 sleep 覆盖不了这个波动。 */
+const readyProbe = { attemptTimeoutMs: 30_000, intervalMs: 5_000, attemptCount: 12 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 就绪判定：反复尝试连接开发者工具并读取版本号，直到成功一次。
+ * `automator.launch` 内部会做版本校验，读到空版本号时抛错——这次抛错在演练里出现过两次
+ * （`Tool.getInfo` 还没返回 SDKVersion），所以不依赖固定 sleep，而是轮询到真正可读为止。
+ */
+async function waitForDevtoolsReady(host: string, cli: string): Promise<void> {
+  const { default: automator } = await import('miniprogram-automator');
+  let lastError: unknown;
+  for (let attempt = 0; attempt < readyProbe.attemptCount; attempt += 1) {
+    let miniProgram: { disconnect(): void; checkVersion(): Promise<void> } | undefined;
+    try {
+      miniProgram = await automator.launch({
+        projectPath: host,
+        cliPath: cli,
+        trustProject: true,
+        timeout: readyProbe.attemptTimeoutMs,
+      });
+      await miniProgram.checkVersion();
+      return;
+    } catch (error) {
+      lastError = error;
+    } finally {
+      miniProgram?.disconnect();
+    }
+    await sleep(readyProbe.intervalMs);
+  }
+  throw new Error(`微信开发者工具未就绪：${String(lastError)}`);
+}
+
+export async function prepareWeapp(root: string): Promise<number> {
   const cli = process.env.WECHAT_DEVTOOLS_CLI ?? defaultDevtoolsCli;
   const host = hostProject(root);
   // 先生成受 git 忽略的项目配置：开发者工具只认这个文件名，模板才是受跟踪的来源。
   writeProjectConfig(host);
   for (const step of planWeappPrepare(root, cli))
     spawnSync(step.command, [...step.args], { stdio: 'ignore' });
+  await waitForDevtoolsReady(host, cli);
   return 0;
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url)
-  process.exitCode = prepareWeapp(process.cwd());
+  process.exitCode = await prepareWeapp(process.cwd());
 /* v8 ignore stop */

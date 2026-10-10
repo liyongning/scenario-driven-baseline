@@ -1397,3 +1397,13 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 收尾证据（完整 `pnpm verify --change template-core-hardening` 之后单独再跑 `check:scenarios`、问题数为 0）见本节末尾「最终全量验收」。
 - **偏差**：模板重命名（`git mv`）被并入第 5 条提交 `d893185`（该提交里它是 0 行内容变化的纯重命名）；本条提交只含 `.gitignore`、`scripts/weapp-prepare.ts`、`packages/e2e/host/weapp/setup.ts` 与新增的 `scripts/lib/weapp-project-config.{ts,test.ts}`。
 - **提交**：`fix(template): generate the weapp devtools config from a tracked template`。
+
+### 第 12 条 · Task 13 / 验收流程：小程序冷启动改为就绪探测
+
+- **根因**：`prepareWeapp` 原实现只按固定流程退出、清理、`cli open` 后返回，是否可跑由后续 spec 自己撞运气。演练 `verify-3.log:20`、`:66` 记录同一文件连续两次失败：自动 prepare 之后 `SCN-PROTOCOL-CONTRACT-002` 在 `MiniProgram.checkVersion` 处 `Cannot read properties of undefined (reading 'split')`（`Tool.getInfo` 还没返回 `SDKVersion`，`licia/cmpVersion` 拿到 `undefined`），手工多等 25 秒后同一用例 11085ms 通过（`weapp-manual.log:21`）。
+- **改动**（`scripts/weapp-prepare.ts`，不依赖固定 sleep）：
+  - 新增 `readyProbe = { attemptTimeoutMs: 30_000, intervalMs: 5_000, attemptCount: 12 }` 与 `waitForDevtoolsReady(host, cli)`：反复 `automator.launch` + `checkVersion()`，成功一次即返回；每次失败 `disconnect` 后按 `intervalMs` 重试，预算耗尽抛 ``微信开发者工具未就绪：<最后一次错误>``。
+  - `prepareWeapp` 改为 `async`、末尾 `await waitForDevtoolsReady(...)`；模块入口改 `process.exitCode = await prepareWeapp(process.cwd())`，`pnpm weapp:prepare` 的退出码即"就绪与否"的判定结果（`scripts/verify.ts` 逐文件前调用该命令）。
+- **证据**：`pnpm weapp:prepare` 退出码 0、24.7s（日志 `/tmp/tc12-prepare.log`）；对照演练：固定等待版本在同一次演练里两次失败（`verify-3.log`），本机不等待额外秒数、探测首次即通过。
+- **反例**：固定 sleep 不构成判定依据——`verify-3.log` 两次运行之间已有间隔仍然失败；新实现只有在 `checkVersion()` 真正读到版本号时才返回，否则以非零退出码失败，`verify` 据此判失败而不是让用例随机红。
+- **提交**：`fix(template): probe devtools readiness before running weapp specs`。
