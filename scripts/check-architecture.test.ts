@@ -357,6 +357,24 @@ evidence(
       context.expect(errors).not.toContain('unknown pnpm command install');
       context.expect(errors.some((error) => error.includes('--filter'))).toBe(false);
       context.expect(errors).not.toContain('unknown manifest field manifest.packages[].directory');
+      // 技术架构文档里的 Scenario ID 同样要在有效 Spec 中登记（ENG-06 的路径口径）。
+      const architecturePath = join(root, 'docs/architecture.md');
+      const architecture = readFileSync(architecturePath, 'utf8');
+      writeFileSync(
+        architecturePath,
+        `${architecture}\n未登记的引用：SCN-SAMPLE-991\n路径里的不算：packages/e2e/tests/fixtures/SCN-SAMPLE-990/evidence.json\n`,
+      );
+      const withArchitecture = await checkArchitecture(root, 0);
+      context
+        .expect(withArchitecture)
+        .toContain('unregistered Scenario ID SCN-SAMPLE-991 (docs/architecture.md)');
+      context
+        .expect(withArchitecture)
+        .not.toContain('unregistered Scenario ID SCN-SAMPLE-990 (docs/architecture.md)');
+      writeFileSync(architecturePath, architecture);
+      context
+        .expect(await checkArchitecture(root, 0))
+        .not.toContain('unregistered Scenario ID SCN-SAMPLE-991 (docs/architecture.md)');
     });
   },
 );

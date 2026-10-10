@@ -5,11 +5,16 @@ import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { visit } from 'unist-util-visit';
 import { checkProjectMap } from './check-project-map.ts';
-import { checkArchitectureDoc, guideRelativePath } from './lib/architecture-doc.ts';
+import {
+  architectureRelativePath,
+  checkArchitectureDoc,
+  guideRelativePath,
+} from './lib/architecture-doc.ts';
 import { checkExampleMarkers } from './lib/example-markers.ts';
 import { headingsOf, linkTarget, linksTo, markdown, relativeLinks } from './lib/markdown-docs.ts';
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
-import { loadScenarioConfig, matchesAny } from './lib/scenario-config.ts';
+import { unregisteredScenarioIds } from './lib/scenario-ids.ts';
+import { loadScenarioConfig } from './lib/scenario-config.ts';
 import {
   errorMessage,
   loadProjectManifest,
@@ -89,24 +94,6 @@ function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
   ];
 }
 
-/**
- * 按项目配置的格式从全文中提取 Scenario ID 词元。
- * 只有当词元本身就是 Scenario ID 时才算引用：ID 后面紧跟 `.` 或 `/` 时它是文件名或目录名的一部分
- * （例如 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`、
- * `packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`），不算 Scenario 引用；
- * ID 位于路径末尾（后面是反引号、空格或行尾）时仍按引用检查。
- */
-function extractScenarioIds(text: string, patterns: ReadonlyArray<string>): string[] {
-  const ids: string[] = [];
-  for (const match of text.matchAll(/[A-Za-z0-9_-]+/g)) {
-    const token = match[0];
-    const after = text[match.index + token.length] ?? '';
-    if (after === '.' || after === '/') continue;
-    if (matchesAny(token, patterns)) ids.push(token);
-  }
-  return ids;
-}
-
 /** 取行内代码中紧跟在 `pnpm`/`pnpm run` 之后、不以 `-` 开头的命令词。 */
 function pnpmCommands(code: string): string[] {
   const commands: string[] = [];
@@ -179,9 +166,19 @@ async function checkTemplateGuide(
     for (const match of document.content.matchAll(/^####\s+Scenario:\s+(\S+)/gm))
       registered.add(match[1]!);
   }
-  for (const id of new Set(extractScenarioIds(content, config.scenarioIdPatterns))) {
-    if (!registered.has(id)) errors.push(`unregistered Scenario ID ${id}`);
-  }
+  errors.push(
+    ...unregisteredScenarioIds(content, guideRelativePath, config.scenarioIdPatterns, registered),
+  );
+  const architectureFile = join(root, architectureRelativePath);
+  if (existsSync(architectureFile))
+    errors.push(
+      ...unregisteredScenarioIds(
+        readFileSync(architectureFile, 'utf8'),
+        architectureRelativePath,
+        config.scenarioIdPatterns,
+        registered,
+      ),
+    );
   const schema = JSON.parse(readFileSync(projectManifestSchemaUrl, 'utf8')) as unknown;
   const inlineCode: string[] = [];
   visit(markdown(content), 'inlineCode', (node) => {

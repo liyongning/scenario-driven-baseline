@@ -536,7 +536,13 @@ CLAUDE.md 用 `@AGENTS.md` 导入行而非软链接（Windows 检出会退化、
 
 #### 实现机制与关键文件
 
-通用证据已迁出到产品包 `consumedOperations` 声明、协议包 `businessErrors`、按入口发现的注释门禁、测试输入自带 FLOW 与新增的工程 Scenario；示例片段用 [scripts/lib/example-markers.ts](../scripts/lib/example-markers.ts) 的成对标记包裹，删除白名单与时机写在[指南](template-guide.md)「移除模板示例」；删除后的全绿证据由 `SCN-TEMPLATE-ENGINEERING-008` 在隔离副本中承担。
+通用证据已迁出到产品包 `consumedOperations` 声明、协议包 `businessErrors`、按入口发现的注释门禁、测试输入自带 FLOW 与新增的工程 Scenario；示例片段用 [scripts/lib/example-markers.ts](../scripts/lib/example-markers.ts) 的成对标记包裹，删除白名单与时机写在[指南](template-guide.md)「移除模板示例」。
+
+<!-- template-example:begin -->
+
+删除后的全绿证据由 `SCN-TEMPLATE-ENGINEERING-008` 在隔离副本中承担。
+
+<!-- template-example:end -->
 
 #### 关键设计决策与被否决的方案
 
