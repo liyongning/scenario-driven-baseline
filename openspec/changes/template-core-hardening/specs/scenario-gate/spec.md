@@ -390,7 +390,7 @@ Fixture 的 owner MUST 由其目录名（Scenario 或 FLOW ID）确定。`check:
 门禁对 FLOW 等分支的覆盖 MUST 由测试输入自行提供（例如测试输入自带 FLOW），不依赖仓库中存在示例 Scenario、FLOW 或 Fixture。仓库中没有任何 FLOW、或按删除白名单移除模板示例后，门禁逻辑自测与覆盖率阈值 SHALL 仍然通过；在仓库中新增或删除 Spec、Change 或 Fixture SHALL NOT 改变门禁逻辑自测的结论。
 
 #### Scenario: SCN-SCENARIO-GATE-026 门禁自测不依赖仓库实时状态
-- **WHEN** 在模板的隔离副本（构造方式同 SCN-TEMPLATE-ENGINEERING-008：按 git 跟踪与未忽略文件复制、`git init` 并提交、在副本中 `pnpm install --offline --frozen-lockfile` 安装依赖而不链接原仓库 `node_modules`、设置 `TEMPLATE_COPY=1`）中分别：删除全部 FLOW 登记与 FLOW Fixture；新增一个与任何事实核验无关、含缺陷 Scenario 的 active Change；然后运行 test-tools-unit 项目（含覆盖率阈值）、tooling 用例中的门禁逻辑自测，以及模板自身事实核验用例（SCN-TEMPLATE-EXAMPLE-012、SCN-PROTOCOL-CONTRACT-001 的 `inventory-cli`、SCN-TEMPLATE-ENGINEERING-005 的写死扫描、SCN-TEMPLATE-ENGINEERING-003 的注释检查）；另检查门禁逻辑自测的源码与临时根 helper
+- **WHEN** 在模板的隔离副本（构造方式按 template-engineering ENG-06 的仓库副本规定：按 git 跟踪与未忽略文件复制、`git init` 并提交、在副本中 `pnpm install --offline --frozen-lockfile` 安装依赖而不链接原仓库 `node_modules`、设置 `TEMPLATE_COPY=1`）中分别：删除全部 FLOW 登记与 FLOW Fixture；新增一个与任何事实核验无关、含缺陷 Scenario 的 active Change；然后运行 test-tools-unit 项目（含覆盖率阈值）、tooling 用例中的门禁逻辑自测，以及模板自身事实核验用例（SCN-TEMPLATE-EXAMPLE-012、SCN-PROTOCOL-CONTRACT-001 的 `inventory-cli`、SCN-TEMPLATE-ENGINEERING-005 的写死扫描、SCN-TEMPLATE-ENGINEERING-003 的注释检查）；另检查门禁逻辑自测的源码与临时根 helper
 - **THEN** 门禁逻辑自测结论与改动前一致，覆盖率阈值仍然满足，FLOW 分支由测试输入覆盖；事实核验用例的结论不受新增的无关缺陷 Change 影响；门禁逻辑自测不对仓库根运行门禁，也不以 `expect.any(...)` 作为门禁结果断言；临时根 helper 构造的目录是已提交的 git 工作区，需要真实 OpenSpec CLI 时解析到仓库 `node_modules` 中的固定版本。
 
 ```json verification

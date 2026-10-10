@@ -590,7 +590,7 @@
   - 本任务只做验证，不做迁出：迁出工作已在任务 4、5、10、13、16 完成。
 
   **Requirements / Scenarios**
-  - template-engineering：ENG-06 / SCN-TEMPLATE-ENGINEERING-008
+  - template-engineering：ENG-06；template-example：EX-10 / SCN-TEMPLATE-ENGINEERING-008（A3：用例、Fixture 与排除列表条目属于删除白名单）
 
   **Design Decisions**
   - Decision: 模板示例解耦与删除白名单

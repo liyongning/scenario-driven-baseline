@@ -345,14 +345,14 @@
 
 **删除白名单** MUST 恰好包含以下内容，指南与本要求一致：
 
-- 整目录或整文件：`packages/sdk/src/example/`；`packages/protocol/testing/shadow/example/`；`packages/e2e/tests/example/`、`packages/e2e/tests/weapp/example/`；`packages/e2e/host/weapp/example-runner.ts`；`packages/e2e/tests/fixtures/` 下的 `SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`；`openspec/specs/template-example/`。
-- 片段：全仓库所有 `template-example:begin` 与 `template-example:end` 标记之间的内容（连同标记本身），包括 `packages/sdk/src/index.ts` 的示例导出、`consumed-operations.ts` 的示例条目及其单测中的示例断言、`packages/e2e/host/weapp/` 下 `app.js`、`setup.ts`、`vite.config.ts` 与 `packages/e2e/src/drivers/weapp-host.test.ts` 中注册与配置示例运行器的片段、指南与各级 AGENTS.md 中指向示例文件或引用 `SCN-TEMPLATE-EXAMPLE-*` 的段落、包级 AGENTS.md"子模块"一节中列出的示例模块条目（例如 `sdk/src/example`、`e2e/tests/example`）。
+- 整目录或整文件：`packages/sdk/src/example/`；`packages/protocol/testing/shadow/example/`；`packages/e2e/tests/example/`、`packages/e2e/tests/weapp/example/`；`packages/e2e/host/weapp/example-runner.ts`；`packages/e2e/tests/fixtures/` 下的 `SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`；`openspec/specs/template-example/`；示例删除验收自身的用例 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 与 Fixture `packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`（见 template-example 的 EX-10）。
+- 片段：全仓库所有 `template-example:begin` 与 `template-example:end` 标记之间的内容（连同标记本身），包括 `packages/sdk/src/index.ts` 的示例导出、`consumed-operations.ts` 的示例条目及其单测中的示例断言、`packages/e2e/host/weapp/` 下 `app.js`、`setup.ts`、`vite.config.ts` 与 `packages/e2e/src/drivers/weapp-host.test.ts` 中注册与配置示例运行器的片段、指南与各级 AGENTS.md 中指向示例文件或引用 `SCN-TEMPLATE-EXAMPLE-*` 的段落、包级 AGENTS.md"子模块"一节中列出的示例模块条目（例如 `sdk/src/example`、`e2e/tests/example`）、会创建副本的用例排除列表与测试配置中指向示例文件或示例删除验收的条目。
 - JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`），删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。
 - 同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目。
 
 **片段标记**：共享文件中只属于示例的片段 MUST 用成对注释包裹：代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。架构检查 MUST 校验标记成对出现、不嵌套，未闭合、多余的结束标记或嵌套时非零退出并指出文件与行号。共享文件中引用示例、但未被标记包裹的内容视为门禁依赖示例，会在下述删除验收中暴露。
 
-按指南白名单删除模板示例后，确定性门禁 MUST 仍然通过：不得有门禁、用例或工程配置依赖白名单内的内容。共享文件中依赖示例的证据（例如 IDL 路由来源单测、Shadow 引擎单测）MUST 改为不依赖示例目录的输入。删除验收的副本 SHALL 按以下方式构造：
+按指南白名单删除模板示例后，确定性门禁 MUST 仍然通过：不得有门禁、用例或工程配置依赖白名单内的内容。共享文件中依赖示例的证据（例如 IDL 路由来源单测、Shadow 引擎单测）MUST 改为不依赖示例目录的输入。这一保证的自动化证据（SCN-TEMPLATE-ENGINEERING-008）属于模板自身的维护证据，登记在 template-example 能力的 EX-10 中，随示例一起删除：使用方删除示例后不再需要它，保留它会使删除后的仓库必然失败。仓库副本（供示例删除验收与门禁自测使用）SHALL 按以下方式构造：
 
 - 用 `git ls-files -co --exclude-standard` 复制当前工作区，在副本中 `git init` 并做一次提交，然后在副本中执行 `pnpm install --offline --frozen-lockfile`，从本机 pnpm store 安装依赖。副本 MUST NOT 链接或复用原仓库的 `node_modules`：pnpm 的 workspace 链接会解析回原仓库，副本里测的就不是删除后的代码；副本中产品包（`@daqian/template-sdk`）的 realpath MUST 位于副本内。
 - 为模拟"当前 Change 已交付"的模板状态，在副本中对作用域内的 active Change（`SCENARIO_GATE_CHANGES` 所列；未设置时为空）执行 `openspec archive <name> -y`，其余 active Change 的目录直接从副本中移除（它们是尚未交付的后续工作，与当前模板状态无关）；归档使用副本 `node_modules` 中以精确版本固定的 `@fission-ai/openspec`，不依赖全局安装。
@@ -361,7 +361,7 @@
 
 运行约定：仓库存在正在交付的 active Change 时，任何可能触发副本用例的运行（全量运行与 `pnpm test:affected`）SHALL 以该 Change 为作用域，即 `pnpm verify --change <name>`，单独运行 `check:fast` 或 `test:affected` 时设置 `SCENARIO_GATE_CHANGES=<name>`，副本据此归档该 Change；没有 active Change 时（作用域为空），副本无需归档。该约定同样适用于复刻验收的演练副本：演练 Agent 的工作仍在 active Change 中时，演练副本的验收命令为 `pnpm verify --change <该 Change>`，只有副本中没有 active Change 时才不带作用域。
 
-防止递归：副本中 SHALL 设置环境变量 `TEMPLATE_COPY=1`：根 `vitest.config.ts` 在该变量存在时排除所有会创建副本的用例（本要求的删除验收、SCN-TEMPLATE-ENGINEERING-001 的临时构建、SCN-SCENARIO-GATE-026 中运行副本的 case），创建副本的 helper 在该变量已设置时 MUST 拒绝创建，防止递归。
+防止递归：副本中 SHALL 设置环境变量 `TEMPLATE_COPY=1`：根 `vitest.config.ts` 在该变量存在时排除所有会创建副本的用例（示例删除验收、SCN-TEMPLATE-ENGINEERING-001 的临时构建、SCN-SCENARIO-GATE-026 中运行副本的 case），创建副本的 helper 在该变量已设置时 MUST 拒绝创建，防止递归。
 
 #### Scenario: SCN-TEMPLATE-ENGINEERING-006 使用指南缺失或不完整
 - **WHEN** 在临时副本中分别删除指南、删除根 AGENTS.md 或 README.md 中指向指南的链接、删除某个规定章节（含移除模板示例、归档已知限制、版本对齐、使用方约定、复刻验收）、在指南中加入无法解析的相对链接、引用未登记的 Scenario ID、引用不存在的 `pnpm` 命令、引用不存在的清单字段（例如已删除的 `manifest.fingerprints.hostRoots`）、让指南的删除白名单缺少本要求列出的某一项；另分别在代码文件与 Markdown 文件中放入只有 `template-example:begin` 没有结束标记、多余的 `template-example:end`、两对嵌套的标记
@@ -388,25 +388,3 @@
 }
 ```
 
-#### Scenario: SCN-TEMPLATE-ENGINEERING-008 按白名单删除模板示例后门禁仍全绿
-- **WHEN** 以当前交付的 Change 为作用域（经 `SCENARIO_GATE_CHANGES` 传入），按本要求的方式构造隔离副本（`git ls-files -co --exclude-standard` 复制、`git init` 并提交、在副本中 `pnpm install --offline --frozen-lockfile`、以副本中固定版本的 OpenSpec CLI 归档作用域内的 active Change、移除其余 active Change、归档后清除 `SCENARIO_GATE_CHANGES`、设置 `TEMPLATE_COPY=1`），再按白名单删除全部示例内容（整目录与整文件、全部 `template-example:begin/end` 标记之间的片段、协议矩阵 Fixture 中的示例键并刷新摘要、`coverageExclusions` 中指向已删除文件的条目），不修改任何门禁代码、门禁配置或其他能力的 Spec，然后运行 `pnpm check:fast` 与场景门禁的清单模式（`--inventory`，只核对格式、绑定、Fixture 与协议义务等静态部分，不要求平台报告）；另在副本中尝试再次创建副本
-- **THEN** 副本中 `@daqian/template-sdk` 的 realpath 位于副本内，不指向原仓库；归档全部成功，没有因本 Change 的 `template-example` delta 产生悬空修改；归档后副本内运行环境中不再有 `SCENARIO_GATE_CHANGES`，场景门禁不因"Change 不存在"报错；`check:fast` 退出码为 0，其中协议矩阵用例在消费接口声明为空时断言按消费接口派生的义务为空并结束；场景门禁清单模式的问题集合恰好等于"副本中不可能产生绑定的用例所对应的缺失绑定或缺失证据"，即被 `TEMPLATE_COPY=1` 排除的会创建副本的用例（从根 `vitest.config.ts` 的排除列表推导），加上 `requiredIn` 中清单 `class` 为 `platform` 的测试项目（清单模式不要求平台报告）。该集合由排除列表与清单推导，不手写；多一条或少一条均为失败，除此之外问题数为 0，没有指向已删除示例的悬空 Scenario、FLOW、Fixture 或用例绑定，协议义务派生、注释门禁与覆盖率完整性检查不因缺少示例而失败；副本中会创建副本的用例被排除，创建副本的 helper 在 `TEMPLATE_COPY=1` 下拒绝执行。
-
-```json verification
-{
-  "formatVersion": 2,
-  "checkpoints": {
-    "copy-construction": "副本由 git ls-files -co --exclude-standard 复制、git init 并提交、在副本中 pnpm install --offline --frozen-lockfile 安装依赖（不链接原仓库 node_modules），副本中 @daqian/template-sdk 的 realpath 位于副本内；以副本 node_modules 中精确版本的 OpenSpec CLI 归档作用域内的 active Change、移除其余 active Change，归档后清除 SCENARIO_GATE_CHANGES，再删除示例",
-    "whitelist-only-removal": "删除只涉及白名单内的整目录、整文件、template-example 标记片段与对应 coverageExclusions 条目，门禁代码、门禁配置与其他能力的 Spec 不被修改",
-    "fast-gates-green": "删除示例后 check:fast 退出码为 0",
-    "empty-declaration-matrix": "消费接口声明为空时协议矩阵用例断言按消费接口派生的义务为空并结束，不因缺少示例路由失败；业务错误码义务仍存在且由 SCN-PROTOCOL-CONTRACT-003 承担证据",
-    "scenario-gate-green": "删除示例后场景门禁清单模式的问题集合恰好等于由 vitest.config.ts 排除列表推导出的、被 TEMPLATE_COPY 排除用例的缺失绑定或证据，加上由清单 class=platform 测试项目派生的缺失绑定，除此之外问题数为 0，没有指向示例的悬空引用；含平台报告的完整 pnpm verify 由复刻验收演练承担",
-    "no-recursive-copy": "副本中设置 TEMPLATE_COPY=1，根 vitest.config.ts 排除会创建副本的用例，创建副本的 helper 在该变量已设置时拒绝执行"
-  },
-  "cases": [
-    {"key": "example-removal-fast", "kind": "engineering", "requiredIn": ["integration"], "checks": ["copy-construction", "whitelist-only-removal", "fast-gates-green", "empty-declaration-matrix", "no-recursive-copy"]},
-    {"key": "example-removal-scenarios", "kind": "engineering", "requiredIn": ["integration"], "checks": ["copy-construction", "whitelist-only-removal", "scenario-gate-green"]}
-  ],
-  "blockedBy": []
-}
-```
