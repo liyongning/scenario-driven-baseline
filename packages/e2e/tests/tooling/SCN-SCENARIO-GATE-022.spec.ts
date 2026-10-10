@@ -14,9 +14,17 @@ cliEvidence(
       const run = fixture.run(['--scenario', 'SCN-SAMPLE-A-001']);
       const match = /run id (affected-\d{8}T\d{6}Z)/.exec(run.output);
       const runId = match?.[1] ?? '';
+      // 非 perFile 项目一次跑完选中的全部文件、只写一份报告；平台项目逐文件各写一份。
       const reports = {
         integration: join(fixture.root, 'artifacts', runId, 'reports', 'integration.json'),
-        platform: join(fixture.root, 'artifacts', runId, 'reports', 'sample-platform.json'),
+        platform: join(
+          fixture.root,
+          'artifacts',
+          runId,
+          'reports',
+          'sample-platform',
+          'SCN-SAMPLE-A-001.json',
+        ),
       };
       await check('partial-marked', () => {
         context.expect(run.status).toBe(0);
@@ -26,6 +34,8 @@ cliEvidence(
             partial: true,
             runId,
           });
+        // 同一次按需运行里，平台文件运行前必须执行清单登记的 prepare（替身 pnpm 记录了这次调用）。
+        context.expect(fixture.pnpmCalls()).toContain('run weapp:prepare');
       });
       enableInventory(fixture.root);
       const rejected = fixture.gate([], { VERIFY_RUN_ID: runId });

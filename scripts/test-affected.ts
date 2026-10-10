@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   errorMessage,
@@ -10,6 +11,7 @@ import {
 } from './lib/project-manifest.ts';
 import { expandSelections, scanCaseBindings } from './lib/affected-bindings.ts';
 import { fixtureSelections, fullTriggers } from './lib/affected-triggers.ts';
+import { reportNameForFile } from './lib/report-names.ts';
 import { specSelections } from './lib/affected-spec.ts';
 import { reachedTestFiles } from './lib/affected-analysis.ts';
 import type { PlannedCommand } from './run-by-manifest.ts';
@@ -154,26 +156,86 @@ export function affectedCommands(
         VERIFY_REPORT_FILE: reportPath(root, plan.runId, 'unit'),
       },
     });
-  for (const file of plan.files)
+  // 同一份报告的文件合成一次运行：同一项目的多个文件写进同一份报告，不互相覆盖。
+  // perFile 项目（例如平台项目）必须逐文件运行，每个文件前执行清单登记的 prepare
+  // （例如退出并预热微信开发者工具），每个文件写一份带文件名的报告。
+  const runs = new Map<string, { projects: string[]; files: string[] }>();
+  for (const file of plan.files) {
+    const project = manifest.testProjects.find((item) => item.name === file.project);
+    if (project?.perFile === true) {
+      if (project.prepare !== undefined)
+        commands.push({ command: 'pnpm', args: ['run', project.prepare] });
+      commands.push({
+        command: 'vitest',
+        args: ['run', '--project', file.project, file.file],
+        env: {
+          VERIFY_RUN_ID: plan.runId,
+          TEST_AFFECTED_PARTIAL: '1',
+          VERIFY_REPORT_FILE: reportPath(
+            root,
+            plan.runId,
+            `${file.project}/${reportNameForFile(file.file)}`,
+          ),
+        },
+      });
+      continue;
+    }
+    const name = reportFor(file);
+    const run = runs.get(name) ?? { projects: [], files: [] };
+    if (!run.projects.includes(file.project)) run.projects.push(file.project);
+    run.files.push(file.file);
+    runs.set(name, run);
+  }
+  for (const [name, run] of runs)
     commands.push({
       command: 'vitest',
-      args: ['run', '--project', file.project, file.file],
+      args: ['run', ...run.projects.flatMap((project) => ['--project', project]), ...run.files],
       env: {
         VERIFY_RUN_ID: plan.runId,
         TEST_AFFECTED_PARTIAL: '1',
-        VERIFY_REPORT_FILE: reportPath(root, plan.runId, reportFor(file)),
+        VERIFY_REPORT_FILE: reportPath(root, plan.runId, name),
       },
     });
   return commands;
 }
 
-/** 报告名沿用清单约定：unit 类项目合并为 unit，其余项目各一份同名报告。 */
+/**
+ * 报告名沿用清单约定：unit 类项目合并为一份 `unit`；非 perFile 项目每个项目一份
+ * `<项目名>`（同一项目的文件合成一次运行）；perFile 项目的报告名在调用处带上文件名。
+ */
 function reportFor(file: AffectedTestFile): string {
   return file.className === 'unit' ? 'unit' : file.project;
 }
 
 function reportPath(root: string, runId: string, name: string): string {
   return resolve(root, 'artifacts', runId, 'reports', `${name}.json`);
+}
+
+/**
+ * 按需运行的报告核对：`vitest related` 选中了改动文件、unit 报告里实际执行的用例却为 0
+ * （例如项目名被当成路径过滤器过滤光了），说明选择失效——必须判失败，不能靠 `passWithNoTests`。
+ */
+export function affectedReportIssues(root: string, plan: AffectedPlan): string[] {
+  const ranRelated = plan.commands.some(
+    (step) => step.command === 'vitest' && step.args[0] === 'related',
+  );
+  if (!ranRelated || plan.related.length === 0) return [];
+  const report = reportPath(root, plan.runId, 'unit');
+  const shown = relative(root, report);
+  let tests: ReadonlyArray<unknown>;
+  try {
+    const parsed = JSON.parse(readFileSync(report, 'utf8')) as {
+      tests?: ReadonlyArray<unknown>;
+    };
+    tests = parsed.tests ?? [];
+  } catch (error) {
+    return [`unit 报告缺失或不可读：${shown}（${errorMessage(error)}）`];
+  }
+  return tests.length === 0
+    ? [
+        `unit 报告没有任何用例：${shown}（vitest related 选中 ${plan.related.length} 个改动文件，实际执行 0 个用例）`,
+      ]
+    : [];
 }
 
 /** 计算按需运行的完整计划；不执行任何用例。 */
@@ -301,6 +363,8 @@ export async function runAffectedCli(
     const code = execute(step);
     if (code !== 0) return { output, exitCode: code };
   }
+  const issues = affectedReportIssues(root, plan);
+  if (issues.length > 0) return { output: `${output}\n${issues.join('\n')}`, exitCode: 1 };
   return { output, exitCode: 0 };
 }
 

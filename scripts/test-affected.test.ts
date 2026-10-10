@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it, test, type TestContext } from 'vitest';
 import { ScenarioReporter } from '../packages/e2e/src/reporters/scenario-reporter.ts';
 import {
@@ -11,6 +11,7 @@ import { enableInventory } from '../packages/e2e/tests/tooling/scenario-gate-hel
 import { loadReporterOutputs, runScenariosCli } from './check-scenarios.ts';
 import {
   affectedCommands,
+  affectedReportIssues,
   affectedRunId,
   analysisTsconfig,
   changedFilesSince,
@@ -185,6 +186,98 @@ describe('test:affected 依赖分析与执行路径', () => {
         },
       },
     ]);
+  });
+
+  it('平台文件按清单登记先执行 prepare，同一项目的文件合成一份报告', () => {
+    const manifest = loadProjectManifest(process.cwd());
+    const runId = 'affected-20260101T000000Z';
+    const commands = affectedCommands(process.cwd(), manifest, {
+      runId,
+      files: [
+        { project: 'weapp', className: 'platform', file: 'packages/e2e/tests/weapp/a.spec.ts' },
+        {
+          project: 'integration',
+          className: 'integration',
+          file: 'packages/e2e/tests/protocol/b.spec.ts',
+        },
+        {
+          project: 'integration',
+          className: 'integration',
+          file: 'packages/e2e/tests/protocol/c.spec.ts',
+        },
+      ],
+      related: [],
+      build: false,
+    });
+    // prepare 由清单 `testProjects[].prepare` 派生，不写死命令名；它排在平台文件步骤之前。
+    expect(commands[0]).toEqual({ command: 'pnpm', args: ['run', 'weapp:prepare'] });
+    expect(commands[1]?.args).toEqual([
+      'run',
+      '--project',
+      'weapp',
+      'packages/e2e/tests/weapp/a.spec.ts',
+    ]);
+    // 非 perFile 项目一次跑完该项目选中的全部文件，只写一份报告，不互相覆盖。
+    expect(commands[2]?.args).toEqual([
+      'run',
+      '--project',
+      'integration',
+      'packages/e2e/tests/protocol/b.spec.ts',
+      'packages/e2e/tests/protocol/c.spec.ts',
+    ]);
+    const reports = commands
+      .filter((step) => step.command === 'vitest')
+      .map((step) => step.env?.VERIFY_REPORT_FILE);
+    expect(reports).toEqual([
+      join(process.cwd(), 'artifacts', runId, 'reports', 'weapp', 'a.json'),
+      join(process.cwd(), 'artifacts', runId, 'reports', 'integration.json'),
+    ]);
+    expect(new Set(reports).size).toBe(reports.length);
+  });
+
+  it('unit related 命中却零用例时判失败，报告缺失或没有 related 时不误报', () => {
+    const root = mkdtempSync(join(tmpdir(), 'affected-report-'));
+    const runId = 'affected-20260101T000000Z';
+    const related = ['scripts/lib/sample.ts'];
+    const plan = {
+      runId,
+      base: 'HEAD',
+      changed: [...related],
+      selections: [],
+      files: [],
+      related,
+      commands: [
+        {
+          command: 'vitest',
+          args: ['related', ...related, '--project', 'test-tools-unit', '--run'],
+        },
+      ],
+    };
+    const report = join(root, 'artifacts', runId, 'reports', 'unit.json');
+    const writeReport = (tests: ReadonlyArray<unknown>): void => {
+      mkdirSync(dirname(report), { recursive: true });
+      writeFileSync(report, JSON.stringify({ tests }));
+    };
+    try {
+      // 报告缺失：按需运行没有产出证据，判失败。
+      expect(affectedReportIssues(root, plan).join('\n')).toContain('unit 报告缺失或不可读');
+      // 选中了改动文件却一个用例都没跑：判失败，不依赖 passWithNoTests。
+      writeReport([]);
+      expect(affectedReportIssues(root, plan).join('\n')).toContain('实际执行 0 个用例');
+      // 有真实用例：通过。
+      writeReport([{ file: 'scripts/lib/sample.test.ts', status: 'passed' }]);
+      expect(affectedReportIssues(root, plan)).toEqual([]);
+      // 没有 related 选择（或没有 related 步骤）时不做这项核对，避免误报。
+      expect(affectedReportIssues(root, { ...plan, related: [] })).toEqual([]);
+      expect(
+        affectedReportIssues(root, {
+          ...plan,
+          commands: [{ command: 'vitest', args: ['run', '--project', 'integration', 'a.spec.ts'] }],
+        }),
+      ).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('spawnAffectedStep 按子进程退出码返回', () => {

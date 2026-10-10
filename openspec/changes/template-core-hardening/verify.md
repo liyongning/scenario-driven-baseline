@@ -1441,3 +1441,25 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 事实检查：把指南恢复成修复前的第 101 行写法（`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`）时，`check:architecture` 非零退出并报 `unknown environment variable SCN-SCENARIO_GATE_CHANGES`；单测 `guide-facts-consistent` 用同一形态断言该报错存在、且 `VERIFY_RUN_ID=` 不误报。
   - ENG-001 Fixture：保留 `sdkExports` 会在示例删除后指向不存在的导出名，属于"门禁依赖示例"；删除后 `check:fixtures` 摘要与内容一致（`fixtures:refresh` 的 `updated` 列表只有 `SCN-TEMPLATE-ENGINEERING-001`）。
 - **提交**：`fix(template): correct the example-removal guide wording and example-bound docs`。
+
+### 第 11 条 · Task 9：按需入口的两处缺陷（M-3 分析路径映射、M-4 报告与准备）
+
+- **根因**：
+  - M-3：`analysisTsconfig` 只把清单里的包名映射到 `packages/<dir>/src/index.ts`，没有仓库自己的 TS 路径别名。用例经 `@template-test/protocol`（→ `packages/protocol/testing/index.ts` → `shadow/server.ts`）导入协议测试包，依赖图在这个别名处断开，`depcruise --reaches` 找不到任何 e2e 用例——实测改 `packages/protocol/testing/shadow/server.ts` 后选中的用例数为 0。
+  - M-4(a)：unit 的 `vitest related` 步骤即使实际 0 用例，只要 Vitest 退出码 0 就整体通过，等于允许"选中了改动文件、却一个用例都没跑"。
+  - M-4(b)：非 unit 项目的报告名只按项目取名，同一项目的多个文件互相覆盖同一份 `integration.json`：后跑的覆盖先跑的，丢证据也不报错。
+  - M-4(c)：平台用例（清单登记 `perFile` + `prepare`）在按需入口里直接跑文件，没有执行 prepare——等于跳过退出开发者工具与预热。
+- **改动**（不改规划语义：未改 proposal/specs/design/tasks，未新增 checkpoint）：
+  - `scripts/lib/affected-analysis.ts`：`analysisTsconfig` 除清单包名外，合并 `tsconfig.base.json` / `tsconfig.test.json` 的 `paths`（含 `@template-test/*`），并按协议包目录派生 `<协议包名>/generated/*` 映射；映射只供分析，构建与测试的模块解析不变。
+  - `scripts/test-affected.ts`：新增 `affectedReportIssues`——`runAffectedCli` 执行完所有步骤后核对 unit 报告，`related` 非空而报告缺失/不可读或 0 用例即退出码 1；同一份报告的文件合成一次 `vitest run`（同一项目的多个文件只写一份报告，不互相覆盖）；`perFile` 项目逐文件运行，每个文件前按清单 `testProjects[].prepare` 插入 prepare 步骤，报告写 `reports/<项目名>/<文件名>.json`（沿用 GATE-14 的逐文件约定）。
+  - `scripts/lib/report-names.ts`：抽出 `reportNameForFile` 供 `verify.ts` 与 `test-affected.ts` 共用，`verify.ts` 保持同名再导出。**优先采用现成方案**：直接复用验收入口已有的逐文件报告命名与 `testProjects[].prepare` 语义，不另造一套。
+- **证据**：
+  - M-3 前/后（`pnpm exec tsx -e` 调用 `reachedTestFiles(root, manifest, ['packages/protocol/testing/shadow/server.ts'])`）：修复前 `reached=7`，全部在协议包内（`packages/protocol/testing/shadow/*.test.ts`），没有任何 `packages/e2e/tests/**`；修复后 `reached=20`，含 `packages/e2e/tests/example|protocol|weapp` 下的用例。
+  - `pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts` → 14 用例通过、退出码 0（新增 2 条：`平台文件按清单登记先执行 prepare，同一项目的文件合成一份报告`、`unit related 命中却零用例时判失败…`）。
+  - `pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-SCENARIO-GATE-020.spec.ts … -021 … -022 … -023 …` → 4 文件 / 5 用例通过、退出码 0。SCN-022 的真实按需运行里：替身 pnpm 记录到 `run weapp:prepare`（平台文件运行前执行 prepare，清单派生），平台报告写在 `reports/sample-platform/SCN-SAMPLE-A-001.json`，非 perFile 的 `integration` 仍是一份 `reports/integration.json`（含该项目选中的全部文件）。
+  - `pnpm exec vitest run --project test-tools-unit scripts/verify.test.ts` → 报告名抽到 lib 后仍通过（`reportNameForFile` 三个用例).
+- **反例**：
+  - M-4(a)：unit 报告写成 `{"tests": []}` → `affectedReportIssues` 返回 `unit 报告没有任何用例：…实际执行 0 个用例`，CLI 退出码 1；报告文件不存在时返回 `unit 报告缺失或不可读…`；报告有真实用例、或没有 related 选择/没有 related 步骤时返回空（不误报）。
+  - M-4(b)：同一 integration 项目的两个文件进入计划时只有一条 `vitest run`、一份 `artifacts/<runId>/reports/integration.json`（断言 `new Set(reports).size === reports.length`）。
+  - M-4(c)：prepare 步骤完全由清单 `testProjects[].prepare` 派生（测试用真实清单的 `weapp` 项目断言命令为 `pnpm run weapp:prepare` 且排在平台文件步骤之前），清单不登记时不会凭空出现该步骤。
+- **提交**：`fix(template): map test aliases and keep per-project affected reports`

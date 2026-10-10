@@ -1,13 +1,16 @@
 import { spawnSync } from 'node:child_process';
 import { globSync, readFileSync } from 'node:fs';
-import { basename, join, relative, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadConfigFromFile } from 'vite';
 import { errorMessage, loadProjectManifest, type TestProject } from './lib/project-manifest.ts';
+import { reportNameForFile } from './lib/report-names.ts';
 import { parseVerifyArguments, verifyHelp } from './lib/verify-arguments.ts';
 
 // 保持既有公共出口：帮助文案由 verify-arguments 模块提供。
 export { verifyHelp } from './lib/verify-arguments.ts';
+// 保持既有公共出口：单文件报告名由 report-names 模块提供（test:affected 复用同一实现）。
+export { reportNameForFile } from './lib/report-names.ts';
 
 /** 一个验收步骤：整项目命令，或 perFile 项目的逐文件运行。 */
 export type VerifyStep =
@@ -82,11 +85,6 @@ export function gitBranch(root: string): string | null {
     encoding: 'utf8',
   });
   return result.status === 0 ? result.stdout.trim() : null;
-}
-
-/** perFile 项目的单文件报告名：文件名去掉测试后缀，保持 `<文件名>.json` 形态。 */
-export function reportNameForFile(file: string): string {
-  return basename(file).replace(/\.(?:spec|test)\.[cm]?[jt]s$/, '');
 }
 
 /** 从 Vitest 项目配置读取 include glob：perFile 项目必须显式登记，否则无法逐文件运行。 */

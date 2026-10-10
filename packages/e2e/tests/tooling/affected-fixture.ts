@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -56,6 +56,8 @@ export const affectedManifest = (): Record<string, unknown> => ({
       name: 'sample-platform',
       class: 'platform',
       config: 'packages/e2e/vitest.config.platform.ts',
+      perFile: true,
+      prepare: 'weapp:prepare',
     },
   ],
   fingerprints: {
@@ -240,6 +242,9 @@ const vitestStub = [
 
 const vitestShell = `#!/bin/sh\nexec node "$(dirname "$0")/vitest-stub.mjs" "$@"\n`;
 
+/** 替身 pnpm：只记录调用，用于证明平台文件运行前真的执行了清单登记的 prepare。 */
+const pnpmShell = `#!/bin/sh\nprintf '%s\\n' "$*" >> "$(dirname "$0")/pnpm-calls.log"\nexit 0\n`;
+
 function git(root: string, args: ReadonlyArray<string>): void {
   const result = spawnSync('git', [...args], {
     cwd: root,
@@ -272,6 +277,8 @@ export type AffectedFixture = Readonly<{
   }>;
   /** 直接运行替身 vitest，模拟一次全量报告写入（不带 partial）。 */
   writeFullReport: (reportPath: string, runId: string) => void;
+  /** 替身 pnpm 记录到的调用（每行一条），用于核对 prepare 是否执行。 */
+  pnpmCalls: () => string;
   write: (path: string, content: string) => void;
   read: (path: string) => string;
   cleanup: () => void;
@@ -328,12 +335,14 @@ export function createAffectedFixture(): AffectedFixture {
       ].join('\n'),
       [`${fixtureRelative}/vitest`]: vitestShell,
       [`${fixtureRelative}/vitest-stub.mjs`]: vitestStub,
+      [`${fixtureRelative}/pnpm`]: pnpmShell,
     },
     directories: ['openspec/changes'],
     commit: false,
     prefix: 'affected-root-',
   });
   chmodSync(join(controlled.root, fixtureRelative, 'vitest'), 0o755);
+  chmodSync(join(controlled.root, fixtureRelative, 'pnpm'), 0o755);
   git(controlled.root, ['add', '-A']);
   git(controlled.root, ['-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture: initial']);
   const env: NodeJS.ProcessEnv = {
@@ -370,6 +379,10 @@ export function createAffectedFixture(): AffectedFixture {
         },
       );
       if (result.status !== 0) throw new Error(`stub vitest failed: ${result.stderr}`);
+    },
+    pnpmCalls: () => {
+      const log = join(controlled.root, fixtureRelative, 'pnpm-calls.log');
+      return existsSync(log) ? readFileSync(log, 'utf8') : '';
     },
     write: (path, content) => {
       const target = join(controlled.root, path);

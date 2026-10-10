@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { ProjectManifest } from './project-manifest.ts';
@@ -24,12 +24,30 @@ const defaultAnalysisRunner: AnalysisRunner = (command, args, cwd) => {
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 };
 
-/** 只供分析的 tsconfig：把清单里的包名映射到各自的 `src` 入口（不参与构建与测试）。 */
+/**
+ * 只供分析的 tsconfig：把清单里的包名与仓库 TS 路径映射（含测试别名，如 `@template-test/*`）
+ * 一起映射到各自的源码入口。只写清单不够：用例经 tsconfig 别名导入的模块在依赖图里会断开，
+ * `--reaches` 就找不到改动的测试文件（不参与构建与测试）。
+ */
 export function analysisTsconfig(root: string, manifest: ProjectManifest): string {
   const paths: Record<string, string[]> = {};
   // 包目录相对仓库的 packages 根；路径映射只用于分析，不改变构建与测试的模块解析。
   for (const item of manifest.packages)
     paths[item.name] = [`packages/${item.directory}/src/index.ts`];
+  // 产品的 generated 子路径在 Vitest 里是独立别名，分析时按协议包目录派生同一形态。
+  const protocol = manifest.packages.find((item) => item.role === 'protocol');
+  if (protocol !== undefined)
+    paths[`${protocol.name}/generated/*`] = [`packages/${protocol.directory}/src/generated/*`];
+  // 测试与工具链别名（`@template-test/*` 等）只登记在 tsconfig 里，沿用同一份映射，避免手抄一份。
+  for (const configFile of ['tsconfig.base.json', 'tsconfig.test.json']) {
+    const file = join(root, configFile);
+    if (!existsSync(file)) continue;
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
+      compilerOptions?: { paths?: Record<string, string[]> };
+    };
+    for (const [name, values] of Object.entries(parsed.compilerOptions?.paths ?? {}))
+      paths[name] = values;
+  }
   return `${JSON.stringify(
     {
       compilerOptions: { baseUrl: root, paths },
