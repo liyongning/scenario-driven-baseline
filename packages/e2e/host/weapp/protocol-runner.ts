@@ -3,20 +3,44 @@ import {
   createWechatMiniappHttp,
   type Cancellation,
 } from '@daqian/template-protocol';
-import { consumedOperations } from '@daqian/template-sdk';
+import type { RpcMethodMeta } from '@daqian/template-protocol/generated/std';
+// generated IDL 入口模块：宿主按接口名在这些模块的导出里查找 HTTP 方法描述，不写死具体接口名。
+// 共享能力（例如 PC-008 的请求头证据）的宿主证据只依赖协议来源，不依赖产品包的消费接口声明。
+import * as tradeIdl from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
+// 消费接口声明不经 SDK 根入口导出：宿主按源码读取产品包的声明模块。
+import { consumedOperations } from '../../../sdk/src/consumed-operations';
+
+const generatedIdlModules: ReadonlyArray<Record<string, unknown>> = [tradeIdl];
+
+/** 可执行的 HTTP 方法描述；缺方法、路径或请求 codec 由 `asHttpMethod` 判定。 */
+type DeclaredMethod = RpcMethodMeta<unknown, unknown>;
+
+/** 方法描述必须是 HTTP 方法：缺失时报错，不静默跳过。 */
+function asHttpMethod(name: string, meta: RpcMethodMeta<unknown, unknown>): DeclaredMethod {
+  if (!meta.method || !meta.path || !meta.requestCodec)
+    throw new Error(`接口 ${name} 的方法描述不是 HTTP 方法`);
+  return meta;
+}
 
 /**
- * 宿主只按产品包的消费接口声明解析接口：声明里的方法描述自带 HTTP 方法与请求/响应 codec，
+ * 宿主默认只按产品包的消费接口声明解析接口：声明里的方法描述自带 HTTP 方法与请求/响应 codec，
  * 运行器不写死任何具体接口，新增消费接口时只需改声明与矩阵 Fixture。
  */
 function declaredMethod(name: string) {
   const operation = consumedOperations.find((item) => item.method.meta.name === name);
-  const meta = operation?.method.meta;
   // 声明里没有该接口时正常结束：宿主只按消费接口声明执行，不因缺少示例路由抛错。
-  if (!meta) return undefined;
-  if (!meta.method || !meta.path || !meta.requestCodec)
-    throw new Error(`消费接口 ${name} 的方法描述不是 HTTP 方法`);
-  return meta;
+  if (!operation) return undefined;
+  return asHttpMethod(name, operation.method.meta);
+}
+
+/** 按 generated IDL 解析接口：共享能力的宿主证据不依赖消费接口声明；接口不存在时显式报错。 */
+function generatedMethod(name: string): DeclaredMethod {
+  for (const module of generatedIdlModules)
+    for (const value of Object.values(module)) {
+      const meta = (value as { meta?: RpcMethodMeta<unknown, unknown> } | null)?.meta;
+      if (meta && meta.name === name) return asHttpMethod(name, meta);
+    }
+  throw new Error(`generated IDL 中没有接口 ${name}`);
 }
 
 type ProtocolCaseInput = Readonly<{
@@ -42,10 +66,12 @@ type ProtocolSuiteInput = Readonly<{
   productId: string;
   timeoutMs: number;
   methods: readonly ProtocolSuiteMethod[];
+  /**
+   * 接口来源：`declared`（默认）只按产品包消费接口声明执行，声明为空时正常结束；
+   * `generated` 只按 generated IDL 里的 HTTP 方法执行，不读消费接口声明。
+   */
+  idl?: 'declared' | 'generated';
 }>;
-
-/** 声明中可执行的 HTTP 方法描述；缺失或非 HTTP 由 `declaredMethod` 判定。 */
-type DeclaredMethod = NonNullable<ReturnType<typeof declaredMethod>>;
 
 /** 最小宿主只装配协议公共入口；网络始终由协议包的真实 wx.request 适配器提供。 */
 export async function runProtocolCase(input: ProtocolCaseInput) {
@@ -227,14 +253,14 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
     };
   };
 
-  // 按消费接口声明遍历：声明外的矩阵项被跳过，声明为空时正常返回空结果集（SCN-008）。
+  // 按用例声明的接口遍历：所选来源里没有该接口的矩阵项被跳过，
+  // consumed 声明为空时正常返回空结果集（SCN-008），generated 来源缺接口则显式报错。
+  const source = input.idl ?? 'declared';
   const suites: Record<string, Awaited<ReturnType<typeof runMethod>>> = {};
-  for (const operation of consumedOperations) {
-    const name = operation.method.meta.name;
-    const spec = input.methods.find((item) => item.name === name);
-    const meta = declaredMethod(name);
-    if (!spec || !meta) continue;
-    suites[name] = await runMethod(spec, meta);
+  for (const spec of input.methods) {
+    const meta = source === 'generated' ? generatedMethod(spec.name) : declaredMethod(spec.name);
+    if (!meta) continue;
+    suites[spec.name] = await runMethod(spec, meta);
   }
   return { suites };
 }

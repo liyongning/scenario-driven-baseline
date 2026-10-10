@@ -1307,3 +1307,18 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **证据（无作用域全绿）**：临时脚本 `/tmp/tcfix-item1-evidence.mts` 走 `createRepositoryCopy` 构造副本、归档本 Change、清空 `SCENARIO_GATE_CHANGES`，再跑一次全量 `test:integration` → `/tmp/tcfix-item1-evidence.log`：副本 `active changes: []`、`TEMPLATE_COPY=1`、`SCENARIO_GATE_CHANGES: undefined`、`build exit: 0`、`test:integration` 50 文件 / 104 用例全绿（22.45s，exit 0）；5 个 `TEMPLATE_COPY` 排除项（ENGINEERING-001、ENGINEERING-007、GATE-026、ENGINEERING-008、EXAMPLE-008）均 `present in output: false`。
 - **反例**：修复前同一场景在演练副本里 008 两条 case 全失败、001 `package-boundaries` 失败（`drill-17-tools/verify-2.log:402-445`，`Test Files 2 failed | 41 passed`）。
 - **提交**：`fix(template): construct copy probes without an active change`。
+
+### 第 2 条 · Task 13：weapp 的 PC-008 证据改走 generated 方法
+
+- **根因**：`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts` 经宿主 `runProtocolSuite` 发请求，而该运行器按 SDK 的消费接口声明（`packages/sdk/src/consumed-operations.ts`）遍历接口。PC-008 是共享能力，示例删除后声明数组为空（`// template-example` 标记整段剥离），运行器按约定「声明为空时正常结束」，一个请求都不发；用例却固定期望 `records.length === steps.length`（8 次 CreateTrade），于是 Shadow 报告 `missing request 1 of 8`（演练 `drill-17-tools/weapp-008-rerun.log`）。同时该用例没有 `template-example` 标记，删示例后照常运行，属于缺绑定。
+- **改动**（`idl: 'generated'` 这一条只影响本用例，不改变声明语义）：
+  - `packages/e2e/host/weapp/protocol-runner.ts`：新增第二条接口来源 `idl: 'generated'`——按接口名在 generated IDL 模块导出里解析 HTTP 方法描述（支持多个入口模块，不写死方法名），GATE/声明路径完全不变：默认仍是 `declared`，声明为空时 `continue` 后返回空结果集。
+  - `packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts`：调用 `runProtocolSuite` 时传 `idl: 'generated'`，请求序列仍是本用例自己声明的 8 条（矩阵 1、稀疏 1、共享证据 4、在途超时 1、网络分支 1），断言仍由用例自身的 `steps` 派生；顺带按第 6 条给该序列里的 `rawBody` step 补了 `malformed`。
+  - generated IDL 不在示例删除白名单内，PC-008 的宿主证据与 integration 版同源（都只依赖协议来源）。
+- **证据**：
+  - 修复前（演练）`weapp-008-rerun.log`：`request-id-wire-weapp/CreateTrade: missing request 1 of 8`，退出码 1。
+  - 修复后真实运行：`pnpm weapp:prepare`（退出码 0，51s，含新增就绪探测）→ `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts`：1 用例通过 10011ms，退出码 0（`/tmp/tc2-weapp-008.log`）。未用 `-t`。
+  - 反例（证明不依赖声明）：把 `packages/sdk/src/consumed-operations.ts` 的数组临时清空（`export const consumedOperations: ReadonlyArray<ConsumedOperation> = []`）后重跑同一文件，仍 1 用例通过 9221ms、退出码 0（`/tmp/tc2-weapp-008-empty-decl.log`）；随后立即还原该文件（`git diff` 无输出）。
+- **代价**：宿主 runner 打包体积 14.37 kB → 70.87 kB（gzip 4.66 kB → 13.22 kB），因为 generated IDL 入口模块进了 bundle；这是共享能力证据不再依赖产品声明的直接结果。
+- **同文件跨越**：`protocol-runner.ts` 里「消费接口声明不经 SDK 根入口导出，改按源码路径读取」这一行属第 3 条（同一条提交承载，见第 3 条）。
+- **提交**：`fix(template): source weapp request-id evidence from generated idl`。

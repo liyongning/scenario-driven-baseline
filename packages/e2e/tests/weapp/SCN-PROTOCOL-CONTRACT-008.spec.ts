@@ -47,14 +47,19 @@ defineCase(
   },
   async ({ fixture, checkpoint, expect }) => {
     const sample = fixture as WireFixture;
-    // 宿主协议运行器的固定请求序列：矩阵 1 次、稀疏 1 次、共享证据 4 次、在途超时 1 次、网络分支 1 次。
+    // 本用例自带的请求序列（矩阵 1 次、稀疏 1 次、共享证据 4 次、在途超时 1 次、网络分支 1 次）：
+    // 宿主按 generated IDL 直发，不依赖 SDK 的消费接口声明，删掉模板示例后这些请求照常发出。
     const steps = [
       { body: sample.response },
       { body: {} },
       { body: { baseResp: { success: true, statusCode: '0' } } },
       { body: { baseResp: { success: false, statusCode: '123', statusMsg: 'matrix-business' } } },
       { status: 503, body: { baseResp: { success: false, statusCode: '123' } } },
-      { rawBody: '{', contentType: 'application/json' },
+      {
+        rawBody: '{',
+        contentType: 'application/json',
+        malformed: { reason: '非法 JSON 响应体（解码错误义务）' },
+      },
       { delayMs: 30, body: {} },
       { disconnect: true },
     ];
@@ -89,6 +94,8 @@ defineCase(
         accessToken: 'fixture-token',
         productId: 'matrix-product',
         timeoutMs: 10_000,
+        // 共享能力的宿主证据只依赖协议来源（generated IDL 不在示例删除白名单内）。
+        idl: 'generated',
         methods: [
           {
             name: 'CreateTrade',
