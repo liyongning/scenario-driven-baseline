@@ -1859,3 +1859,73 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r4-final-3 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r4-final-3/logs/scenarios3.log`）；verify 跑完后 `git status` 干净，报告没有过期。
 - **说明**：`r4-final-3` 之后只提交了本节与 `tasks.md` 的勾选（`docs(openspec): record the fourth-round fixes and recheck tasks`），没有触碰源码、测试或 Fixture；`r4-final-2` 是同一次修复状态下的前一轮全量证据。
 - **本轮不做**：Task 17、18 仍不勾选；示例删除演练与支付 SDK 复刻演练由验收方另派全新 Agent 执行。
+
+## 第五轮修复（支付 SDK 复刻演练第 2 轮）
+
+> 背景：Task 18 复刻演练第 2 轮里支付 SDK 自身（SCN-PAYMENT-SDK-001~008 与 FLOW）在 integration、weapp 全过、支付相关门禁问题 0，但 verify 停在 `check:fast`，被模板自身两个用例挡住。验收方在演练副本复现（`scratchpad/drill-18b/logs/eng008.log`，副本 `drill-18b/repo` 只读）：`AssertionError: expected [ 'CreateTradePay', 'CreateTradePay' ] to deeply equal [ 'CreateTradePay' ]`（extension 用例把整份仓库声明与追加条目合成，同名接口登记两次）与副本 `check:fast` 报「协议矩阵 Fixture 缺少接口 CreateTradePay 的数据」（删除示例时把使用方的 `CreateTradePay` 键一起删了）。用户裁决 A6 并给出第 0–5 条修复清单。受影响的 Task 10、17 先取消勾选（`af2e4fd`），修完复验后重新勾选 Task 10；Task 17、18 仍由验收方勾选。
+
+### 第 0 条 · A6 规划修订与受影响 Task 取消勾选
+
+- **规划提交**：`adae650 docs(openspec): remove the consumer-extension regression case with the example by user decision`（`design.md`、`plan-review.md`、`specs/template-engineering/spec.md`）。
+- **A6 口径**：extension 用例加入示例删除白名单，且 MUST 只基于标记内示例条目与示例键构造声明和矩阵数据，不读取使用方标记外的条目。
+- **新鲜度**：提交前后各查一次 `python3 ~/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-core-hardening --check-review openspec/changes/template-core-hardening/plan-review.md` → `current_sha256 = reviewed_sha256 = 2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026`，`freshness = PASS`。
+- **取消勾选**：`af2e4fd docs(openspec): uncheck tasks under the fifth-round drill review`（Task 10、Task 17）。
+
+### 第 1 条 · extension 用例只基于标记内示例条目与示例键（T10）
+
+- **根因**：演练场景是"使用方保留示例、在标记外声明 `CreateTradePay`、`QueryTrade` 与示例共用"。旧实现的 `extendedDeclaration` 用**整份仓库声明**（含标记外条目）加追加条目合成声明，同名 `CreateTradePay` 因此登记两次；`buildContractInventory` 的 `declarations.map` 保留两条，`inventory.methods` 与路由、字段义务全部重复，断言 `expected [ 'CreateTradePay', 'CreateTradePay' ] to deeply equal [ 'CreateTradePay' ]` 失败。
+- **改动（`899b54e fix(template): build the consumer-extension case from marked example entries only`）**：
+  - `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts` 新增 `declarationParts`/`markedExampleMethods`/`syntheticDeclaration`/`extendedDeclaration`：标记区间来自 `example-markers.ts` 的共享实现，合成声明只取标记内示例条目再追加 `CreateTradePay`；调用方源码按 `declaredNames`（`Set` 去重）生成；矩阵数据只取示例键再加 `CreateTradePay`，`baseFixture[name]` 缺失时直接抛出接口名。
+  - 删除只服务于旧做法的 `outsideMethods`/`removalShapedDeclaration`/`consumerShapedDeclaration` 与 `matrix-support.ts` 的 `removableExampleKeys`。
+- **白名单三处落实**：`docs/template-guide.md`（`移除模板示例` 的整文件白名单）、`scripts/check-architecture.ts` 的 `exampleWhitelistEntries()`、`packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/example-removal.json` 的 `removal.files`；`fixtures:refresh SCN-TEMPLATE-ENGINEERING-008` 刷新了该 Fixture 的来源摘要。
+- **连带修复**：白名单新增条目后，`packages/e2e/tests/tooling/helpers.ts` 的 `writeTemplateGuideFixture`（架构检查用的指南夹具）也要同步，否则 `SCN-TEMPLATE-ENGINEERING-012 architecture-doc-violations` 失败；提交 `508c954 fix(template): keep the architecture guide fixture in sync with the removal whitelist`。
+- **证据**：
+  - 模板仓库态：`artifacts/r5-ext/`（同轮早期运行）、`artifacts/r5t-ext/reports/integration.json`（本次复验：1 文件 / 1 用例通过，4688ms）。
+  - 演练消费者形态（使用方保留示例、标记外新增 `CreateTradePay`、`QueryTrade` 共用）：`artifacts/r5c-ext/`（同轮早期运行）、`artifacts/r5c-ext2/reports/integration.json`（本次复验：4648ms 通过）。
+- **反例**：消费者形态下旧实现必然重复登记 `CreateTradePay`；新实现下同一形态通过，说明"只用标记内条目 + 示例键"的口径把使用方条目排除在合成之外。
+
+### 第 2 条 · ENG-008 只删示例键、条件断言与共用接口（T10）
+
+- **根因**：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 的删除 helper 把矩阵 Fixture 整体重写为空对象（`JSON.stringify({}, null, 2)`），删除副本里使用方仍在用的 `CreateTradePay` 键随之消失，副本 `check:fast` 的协议矩阵用例报「协议矩阵 Fixture 缺少接口 CreateTradePay 的数据」（`drill-18b/logs/eng008.log` 第 105–118 行）。
+- **改动（`7c9c91c fix(template): remove only example matrix keys that no outside entry declares`）**：
+  - 新增 `fixtureKeys`、`methodsInBody`、`matrixKeysBefore/After`、`outsideMethodsBefore`；`removeDeclaredMatrixKeys(root, removal, removable)` 只删"示例接口中不再被标记外声明"的键（`removable = 标记内方法 − 标记外方法`），其余键（含共用接口）原样保留。
+  - `empty-declaration-matrix` 改为条件断言：删除后声明体等于标记外条目，矩阵键等于非示例键；模板仓库里标记外为空，此时才断言声明体为空、义务为空、矩阵键为空（Spec 原文是条件式，未改 Spec）。
+  - `assertWhitelistOnly` 增加键断言：`matrixKeysAfter = matrixKeysBefore − matrixKeys`、`if (matrixKeys.length > 0) expect(changed).toContain(matrixFixture)`。
+  - 指南新增 **共用接口** 段落（`docs/template-guide.md:107`）：删除示例前把共用条目改写到标记外、在同一次删除里移除标记内那份、保留 Fixture 键，并写明不要长期并存两份同名条目。
+- **派生器对重复声明的行为（用户要求说明）**：`scripts/lib/contract-inventory.ts` 的双向对账用 `new Set(declarations.map(...))`，因此重复声明**不会**报"未声明的调用"（`calls.some` 也只看方法名）；但 `methods`、`#http-route#$`、字段义务与 `obligations` 都由 `declarations.map` 产生，重复声明会让方法与义务重复登记、矩阵遍历重复。所以"移出标记"必须在同一次删除里移除标记内那份——已写进指南。
+- **证据**：
+  - 模板仓库态：`artifacts/r5-008/`（同轮早期运行）、`artifacts/r5t-008/reports/integration.json`（本次复验：2 用例通过，81952ms；副本 `check:fast` 日志 `artifacts/r5t-008/logs/t17-copy-check-fast.log`：unit 61 文件 / 333 用例、integration 39 文件 / 91 用例全绿，协议矩阵用例通过）。
+  - 关键回归（演练消费者形态）：`artifacts/r5c-008b/reports/integration.json`（2 用例通过，82780ms；副本日志 `artifacts/r5c-008b/logs/t17-copy-check-fast.log`：unit 62 文件 / 334 用例、integration 39 文件 / 91 用例全绿）。复现输入：`consumed-operations.ts` 标记内示例条目 `CreateTrade`、`QueryTrade`，标记外使用方条目 `QueryTrade`（共用，随示例删除保留）与 `CreateTradePay`，矩阵 Fixture 有 `CreateTrade`、`QueryTrade`、`CreateTradePay` 三个键，另加使用方调用方。
+  - 删除后集合（脚本按工作区实际内容复算）：标记内方法 `['CreateTrade', 'QueryTrade']`；标记外方法 `['QueryTrade', 'CreateTradePay']`；`removable = ['CreateTrade']`；Fixture 键 `['CreateTrade', 'QueryTrade', 'CreateTradePay'] → ['QueryTrade', 'CreateTradePay']`；声明体 `['QueryTrade', 'CreateTradePay']`。
+  - 模板仓库自身"删后为空"仍成立：标记外为空 → 声明体为空、义务为空、矩阵键为空（`empty-declaration-matrix` 的 `declarationBody === ''` 断言在 `r5t-008` 那一轮执行并通过）。
+- **反例**：消费者形态的删除副本若沿用旧 helper（清空矩阵），副本 `check:fast` 会因缺 `CreateTradePay` 键失败（演练原始现象）；模板仓库态若把共用键规则反过来（删掉所有"标记外已声明"的键），`QueryTrade` 的键会消失而声明仍引用它，矩阵用例同样失败。
+
+### 第 3 条 · 依赖规则只约束 Shadow 引擎文件
+
+- **根因**：`packages/protocol/AGENTS.md` 让业务路由写在 `testing/shadow/<业务>/routes.ts`，但 `shadow-engine-no-generated` 只豁免 `idl-routes.ts` 与 `example/`，实测使用方的 `testing/shadow/payment/routes.ts` 依赖 generated 时被判违规（`scratchpad/verify1.log`）。按 PC-03"Shadow 引擎不依赖 generated"的本意，规则只应约束引擎文件。
+- **改动（`14f55be fix(template): constrain shadow-engine-no-generated to engine files`）**：`scripts/lib/dependency-rules.cjs` 把该规则限定到引擎文件；`packages/protocol/AGENTS.md`、`testing/shadow/AGENTS.md` 同步表述；`scripts/lib/dependency-rules.test.ts` 与 `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts` 各补反例。
+- **证据**：`pnpm exec vitest run --project test-tools-unit scripts/lib/dependency-rules.test.ts` → 6 用例通过（日志 `artifacts/r5-fixes/logs/dependency-rules-unit.log`）；`SCN-PROTOCOL-CONTRACT-004 engine-no-generated-cli` 通过（日志 `artifacts/r5-fixes/logs/pc004-ex005.log`）。
+- **反例**：引擎文件依赖 generated 仍被拦；业务路由目录依赖 generated 放行（两处用例覆盖）。
+
+### 第 4 条 · EXAMPLE-005 去掉 CPU 时序依赖
+
+- **根因**：`SCN-TEMPLATE-EXAMPLE-005` 用 140ms 的窗口与 30ms/50ms 的间隔断言"窗口内至少重试 2 次"，全量并行时对 CPU 争用敏感（演练中 3 次失败 2 次）。
+- **改动（`211e58a fix(template): make the example window-and-timeout case independent of CPU timing`）**：把 `requestTimeoutMs`/`intervalMs`/`windowMs` 放宽到 200ms/150ms/1500ms，并同步放大 Fixture 的步骤与 `expectedRequests` 上限（窗口内最多约 11 次请求，留到 24 条），断言仍是"单次超时只结束该次请求、窗口内继续查询"，行为语义不变。
+- **证据**：单跑 5 次全部通过（`artifacts/r5-ex005-1..5`，各 1.8s 左右）；全量 `verify`（`r5-final`）通过。
+- **反例**：若窗口内请求数超过 Fixture 的 `expectedRequests`，Shadow 会按 unexpected request 返回 409，因此上限必须按最坏情况留足。
+
+### 第 5 条 · 指南与 AGENTS 补充
+
+- **改动（`253cde4 docs(template): document weapp substitute limits and platform runbook gaps`）**：
+  - weapp 平台替身：`miniprogram-automator` 的 `mockWxMethod` 不会把调用方的回调传给实现函数，只能编排 `success`；失败路径由 integration 用例承担或经宿主 runner 注入（`docs/template-guide.md` 已知限制、`packages/e2e/AGENTS.md`）。
+  - `pnpm verify` 在第一个失败步骤停止，需要平台证据时按 `packages/e2e/AGENTS.md` 逐文件手工运行，或用 `--from` 续跑。
+  - 运行 `pnpm weapp:prepare` 或整次 `pnpm verify` 前先 `pgrep -fl wechatwebdevtools.app` 确认开发者工具没被别人占用。
+  - 初始化时改包名：不是跑通门禁的前提（门禁只按清单读包名），但发布 SDK 必须改成自己的组织与包名，建议初始化时一次改完。
+- **证据**：`verify`（`r5-final`）的 `format:check`、`lint`、`check:architecture` 全绿；指南新增文字不含未登记的 Scenario ID、不引用已删除文件。
+
+### 完成标准复验
+
+- **全量**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r5-final` → 退出码 **0**；`check:fast` 通过（175327ms）、`test:e2e:weapp` 通过（309019ms）、`check:scenarios` 通过（1619ms）（日志 `artifacts/r5-final/logs/verify1.log`）。
+- **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r5-final pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r5-final/logs/scenarios1.log`）；说明全量 verify 跑完后报告没有过期，`git status` 干净。
+- **首跑抖动登记（非本轮回归）**：本轮第一次受作用域 `check:fast` 在 `packages/e2e/tests/example/SCN-TEMPLATE-EXAMPLE-006.spec.ts host-cancel` 失败（`cancel-while-waiting` 断言 `expected [] to have a length of 1`，即取消发生在首个请求被 Shadow 记录之前；日志 `artifacts/r5-fixes/logs/check-fast.log`，退出码 1）。该现象与 `verify.md` 第 1119 行已登记的同类计时抖动完全一致；单跑该文件连续 3 次通过（`artifacts/r5-flake1..3`），随后的全量 `verify` 通过。本轮未改动该示例用例。
+- **Task 勾选**：Task 10 重新勾选（本节的提交）；Task 17、18 保持不勾选，由验收方勾选。
