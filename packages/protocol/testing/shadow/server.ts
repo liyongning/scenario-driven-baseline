@@ -13,9 +13,11 @@ export type ShadowRouteScenario = Readonly<{
   expectedRequests: ReadonlyArray<
     Readonly<{
       body?: unknown;
-      /** 生产客户端生成动态 request_id 时，仅记录原始请求，由场景断言逐字段核验。 */
+      /** 生产客户端生成动态 X-Request-Id 时，仅记录原始请求，由场景断言逐字段核验。 */
       recordOnly?: true;
       headers?: Readonly<Record<string, string>>;
+      /** 每次都变的请求头按正则校验（PC-05）：头名 → 正则，缺失或不匹配时由 verify() 报出。 */
+      headerPatterns?: Readonly<Record<string, string>>;
     }>
   >;
   steps: ReadonlyArray<ShadowStep>;
@@ -91,6 +93,18 @@ export function createShadowServer(
     if (configured?.poll && configured.steps.length === 0) {
       throw new Error(`${scenario.id}/${route.methodName}: poll requires at least one step`);
     }
+    // 期望请求头正则必须在构造期可编译：格式错误立即报错，不留到请求时才 500。
+    configured?.expectedRequests.forEach((expected, index) => {
+      for (const [header, source] of Object.entries(expected.headerPatterns ?? {})) {
+        try {
+          new RegExp(source);
+        } catch {
+          throw new Error(
+            `${scenario.id}/${route.methodName}: expected request ${index + 1} headerPatterns.${header} is not a valid regex`,
+          );
+        }
+      }
+    });
     if (configured?.poll && options.environmentClass !== 'platform') {
       throw new Error(
         `${scenario.id}/${route.methodName}: poll is only available to platform test projects`,
@@ -168,6 +182,13 @@ export function createShadowServer(
             if (actual !== value)
               mismatches.push(
                 `$.headers.${header.toLowerCase()}: expected ${JSON.stringify(value)}, received ${JSON.stringify(actual)}`,
+              );
+          }
+          for (const [header, source] of Object.entries(expected.headerPatterns ?? {})) {
+            const actual = request.header(header);
+            if (actual === undefined || !new RegExp(source).test(actual))
+              mismatches.push(
+                `$.headers.${header.toLowerCase()}: expected ${JSON.stringify(source)}, received ${JSON.stringify(actual)}`,
               );
           }
           if (mismatches.length > 0) {

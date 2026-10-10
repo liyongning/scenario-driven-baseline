@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-008",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "e933fcd4aa102f83495a66efd1240a0c7ab05c3405f5770b230a6c614c5f8d60"
+    }
+  },
+  "cases": {
+    "request-id-wire": "request-id-wire.json"
+  },
+  "sha256": {
+    "request-id-wire.json": "3b1a5c3ea123ea895185891c1c6a977b69e9ff8ba697995fa72eabbf0a797f22"
+  }
+}

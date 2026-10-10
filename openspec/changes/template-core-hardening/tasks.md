@@ -449,7 +449,7 @@
   **Commit**
   - `feat(template): validate shadow responses against the protocol shape`
 
-- [ ] 13. X-Request-Id 按公司规范内化
+- [x] 13. X-Request-Id 按公司规范内化
 
   **Files**
   - Create：`packages/protocol/src/transport/request-id.ts` 及单测（显式设置非 +8 的 `TZ` 运行）。

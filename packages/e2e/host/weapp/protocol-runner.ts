@@ -23,7 +23,6 @@ type ProtocolCaseInput = Readonly<{
   gatewayBaseUrl: string;
   request: Record<string, unknown>;
   accessToken: string;
-  requestId: string;
   productId: string;
   timeoutMs: number;
 }>;
@@ -39,7 +38,6 @@ type ProtocolSuiteMethod = Readonly<{
 type ProtocolSuiteInput = Readonly<{
   gatewayBaseUrl: string;
   accessToken: string;
-  requestId: string;
   productId: string;
   timeoutMs: number;
   methods: readonly ProtocolSuiteMethod[];
@@ -55,7 +53,6 @@ export async function runProtocolCase(input: ProtocolCaseInput) {
     requestContext: { productId: input.productId },
     runtime: {
       nowMs: () => Date.now(),
-      nextRequestId: () => input.requestId,
       sleepMs: () => new Promise(() => undefined),
     },
   });
@@ -138,7 +135,6 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
             }),
         runtime: {
           nowMs: options.nowMs ?? (() => Date.now()),
-          nextRequestId: () => input.requestId,
           sleepMs: options.sleepMs ?? (() => new Promise(() => undefined)),
         },
       });

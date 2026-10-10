@@ -1,5 +1,6 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, expect, expectTypeOf, test, vi } from 'vitest';
 import type { Cancellation } from '@daqian/template-protocol';
+import type { RuntimePort } from './port';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -10,27 +11,51 @@ afterEach(() => {
 async function setup() {
   vi.useFakeTimers();
   vi.setSystemTime(1296);
-  vi.spyOn(Math, 'random').mockReturnValue(0.5);
   vi.resetModules();
   return (await import('./default')).createDefaultRuntime;
 }
 
-test('请求标识采用固定公式，跨实例共享序号，同毫秒与时间回拨不重复', async () => {
-  const create = await setup();
-  const first = create();
-  const second = create();
-  expect(first.nowMs()).toBe(1296);
-  expect(first.nextRequestId()).toBe('pay-100-i-1');
-  expect(second.nextRequestId()).toBe('pay-100-i-2');
-  vi.setSystemTime(36);
-  expect(first.nextRequestId()).toBe('pay-10-i-3');
-  const ids = Array.from({ length: 1000 }, () => second.nextRequestId());
-  expect(new Set(ids).size).toBe(1000);
-  for (const id of ids) {
-    expect(id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
-    expect(id.length).toBeLessThanOrEqual(128);
-  }
-});
+test(
+  'SCN-PROTOCOL-CONTRACT-008 runtime-port-shape',
+  {
+    timeout: 30_000,
+    meta: {
+      scenarioCase: {
+        ownerId: 'SCN-PROTOCOL-CONTRACT-008',
+        caseId: 'runtime-port-shape',
+        fixtureCase: null,
+        environment: 'sdk-unit',
+        covers: [
+          {
+            id: 'SCN-PROTOCOL-CONTRACT-008',
+            caseKey: 'runtime-port-shape',
+            checks: ['host-cannot-override'],
+          },
+        ],
+      },
+    },
+  },
+  async (context) => {
+    const assertionsBefore = context.expect.getState().assertionCalls;
+    const create = await setup();
+    const runtime = create();
+    context.expect(runtime.nowMs()).toBe(1296);
+    // 端口类型与实例都不再有请求 ID 能力：宿主无法覆盖（PC-05）。
+    expectTypeOf<RuntimePort>().not.toHaveProperty('nextRequestId');
+    context.expect(Object.keys(runtime).sort()).toEqual(['nowMs', 'sleepMs']);
+    context.expect('nextRequestId' in runtime).toBe(false);
+    const sdk = await import('../index');
+    context.expect(Object.keys(sdk).filter((name) => /requestId/i.test(name))).toEqual([]);
+
+    await context.annotate(
+      JSON.stringify({
+        assertions: context.expect.getState().assertionCalls - assertionsBefore,
+        checkpoints: ['host-cannot-override'],
+      }),
+      'scenario-evidence',
+    );
+  },
+);
 
 test('普通等待按时结束', async () => {
   const create = await setup();

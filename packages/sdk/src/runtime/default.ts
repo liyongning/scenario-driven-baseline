@@ -5,15 +5,6 @@ import type { RuntimePort } from './port';
 declare function setTimeout(callback: () => void, durationMs: number): number;
 declare function clearTimeout(handle: number): void;
 
-// 模块级共享序号不会随客户端重建或时间回拨重置；仅作诊断关联，不是业务幂等键。
-const processNonce = Math.random().toString(36).slice(2, 10);
-let sequence = 0;
-
-function nextRequestId(): string {
-  sequence += 1;
-  return `pay-${Date.now().toString(36)}-${processNonce}-${sequence.toString(36)}`;
-}
-
 function sleepMs(durationMs: number, cancellation?: Cancellation): Promise<void> {
   if (cancellation?.isStopped()) return Promise.resolve();
   return new Promise((resolve) => {
@@ -38,7 +29,6 @@ function sleepMs(durationMs: number, cancellation?: Cancellation): Promise<void>
 export function createDefaultRuntime(): RuntimePort {
   return {
     nowMs: () => Date.now(),
-    nextRequestId,
     sleepMs,
   };
 }

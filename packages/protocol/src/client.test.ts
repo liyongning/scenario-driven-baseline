@@ -54,7 +54,6 @@ function setup(overrides: Partial<ProtocolClientOptions> = {}) {
     requestContext: { productId: 'fixture-product', lane: 'dev-lane', appVersion: '1.2.3' },
     runtime: {
       nowMs: () => Date.now(),
-      nextRequestId: () => 'matrix-request',
       sleepMs: (duration: number, stop?: Cancellation) =>
         new Promise((resolve) => {
           const finish = () => {
@@ -101,12 +100,19 @@ test('query 只发送原交易，缺省上下文不补环境或身份字段', as
   );
   const expected = structuredClone(query.request);
   delete (expected.baseReq as { productId?: string }).productId;
-  expect(JSON.parse(requests[0]!.body!)).toEqual(expected);
-  expect(requests[0]!.headers).toEqual({
+  delete (expected.baseReq as { requestId?: string }).requestId;
+  const body = JSON.parse(requests[0]!.body!) as { baseReq?: Record<string, unknown> };
+  const { requestId, ...restBaseReq } = body.baseReq ?? {};
+  expect({ ...body, baseReq: restBaseReq }).toEqual(expected);
+  const headers = requests[0]!.headers;
+  expect(headers).toMatchObject({
     Authorization: 'Bearer fixture-token',
     'Content-Type': 'application/json',
-    request_id: 'matrix-request',
   });
+  // 头名为 X-Request-Id、不再发送旧 request_id 头，且与 BaseReq.requestId 同值（PC-05）。
+  expect(headers['request_id']).toBeUndefined();
+  expect(headers['X-Request-Id']).toMatch(/^\d{8}_\d{6}_\d{3}_[a-z]{6}$/);
+  expect(requestId).toBe(headers['X-Request-Id']);
 });
 test('连续请求逐次读取 Token，并扣除 provider 用时', async () => {
   let sequence = 0;
@@ -402,3 +408,54 @@ test('codec 返回不可序列化的 undefined 时不得发送无效 body', asyn
   });
   expect(requests).toEqual([]);
 });
+
+test(
+  'SCN-PROTOCOL-CONTRACT-008 client-options-shape',
+  {
+    timeout: 30_000,
+    meta: {
+      scenarioCase: {
+        ownerId: 'SCN-PROTOCOL-CONTRACT-008',
+        caseId: 'client-options-shape',
+        fixtureCase: null,
+        environment: 'protocol-unit',
+        covers: [
+          {
+            id: 'SCN-PROTOCOL-CONTRACT-008',
+            caseKey: 'client-options-shape',
+            checks: ['protocol-options-no-override', 'generator-internal-only'],
+          },
+        ],
+      },
+    },
+  },
+  async (context) => {
+    const assertionsBefore = context.expect.getState().assertionCalls;
+    // protocol-options-no-override：公共选项与公共类型都删除了 nextRequestId。
+    expectTypeOf<ProtocolClientOptions['runtime']>().not.toHaveProperty('nextRequestId');
+    const overrides = {
+      runtime: {
+        nowMs: () => 1000,
+        sleepMs: () => new Promise<void>(() => undefined),
+        nextRequestId: () => 'host-override',
+      },
+    } as unknown as Partial<ProtocolClientOptions>;
+    const { client, requests } = setup(overrides);
+    await client.request(QueryTrade.meta, QueryTradeRequest.create(), { deadlineAtMs: 61_000 });
+    // 宿主即使多传字段也不能覆盖：头仍是标准生成器的值。
+    context.expect(requests[0]!.headers['X-Request-Id']).not.toBe('host-override');
+    context.expect(requests[0]!.headers['X-Request-Id']).toMatch(/^\d{8}_\d{6}_\d{3}_[a-z]{6}$/);
+
+    // generator-internal-only：根入口不导出生成器，注入参数不在任何公共导出中。
+    context.expect(Object.keys(protocol)).not.toContain('createRequestId');
+    context.expect(Object.keys(protocol).filter((name) => /requestId/i.test(name))).toEqual([]);
+
+    await context.annotate(
+      JSON.stringify({
+        assertions: context.expect.getState().assertionCalls - assertionsBefore,
+        checkpoints: ['protocol-options-no-override', 'generator-internal-only'],
+      }),
+      'scenario-evidence',
+    );
+  },
+);

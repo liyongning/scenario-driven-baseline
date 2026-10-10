@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
 import { consumedOperations } from '@daqian/template-sdk';
 import {
+  compareJsonPresence,
   createShadowServer,
   discoverDeclaredRoutes,
   type RunningShadowServer,
@@ -51,6 +52,9 @@ type SuiteResult = Readonly<{ suites: Record<string, MethodSuite> }>;
 
 const nameOf = (operation: (typeof operations)[number]) => operation.method.meta.name;
 
+/** 公司规范的请求 ID：26 字符、北京时间、末尾 6 位小写字母（PC-05）。 */
+const requestIdPattern = /^\d{8}_\d{6}_\d{3}_[a-z]{6}$/;
+
 /** 按接口名取矩阵 Fixture 数据；缺少键时失败并指出接口名。 */
 function entryOf(fixture: MatrixFixture, name: string): MatrixEntry {
   const entry = fixture[name];
@@ -93,6 +97,13 @@ const expectedBody = (fixture: MatrixFixture, name: string, sparse = false) => {
   if (sparse) delete (value.baseReq as Record<string, unknown>).productId;
   return value;
 };
+
+/** 请求 ID 每次都变：核验请求体其余字段前先去掉它，只由格式与请求头相等核验（PC-05）。 */
+function withoutDynamicRequestId(body: unknown): unknown {
+  const clone = structuredClone(body) as { baseReq?: Record<string, unknown> } | undefined;
+  if (clone?.baseReq) delete clone.baseReq.requestId;
+  return clone;
+}
 function valueAt(root: unknown, path: string): unknown {
   let value = root;
   for (const part of path.split('.').map(camel)) {
@@ -173,10 +184,17 @@ defineCase(
               item.applicability === 'applicable',
           )
           .map((item) => item.path),
+        // 请求 ID 每次都变，请求只记录不比对；随后由本用例逐字段核验请求体（PC-05）。
         expectedRequests: [
-          ...responses.map(() => ({ body: expectedBody(fixture, name) })),
-          { body: expectedBody(fixture, name, true) },
-          ...Array.from({ length: 6 }, () => ({ body: expectedBody(fixture, name) })),
+          ...responses.map(() => ({ recordOnly: true as const })),
+          { recordOnly: true as const },
+          ...Array.from({ length: 6 }, () => ({ recordOnly: true as const })),
+        ],
+        // 与 expectedRequests 一一对应的请求体期望，逐字段核验时使用（去掉动态请求 ID）。
+        bodyExpectations: [
+          ...responses.map(() => expectedBody(fixture, name)),
+          expectedBody(fixture, name, true),
+          ...Array.from({ length: 6 }, () => expectedBody(fixture, name)),
         ],
         steps: [
           ...responses.map((body) => ({ body })),
@@ -214,7 +232,6 @@ defineCase(
       args: {
         gatewayBaseUrl: server.url,
         accessToken: 'fixture-token',
-        requestId: 'matrix-request',
         productId: 'matrix-product',
         timeoutMs: 10_000,
         methods: planned.map((item) => ({
@@ -226,8 +243,17 @@ defineCase(
         })),
       },
     })) as SuiteResult;
-    expect(server.verify()).toEqual([]);
     const records = server.records();
+    // 请求体去掉动态请求 ID 后与 Fixture 精确比较：字段缺失与多余字段都会被报出。
+    const bodyIssues = planned.flatMap((item) => {
+      const methodRecords = records.filter((record) => record.methodName === item.name);
+      return item.bodyExpectations.flatMap((expected, index) =>
+        compareJsonPresence(expected, withoutDynamicRequestId(methodRecords[index]!.rawBody)).map(
+          (issue) => `${item.name} request ${index + 1}: ${issue}`,
+        ),
+      );
+    });
+    expect([...server.verify(), ...bodyIssues]).toEqual([]);
 
     for (const operation of operations) {
       const name = nameOf(operation);
@@ -270,9 +296,15 @@ defineCase(
                 ),
                 'x-product-id-configured': record.headers['x-product-id'] === 'matrix-product',
                 'x-product-id-omitted': record.headers['x-product-id'] === undefined,
-                'request-id-header': record.headers.request_id === 'matrix-request',
+                // 请求 ID 每次都变：核验头名、格式，以及头与 BaseReq.requestId 同值（PC-05）。
+                'x-request-id-header':
+                  record.headers.request_id === undefined &&
+                  typeof record.headers['x-request-id'] === 'string',
+                'x-request-id-format':
+                  typeof record.headers['x-request-id'] === 'string' &&
+                  requestIdPattern.test(record.headers['x-request-id']),
                 'base-req-request-id':
-                  valueAt(record.rawBody, 'base_req.request_id') === 'matrix-request',
+                  valueAt(record.rawBody, 'base_req.request_id') === record.headers['x-request-id'],
                 'base-req-product-id-configured':
                   valueAt(record.rawBody, 'base_req.product_id') === 'matrix-product',
                 'base-req-product-id-omitted':

@@ -827,3 +827,87 @@
 - 响应结构校验复用 TypeScript 编译器 API（`ts.Program`/`ts.TypeChecker`，仓库既有 `typescript` 依赖）派生可达字段，未自研类型解析或引入 JSON Schema 生成器。
 - Shadow 构造期校验沿用既有 `steps[]` 编排模型（只在构造循环内插入一次校验调用与 `malformed` 认领分支），未新建校验框架或独立校验阶段。
 - 错误信息与字段路径沿用既有的 snake_case 路径与 `snakeCase()` 工具，未引入第二套命名规则。
+
+### Task 13 X-Request-Id 按公司规范内化
+
+**规划修订（Apply 期间用户裁决，先于本任务提交）**
+- 单独提交 `17e94e8 docs(openspec): amend request-id random source by user decision`，只含 `specs/protocol-contract/spec.md`、`design.md`、`plan-review.md`；digest 由 `f42e312797a3460a7e0399ff430c959e77f0505ee57838855836f15747682dd8` 变为 `14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1`，`freshness=PASS`（`--check-review` 退出码 0）。
+- 触发原因：本任务首次真实运行 weapp 用例时，实测本机微信开发者工具小程序宿主（基础库 3.10.3）没有 `globalThis.crypto`，只有异步 `wx.getRandomValues`（探针输出 `{"sdkVersion":"3.10.3","cryptoType":"undefined","randomKeys":["getRandomValues"],"syncResult":"absent"}`，`/tmp/t13-probe2.log`），原 design 规定的 `crypto.getRandomValues` 在小程序不可实现。
+- 裁决结果：PC-05 与 SCN-009 改为「默认随机源 `Math.random`，小程序/浏览器/Node 同一实现，不设平台点位，生成器保持同步」；其余规定不变（26 位格式、按北京时间、头名 `X-Request-Id`、与 `BaseReq.requestId` 同值、宿主不可覆盖、注入参数不公开）。
+
+**Commit message**：`feat(template): generate X-Request-Id per company convention`
+
+**RED（预期失败的反例，已实际执行）**
+- **008（integration）**：临时把 `transport/context.ts` 还原为旧行为（头名 `request_id`、值加 `pay-` 前缀），其余保持现状，运行 `pnpm exec vitest run --project integration packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-008.spec.ts`：退出码 **1**（`/tmp/t13-red-008.log`），`request-id-wire` 报 `$.headers.x-request-id: expected "^\d{8}_\d{6}_\d{3}_[a-z]{6}$", received undefined`。临时改动已还原（与备份 `diff` 一致），还原后同文件退出码 **0**（`/tmp/t13-green-008-int2.log`）。
+- **009（protocol-unit）**：实现前运行 `packages/protocol/src/transport/request-id.test.ts`：退出码 **1**，`Cannot find module './request-id.ts'`（`/tmp/t13-red-009.log`）。
+- **010（protocol-unit）**：实现前运行 `packages/protocol/testing/shadow/header-patterns.test.ts`：退出码 **1**，`缺少该头: expected 200 to be 422`（`/tmp/t13-red-010.log`）。
+- **010（test-tools-unit 义务派生）**：改 `contract-inventory.ts` 前运行 `SCN-PROTOCOL-CONTRACT-010 context-obligation`：退出码 **1**，`expected [ 'authorization', …(11) ] to include 'x-request-id-header'`（`/tmp/t13-red-010-obligation.log`）。
+
+**GREEN**
+- 009/010 单测：`/tmp/t13-green-009.log`、`/tmp/t13-green-010.log`、`/tmp/t13-010-obligation.log` 退出码均 **0**。
+- `pnpm test:unit`（run id `t13d-unit`）退出码 **0**：56 文件 / 365 用例；覆盖率 Statements **3102/3102**、Branches **2080/2080**、Functions **566/566**、Lines **2743/2743**，四项 **100%**（`/tmp/t13d-unit.log`）。
+- `pnpm lint`、`pnpm typecheck` 退出码 **0**（`/tmp/t13d-lint2.log`、`/tmp/t13d-typecheck.log`）。
+- weapp 单文件真实运行：`pnpm weapp:prepare` + `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts` 退出码 **0**，11457ms（`/tmp/t13-weapp-008d.log`）。
+- Fixture 摘要刷新：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-008 --change template-core-hardening` 退出码 **0**，008 manifest 的 `requirementDigest` 更新为 `e933fcd4aa102f83495a66efd1240a0c7ab05c3405f5770b230a6c614c5f8d60`（`/tmp/t13b-fixtures2.log`）；随后作用域内 `pnpm check:fixtures` 退出码 **0**（18 manifests、issues 0，`/tmp/t13b-checkfixtures.log`）。
+- 全量 `pnpm verify --change template-core-hardening --run-id core-hardening-t13`（`/tmp/t13-verify2.log`）：`check:fast` **0**（142585ms）、`test:e2e:weapp` **0**（367173ms）、`check:scenarios` **1**（1401ms，9 条，全部可归属后续任务）。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 008 integration（RED：旧头名/旧前缀） | 1 | `x-request-id` received undefined，`/tmp/t13-red-008.log` |
+| 008 integration（还原后复跑） | 0 | 34ms，`/tmp/t13-green-008-int2.log` |
+| 009 protocol-unit（RED：生成器缺失） | 1 | 模块解析失败，`/tmp/t13-red-009.log` |
+| 010 protocol-unit（RED：`headerPatterns` 未接线） | 1 | 缺头仍 200，`/tmp/t13-red-010.log` |
+| 010 context-obligation（RED：义务仍用旧头名） | 1 | 缺 `x-request-id-header`，`/tmp/t13-red-010-obligation.log` |
+| `pnpm test:unit`（run id `t13d-unit`） | 0 | 56 文件 / 365 用例，覆盖率四项 100%，`/tmp/t13d-unit.log` |
+| `pnpm lint` / `pnpm typecheck` | 0 | `/tmp/t13d-lint2.log`、`/tmp/t13d-typecheck.log` |
+| weapp 008 单文件（`prepare` + `vitest`） | 0 | 11457ms，`/tmp/t13-weapp-008d.log` |
+| `fixtures:refresh SCN-PROTOCOL-CONTRACT-008 --change …` | 0 | `updated: 1`，`/tmp/t13b-fixtures2.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fixtures` | 0 | 18 manifests、issues 0，`/tmp/t13b-checkfixtures.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fast`（run id `t13c`） | 0 | 56/365 单测 + 51/113 集成，`/tmp/t13c-checkfast.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm test:affected` | 0 | 宿主/驱动改动 → 全量触发 `check:fast`，`/tmp/t13-affected.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t13` | 1 | check:fast 0（142585ms）、weapp 0（367173ms）、check:scenarios 1（1401ms、9 条），`/tmp/t13-verify2.log` |
+
+**报告路径**：`artifacts/core-hardening-t13/reports/{unit.json,integration.json}`；weapp 逐文件报告 `artifacts/core-hardening-t13/reports/weapp/{SCN-PROTOCOL-CONTRACT-002,SCN-PROTOCOL-CONTRACT-008,FLOW-TEMPLATE-EXAMPLE-001,SCN-TEMPLATE-EXAMPLE-002,SCN-TEMPLATE-EXAMPLE-004}.json`；覆盖率 `artifacts/core-hardening-t13/coverage/`。`check:scenarios` 结论以 stdout JSON 为准（完整输出在 `/tmp/t13-verify2.log`）。
+
+**场景门禁剩余问题归属（9 条，16 → 9）**
+- `SCN-TEMPLATE-ENGINEERING-010`：3 条（`baseline-config-rules`、`format-check-cli`、`max-lines-cli`）→ **Task 14**。
+- `SCN-TEMPLATE-ENGINEERING-011`：2 条（`project-map-rules`、`project-map-violations-cli`）→ **Task 15**。
+- `SCN-TEMPLATE-ENGINEERING-012`：2 条（`architecture-doc-rules`、`architecture-doc-violations-cli`）→ **Task 16**。
+- `SCN-TEMPLATE-ENGINEERING-008`：2 条（`example-removal-fast`、`example-removal-scenarios`）→ **Task 17 自动化部分**（用例由本会话交付，演练与勾选由验收方执行）。
+- 本任务新增的 008/009/010 用例已全部完成绑定；无改前存在的 `did not execute` / `no executed assertions` 回归项，剩余 9 条全部可归属 Task 14–17。
+
+**Review / Acceptance**
+- 逐项对照 PC-05 与 SCN-008/009/010：
+  - **头名**：`transport/context.ts` 的头键为 `X-Request-Id`，不再发送 `request_id`；`context.test.ts` 与两处 002 spec 断言 `headers.request_id === undefined`。
+  - **格式**：`createRequestId` 输出 `yyyyMMdd_HHmmss_SSS_abcdef`（26 字符）；时间用 `Date.UTC` 分量加 8 小时换算成北京时间，与宿主时区无关；末尾 6 位由随机字节映射到小写字母。009 在 `TZ=UTC` 与 `TZ=America/Los_Angeles` 子进程里跑固定时刻（UTC 2025-12-31T16:00Z，跨北京日期边界），结果相同且为 `20260101_000000_000_abzaza`。
+  - **生成方与不可覆盖**：`ProtocolContextOptions`/`ProtocolClientOptions` 的 `runtime` 与 SDK `RuntimePort` 均删除 `nextRequestId`；双格式声明核对——`packages/protocol/dist/index.d.ts`（及 `index.d.cts`）的导出只有 `createProtocolClient`、`createWechatMiniappHttp`、`getBusinessError`、`businessErrors` 等既有名字，`rg nextRequestId packages/protocol/dist packages/sdk/dist` 无匹配，`rg getRandomValues packages/protocol/dist` 亦无匹配（旧实现已删除）。`client-options-shape` 额外断言宿主多传 `nextRequestId` 也不生效、`Object.keys(protocol)` 不含 `createRequestId`；`runtime-port-shape` 断言 SDK 根入口无 `requestId` 导出。
+  - **Shadow 校验**：`expectedRequests[].headerPatterns` 在构造期 `new RegExp` 编译，非法正则立即抛错；请求时缺失、只剩旧头名或格式错误由 `verify()` 报出「头名 + 期望模式」，符合格式的请求不产生问题。
+  - **写死点**：`scripts/lib/contract-inventory.ts` 的 `header-base-req` 义务由 `request-id-header` 改为 `x-request-id-header` + `x-request-id-format`。
+- **破坏性变更记录**：`nextRequestId` 从协议包与 SDK 的公共类型与产物中消失（两套 d.ts 已核对）；能力地图中的注明按契约留到 Task 16。
+- `git grep -n "request_id" -- packages scripts` 残留只有三类，均非「发送旧头」路径：①`BaseReq.requestId` 字段的 snake_case 编解码（`generated/idl/base.ts`、`generated/idl/infra/pay/v1/pay.ts` 注释）与消费声明（`consumed-operations.ts` 的 `base_req.request_id`）；②断言「不再发送该头」的用例（`client.test.ts`、`context.test.ts`、两处 002 spec、`contract-inventory.test.ts`）；③generated 注释文本。生产代码中不再有 `request_id` 头。
+
+**方案与实际的差异**（含 Task 13 Files 之外的改动；均为按契约补充或同步受影响产物）
+1. **随机源改为 `Math.random`（用户裁决 A1，规划已同步修订并单独提交 `17e94e8`）**：design 原文用 `crypto.getRandomValues`，实测小程序宿主无 `crypto`（证据见上），weapp 008 连续两次 120s 挂起、断言数 0（`/tmp/t13-weapp-008.log`、`/tmp/t13-weapp-008b.log`）；用同步兜底的对照实验使该文件 11.3s 通过（`/tmp/t13-weapp-008c.log`）。裁决后实现改为单份 `Math.random` 随机源，并删除「缺 `crypto` 就抛错」的分支与其单测；格式、头名、同值、不可覆盖、注入参数不公开均未变。
+2. **`runSharedEvidence` 的期望请求由固定 `body` 改为记录式（`recordOnly: true`）**：`SCN-PROTOCOL-CONTRACT-002` 协议矩阵的共享证据分支复用同一 Fixture 请求体，而 `baseReq.requestId` 现在每次生成，固定比对会返回 422，导致 `CreateTrade/response-handling/success` 等断言为 false（`/tmp/t13-integration.log`）。改为记录式后，请求体仍由矩阵用例逐字段核验（去掉动态请求 ID 的 `compareJsonPresence`），断言覆盖面未缩小。
+3. **4 个 plain 单测补 `scenario-evidence` 标注**：`client.test.ts`（client-options-shape）、`default.test.ts`（runtime-port-shape）、`request-id.test.ts`（generator-non-beijing-tz）、`header-patterns.test.ts`（shadow-header-patterns）是按 `test(...)` + `meta.scenarioCase` 直接写的用例，不经过 `defineCase` 的 `checkpoint`，须自行 `context.annotate(JSON.stringify({assertions, checkpoints}))` 上报；否则场景门禁报 13 条 `has no executed assertions` / `checkpoint did not execute`。标注后这 13 条清零，剩余 9 条全部可归属后续任务。
+4. **覆盖率补充**：为把行覆盖补回 100%，新增 `server.ts` 非法 `headerPatterns` 构造期抛错的用例（`header-patterns.test.ts` 第三段）；裁决后同一文件删除了「缺 `crypto` 抛错」分支与其断言，覆盖总分支数由 2082 降到 2080、总行数由 2744 降到 2743，四项仍 100%。
+5. **Fixture 来源摘要刷新**：PC-05 Requirement 正文修订后 008 manifest 的 `requirementDigest` 过期；按裁决先刷新再跑 `check:fast`。注意 `fixtures:refresh` 脚本要求至少一个 owner 参数，实际命令为 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-008 --change template-core-hardening`（未裸跑 `pnpm fixtures:refresh`）。
+6. **新增文件落点**：`packages/protocol/src/transport/request-id.ts` 及单测、`packages/protocol/testing/shadow/header-patterns.test.ts`（Files 写「Shadow 期望请求头支持 `headerPatterns`；及单测」）、`packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-008/{manifest.json,request-id-wire.json}`、`packages/e2e/tests/{protocol,weapp}/SCN-PROTOCOL-CONTRACT-008.spec.ts`。生成器不从任何根入口导出（`client.test.ts` 断言）。
+
+**weapp 重跑记录**
+- 单文件（手工，先 `prepare` 再运行）：`SCN-PROTOCOL-CONTRACT-008` 首跑 **11457ms 通过**（`/tmp/t13-weapp-008d.log`）。
+- 全量 `verify`（run id `core-hardening-t13`）的 weapp 步骤（逐文件 + 每文件前 `weapp:prepare`）：`SCN-PROTOCOL-CONTRACT-002` 11645ms 通过；`SCN-PROTOCOL-CONTRACT-008` 首次 **120009ms 挂起失败、断言数 0**（`packages/e2e/AGENTS.md` 记录的主进程挂起现象），`pnpm verify` 自动 `weapp:prepare` 后整文件重跑 **11254ms 通过**；`FLOW-TEMPLATE-EXAMPLE-001` 11420ms、`SCN-TEMPLATE-EXAMPLE-002` 11392ms、`SCN-TEMPLATE-EXAMPLE-004` 11424ms 均首跑通过。该次 weapp 步骤退出码 **0**。
+- 此前两次单文件首跑也出现过同样的 120s 挂起（`/tmp/t13-weapp-008.log`、`/tmp/t13-weapp-008b.log`），当时原因是实现抛错（见差异 1），已在裁决后修复；修复后的三次运行（手工两次、`verify` 自动重跑一次）均通过。
+
+**按需选择结果**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T001933Z`）退出码 **0**：23 个改动文件中 `packages/e2e/host/weapp/protocol-runner.ts` 与 `packages/e2e/src/drivers/weapp-host.test.ts` 落在宿主/驱动目录 → **全量触发 `pnpm check:fast`**，未退化为精确子集；全量退出码 0。选择规则按契约生效（宿主/驱动目录即全量触发路径），未发现选择错误。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。本次按需运行因宿主/驱动改动升级为全量并全绿；全量三项中 `check:scenarios` 非零来自 9 条全部归属 Task 14–17 的 `missing binding`，不构成新增失败。
+
+**优先采用现成方案**
+- **例外登记（用户裁决）**：随机源直接用平台内置 `Math.random`，不引入 `nanoid/non-secure` 等库。理由：实现只有几行，而协议包要同时发布 ESM 与 CJS 两种格式，为一个非安全随机后缀增加运行时依赖不划算；公司规范只规定格式，请求 ID 只用于链路追踪、不是凭据。
+- Shadow 的 `headerPatterns` 复用平台内置 `RegExp` 与既有 `verify()` 问题通道，未引入 JSON Schema 或正则库。
+- 单测的断言上报复用 Vitest 原生 `context.annotate` 与 `context.expect.getState()`（仓库既有 `records-and-polling.test.ts` 使用同一模式），未自研上报机制。
+- 时区证据复用 Node 内置 `execFileSync` 子进程 + `TZ` 环境变量，未引入时区库。

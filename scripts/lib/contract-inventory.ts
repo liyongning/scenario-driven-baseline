@@ -139,7 +139,9 @@ const sharedMethodObligations = (
       'content-type',
       'x-product-id-configured',
       'x-product-id-omitted',
-      'request-id-header',
+      // 公共请求上下文义务校验 X-Request-Id 的头名与格式（PC-05）。
+      'x-request-id-header',
+      'x-request-id-format',
       'base-req-request-id',
       'base-req-product-id-configured',
       'base-req-product-id-omitted',

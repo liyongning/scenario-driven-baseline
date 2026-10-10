@@ -20,7 +20,6 @@
       "originalAmount": "200",
       "discountAmount": "10",
       "baseReq": {
-        "requestId": "matrix-request",
         "productId": "matrix-product"
       }
     },
@@ -57,7 +56,6 @@
     "request": {
       "tradeNo": "trade-matrix",
       "baseReq": {
-        "requestId": "matrix-request",
         "productId": "matrix-product"
       }
     },

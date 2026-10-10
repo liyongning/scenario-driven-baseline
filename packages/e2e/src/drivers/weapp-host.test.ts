@@ -156,7 +156,6 @@ describe('official minimal weapp host', () => {
     const result = await runProtocolSuite({
       gatewayBaseUrl: 'https://fixture.invalid',
       accessToken: 'fixture-token',
-      requestId: 'request-projection',
       productId: 'product-projection',
       timeoutMs: 100,
       methods: [

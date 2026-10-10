@@ -1231,3 +1231,63 @@ test(
     );
   },
 );
+
+test(
+  'SCN-PROTOCOL-CONTRACT-010 context-obligation',
+  {
+    timeout: 30_000,
+    meta: {
+      scenarioCase: {
+        ownerId: 'SCN-PROTOCOL-CONTRACT-010',
+        caseId: 'context-obligation',
+        fixtureCase: null,
+        environment: 'test-tools-unit',
+        covers: [
+          {
+            id: 'SCN-PROTOCOL-CONTRACT-010',
+            caseKey: 'context-obligation',
+            checks: ['obligation-header'],
+          },
+        ],
+      },
+    },
+  },
+  async (context: TestContext) => {
+    const before = context.expect.getState().assertionCalls;
+    const executed: string[] = [];
+    const check = async (name: string, assertion: () => void | Promise<void>) => {
+      await assertion();
+      executed.push(name);
+    };
+
+    const obligations = (await buildContractInventory(repositoryRoot)).obligations;
+    const headerObligations = obligations.filter((item) => item.id.endsWith('#header-base-req#$'));
+
+    await check('obligation-header', () => {
+      context.expect(headerObligations.length).toBeGreaterThan(0);
+      for (const obligation of headerObligations) {
+        // 公共请求上下文义务校验 X-Request-Id 的头名与格式（PC-05）。
+        context.expect(obligation.cases, obligation.id).toContain('x-request-id-header');
+        context.expect(obligation.cases, obligation.id).toContain('x-request-id-format');
+        context.expect(obligation.cases, obligation.id).toContain('base-req-request-id');
+        // 不再引用旧的 request_id 头名。
+        context.expect(obligation.cases, obligation.id).not.toContain('request-id-header');
+        context
+          .expect(
+            obligation.cases.filter((item) => item.includes('request_id')),
+            obligation.id,
+          )
+          .toEqual([]);
+      }
+    });
+
+    context.expect(executed).toEqual(['obligation-header']);
+    await context.annotate(
+      JSON.stringify({
+        assertions: context.expect.getState().assertionCalls - before,
+        checkpoints: executed,
+      }),
+      'scenario-evidence',
+    );
+  },
+);

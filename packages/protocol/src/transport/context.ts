@@ -1,6 +1,7 @@
 import { BaseReq } from '../generated/idl/base';
 import type { Cancellation, OperationContext } from '../ports/context';
 import type { CommunicationResult } from './errors';
+import { createRequestId } from './request-id';
 
 /** 通信实例所需的公共上下文依赖；不包含支付身份、设备或环境选择。 */
 export type ProtocolContextOptions = Readonly<{
@@ -8,7 +9,6 @@ export type ProtocolContextOptions = Readonly<{
   requestContext?: Readonly<{ productId?: string; lane?: string; appVersion?: string }>;
   runtime: Readonly<{
     nowMs: () => number;
-    nextRequestId: () => string;
     sleepMs: (durationMs: number, cancellation?: Cancellation) => Promise<void>;
   }>;
 }>;
@@ -82,12 +82,13 @@ export function createRequestContext(
             finish({ ok: false, error: { code: 'HOST_CONTEXT_ERROR' } });
             return;
           }
-          const requestId = options.runtime.nextRequestId();
+          // 请求 ID 由协议包的标准生成器产生：宿主不能通过公共选项覆盖（PC-05）。
+          const requestId = createRequestId();
           const config = options.requestContext;
           const headers: Record<string, string> = {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
-            request_id: requestId,
+            'X-Request-Id': requestId,
           };
           const baseReq = BaseReq.create({ requestId });
           if (config?.productId !== undefined) {

@@ -5,6 +5,7 @@ import { createProtocolClient } from '@daqian/template-protocol';
 import type { HttpPort } from '@daqian/template-protocol';
 import { consumedOperations } from '@daqian/template-sdk';
 import {
+  compareJsonPresence,
   createShadowServer,
   discoverDeclaredRoutes,
   type RunningShadowServer,
@@ -43,6 +44,9 @@ type MatrixRun = Readonly<{
 
 const metaOf = (operation: (typeof operations)[number]) => operation.method.meta;
 const nameOf = (operation: (typeof operations)[number]) => operation.method.meta.name;
+
+/** 公司规范的请求 ID：26 字符、北京时间、末尾 6 位小写字母（PC-05）。 */
+const requestIdPattern = /^\d{8}_\d{6}_\d{3}_[a-z]{6}$/;
 
 /** 按接口名取矩阵 Fixture 数据；缺少键时失败并指出接口名。 */
 function entryOf(fixture: MatrixFixture, name: string): MatrixEntry {
@@ -108,7 +112,6 @@ function communicationClient(
       : {}),
     runtime: {
       nowMs: runtime?.nowMs ?? (() => Date.now()),
-      nextRequestId: () => 'matrix-request',
       sleepMs: runtime?.sleepMs ?? (() => new Promise(() => undefined)),
     },
   });
@@ -129,6 +132,13 @@ function expectedBody(fixture: MatrixFixture, name: string, sparse = false) {
   const body = structuredClone(entryOf(fixture, name).request);
   if (sparse) delete (body.baseReq as Record<string, unknown>).productId;
   return body;
+}
+
+/** 请求 ID 每次都变：核验请求体其余字段前先去掉它，只由格式与请求头相等核验（PC-05）。 */
+function withoutDynamicRequestId(body: unknown): unknown {
+  const clone = structuredClone(body) as { baseReq?: Record<string, unknown> } | undefined;
+  if (clone?.baseReq) delete clone.baseReq.requestId;
+  return clone;
 }
 
 function encodingMatches(caseKey: string, value: unknown): boolean {
@@ -164,9 +174,10 @@ async function runMatrix(
     id: `${name}-matrix`,
     routes: {
       [name]: {
+        // 请求 ID 每次都变，请求只记录不比对；随后由本用例逐字段核验请求体（PC-05）。
         expectedRequests: [
-          ...responses.map(() => ({ body: expectedBody(fixture, name) })),
-          { body: expectedBody(fixture, name, true) },
+          ...responses.map(() => ({ recordOnly: true as const })),
+          { recordOnly: true as const },
         ],
         steps: [...responses.map((body) => ({ body })), { body: {} }],
       },
@@ -188,7 +199,15 @@ async function runMatrix(
       deadlineAtMs: Date.now() + 5_000,
     }),
   );
-  return { results, records: server.records(), verify: server.verify() };
+  const records = server.records();
+  // 去掉动态请求 ID 后与 Fixture 精确比较：字段缺失与多余字段都会被报出。
+  const bodyIssues = records.flatMap((record, index) =>
+    compareJsonPresence(
+      expectedBody(fixture, name, index >= responses.length),
+      withoutDynamicRequestId(record.rawBody),
+    ).map((issue) => `${name} request ${index + 1}: ${issue}`),
+  );
+  return { results, records, verify: [...server.verify(), ...bodyIssues] };
 }
 
 /** 通信错误、响应处理与超时分支；每条分支都通过公共客户端的真实网络适配发出或按契约拒绝。 */
@@ -200,7 +219,6 @@ async function runSharedEvidence(
   const meta = metaOf(operation);
   const name = meta.name;
   const request = () => messageOf(fixture, name, meta.requestCodec!);
-  const expected = expectedBody(fixture, name);
   const deadline = () => Date.now() + 2_000;
   const requestStep = async (
     step: Readonly<{ status?: number; body?: unknown; rawBody?: string; delayMs?: number }>,
@@ -210,7 +228,8 @@ async function runSharedEvidence(
       scenarios: [
         {
           id: `${name}-shared-${running.size}`,
-          routes: { [name]: { expectedRequests: [{ body: expected }], steps: [step] } },
+          // 请求 ID 每次都变：共享分支只记录，请求体由矩阵用例逐字段核验（PC-05）。
+          routes: { [name]: { expectedRequests: [{ recordOnly: true }], steps: [step] } },
         },
       ],
       environmentClass,
@@ -243,7 +262,7 @@ async function runSharedEvidence(
       gatewayBaseUrl: 'http://127.0.0.1:1',
       getAccessToken: token as () => string | null | Promise<string | null>,
       http,
-      runtime: { nowMs, nextRequestId: () => 'matrix-request', sleepMs },
+      runtime: { nowMs, sleepMs },
     });
   const emptyToken = await make(() => '').request(meta, request(), { deadlineAtMs: 10 });
   const hostError = await make(() => {
@@ -296,7 +315,7 @@ async function runSharedEvidence(
       {
         id: `${name}-in-flight-timeout`,
         routes: {
-          [name]: { expectedRequests: [{ body: expected }], steps: [{ delayMs: 30, body: {} }] },
+          [name]: { expectedRequests: [{ recordOnly: true }], steps: [{ delayMs: 30, body: {} }] },
         },
       },
     ],
@@ -420,8 +439,14 @@ defineCase(
                 'content-type': String(headers['content-type']).startsWith('application/json'),
                 'x-product-id-configured': headers['x-product-id'] === 'matrix-product',
                 'x-product-id-omitted': headers['x-product-id'] === undefined,
-                'request-id-header': headers.request_id === 'matrix-request',
-                'base-req-request-id': valueAt(body, 'base_req.request_id') === 'matrix-request',
+                // 请求 ID 每次都变：核验头名、格式，以及头与 BaseReq.requestId 同值（PC-05）。
+                'x-request-id-header':
+                  headers.request_id === undefined && typeof headers['x-request-id'] === 'string',
+                'x-request-id-format':
+                  typeof headers['x-request-id'] === 'string' &&
+                  requestIdPattern.test(headers['x-request-id']),
+                'base-req-request-id':
+                  valueAt(body, 'base_req.request_id') === headers['x-request-id'],
                 'base-req-product-id-configured':
                   valueAt(body, 'base_req.product_id') === 'matrix-product',
                 'base-req-product-id-omitted': valueAt(body, 'base_req.product_id') === undefined,
