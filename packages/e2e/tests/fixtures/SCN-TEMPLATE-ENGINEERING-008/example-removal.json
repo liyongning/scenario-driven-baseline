@@ -1,0 +1,24 @@
+{
+  "removal": {
+    "directories": [
+      "packages/sdk/src/example",
+      "packages/protocol/testing/shadow/example",
+      "packages/e2e/tests/example",
+      "packages/e2e/tests/weapp/example",
+      "openspec/specs/template-example"
+    ],
+    "files": ["packages/e2e/host/weapp/example-runner.ts"],
+    "globs": [
+      {
+        "directory": "packages/e2e/tests/fixtures",
+        "prefixes": ["SCN-TEMPLATE-EXAMPLE-", "FLOW-TEMPLATE-EXAMPLE-"]
+      },
+      {
+        "directory": "packages/e2e/tests/tooling",
+        "prefixes": ["SCN-TEMPLATE-EXAMPLE-"]
+      }
+    ],
+    "matrixFixture": "packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json",
+    "matrixOwner": "SCN-PROTOCOL-CONTRACT-002"
+  }
+}

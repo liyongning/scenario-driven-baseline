@@ -1193,3 +1193,96 @@ Task 16 实施期间按 ENG-06 运行约定执行 `SCENARIO_GATE_CHANGES=templat
 - CLAUDE.md 配对使用官方约定的 `@AGENTS.md` 导入行，未使用软链接（Windows 检出会退化、编辑工具拒绝写入），符合 Design 已核实结论。
 - 用例断言上报复用既有 `cliEvidence`/`evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `minimalManifest`/`createControlledRoot` 与 `writeTemplateGuideFixture`，未新建夹具框架。
 - 未新增任何运行时或开发依赖；本任务**无自研通用能力**。
+
+### T10/T12/T13 交付物缺陷修复（示例绑定证据迁出补完 · fix commits `8b5e08f`、`eb5df99`）
+
+Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运行"。按用户裁决补完 Task 10/12/13 遗留的示例绑定证据迁出，**不改规划语义**：证明共享能力 Scenario（protocol-contract / scenario-gate / template-engineering）的证据必须自供输入；只有证明 `template-example` 自身 Scenario 的证据才允许用 `template-example` 标记包装。
+
+**每个文件的处理方式**
+
+| 文件 | 处理方式 |
+| --- | --- |
+| `packages/sdk/src/consumed-operations.ts` | 标记包装：示例条目与 `requestAuthority` 位于 `template-example:begin/end` 内（template-example 自身 Scenario 的证据，允许包装） |
+| `packages/sdk/src/consumed-operations.test.ts` | 标记包装：`SCN-TEMPLATE-EXAMPLE-012` 的模块证据在标记内，标记外只留"每条声明的 method 都是 generated 方法描述" |
+| `packages/protocol/src/client.test.ts` | 自供输入：请求/响应载荷改为用例内常量，不再读 `SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` |
+| `packages/protocol/testing/shadow/response-shape.test.ts` | 自供输入：`baseResp` + `fixtureSamples` 取代协议矩阵 Fixture |
+| `packages/protocol/src/transport/context.test.ts` | 新增 module 用例：观测传给 `sleepMs` 的 `Cancellation.isStopped()`，覆盖副本里会丢失的 `context.ts:34` 分支 |
+| `packages/e2e/tests/tooling/declaration-fixture.ts` | 自供输入：新增 `exampleDeclarationSource`/`exampleCallerSource`/`repositoryProtocolSource` 与 `protocolFiles`/`generatedFromRepository`（受控根复制仓库 generated，generated 不在示例删除白名单内） |
+| `packages/e2e/tests/tooling/contract-inventory-fixture.ts` | 自供输入：新增 `exampleInventoryRoot()`/`inventoryTradeFile()` |
+| `scripts/lib/contract-inventory.test.ts`、`contract-inventory.scan.test.ts` | 自供输入：`derivation-rules`、`context-obligation`、`pending-*`、`oneof-*` 等改用受控根，不再读仓库示例声明与 generated |
+| `scripts/lib/project-manifest.test.ts` | 从清单派生：`obligation-environments` 的期望值为 `testProjectsByClass(manifest, ['integration','platform'])` 与 `['integration']`，不写死 `integration+weapp`；输入取自受控根 |
+| `packages/e2e/host/weapp/protocol-runner.ts` | 运行器按消费接口声明遍历：声明外的矩阵项跳过、声明为空正常结束（不抛"没有 CreateTrade"），与 SCN-008 `empty-declaration-matrix` 同口径 |
+| `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts` | 自供输入：`missing-comment-rejected` 用受控声明源，不再依赖 `packages/sdk/src/example/contracts.ts` |
+| `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-009.spec.ts` | 从宿主目录派生：允许的覆盖率例外由 `packages/e2e/host/weapp/*.ts` 派生（示例删除后 `example-runner.ts` 消失，期望值随之收敛） |
+| `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts` | 自供输入：`inventory-cli` 在 `enableInventory(realSources)` 前写入受控声明与调用 |
+| `packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts` | 断言修复（`eb5df99`）：标记计数改为"存在且成对"，见下 |
+
+**副本验证（A 的完成条件：副本内 `check:fast` 退出码 0）**
+- 副本由 008 用例构造（`git ls-files -co --exclude-standard` 复制、`git init` 提交、`pnpm install --offline --frozen-lockfile`、归档作用域内 Change、清除 `SCENARIO_GATE_CHANGES`、`TEMPLATE_COPY=1`）。副本内 `pnpm check:fast` 退出码 **0**（`$TMPDIR/t17-copy-check-fast.log`）：单测 58 文件/319 用例、覆盖率 Statements **3073/3073（100%）**、集成 39 文件/91 用例、`check:package` issues `[]`。
+- 标记外的共享能力证据（协议客户端、Shadow 同形校验、义务派生、门禁自测）自供输入后仍可运行；副本内不再因缺少示例声明/generated 输入而失败。
+
+**A 后暴露的缺陷与修复（`eb5df99`）**
+- 现象：A 把 `requestAuthority` 包进标记后，`packages/sdk/src/consumed-operations.ts` 的 `template-example:begin` 标记由 2 对变 3 对，两处写死的计数断言失效——`packages/sdk/src/consumed-operations.test.ts:67`（sdk-unit）与 `packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts:90`（integration）。
+- 副本为什么没暴露：两处断言都在 `template-example` 标记内，副本按白名单剥离标记片段时整段删除（`SCN-TEMPLATE-EXAMPLE-012` 的模块 case 随示例消失），所以副本 `check:fast` 全绿；只有仓库内全量才暴露——这正是"按需升级为全量"的价值。
+- RED：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` 升级为全量 `check:fast` 后 `test:unit` 退出码 **1**（`/tmp/t17-affected.log`：`expected [ '// template-example:begin', …(2) ] to have a length of 2 but got 3`）；integration 侧单独复现同一失败（`/tmp/t17-red-012.log`，退出码 1，同一条 AssertionError）。
+- 修复：断言改为"标记存在且成对"（`begins.length > 0`、`ends.length === begins.length`），不写死数量。GREEN：`pnpm exec vitest run --project sdk-unit packages/sdk/src/consumed-operations.test.ts` 退出码 **0**（2 用例）；`SCENARIO_GATE_CHANGES=template-core-hardening pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts` 退出码 **0**（1 用例）。
+- 修复对副本无影响（断言位于标记内，副本仍整段剥离）；随后仓库内 scoped `check:fast`（含 008 副本流程）与全量 `verify` 均通过。
+
+### Task 17 自动化部分：示例删除验证（自动化层）
+
+**范围**：本 Change 的 `SCN-TEMPLATE-ENGINEERING-008` 自动化用例及其依赖迁出。用户交接明确「示例删除演练」与 Task 18 由验收方派发**全新的无上下文 Agent** 在隔离副本中执行，本任务**不勾选 Task 17**、不提交演练记录。
+
+**规划修订（Apply 期间用户裁决，先于本任务提交）**
+- 单独提交 `7a4c87c docs(openspec): amend example-removal gate expectation by user decision`，只含 `specs/template-engineering/spec.md`、`design.md`、`plan-review.md`。
+- 触发（A2 与补充）：本任务实测副本清单模式问题 16 条，其中 14 条由 `TEMPLATE_COPY` 排除列表解释，另 2 条（`SCN-PROTOCOL-CONTRACT-002/protocol-matrix`、`SCN-PROTOCOL-CONTRACT-008/request-id-wire` 的 `missing binding for weapp`）无法归属：门禁的绑定来自运行报告（`scripts/lib/scenario-reports.ts:70`），平台项目（清单 `class=platform`，此处 weapp）在副本中不运行也无法运行，故必然缺绑定。原字面口径（"问题数 0"/"只扣排除项"）在副本里没有可达的绿灯。
+- 裁决：期望集合 = 排除列表推导出的缺失项 + 清单 `class=platform` 测试项目对应的缺失绑定；两部分都不手写，多一条少一条都失败，其余问题为 0；反例保留。
+- digest：`8ddc5d01b814f19fe2ab3ecb0d9d9e37ef903763a61430a6cd1fe9ed5f3bc15b`（A2）→ `4d72484291f3f8493ec8f3932d68e13aa740dcbdcb27a3d5605147e2199523bd`（补充），`--check-review` 退出码 0、`freshness=PASS`（每次运行 008 前后均复核）。
+- Requirement 正文变化使 008 Fixture 来源摘要过期（`pnpm check:fixtures` 报 1 条），按用户要求先 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm fixtures:refresh SCN-TEMPLATE-ENGINEERING-008`（退出码 0，`updated:["SCN-TEMPLATE-ENGINEERING-008"]`），随后 `pnpm check:fixtures` issues `[]`。
+
+**Files**
+- Create：`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`、`packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/{manifest.json,example-removal.json}`。
+- Modify：`packages/e2e/vitest.config.integration.ts`（`TEMPLATE_COPY` 排除列表加入 008；并具名导出该列表供期望集合推导，见"方案与实际的差异"第 1 条）。
+
+**RED（实际执行，可复现）**
+- 断言保持原口径（`inventory.issues` 必须为 `[]`）时运行 008：`SCN-TEMPLATE-ENGINEERING-008 example-removal-fast` 通过、`example-removal-scenarios` 失败（`/tmp/t17-red-final.log`，91.61s，1 failed | 1 passed）；失败信息列出副本清单模式实测的 16 条 `missing binding`。同一次运行的副本 `check:fast` 已通过，说明缺的正是场景门禁口径。
+- 修复后同文件退出码 **0**，2 用例通过（首次 81.87s；仓库内 scoped `check:fast` 与全量 `verify` 各复跑一次同样通过）。
+
+**GREEN 与期望集合推导**
+- 期望集合由 `expectedMissingBindings(copy, inventory)` 推导，两部分：
+  1. 排除列表（具名导出的 `copyCreatingSpecs`）里每个仍存在的 spec 文件 → 取该文件的 `ownerId`/`environment` 字面量 → 有效 Spec 清单中该 Scenario 的、`requiredIn` 含该环境的用例（用例名取自门禁自己的 `--inventory` 输出，不另写名单）；
+  2. 清单 `testProjectsByClass(manifest, ['platform'])` 的项目 → `requiredIn` 含该项目的用例。
+- 实测两条与期望一致：副本问题集合 16 条 = ENG-001 6 + ENG-007 5 + ENG-008 2 + SCN-SCENARIO-GATE-026 1（均 integration）+ weapp 2（`$TMPDIR/t17-copy-inventory.log`）。
+- 反例（同一次用例运行内）：删除副本 integration 报告里共享 Scenario `SCN-PROTOCOL-CONTRACT-003/wrong-code` 的那条执行记录后复跑同一门禁 —— 退出码非 0，问题数 16 → 17，多出恰好 1 条 `SCN-PROTOCOL-CONTRACT-003/wrong-code: missing binding for integration`（`$TMPDIR/t17-copy-inventory-probe.log`）；期望集合不含该条，精确扣除断言会拦住它。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| 008 integration（RED：`issues === []` 口径） | 1 | 1 failed \| 1 passed，`/tmp/t17-red-final.log` |
+| 008 integration（GREEN，两条 case） | 0 | 2 用例通过 81.87s |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm fixtures:refresh SCN-TEMPLATE-ENGINEERING-008` | 0 | `updated:["SCN-TEMPLATE-ENGINEERING-008"]` |
+| `pnpm check:fixtures`（刷新后） | 0 | issues `[]` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected` | 1 | 升级为全量 `check:fast`，暴露 A 的标记计数缺陷，`/tmp/t17-affected.log` |
+| `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast`（修复后） | 0 | 单测 63 文件/370 用例、集成 55 文件/119 用例、覆盖率四项 100%、`check:package` issues `[]`，`/tmp/t17-checkfast.log` |
+| `pnpm verify --change template-core-hardening`（run id `template-core-hardening-apply-20261010T031045Z`） | 0 | `check:fast` 0（160475ms）、`test:e2e:weapp` 0（519450ms）、`check:scenarios` 0（1507ms），`/tmp/t17-verify.log` |
+
+**方案与实际的差异**（含本任务 Files 之外的改动；未改规划语义）
+1. **排除列表位置与导出**：规格写"根 `vitest.config.ts` 的排除列表"，实际列表在 `packages/e2e/vitest.config.integration.ts`（Task 4/5 已登记：根 `test.exclude` 不作用于 `projects` 中的子项目，只有项目自身 config 的 `exclude` 生效）。本任务把该数组具名导出 `copyCreatingSpecs` 供用例 `import`，满足"排除列表要能被导入或解析、不在用例里再手写一份名单"；Files 只点名"排除列表加入 008"，导出属同一文件的实现细节，按 Task 7 先例在此登记。
+2. **显式超时 900s**（用例级 `vi.setConfig({ testTimeout: 900_000 })`）：副本内要重建依赖、归档作用域内 Change、跑完整 `check:fast`（仓库内单跑实测 118.1–135.6s，副本内更慢）并跑两次场景门禁，默认 5s 与 026 的 300s 都不够。只改超时，断言与语义未动。
+3. **平台缺失绑定纳入期望集合**：见上"规划修订"；Gate 的 `check()` 只在绑定缺失时报 `missing binding`，副本不运行平台项目，故这类问题在清单模式下不可消除。
+4. **A 的缺陷由本任务的全量触发暴露**，按用户授权单独提交 `eb5df99`（见上节），未并入 Task 17 提交。
+5. **排除列表里的示例 spec 在副本中已被白名单删除**：推导时跳过不存在的文件（`SCN-TEMPLATE-EXAMPLE-008.spec.ts`），其 Scenario（`template-example`）也随示例删除而不存在，没有可推导的缺失项——与实测集合一致。
+
+**weapp 重跑记录**
+- 本任务无 weapp 源码改动；自动化层不运行小程序项目（副本不能运行平台用例，这正是平台缺失绑定需纳入期望集合的原因）。
+- 全量 `verify`（run id `template-core-hardening-apply-20261010T031045Z`）的 weapp 步骤：5 个文件，`FLOW-TEMPLATE-EXAMPLE-001` 首跑在断言前 120s 挂起（`/tmp/t17-verify.log`，与 `packages/e2e/AGENTS.md` 记录的基础设施抖动一致），按"失败整文件重跑"约定复跑通过（11913ms）；其余 4 个文件首跑通过：`SCN-PROTOCOL-CONTRACT-002` 11327ms、`SCN-PROTOCOL-CONTRACT-008` 11337ms、`SCN-TEMPLATE-EXAMPLE-002` 11454ms、`SCN-TEMPLATE-EXAMPLE-004` 11707ms。未使用 `-t`。
+
+**按需选择结果**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（`/tmp/t17-affected.log`）：4 个改动文件命中全量触发（`packages/e2e/vitest.config.integration.ts` 属工具配置），升级为全量 `check:fast`；首轮在该全量里暴露 A 的标记计数缺陷（退出码 1），修复后 scoped `check:fast` 退出码 0。选择规则本身未发现错误，未出现"选择不足"。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。本轮按需结论**有效**（unit 步骤真实执行：63 文件/370 用例）。需登记的一次事件：首轮按需运行升级为全量后失败（交付物缺陷，已在按需流程内发现并修复），属"全量自身暴露的缺陷"，不是"按需子集漏测、全量才发现"，故计 0。
+
+**优先采用现成方案**
+- 期望集合推导复用既有能力与自身输出：排除列表用具名导出直接 `import`（Node ESM 原生，无解析器）；用例名取门禁自己的 `--inventory` 输出（`scenarios[].verification.cases[]`）；平台项目取清单 `testProjectsByClass(manifest, ['platform'])`。未自研第二套 Scenario/case 解析器，未新增依赖。
+- 副本构造、Change 归档、`TEMPLATE_COPY` 守卫、门禁运行全部复用 Task 5 的仓库副本 helper 与既有 `check:fast`/`check:scenarios` 入口；反例探针只改写副本内既有报告文件后复跑同一门禁，未新增门禁能力或夹具框架。
+- 本任务**无自研通用能力、未新增任何运行时或开发依赖**。

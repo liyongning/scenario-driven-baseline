@@ -1,11 +1,13 @@
 import { defineProject } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 // 副本（TEMPLATE_COPY）中排除会再次创建副本的用例：门禁自测在副本里不得递归建副本。
-const copyCreatingSpecs = [
+// 具名导出供 SCN-TEMPLATE-ENGINEERING-008 推导"副本中不可能产生绑定"的用例，避免另写一份名单。
+export const copyCreatingSpecs = [
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts',
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-007.spec.ts',
   'packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts',
   'packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts',
+  'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts',
 ];
 // 集成测试解析产品 package exports 的构建产物；源码 alias 仅属于单测。
 export default defineProject({
