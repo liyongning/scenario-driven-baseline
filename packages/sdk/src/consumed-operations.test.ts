@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { TestContext } from 'vitest';
+import { lineInRanges, markedLineRanges } from '../../../scripts/lib/example-markers.ts';
 // template-example:end
 import { expect, test } from 'vitest';
 import { consumedOperations } from './consumed-operations';
@@ -44,6 +45,32 @@ function declarationIssues(operations: ReadonlyArray<DeclaredOperation>): string
   return issues;
 }
 
+/**
+ * 每个元素的 `method` 都必须是 generated 中由 `createMethod` 产出的方法描述：
+ * `createMethod` 产出可调用的方法常量（带 HTTP 元数据），`defineMethodSpec` 只产出普通对象。
+ * 与示例无关——标记内外的条目都要满足，删除示例后仍然成立。
+ */
+function generatedMethodIssues(operations: ReadonlyArray<DeclaredOperation>): string[] {
+  return operations.flatMap((operation, index) => {
+    const method: unknown = operation.method;
+    if (typeof method !== 'function') return [`#${index}: method 不是 createMethod 产出的方法常量`];
+    const meta = (method as { meta?: { method?: unknown; path?: unknown } }).meta;
+    if (typeof meta?.method !== 'string' || typeof meta?.path !== 'string')
+      return [`#${index}: method 缺少 HTTP 元数据`];
+    return [];
+  });
+}
+
+/** 真实声明的每个元素都必须是 generated 方法描述：标记外的通用断言，不依赖示例。 */
+test('真实声明的每个 method 都是 generated 方法描述', () => {
+  expect(generatedMethodIssues(consumedOperations)).toEqual([]);
+  expect(
+    generatedMethodIssues([
+      { method: { meta: { name: 'X', requestType: 'R', responseType: 'S' } }, requestFields: {} },
+    ]),
+  ).toEqual(['#0: method 不是 createMethod 产出的方法常量']);
+});
+
 /** 受控输入：格式校验对缺 meta、缺策略、空路径与缺依据都要报错，不是空转的循环。 */
 test('受控输入下声明格式校验会报出缺失项', () => {
   const valid: DeclaredOperation = {
@@ -76,6 +103,12 @@ test('真实声明满足格式校验，声明为空是合法状态', () => {
 });
 
 // template-example:begin
+/** 声明模块中某个条目的 `method:` 行号（1-based）；示例条目据此机械识别为"标记内"。 */
+function entryLine(source: string, name: string): number {
+  const index = source.indexOf(`method: ${name},`);
+  return index < 0 ? -1 : source.slice(0, index).split('\n').length;
+}
+
 test(
   'SCN-TEMPLATE-EXAMPLE-012 declaration-module',
   {
@@ -97,18 +130,21 @@ test(
   },
   async (context) => {
     const before = context.expect.getState().assertionCalls;
-    context
-      .expect(consumedOperations.map((item) => item.method.meta.name))
-      .toEqual(['CreateTrade', 'QueryTrade']);
-    context
-      .expect(consumedOperations.map((item) => Object.keys(item.requestFields).length))
-      .toEqual([21, 7]);
     const source = readFileSync(
       fileURLToPath(new URL('./consumed-operations.ts', import.meta.url)),
       {
         encoding: 'utf8',
       },
     );
+    const ranges = markedLineRanges('consumed-operations.ts', source);
+    const marked = consumedOperations.filter((item) =>
+      lineInRanges(ranges, entryLine(source, item.method.meta.name)),
+    );
+    // 只约束标记内的示例条目：标记外的使用方条目不影响"恰好是两个示例接口"的判定（EX-09）。
+    context
+      .expect(marked.map((item) => item.method.meta.name))
+      .toEqual(['CreateTrade', 'QueryTrade']);
+    context.expect(marked.map((item) => Object.keys(item.requestFields).length)).toEqual([21, 7]);
     // 标记块数量随示例片段移动而变：只核验存在且成对，不写死数量（示例片段可增减）。
     const begins = source.match(/\/\/ template-example:begin/g) ?? [];
     const ends = source.match(/\/\/ template-example:end/g) ?? [];

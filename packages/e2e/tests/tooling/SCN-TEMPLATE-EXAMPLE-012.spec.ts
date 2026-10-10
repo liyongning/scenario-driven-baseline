@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'vitest';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
+import { lineInRanges, markedLineRanges } from '../../../../scripts/lib/example-markers.ts';
 import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
 // 消费接口声明不经 SDK 根入口导出：按源码读取（清单登记该模块路径，门禁同样读源码）。
 import { consumedOperations } from '../../../../packages/sdk/src/consumed-operations.ts';
@@ -41,14 +42,27 @@ test(
     const operations = consumedOperations;
     const names = operations.map((operation) => operation.method.meta.name);
 
-    // declaration-registered：清单登记声明模块，模块恰好两个 { method, requestFields } 元素，
-    // method 引用 generated 方法常量而非手写副本，示例条目位于 template-example 标记内。
+    // declaration-registered：清单登记声明模块，标记内的示例条目恰好两个 { method, requestFields } 元素
+    // （标记外的使用方条目不影响判定），method 引用 generated 方法常量而非手写副本。
     context.expect(declarationModules).toEqual(['packages/sdk/src/consumed-operations.ts']);
     const declarationFile = declarationModules[0]!;
     const source = readFileSync(resolve(repositoryRoot, declarationFile), 'utf8');
-    context.expect(operations.length).toBe(2);
+    const ranges = markedLineRanges(declarationFile, source);
+    const entryLine = (name: string) => {
+      const index = source.indexOf(`method: ${name},`);
+      return index < 0 ? -1 : source.slice(0, index).split('\n').length;
+    };
+    const marked = operations.filter((operation) =>
+      lineInRanges(ranges, entryLine(operation.method.meta.name)),
+    );
+    const outside = operations.filter(
+      (operation) => !lineInRanges(ranges, entryLine(operation.method.meta.name)),
+    );
     context
-      .expect(operations.map((operation) => Object.keys(operation.requestFields).length > 0))
+      .expect(marked.map((operation) => operation.method.meta.name))
+      .toEqual(['CreateTrade', 'QueryTrade']);
+    context
+      .expect(marked.map((operation) => Object.keys(operation.requestFields).length > 0))
       .toEqual([true, true]);
     const specifier = /from '([^']*generated\/idl\/[^']+)'/.exec(source)?.[1];
     context.expect(specifier).toBeDefined();
@@ -64,16 +78,23 @@ test(
         };
       }
     >;
-    for (const operation of operations) {
+    // 标记内的示例条目与 generated 方法常量逐一对应（引用同一常量，不是手写副本）。
+    for (const operation of marked) {
       const meta = operation.method.meta;
       const expected = generated[meta.name]?.meta;
-      // 声明直接引用 generated 方法常量并传入其 meta，不是手写副本。
       context.expect(expected, meta.name).toBeDefined();
       context.expect(meta.method, meta.name).toBe(expected!.method);
       context.expect(meta.path, meta.name).toBe(expected!.path);
       context.expect(meta.requestType, meta.name).toBe(expected!.requestType);
       context.expect(meta.responseType, meta.name).toBe(expected!.responseType);
       context.expect(source).toContain(`method: ${meta.name},`);
+    }
+    // 标记外的使用方条目只要求 method 是 generated 方法描述（createMethod 产出的可调用常量）。
+    for (const operation of outside) {
+      const meta = operation.method.meta;
+      context.expect(typeof (operation.method as unknown), meta.name).toBe('function');
+      context.expect(meta.method.length, meta.name).toBeGreaterThan(0);
+      context.expect(meta.path.length, meta.name).toBeGreaterThan(0);
     }
     // 标记块数量随示例片段移动而变：只核验存在且成对，不写死数量（示例片段可增减）。
     const begins = source.match(/\/\/ template-example:begin/g) ?? [];

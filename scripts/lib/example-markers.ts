@@ -71,6 +71,37 @@ export function scanExampleMarkers(path: string, content: string): string[] {
   return issues;
 }
 
+/**
+ * 文件内容里受 `template-example` 标记包裹的行区间（1-based，闭区间）。
+ * 供用例机械识别"标记内的条目"，不在用例里重写一份标记语法。
+ */
+export function markedLineRanges(
+  path: string,
+  content: string,
+): Array<Readonly<{ begin: number; end: number }>> {
+  const ranges: Array<Readonly<{ begin: number; end: number }>> = [];
+  let start: number | null = null;
+  for (const [index, line] of content.split('\n').entries()) {
+    const marker = markerAt(path, line);
+    if (marker === 'begin' && start === null) start = index + 1;
+    else if (marker === 'end' && start !== null) {
+      ranges.push({ begin: start, end: index + 1 });
+      start = null;
+    }
+  }
+  // 未闭合的 begin 视为延伸到文件末尾；标记本身不合法由架构检查报出。
+  if (start !== null) ranges.push({ begin: start, end: Number.MAX_SAFE_INTEGER });
+  return ranges;
+}
+
+/** 某一行是否落在任一标记区间内。 */
+export function lineInRanges(
+  ranges: ReadonlyArray<Readonly<{ begin: number; end: number }>>,
+  line: number,
+): boolean {
+  return ranges.some((range) => line >= range.begin && line <= range.end);
+}
+
 /** 扫描受管文件里的示例标记：未闭合、多余或嵌套时给出文件与行号。 */
 export function checkExampleMarkers(root: string, manifest: ProjectManifest): string[] {
   return markerFiles(root, manifest).flatMap((path) =>
