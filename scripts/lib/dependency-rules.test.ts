@@ -1,11 +1,47 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, test, type TestContext } from 'vitest';
+import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
+import { minimalManifest } from '../../packages/e2e/tests/tooling/controlled-root.ts';
 import { loadProjectManifest, type ProjectManifest } from './project-manifest.ts';
 
 /** 模板自身事实核验：只读真实仓库的清单与契约，不读取门禁实时状态。 */
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+
+const roots: string[] = [];
+
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+/** 临时清单根：只写入一份清单，用于清单 schema 的接受/拒绝判据。 */
+function manifestRoot(manifest: unknown): string {
+  const root = mkdtempSync(join(tmpdir(), 'dependency-rules-'));
+  roots.push(root);
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+  return root;
+}
+
+/** 取配置块；块缺失属于夹具事实错误，直接抛出而不是静默跳过。 */
+function blockAt(config: ReadonlyArray<MaxLinesBlock>, index: number): MaxLinesBlock {
+  const block = config[index];
+  if (!block) throw new Error(`missing max-lines block ${index}`);
+  return block;
+}
+
+/** 把清单里的测试包改名，用来证明测试文件模式随清单派生而不是写死。 */
+function renamedTestManifest(): ProjectManifest {
+  const manifest = loadProjectManifest(repositoryRoot);
+  return {
+    ...manifest,
+    packages: manifest.packages.map((pkg) =>
+      pkg.role === 'test' ? { ...pkg, directory: 'renamed-e2e', name: '@sample/renamed-e2e' } : pkg,
+    ),
+  };
+}
 
 /** 依赖规则生成函数在 CJS 中实现，供 dependency-cruiser 配置与 eslint 配置共用。 */
 type Rule = Readonly<{ name: string; from: { path: string } }>;
@@ -22,6 +58,19 @@ type Rules = Readonly<{
   dependencyRules(manifest: ProjectManifest): ReadonlyArray<Rule>;
   restrictedGlobalFiles(manifest: ProjectManifest): string[];
   runtimeFile(manifest: ProjectManifest): string;
+  SOURCE_MAX_LINES: number;
+  TEST_MAX_LINES: number;
+  testFilePatterns(manifest: ProjectManifest): ReadonlyArray<string>;
+  maxLinesExemptions(
+    manifest: ProjectManifest,
+  ): ReadonlyArray<Readonly<{ path: string; reason: string }>>;
+  maxLinesConfig(manifest: ProjectManifest): ReadonlyArray<MaxLinesBlock>;
+}>;
+
+/** `maxLinesConfig` 返回的一个 ESLint 配置块：命中文件与规则设置。 */
+type MaxLinesBlock = Readonly<{
+  files: ReadonlyArray<string>;
+  rules: Readonly<Record<string, unknown>>;
 }>;
 
 const rules = createRequire(import.meta.url)('./dependency-rules.cjs') as Rules;
@@ -168,3 +217,103 @@ test('module roots default to src and cruise targets skip the test package', () 
     } as unknown as ProjectManifest),
   ).toEqual(['packages/prod/src']);
 });
+
+evidence(
+  'SCN-TEMPLATE-ENGINEERING-010',
+  'baseline-config-rules',
+  ['max-lines-enforced', 'exemptions-by-manifest', 'ignore-entries'],
+  async (context, check) => {
+    await check('max-lines-enforced', () => {
+      // 两档上限与开关：源文件 300、测试文件 600，空行与注释都不计入。
+      context.expect([rules.SOURCE_MAX_LINES, rules.TEST_MAX_LINES]).toEqual([300, 600]);
+      const manifest = loadProjectManifest(repositoryRoot);
+      const config = rules.maxLinesConfig(manifest);
+      const source = blockAt(config, 0);
+      const tests = blockAt(config, 1);
+      context.expect(config).toHaveLength(2);
+      context.expect(source.files).toEqual(['**/*.{js,mjs,cjs,ts,mts,cts}']);
+      context
+        .expect(source.rules['max-lines'])
+        .toEqual(['error', { max: 300, skipBlankLines: true, skipComments: true }]);
+      context.expect(tests.files).toEqual(rules.testFilePatterns(manifest));
+      context
+        .expect(tests.rules['max-lines'])
+        .toEqual(['error', { max: 600, skipBlankLines: true, skipComments: true }]);
+      // 测试块排在源块之后：ESLint 后写覆盖，测试文件因此按 600 判。
+      context.expect(config.indexOf(source)).toBeLessThan(config.indexOf(tests));
+      // 测试文件集合只含代码扩展名，且测试包目录取自清单。
+      const patterns = rules.testFilePatterns(manifest);
+      context
+        .expect(patterns)
+        .toEqual([
+          '**/*.test.{js,mjs,cjs,ts,mts,cts}',
+          '**/*.spec.{js,mjs,cjs,ts,mts,cts}',
+          'packages/e2e/tests/**/*.{js,mjs,cjs,ts,mts,cts}',
+        ]);
+      context
+        .expect(patterns.every((pattern) => pattern.endsWith('{js,mjs,cjs,ts,mts,cts}')))
+        .toBe(true);
+      context
+        .expect(rules.testFilePatterns(renamedTestManifest()).at(-1))
+        .toBe('packages/renamed-e2e/tests/**/*.{js,mjs,cjs,ts,mts,cts}');
+    });
+
+    await check('exemptions-by-manifest', () => {
+      // 模板自身的豁免为空：拆分是唯一出路，没有整文件豁免。
+      const repository = loadProjectManifest(repositoryRoot);
+      context.expect(rules.maxLinesExemptions(repository)).toEqual([]);
+      context.expect(repository.quality?.maxLinesExemptions).toEqual([]);
+      // 清单登记的豁免生成整文件关闭块，且只在源/测试两档之后追加。
+      const exempted: ProjectManifest = {
+        ...repository,
+        quality: {
+          coverageExclusions: [],
+          maxLinesExemptions: [{ path: 'scripts/legacy.ts', reason: '历史文件待拆分' }],
+        },
+      };
+      const config = rules.maxLinesConfig(exempted);
+      const exemption = config.at(-1);
+      context.expect(config).toHaveLength(3);
+      context.expect(exemption?.files).toEqual(['scripts/legacy.ts']);
+      context.expect(exemption?.rules['max-lines']).toBe('off');
+      // 豁免只来自清单登记，且必须带理由（schema 拒绝缺理由的条目）。
+      // 清单没有质量块时豁免为空（不回退到任何默认豁免）。
+      context
+        .expect(rules.maxLinesExemptions({ packages: [] } as unknown as ProjectManifest))
+        .toEqual([]);
+      const missingReason = manifestRoot({
+        ...minimalManifest(),
+        quality: { coverageExclusions: [], maxLinesExemptions: [{ path: 'scripts/legacy.ts' }] },
+      });
+      context.expect(() => loadProjectManifest(missingReason)).toThrow(/does not match/);
+      const withReason = manifestRoot({
+        ...minimalManifest(),
+        quality: {
+          coverageExclusions: [],
+          maxLinesExemptions: [{ path: 'scripts/legacy.ts', reason: '历史文件待拆分' }],
+        },
+      });
+      context
+        .expect(rules.maxLinesExemptions(loadProjectManifest(withReason)))
+        .toEqual([{ path: 'scripts/legacy.ts', reason: '历史文件待拆分' }]);
+    });
+
+    await check('ignore-entries', () => {
+      // 根 .gitignore 不再忽略 openspec/schemas/（工作流 schema 由本地 exclude 处理）。
+      const gitignore = readFileSync(join(repositoryRoot, '.gitignore'), 'utf8')
+        .split('\n')
+        .map((line) => line.trim());
+      context.expect(gitignore).not.toContain('openspec/schemas/');
+      context.expect(gitignore.filter((line) => line.startsWith('openspec/'))).toEqual([]);
+      // ESLint 全局 ignores 含 .local/**：本地临时违规文件不参与 lint。
+      // 行为证据（显式指向 .local 下文件被跳过）在 SCN-TEMPLATE-ENGINEERING-010 的
+      // integration case `max-lines-cli` 覆盖；这里只核配置入口，避免 unit 里加载 ESLint 配置。
+      const config = readFileSync(join(repositoryRoot, 'eslint.config.js'), 'utf8');
+      const start = config.indexOf('ignores: [');
+      const ignoresBlock = config.slice(start, config.indexOf(']', start));
+      context.expect(start).toBeGreaterThan(-1);
+      context.expect(ignoresBlock).toContain("'.local/**'");
+      context.expect(ignoresBlock).toContain("'artifacts/**'");
+    });
+  },
+);

@@ -1,269 +1,57 @@
-import { execFile } from 'node:child_process';
-import { type Stats } from 'node:fs';
-import {
-  chmod,
-  lstat,
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rename,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { promisify } from 'node:util';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   checkReleaseRecord,
   parseReleaseInput,
   readReleaseWorkspaceFacts,
   releaseMissingMessage,
-  type ReleaseInput,
 } from './check-release';
-import { loadProjectManifest, type ReleaseSettings } from './lib/project-manifest';
+import { loadProjectManifest } from './lib/project-manifest';
+import {
+  createSdkReleasePlan,
+  inspectReleaseSource,
+  scopeOf,
+  type ReleasePlanInput,
+  type ReleaseSource,
+  type SdkReleaseStep,
+} from './lib/release-plan.ts';
+import {
+  execute,
+  inspectRegistry,
+  type CommandExecutor,
+  type RegistryInspectionRequest,
+  type SdkReleaseOptions,
+} from './lib/release-execution.ts';
+import {
+  argument,
+  assertPathGuard,
+  assertSnapshotIntegrity,
+  bestEffortRemove,
+  capturePathGuard,
+  captureSnapshotIdentity,
+  pathInside,
+  writeCheckpoint,
+} from './lib/release-guards.ts';
 
-const execFileAsync = promisify(execFile);
-
-export type ReleaseCommand = Readonly<{ file: string; args: readonly string[]; cwd?: string }>;
-export type SdkReleaseStep = Readonly<{
-  name: 'build-protocol' | 'publish-protocol' | 'build-sdk' | 'publish-sdk';
-  command: ReleaseCommand;
-}>;
-export type RegistryState = 'missing' | 'existing';
-export type ReleasePlanInput = Readonly<{
-  record: ReleaseInput;
-  resultPath: string;
-  checkpointPath: string;
-}>;
-export type ReleasePlanDescriptionInput = Readonly<{
-  record: ReleaseInput;
-  protocolState?: RegistryState;
-  sdkState?: RegistryState;
-  release: ReleaseSettings;
-}>;
-export type ReleaseSource = Readonly<{ headRevision: string; tagRevision: string; clean: boolean }>;
-
-/** 从真实 checkout 独立读取发布来源，避免发布记录用自身字段完成自证。 */
-export async function inspectReleaseSource(root: string, tag: string): Promise<ReleaseSource> {
-  const git = async (args: readonly string[]) =>
-    (await execFileAsync('git', [...args], { cwd: root, encoding: 'utf8' })).stdout.trim();
-  const [headRevision, tagRevision, status] = await Promise.all([
-    git(['rev-parse', 'HEAD']),
-    git(['rev-parse', `${tag}^{commit}`]),
-    git(['status', '--porcelain', '--untracked-files=all']),
-  ]);
-  return { headRevision, tagRevision, clean: status.length === 0 };
-}
-
-const scopeOf = (packageName: string) => packageName.slice(0, packageName.indexOf('/'));
-const registryArguments = (registry: string, packageName: string) =>
-  ['--registry', registry, `--${scopeOf(packageName)}:registry=${registry}`] as const;
-
-/** 正式发布构建后调用两个产品 workspace 的正常 publish；本地 pack/check:package 不属于该计划。 */
-export function createSdkReleasePlan(input: ReleasePlanDescriptionInput): SdkReleaseStep[] {
-  if (input.release.registry.includes('<PROJECT_ID>')) {
-    throw new Error(
-      'release registry is a template placeholder; set release.registry in project.manifest.json',
-    );
-  }
-  const registry = input.release.registry;
-  return [
-    ...(input.protocolState === 'existing'
-      ? []
-      : [
-          {
-            name: 'build-protocol' as const,
-            command: {
-              file: 'pnpm',
-              args: ['--filter', input.record.protocol.name, 'run', 'build'],
-            },
-          },
-          {
-            name: 'publish-protocol' as const,
-            command: {
-              file: 'pnpm',
-              args: [
-                '--filter',
-                input.record.protocol.name,
-                'publish',
-                '--no-git-checks',
-                ...registryArguments(registry, input.record.protocol.name),
-              ],
-            },
-          },
-        ]),
-    ...(input.sdkState === 'existing'
-      ? []
-      : [
-          {
-            name: 'build-sdk' as const,
-            command: { file: 'pnpm', args: ['--filter', input.record.sdk.name, 'run', 'build'] },
-          },
-          {
-            name: 'publish-sdk' as const,
-            command: {
-              file: 'pnpm',
-              args: [
-                '--filter',
-                input.record.sdk.name,
-                'publish',
-                '--no-git-checks',
-                ...registryArguments(registry, input.record.sdk.name),
-              ],
-            },
-          },
-        ]),
-  ];
-}
-
-export type CommandExecutor = (command: ReleaseCommand, env: NodeJS.ProcessEnv) => Promise<void>;
-export type RegistryInspection = Readonly<{ state: RegistryState }>;
-export type RegistryInspectionRequest = Readonly<{
-  name: string;
-  version: string;
-  registry: string;
-}>;
-export type RegistryInspector = (
-  request: RegistryInspectionRequest,
-  env: NodeJS.ProcessEnv,
-) => Promise<RegistryInspection>;
-export type SdkReleaseOptions = Readonly<{
-  root: string;
-  sourceInspector?: (root: string, tag: string) => Promise<ReleaseSource>;
-  env?: NodeJS.ProcessEnv;
-  tokenEnv?: string;
-  registryInspector?: RegistryInspector;
-}>;
-
-/* v8 ignore start -- 外部进程边界由受控 executor 注入测试，真实调用只做参数转发。 */
-const execute: CommandExecutor = async (command, env) => {
-  await execFileAsync(command.file, [...command.args], { cwd: command.cwd, env });
-};
-/* v8 ignore stop */
-
-/* v8 ignore start -- 真实 registry 边界由注入 inspector 测试，默认实现只做版本可读性检查。 */
-const inspectRegistry: RegistryInspector = async (request, env) => {
-  try {
-    const { stdout } = await execFileAsync(
-      'npm',
-      [
-        'view',
-        `${request.name}@${request.version}`,
-        'version',
-        '--json',
-        ...registryArguments(request.registry, request.name),
-      ],
-      { env, encoding: 'utf8' },
-    );
-    const version = JSON.parse(stdout) as unknown;
-    if (version !== request.version)
-      throw new Error(`registry returned unexpected version ${String(version)}`);
-    return { state: 'existing' };
-  } catch (error) {
-    const text = String(error);
-    if (/E404|404 Not Found|is not in this registry/i.test(text)) return { state: 'missing' };
-    const issue = new Error(
-      `registry lookup failed for ${request.name}@${request.version}: ${text}`,
-    ) as Error & { cause: unknown };
-    issue.cause = error;
-    throw issue;
-  }
-};
-/* v8 ignore stop */
-
-type FileIdentity = Readonly<{ dev: number; ino: number; nlink: number }>;
-type SnapshotIdentity = FileIdentity & Readonly<{ bytes: string }>;
-type PathGuard = Readonly<{
-  path: string;
-  label: string;
-  ancestors: ReadonlyArray<Readonly<{ path: string; identity: FileIdentity }>>;
-}>;
-const identity = (stat: Stats): FileIdentity => ({
-  dev: stat.dev,
-  ino: stat.ino,
-  nlink: stat.nlink,
-});
-const sameIdentity = (left: FileIdentity, right: FileIdentity) =>
-  left.dev === right.dev && left.ino === right.ino && left.nlink === right.nlink;
-const sameNode = (left: FileIdentity, right: FileIdentity) =>
-  left.dev === right.dev && left.ino === right.ino;
-
-async function optionalLstat(path: string): Promise<Stats | undefined> {
-  try {
-    return await lstat(path);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-    throw error;
-  }
-}
-
-async function captureSnapshotIdentity(path: string): Promise<SnapshotIdentity> {
-  const stat = await lstat(path);
-  return { ...identity(stat), bytes: await readFile(path, 'utf8') };
-}
-
-async function assertSnapshotIntegrity(path: string, expected: SnapshotIdentity): Promise<void> {
-  const stat = await lstat(path);
-  if (
-    !stat.isFile() ||
-    stat.isSymbolicLink() ||
-    (stat.mode & 0o777) !== 0o400 ||
-    !sameIdentity(identity(stat), expected)
-  ) {
-    throw new Error('release record snapshot integrity changed during release');
-  }
-  if ((await readFile(path, 'utf8')) !== expected.bytes)
-    throw new Error('release record snapshot content changed during release');
-}
-
-async function capturePathGuard(root: string, path: string, label: string): Promise<PathGuard> {
-  const ancestors: Array<Readonly<{ path: string; identity: FileIdentity }>> = [];
-  const offset = relative(root, dirname(path));
-  let candidate = root;
-  for (const component of offset.split(sep).filter(Boolean)) {
-    candidate = join(candidate, component);
-    const stat = await lstat(candidate);
-    ancestors.push({ path: candidate, identity: identity(stat) });
-  }
-  const target = await optionalLstat(path);
-  /* v8 ignore next -- pathInside 已在进入发布生命周期前拒绝现有及悬空 symlink；这里是并发替换的防御复核。 */
-  if (target?.isSymbolicLink()) throw new Error(`${label} must not be a symbolic link`);
-  return { path, label, ancestors };
-}
-
-async function assertPathGuard(guard: PathGuard): Promise<void> {
-  for (const ancestor of guard.ancestors) {
-    const stat = await lstat(ancestor.path);
-    if (
-      !stat.isDirectory() ||
-      stat.isSymbolicLink() ||
-      !sameNode(identity(stat), ancestor.identity)
-    ) {
-      throw new Error(`${guard.label} path identity changed during release`);
-    }
-  }
-  const target = await optionalLstat(guard.path);
-  if (target?.isSymbolicLink()) throw new Error(`${guard.label} must not be a symbolic link`);
-}
-
-async function writeCheckpoint(path: string, value: unknown): Promise<void> {
-  const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
-  await rename(temporary, path);
-}
-
-async function bestEffortRemove(
-  path: string,
-  options: Readonly<{ recursive?: boolean }> = {},
-): Promise<void> {
-  try {
-    await rm(path, { recursive: options.recursive ?? false, force: true });
-  } catch {
-    /* v8 ignore next -- 最终清理不得覆盖已经确定的发布结果或原始失败。 */
-  }
-}
+// 拆分后保持既有公共出口：发布计划与执行边界由 lib/ 下的模块提供。
+export { createSdkReleasePlan, inspectReleaseSource } from './lib/release-plan.ts';
+export type {
+  RegistryState,
+  ReleaseCommand,
+  ReleasePlanDescriptionInput,
+  ReleasePlanInput,
+  ReleaseSource,
+  SdkReleaseStep,
+} from './lib/release-plan.ts';
+export type {
+  CommandExecutor,
+  RegistryInspection,
+  RegistryInspectionRequest,
+  RegistryInspector,
+  SdkReleaseOptions,
+} from './lib/release-execution.ts';
 
 export async function runSdkRelease(
   input: ReleasePlanInput,
@@ -464,52 +252,6 @@ export async function runSdkRelease(
     await bestEffortRemove(resultTemporaryPath);
     await bestEffortRemove(stagingDir, { recursive: true });
   }
-}
-
-function argument(argv: readonly string[], name: string): string | undefined {
-  const index = argv.indexOf(name);
-  return index < 0 ? undefined : argv[index + 1];
-}
-
-function outsideRoot(rootPath: string, path: string): boolean {
-  const offset = relative(rootPath, path);
-  return offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset);
-}
-
-async function rejectSymlinkComponents(
-  rootPath: string,
-  path: string,
-  label: string,
-  mustExist: boolean,
-): Promise<void> {
-  const offset = relative(rootPath, path);
-  let candidate = rootPath;
-  for (const component of offset.split(sep).filter(Boolean)) {
-    candidate = join(candidate, component);
-    const stat = await optionalLstat(candidate);
-    if (!stat) {
-      if (mustExist) throw new Error(`${label} does not exist`);
-      return;
-    }
-    if (stat.isSymbolicLink()) throw new Error(`${label} must not traverse a symbolic link`);
-  }
-}
-
-async function pathInside(
-  root: string,
-  value: string,
-  label: string,
-  mustExist = false,
-): Promise<string> {
-  const lexicalRoot = resolve(root);
-  const rootPath = await realpath(lexicalRoot);
-  const lexicalPath = resolve(lexicalRoot, value);
-  if (outsideRoot(lexicalRoot, lexicalPath))
-    throw new Error(`${label} must stay inside the repository`);
-  const offset = relative(lexicalRoot, lexicalPath);
-  const path = resolve(rootPath, offset);
-  await rejectSymlinkComponents(rootPath, path, label, mustExist);
-  return mustExist ? realpath(path) : path;
 }
 
 /* v8 ignore start -- CLI 参数薄壳；发布顺序与失败阻断由 runSdkRelease 的注入执行器验证。 */

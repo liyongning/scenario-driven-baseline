@@ -483,7 +483,7 @@
   **Commit**
   - `feat(template): generate X-Request-Id per company convention`
 
-- [ ] 14. 行数上限与超限文件拆分
+- [x] 14. 行数上限与超限文件拆分
 
   **Files**
   - Modify：`eslint.config.js`（`max-lines`：源 300、测试 600、`skipBlankLines`/`skipComments`，豁免读取 `quality.maxLinesExemptions`）。

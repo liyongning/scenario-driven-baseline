@@ -162,6 +162,39 @@ function runtimeFile(manifest) {
   return `packages/${escapeRegExp(product.directory)}/${escapeRegExp(sourceRoot(product))}/runtime/default.ts`;
 }
 
+/** 行数上限：源文件 300、测试文件 600；空行与注释都不计入。 */
+const SOURCE_MAX_LINES = 300;
+const TEST_MAX_LINES = 600;
+
+/** 测试文件集合：任意 `*.test.*` / `*.spec.*`，以及测试角色包 `tests/` 目录下的全部文件。 */
+function testFilePatterns(manifest) {
+  const test = packageByRole(manifest, 'test');
+  const code = '{js,mjs,cjs,ts,mts,cts}';
+  return [
+    `**/*.test.${code}`,
+    `**/*.spec.${code}`,
+    `packages/${escapeRegExp(test.directory)}/tests/**/*.${code}`,
+  ];
+}
+
+/** 行数豁免只来自清单登记；schema 已强制每项带非空理由。 */
+function maxLinesExemptions(manifest) {
+  return manifest.quality?.maxLinesExemptions ?? [];
+}
+
+/** ESLint 的 max-lines 配置块：源文件、测试文件两档，外加清单登记的整文件豁免。 */
+function maxLinesConfig(manifest) {
+  const limit = (max) => ['error', { max, skipBlankLines: true, skipComments: true }];
+  return [
+    { files: ['**/*.{js,mjs,cjs,ts,mts,cts}'], rules: { 'max-lines': limit(SOURCE_MAX_LINES) } },
+    { files: testFilePatterns(manifest), rules: { 'max-lines': limit(TEST_MAX_LINES) } },
+    ...maxLinesExemptions(manifest).map((item) => ({
+      files: [item.path],
+      rules: { 'max-lines': 'off' },
+    })),
+  ];
+}
+
 module.exports = {
   escapeRegExp,
   packageByRole,
@@ -172,4 +205,9 @@ module.exports = {
   dependencyRules,
   restrictedGlobalFiles,
   runtimeFile,
+  SOURCE_MAX_LINES,
+  TEST_MAX_LINES,
+  testFilePatterns,
+  maxLinesExemptions,
+  maxLinesConfig,
 };

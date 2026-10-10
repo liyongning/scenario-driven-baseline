@@ -1,10 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { join, resolve } from 'node:path';
-import remarkParse from 'remark-parse';
-import remarkGfm from 'remark-gfm';
-import { unified } from 'unified';
-import { nodeText } from './spec-inventory.ts';
+import { resolve } from 'node:path';
+import { deltaSection, filesUnder, outsideFlowTable, requirements } from './spec-parse.ts';
 
 export type SpecSource = Readonly<{
   path: string;
@@ -47,77 +44,6 @@ export function normalizeRequirementBlock(block: string): string {
 /** Requirement 块规范化文本的 sha256：只改换行、行尾空白或空行时摘要不变。 */
 export function requirementDigest(block: string): string {
   return createHash('sha256').update(normalizeRequirementBlock(block)).digest('hex');
-}
-
-async function filesUnder(root: string): Promise<string[]> {
-  try {
-    const entries = await readdir(root, { withFileTypes: true });
-    const nested = await Promise.all(
-      entries.flatMap((entry) => {
-        if (entry.name === 'archive') return [];
-        const path = join(root, entry.name);
-        return entry.isDirectory()
-          ? [filesUnder(path)]
-          : entry.name === 'spec.md'
-            ? [Promise.resolve([path])]
-            : [];
-      }),
-    );
-    return nested.flat().sort();
-  } catch {
-    return [];
-  }
-}
-
-function requirements(content: string, source: SpecSource): EffectiveRequirement[] {
-  const lines = content.split(/\r?\n/);
-  const starts: number[] = [];
-  lines.forEach((line, index) => {
-    if (/^### Requirement:\s+/.test(line)) starts.push(index);
-  });
-  return starts.map((start, index) => {
-    // 块到下一个 Requirement 标题、任一更高级标题（# / ##）或文件结束为止。
-    let end = starts[index + 1] ?? lines.length;
-    for (let cursor = start + 1; cursor < end; cursor += 1)
-      if (/^#{1,2}\s/.test(lines[cursor]!)) {
-        end = cursor;
-        break;
-      }
-    const heading = lines[start]!.replace(/^### Requirement:\s+/, '').trim();
-    const id = heading.split(/\s+/, 1)[0]!;
-    return {
-      id,
-      title: heading,
-      block: lines.slice(start, end).join('\n').trimEnd(),
-      changes: [],
-      source,
-    };
-  });
-}
-
-function outsideFlowTable(content: string): boolean {
-  let inRequirement = false;
-  const tree = unified().use(remarkParse).use(remarkGfm).parse(content);
-  for (const node of tree.children) {
-    if (node.type === 'heading' && node.depth <= 3) {
-      inRequirement = node.depth === 3 && /^Requirement:\s+/.test(nodeText(node));
-    }
-    if (
-      node.type === 'table' &&
-      !inRequirement &&
-      nodeText(node.children[0]?.children[0]) === 'FLOW ID'
-    )
-      return true;
-  }
-  return false;
-}
-
-function deltaSection(content: string, name: string): string {
-  const start = content.indexOf(`## ${name} Requirements`);
-  if (start < 0) return '';
-  const rest = content.slice(start + `## ${name} Requirements`.length);
-  const next = rest.search(/^##\s+/m);
-  return next < 0 ? rest : rest.slice(0, next);
 }
 
 export async function activeChangeNames(repositoryRoot: string): Promise<string[]> {

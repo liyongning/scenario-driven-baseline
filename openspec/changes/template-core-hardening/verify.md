@@ -911,3 +911,87 @@
 - Shadow 的 `headerPatterns` 复用平台内置 `RegExp` 与既有 `verify()` 问题通道，未引入 JSON Schema 或正则库。
 - 单测的断言上报复用 Vitest 原生 `context.annotate` 与 `context.expect.getState()`（仓库既有 `records-and-polling.test.ts` 使用同一模式），未自研上报机制。
 - 时区证据复用 Node 内置 `execFileSync` 子进程 + `TZ` 环境变量，未引入时区库。
+
+### Task 14 行数上限与超限文件拆分
+
+**Commit message**：`refactor(template): enforce max-lines and split oversized modules`
+
+**RED（预期失败的反例，已实际执行）**
+- 规则启用后 `pnpm lint` 退出码 **1**，列出 10 个超限文件（`/tmp/t14-red-lint2.log`）；括号内为 ESLint `max-lines` 报出的有效行数（空行与注释不计）：`scripts/check-scenarios.test.ts` 1123、`scripts/check-scenarios.ts` 705、`scripts/lib/contract-inventory.test.ts` 1258、`scripts/lib/contract-inventory.ts` 548、`scripts/lib/spec-sources.ts` 306、`scripts/sdk-release.test.ts` 794、`scripts/sdk-release.ts` 513、`scripts/test-affected.test.ts` 670、`scripts/test-affected.ts` 578、`scripts/verify.ts` 309。
+- 新增用例自身也先失败：临时删除 `eslint.config.js` 的 `...dependencyRules.maxLinesConfig(manifest)` 后运行 `pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-010.spec.ts`，退出码 **1**（`max-lines-cli` 的 `max-lines-enforced` 断言 `expected +0 not to be +0`：301 行源文件未被拦下，`/tmp/t14-red-scn010.log`）；用备份还原（逐字节一致）后同一命令退出码 **0**（`/tmp/t14-green-scn010.log`）。
+
+**GREEN**
+- `pnpm lint` 退出码 **0**（`/tmp/t14-lint2.log`）。
+- `pnpm test:unit`（run id `t14-unit2`）退出码 **0**：62 文件 / 366 用例；覆盖率 Statements **3113/3113**、Branches **2082/2082**、Functions **571/571**、Lines **2753/2753**，四项 **100%**（`/tmp/t14-unit2.log`）。
+- `pnpm typecheck`、`tsc -p tsconfig.tools.json --noEmit`、`pnpm format:check` 退出码 **0**（`/tmp/t14-typecheck2.log`、`/tmp/t14-tsc-tools.log`、`/tmp/t14-format2.log`）。
+- 新增用例的两个 case 单独运行退出码 **0**（`/tmp/t14-green-scn010.log`）：`format-check-cli` 439ms、`max-lines-cli` 1857ms。
+- 作用域内 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast`（run id `t14-checkfast2`）退出码 **0**（`/tmp/t14-checkfast2.log`）：单测 62/366、覆盖率四项 100%、集成 52 文件 / 115 用例、`check:fixtures` 与 `check:package` 均 `issues: []`。
+- 作用域内 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T005120Z`）退出码 **0**（`/tmp/t14-affected2.log`）：39 个改动文件因 `eslint.config.js` 属工具配置 → **全量触发 `pnpm check:fast`**，全量退出码 0。
+
+**命令与退出码**
+
+| 命令 | 退出码 | 证据 |
+| --- | --- | --- |
+| `pnpm lint`（RED，规则启用未拆分） | 1 | 10 个超限文件，`/tmp/t14-red-lint2.log` |
+| SCN-010 integration（RED：`maxLinesConfig` 未接线） | 1 | 301 行未被拦下，`/tmp/t14-red-scn010.log` |
+| SCN-010 integration（还原后复跑） | 0 | 2 case 通过，`/tmp/t14-green-scn010.log` |
+| `pnpm lint`（GREEN） | 0 | `/tmp/t14-lint2.log` |
+| `pnpm test:unit`（run id `t14-unit2`） | 0 | 62 文件 / 366 用例，覆盖率四项 100%，`/tmp/t14-unit2.log` |
+| `pnpm typecheck` / `tsc -p tsconfig.tools.json` / `pnpm format:check` | 0 | `/tmp/t14-typecheck2.log`、`/tmp/t14-tsc-tools.log`、`/tmp/t14-format2.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm check:fast`（run id `t14-checkfast2`） | 0 | 62/366 单测 + 52/115 集成，`/tmp/t14-checkfast2.log` |
+| `SCENARIO_GATE_CHANGES=… pnpm test:affected` | 0 | 工具配置 → 全量触发 `check:fast`，`/tmp/t14-affected2.log` |
+| `pnpm verify --change template-core-hardening --run-id core-hardening-t14c` | 1 | check:fast **0**（120794ms）、weapp **0**（215613ms）、check:scenarios **1**（1405ms、6 条，全部可归属后续任务），`/tmp/t14-verify3.log` |
+
+**报告路径**：`artifacts/core-hardening-t14c/reports/{unit.json,integration.json}`；weapp 逐文件报告 `artifacts/core-hardening-t14c/reports/weapp/<文件名>.json`；覆盖率 `artifacts/core-hardening-t14c/coverage/`。`check:scenarios` 结论以 stdout JSON 为准（完整输出在 `/tmp/t14-verify3.log`）；首次全量（`core-hardening-t14b`）与首次按需（`affected-20261010T004948Z`）的失败日志分别在 `/tmp/t14-verify2.log`、`/tmp/t14-affected.log`。
+
+**场景门禁剩余问题归属（6 条，9 → 6）**
+- 全部为后续任务 case 的 `missing binding`，本任务负责的 `SCN-TEMPLATE-ENGINEERING-010` 三条（`baseline-config-rules`、`format-check-cli`、`max-lines-cli`）已全部绑定并清零。
+- `SCN-TEMPLATE-ENGINEERING-011`：2 条（`project-map-rules`、`project-map-violations-cli`）→ **Task 15**。
+- `SCN-TEMPLATE-ENGINEERING-012`：2 条（`architecture-doc-rules`、`architecture-doc-violations-cli`）→ **Task 16**。
+- `SCN-TEMPLATE-ENGINEERING-008`：2 条（`example-removal-fast`、`example-removal-scenarios`）→ **Task 17 自动化部分**（用例由本会话交付，演练与勾选由验收方执行）。
+- 无过期报告、无未登记 checkpoint、无 `did not execute` / `no executed assertions` 回归项（工程类 executed 103/107、module 54/56，差额即上述 6 条）。
+
+**Review / Acceptance：拆分前后行数与新模块职责**
+- 行数口径 = ESLint `max-lines` 自身计数（临时把上限设为 1 读出 N，`skipBlankLines`/`skipComments` 生效），与门禁判据同一套；拆分前数字取自 RED 的失败信息。
+
+| 原文件（拆分前有效行） | 拆分后（有效行） | 新模块职责 |
+| --- | --- | --- |
+| `scripts/verify.ts` 309 | `verify.ts` 258 + `lib/verify-arguments.ts` 54 | 帮助文案与 CLI 参数解析 |
+| `scripts/lib/spec-sources.ts` 306 | `spec-sources.ts` 237 + `lib/spec-parse.ts` 73 | 目录枚举、Requirement 块、FLOW 表外文本与 delta 小节解析 |
+| `scripts/test-affected.ts` 578 | `test-affected.ts` 276 + `lib/affected-types.ts` 6 + `lib/affected-analysis.ts` 81 + `lib/affected-bindings.ts` 98 + `lib/affected-triggers.ts` 44 + `lib/affected-spec.ts` 98 | 类型、变化分析、Spec 绑定解析、全量触发路径、受影响 Spec 计算 |
+| `scripts/test-affected.test.ts` 670 | `test-affected.test.ts` 553 + `test-affected.arguments.test.ts` 122 | 参数与静态提取段独立；公共夹具 `writeProjectManifest`/`base()` 移到 `packages/e2e/tests/tooling/helpers.ts`（206） |
+| `scripts/sdk-release.ts` 513 | `sdk-release.ts` 281 + `lib/release-plan.ts` 91 + `lib/release-execution.ts` 57 + `lib/release-guards.ts` 134 | Plan 生成、执行步骤、前置守卫；原公共出口全部 re-export，入口不变 |
+| `scripts/sdk-release.test.ts` 794 | `sdk-release.test.ts` 509 + `sdk-release.plan.test.ts` 172 | 计划/预检段独立；共享夹具移到 `packages/e2e/tests/tooling/sdk-release-fixture.ts`（149） |
+| `scripts/lib/contract-inventory.ts` 548 | `contract-inventory.ts` 297 + `lib/contract-fields.ts` 160 + `lib/contract-ast.ts` 112 | 义务与字段派生 ／ 程序、别名与字面量解析 |
+| `scripts/lib/contract-inventory.test.ts` 1258 | `contract-inventory.test.ts` 297 + `contract-inventory.derivation.test.ts` 350 + `contract-inventory.scan.test.ts` 593 | 真实仓库事实核验 ／ 派生规则 ／ 扫描与调用绑定；共享夹具移到 `packages/e2e/tests/tooling/contract-inventory-fixture.ts`（68） |
+| `scripts/check-scenarios.ts` 705 | `check-scenarios.ts` 221 + `lib/scenario-precheck.ts` 102 + `lib/scenario-coverage.ts` 269 + `lib/scenario-reports.ts` 73 + `lib/scenario-staleness.ts` 58 | 预检、覆盖率对账、报告读取、过期判定 |
+| `scripts/check-scenarios.test.ts` 1123 | `check-scenarios.test.ts` 369 + `check-scenarios.gate.test.ts` 368 + `check-scenarios.checkpoint.test.ts` 321 | 主流程 ／ 门禁规则 ／ checkpoint 对账 |
+| （本任务新增） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-010.spec.ts` 192 | 格式与行数基线的受控根 CLI 用例 |
+
+- 拆分只移动代码：`pnpm test:unit` 用例总数由 365 → 366（仅新增 SCN-010 的 module case），既有断言语义未改；`sdk-release.ts`、`contract-inventory.ts` 等公共出口集合未变（`check:package`、`check:architecture` 均通过）。
+- 拆分后所有源文件 < 300、测试文件 < 600 有效行；清单 `quality.maxLinesExemptions` 保持为 `[]`（无整文件豁免）。
+
+**方案与实际的差异**（含 Task 14 Files 之外的改动；均为按契约补充或同步受影响产物，未改规划语义）
+1. **规则实现落在共享 CJS 生成器**：`scripts/lib/dependency-rules.cjs` 新增 `SOURCE_MAX_LINES`/`TEST_MAX_LINES`/`testFilePatterns`/`maxLinesExemptions`/`maxLinesConfig`，`eslint.config.js` 只展开 `...dependencyRules.maxLinesConfig(manifest)`；与 dependency-cruiser 规则同源，避免在 eslint 配置里另写一份清单读取逻辑。测试文件模式限定代码扩展名（`{js,mjs,cjs,ts,mts,cts}`），E2E 目录按清单测试包派生。
+2. **受控根夹具的清单需写成 `format:check` 认得的样式**：`createControlledRoot` 用 `JSON.stringify(...,null,2)` 写清单，短数组会被 Prettier 判为未格式化；用例改用 `prettier.format(...)` 写夹具清单。这是夹具细节，不在断言面内，也不改门禁语义。
+3. **unit 用例不加载 `eslint.config.js`**：实测在 test-tools-unit 里 `await import('eslint.config.js')` 会让 `dependency-rules.cjs` 经 Vite 二次实例化，覆盖率归因错位（该文件由 100% 掉到 60.41%，`/tmp/t14-unit.log`）。改为断言配置源码的全局 `ignores` 段含 `.local/**`；「显式指向 `.local` 下文件被跳过」的行为证据由 `max-lines-cli` 的 `ignore-entries` 承担。
+4. **覆盖率补齐**：`maxLinesExemptions` 的兜底分支（清单无 `quality` 时返回 `[]`）由本任务 module case 覆盖，覆盖率回到四项 100%。
+5. **超时调整（预授权项，均为副本/重负载用例；只改超时，断言与语义未动）**：
+   - `scripts/lib/contract-inventory.scan.test.ts` 两个用例补 `{ timeout: 30_000 }`：GATE-026 副本内命中默认 5s（实测 12482ms / 6764ms，`/tmp/t14-checkfast.log`）。
+   - `scripts/lib/contract-inventory.test.ts` 四个用例补 `{ timeout: 30_000 }`：副本内实测 5833ms / 4295ms / 3038ms / 5807ms（`treats a single-params union…` 在 5s 处超时，`/tmp/t14-verify.log`）。
+   - `scripts/lib/contract-inventory.derivation.test.ts` 的单用例由 `30_000` 提到 `60_000`：这条**超出预授权的字面范围**（原已有 30s，不是默认 5s），原因是拆分让三个重负载文件并行后副本内实测 38.3s（`/tmp/t14-verify.log`）、满负载 21.5s（`/tmp/t14-checkfast2.log`），30s 预算不再够用。
+6. **`SCN-TEMPLATE-EXAMPLE-005 window-and-timeout` 计时抖动（非本任务回归）**：首次全量 `core-hardening-t14b` 的 `check:fast` 因 `expected 1 to be greater than or equal to 2` 失败（`/tmp/t14-verify2.log`），单跑 493ms 通过（`/tmp/t14-rerun-005.log`），随后 `core-hardening-t14c` 的 check:fast 通过。与 Task 11 记录的同一计时抖动现象一致，本任务未改动示例与运行时。
+
+**weapp 重跑记录**：本任务无 weapp 改动。全量 `verify`（run id `core-hardening-t14c`）weapp 步骤退出码 **0**（215613ms），5 个文件首跑全绿、**无重跑**：`SCN-PROTOCOL-CONTRACT-002` 11530ms、`SCN-PROTOCOL-CONTRACT-008` 11256ms、`FLOW-TEMPLATE-EXAMPLE-001` 11698ms、`SCN-TEMPLATE-EXAMPLE-002` 10986ms、`SCN-TEMPLATE-EXAMPLE-004` 11488ms。
+
+**按需选择结果**
+- `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`（run id `affected-20261010T005120Z`）退出码 **0**：39 个改动文件命中全量触发，原因是 `eslint.config.js` 属工具配置（全量触发路径），未退化为精确子集；全量 `check:fast` 退出码 0。选择规则按契约生效，未发现选择错误。
+- 首次按需运行（`affected-20261010T004948Z`）同样升级为全量，但全量在 `contract-inventory.derivation.test.ts` 的 30s 超时处失败（差异 5 第 3 条），修复后重跑通过。
+
+**OI-CH-02 统计**：本任务「按需通过、全量失败」**0** 次（累计 0）。需要说明的一次事件：首次按需运行升级为全量后失败（30s 超时，属本任务拆分引起的负载变化，已在按需流程内发现并修复），随后全量 `verify`（`core-hardening-t14b`）又在 `SCN-TEMPLATE-EXAMPLE-005` 计时抖动处失败，再跑 `core-hardening-t14c` 全绿。两次失败都不属于「按需子集漏测、全量才暴露」的选择规则缺陷（前者是全量自身超时，后者是与本任务无关的已知抖动），故计 0，并在此如实登记事件与证据。
+
+**优先采用现成方案**
+- 行数上限直接用 ESLint 内置 `max-lines` 的 `skipBlankLines`/`skipComments`，豁免用配置块 `max-lines: 'off'`，未自研行数统计；测试文件集合与豁免来源都从清单派生，未在门禁脚本里写死清单。
+- 格式基线用现成 Prettier CLI（`prettier --check .`）与仓库既有 `.prettierignore`，受控根复制同一份 `.prettierrc.json`/`.prettierignore`，未自研格式检查。
+- 用例断言上报复用既有 `cliEvidence` / `evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `createControlledRoot`，未新建夹具框架。
+- 未新增任何运行时或开发依赖；本任务**无自研通用能力**。

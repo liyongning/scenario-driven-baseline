@@ -4,7 +4,10 @@ import { basename, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadConfigFromFile } from 'vite';
 import { errorMessage, loadProjectManifest, type TestProject } from './lib/project-manifest.ts';
-import { changeScopeHelp, parseChangeArguments } from './lib/spec-sources.ts';
+import { parseVerifyArguments, verifyHelp } from './lib/verify-arguments.ts';
+
+// 保持既有公共出口：帮助文案由 verify-arguments 模块提供。
+export { verifyHelp } from './lib/verify-arguments.ts';
 
 /** 一个验收步骤：整项目命令，或 perFile 项目的逐文件运行。 */
 export type VerifyStep =
@@ -59,15 +62,6 @@ export type VerifyCliResult = Readonly<{
   issues: ReadonlyArray<string>;
   result?: VerifyResult;
 }>;
-
-/** `pnpm verify` 的命令帮助。 */
-export const verifyHelp = [
-  'verify 依次执行 check:fast、platform 项目的 test:e2e:<name> 与 check:scenarios。',
-  '用法：pnpm verify [--run-id <id>] [--from <command>] [--change <name>[,<name>]] [--help]',
-  '  --run-id <id>  指定 run id；缺省为 <分支名>-<YYYYMMDDTHHmmssZ>，分支名的 / 替换为 -。',
-  '  --from <命令>  从该步骤续跑，跳过此前步骤并复用 run id：check:fast、test:e2e:<平台项目名>、check:scenarios。',
-  changeScopeHelp,
-].join('\n');
 
 /** UTC 时间戳，形如 `YYYYMMDDTHHmmssZ`。 */
 export function formatUtcTimestamp(date: Date): string {
@@ -253,53 +247,6 @@ export async function runVerify(
             plan.changeScope === undefined ? '' : ` --change ${plan.changeScope}`
           }`,
         }),
-  };
-}
-
-type ParsedVerifyArguments = Readonly<{
-  options: VerifyOptions;
-  issues: ReadonlyArray<string>;
-  help: boolean;
-}>;
-
-function parseVerifyArguments(argv: ReadonlyArray<string>): ParsedVerifyArguments {
-  const issues: string[] = [];
-  let runId: string | undefined;
-  let from: string | undefined;
-  let help = false;
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index]!;
-    if (argument === '--help' || argument === '-h') {
-      help = true;
-      continue;
-    }
-    if (argument === '--run-id' || argument === '--from') {
-      const value = argv[index + 1];
-      index += 1;
-      if (value === undefined || value === '' || value.startsWith('-')) {
-        issues.push(`${argument} 需要取值`);
-        continue;
-      }
-      if (argument === '--run-id') runId = value;
-      else from = value;
-      continue;
-    }
-    if (argument === '--change') {
-      index += 1;
-      continue;
-    }
-    issues.push(`未知参数 ${argument}`);
-  }
-  const changes = parseChangeArguments(argv);
-  issues.push(...changes.issues);
-  return {
-    help,
-    issues,
-    options: {
-      ...(runId === undefined ? {} : { runId }),
-      ...(from === undefined ? {} : { from }),
-      ...(changes.specified ? { changes: [...new Set(changes.names)] } : {}),
-    },
   };
 }
 

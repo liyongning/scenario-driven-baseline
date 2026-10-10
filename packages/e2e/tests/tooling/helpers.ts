@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { writeFile } from 'node:fs/promises';
 import type { CoverageInput } from '../../../../scripts/check-scenarios.ts';
+import { minimalManifest } from './controlled-root.ts';
 
 /** 仓库根由模块位置推导，helper 不依赖调用方的工作目录。 */
 export const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -133,4 +135,84 @@ export function writeTemplateGuideFixture(root: string) {
     if (!current.includes(link))
       writeFileSync(path, `${current.trimEnd()}\n\n${link}\n`.trimStart());
   }
+}
+
+/** 门禁逻辑自测的受控输入：写入最小清单，不读取仓库实时状态。 */
+export async function writeProjectManifest(root: string) {
+  await writeFile(join(root, 'project.manifest.json'), JSON.stringify(minimalManifest(), null, 2));
+}
+
+/** 覆盖门禁自测的基线输入：一个行为 Scenario、一个协议义务与一条连续 FLOW 报告。 */
+export function base(): CoverageInput {
+  return {
+    current: {
+      runId: 'run-1',
+      sourceDigest: 'source',
+      specDigest: 'spec',
+      protocolDigest: 'idl',
+      fixtureDigest: 'fixture',
+    },
+    scenarios: [
+      {
+        id: 'SCN-SAMPLE-CORE-001',
+        cases: [
+          {
+            key: 'normal',
+            kind: 'behavior',
+            requiredIn: ['integration', 'weapp'],
+            checks: ['phase', 'result'],
+          },
+        ],
+      },
+    ],
+    contracts: [{ id: 'method#request#field', cases: ['normal'], requiredIn: ['integration'] }],
+    flows: [
+      {
+        id: 'FLOW-SAMPLE-001',
+        cases: ['normal'],
+        requiredIn: ['integration'],
+        requiredStages: ['prepare', 'invoke', 'query', 'result'],
+      },
+    ],
+    bindings: [
+      {
+        ownerId: 'FLOW-SAMPLE-001',
+        caseId: 'flow-normal',
+        fixtureCase: 'normal',
+        environment: 'integration',
+        covers: [
+          { id: 'SCN-SAMPLE-CORE-001', caseKey: 'normal', checks: ['phase', 'result'] },
+          {
+            id: 'method#request#field',
+            caseKey: 'normal',
+            checks: ['method#request#field/normal'],
+          },
+        ],
+        flowId: 'FLOW-SAMPLE-001',
+        flowCase: 'normal',
+      },
+    ],
+    reports: [
+      {
+        runId: 'run-1',
+        sourceDigest: 'source',
+        specDigest: 'spec',
+        protocolDigest: 'idl',
+        fixtureDigest: 'fixture',
+        project: 'integration',
+        file: 'flow.spec.ts',
+        fullName: 'FLOW-SAMPLE-001 normal',
+        caseId: 'flow-normal',
+        status: 'passed',
+        assertions: 3,
+        checkpoints: ['phase', 'result', 'method#request#field/normal'],
+        flow: {
+          id: 'FLOW-SAMPLE-001',
+          caseKey: 'normal',
+          continuityId: 'one-run',
+          stages: ['prepare', 'invoke', 'query', 'result'],
+        },
+      },
+    ],
+  };
 }

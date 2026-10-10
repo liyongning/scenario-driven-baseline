@@ -52,6 +52,8 @@ export default defineConfig([
     files: [dependencyRules.runtimeFile(manifest)],
     languageOptions: { globals: { setTimeout: 'readonly', clearTimeout: 'readonly' } },
   },
+  // 行数上限与豁免只来自清单：源文件 300、测试文件 600，空行与注释不计（ENG-08）。
+  ...dependencyRules.maxLinesConfig(manifest),
   // 每个业务模块的 core/ports 只能通过端口访问宿主（按目录模式覆盖全部业务模块），详见产品包 AGENTS.md。
   {
     files: dependencyRules.restrictedGlobalFiles(manifest),

@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -6,8 +5,8 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
+  renameSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -15,11 +14,17 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
-import { type ReleaseInput } from './check-release';
-import type { ReleaseSettings } from './lib/project-manifest.ts';
 import {
-  createSdkReleasePlan,
-  inspectReleaseSource,
+  cleanSource,
+  cleanupReleaseRoots,
+  createGitFixture,
+  createRegistryStub,
+  createReleaseFixture,
+  releaseRoots,
+  registryUrl,
+  releaseSnapshot,
+} from '../packages/e2e/tests/tooling/sdk-release-fixture.ts';
+import {
   runSdkRelease,
   runSdkReleaseCli,
   type CommandExecutor,
@@ -27,318 +32,14 @@ import {
   type ReleaseCommand,
 } from './sdk-release';
 
-const roots: string[] = [];
 afterEach(() => {
   vi.unstubAllEnvs();
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-});
-
-const cleanSource = async () => ({
-  headRevision: 'a'.repeat(40),
-  tagRevision: 'a'.repeat(40),
-  clean: true,
-});
-
-const registryUrl = 'https://registry.test.invalid/api/v4/projects/9/packages/npm/';
-const releaseSettings: ReleaseSettings = { registry: registryUrl, tagPrefix: 'template-sdk-v' };
-
-function record(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
-  return {
-    registry: registryUrl,
-    execution: 'local',
-    tag: 'template-sdk-v0.1.0-alpha.1',
-    sourceRevision: 'a'.repeat(40),
-    sdk: { name: '@daqian/template-sdk', version: '0.1.0-alpha.1', changed: true },
-    protocol: { name: '@daqian/template-protocol', version: '0.1.0', changed: false },
-    ...overrides,
-  };
-}
-
-function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'sdk-release-test-'));
-  roots.push(root);
-  mkdirSync(join(root, 'packages/sdk'), { recursive: true });
-  mkdirSync(join(root, 'packages/protocol'), { recursive: true });
-  writeFileSync(
-    join(root, 'project.manifest.json'),
-    JSON.stringify({
-      packages: [
-        {
-          directory: 'sdk',
-          name: '@daqian/template-sdk',
-          role: 'product',
-          private: false,
-          allowedDirectories: ['src'],
-        },
-        {
-          directory: 'protocol',
-          name: '@daqian/template-protocol',
-          role: 'protocol',
-          private: false,
-          allowedDirectories: ['src'],
-        },
-        {
-          directory: 'e2e',
-          name: '@daqian/template-e2e',
-          role: 'test',
-          private: true,
-          allowedDirectories: ['src'],
-        },
-      ],
-      requiredCommands: ['check:fast'],
-      testProjects: [
-        { name: 'sdk-unit', class: 'unit', config: 'packages/sdk/vitest.config.ts' },
-        { name: 'integration', class: 'integration', config: 'packages/e2e/vitest.config.ts' },
-      ],
-      fingerprints: {
-        sourceRoots: ['scripts'],
-        buildInputs: [],
-        protocolInputs: ['proto-gen.lock'],
-      },
-      release: releaseSettings,
-    }),
-  );
-  writeFileSync(
-    join(root, 'packages/sdk/package.json'),
-    JSON.stringify({
-      name: '@daqian/template-sdk',
-      version: '0.1.0-alpha.1',
-      dependencies: { '@daqian/template-protocol': 'workspace:*' },
-    }),
-  );
-  writeFileSync(
-    join(root, 'packages/protocol/package.json'),
-    JSON.stringify({
-      name: '@daqian/template-protocol',
-      version: '0.1.0',
-    }),
-  );
-  return {
-    root,
-    record: record(),
-    resultPath: join(root, 'artifacts/release/release-result.json'),
-    checkpointPath: join(root, 'artifacts/release/release-checkpoint.json'),
-  };
-}
-
-function registry(
-  initial: Partial<
-    Record<'@daqian/template-sdk' | '@daqian/template-protocol', 'missing' | 'existing'>
-  > = {},
-) {
-  const states = new Map<string, 'missing' | 'existing'>([
-    ['@daqian/template-protocol', initial['@daqian/template-protocol'] ?? 'missing'],
-    ['@daqian/template-sdk', initial['@daqian/template-sdk'] ?? 'missing'],
-  ]);
-  const inspections: Array<{ name: string; config?: string }> = [];
-  const inspector: RegistryInspector = async (request, env) => {
-    inspections.push({
-      name: request.name,
-      ...(env.NPM_CONFIG_USERCONFIG ? { config: env.NPM_CONFIG_USERCONFIG } : {}),
-    });
-    return { state: states.get(request.name)! };
-  };
-  const executor: CommandExecutor = async (command) => {
-    if (!command.args.includes('publish')) return;
-    const name = command.args[1] as '@daqian/template-sdk' | '@daqian/template-protocol';
-    states.set(name, 'existing');
-  };
-  return { states, inspections, inspector, executor };
-}
-
-function gitFixture() {
-  const value = fixture();
-  execFileSync('git', ['init', '--quiet'], { cwd: value.root });
-  execFileSync('git', ['config', 'user.name', 'Release Test'], { cwd: value.root });
-  execFileSync('git', ['config', 'user.email', 'release@example.invalid'], { cwd: value.root });
-  execFileSync('git', ['add', '.'], { cwd: value.root });
-  execFileSync('git', ['commit', '--quiet', '-m', 'initial'], { cwd: value.root });
-  const revision = execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: value.root,
-    encoding: 'utf8',
-  }).trim();
-  execFileSync('git', ['tag', value.record.tag], { cwd: value.root });
-  return { ...value, record: record({ sourceRevision: revision }) };
-}
-
-function releaseSnapshot(before: ReadonlySet<string>): string {
-  const directory = readdirSync(tmpdir())
-    .filter(
-      (name) =>
-        name.startsWith('template-sdk-release-') &&
-        !name.startsWith('template-sdk-release-auth-') &&
-        !before.has(name),
-    )
-    .map((name) => ({ name, mtime: statSync(join(tmpdir(), name)).mtimeMs }))
-    .sort((left, right) => right.mtime - left.mtime)[0]?.name;
-  if (!directory) throw new Error('release snapshot directory not found');
-  return join(tmpdir(), directory, 'release-record.json');
-}
-
-test('source inspection independently reports HEAD, tag target and untracked dirtiness', async () => {
-  const value = gitFixture();
-  expect(await inspectReleaseSource(value.root, value.record.tag)).toEqual({
-    headRevision: value.record.sourceRevision,
-    tagRevision: value.record.sourceRevision,
-    clean: true,
-  });
-  writeFileSync(join(value.root, 'untracked.txt'), 'dirty');
-  expect((await inspectReleaseSource(value.root, value.record.tag)).clean).toBe(false);
-});
-
-test.each([
-  ['HEAD mismatch', { headRevision: 'b'.repeat(40), tagRevision: 'b'.repeat(40), clean: true }],
-  ['tag mismatch', { headRevision: 'a'.repeat(40), tagRevision: 'b'.repeat(40), clean: true }],
-  ['dirty checkout', { headRevision: 'a'.repeat(40), tagRevision: 'a'.repeat(40), clean: false }],
-] as const)('release blocks %s before registry access or commands', async (_label, source) => {
-  const value = fixture();
-  const executor = vi.fn<CommandExecutor>();
-  const inspector = vi.fn<RegistryInspector>();
-  await expect(
-    runSdkRelease({ ...value }, 'fixture-token', executor, {
-      root: value.root,
-      sourceInspector: async () => source,
-      registryInspector: inspector,
-    }),
-  ).rejects.toThrow(/source|tag|clean/i);
-  expect(executor).not.toHaveBeenCalled();
-  expect(inspector).not.toHaveBeenCalled();
-  expect(existsSync(value.resultPath)).toBe(false);
-  expect(JSON.parse(readFileSync(value.checkpointPath, 'utf8'))).toMatchObject({
-    status: 'failed',
-  });
-});
-
-test('source preflight failure removes a stale success result and replaces the completed checkpoint', async () => {
-  const value = fixture();
-  mkdirSync(join(value.root, 'artifacts/release'), { recursive: true });
-  writeFileSync(value.resultPath, '{"status":"stale-success"}\n');
-  writeFileSync(value.checkpointPath, '{"status":"completed"}\n');
-  await expect(
-    runSdkRelease(value, 'fixture-token', vi.fn(), {
-      root: value.root,
-      sourceInspector: async () => {
-        throw new Error('git inspection failed');
-      },
-    }),
-  ).rejects.toThrow('git inspection failed');
-  expect(existsSync(value.resultPath)).toBe(false);
-  expect(JSON.parse(readFileSync(value.checkpointPath, 'utf8'))).toMatchObject({
-    status: 'failed',
-    sourceRevision: value.record.sourceRevision,
-    error: 'git inspection failed',
-  });
-});
-
-test('release rejects a semantically invalid version plan before source inspection', async () => {
-  const value = fixture();
-  const sourceInspector = vi.fn(cleanSource);
-  await expect(
-    runSdkRelease(
-      { ...value, record: record({ sdk: { ...value.record.sdk, changed: false } }) },
-      'fixture-token',
-      vi.fn(),
-      {
-        root: value.root,
-        sourceInspector,
-      },
-    ),
-  ).rejects.toThrow(/requires an SDK version change/);
-  expect(sourceInspector).not.toHaveBeenCalled();
-});
-
-test('formal plan publishes missing workspaces in dependency order and never packs or consumes tarballs', () => {
-  const value = fixture();
-  const plan = createSdkReleasePlan({
-    record: value.record,
-    protocolState: 'missing',
-    sdkState: 'missing',
-    release: releaseSettings,
-  });
-  expect(plan.map((step) => step.name)).toEqual([
-    'build-protocol',
-    'publish-protocol',
-    'build-sdk',
-    'publish-sdk',
-  ]);
-  expect(plan.map((step) => step.command.args)).toEqual([
-    ['--filter', '@daqian/template-protocol', 'run', 'build'],
-    [
-      '--filter',
-      '@daqian/template-protocol',
-      'publish',
-      '--no-git-checks',
-      '--registry',
-      registryUrl,
-      `--@daqian:registry=${registryUrl}`,
-    ],
-    ['--filter', '@daqian/template-sdk', 'run', 'build'],
-    [
-      '--filter',
-      '@daqian/template-sdk',
-      'publish',
-      '--no-git-checks',
-      '--registry',
-      registryUrl,
-      `--@daqian:registry=${registryUrl}`,
-    ],
-  ]);
-  expect(plan.flatMap((step) => step.command.args)).not.toEqual(
-    expect.arrayContaining(['pack', 'check:package']),
-  );
-  expect(plan.flatMap((step) => step.command.args).join(' ')).not.toMatch(/\.tgz|sha256/);
-  expect(
-    createSdkReleasePlan({
-      record: value.record,
-      protocolState: 'existing',
-      sdkState: 'missing',
-      release: releaseSettings,
-    }).map((step) => step.name),
-  ).toEqual(['build-sdk', 'publish-sdk']);
-  expect(
-    createSdkReleasePlan({
-      record: value.record,
-      protocolState: 'existing',
-      sdkState: 'existing',
-      release: releaseSettings,
-    }),
-  ).toEqual([]);
-});
-
-test('release plan rejects a template placeholder registry before building commands', () => {
-  const value = fixture();
-  expect(() =>
-    createSdkReleasePlan({
-      record: value.record,
-      release: {
-        registry: 'https://gitlab.example.invalid/api/v4/projects/<PROJECT_ID>/packages/npm/',
-        tagPrefix: 'template-sdk-v',
-      },
-    }),
-  ).toThrow(/template placeholder/);
-});
-
-test('release refuses a manifest without release settings before touching the registry', async () => {
-  const value = fixture();
-  const manifest = JSON.parse(
-    readFileSync(join(value.root, 'project.manifest.json'), 'utf8'),
-  ) as Record<string, unknown>;
-  delete manifest.release;
-  writeFileSync(join(value.root, 'project.manifest.json'), JSON.stringify(manifest));
-  const inspector = vi.fn<RegistryInspector>();
-  await expect(
-    runSdkRelease(value, 'fixture-token', vi.fn(), {
-      root: value.root,
-      sourceInspector: cleanSource,
-      registryInspector: inspector,
-    }),
-  ).rejects.toThrow(/release settings are missing from project.manifest.json/);
-  expect(inspector).not.toHaveBeenCalled();
+  cleanupReleaseRoots();
 });
 
 test('a product build failure blocks publication and leaves no success result', async () => {
-  const value = fixture();
-  const controlled = registry();
+  const value = createReleaseFixture();
+  const controlled = createRegistryStub();
   const calls: ReleaseCommand[] = [];
   await expect(
     runSdkRelease(
@@ -363,7 +64,7 @@ test('a product build failure blocks publication and leaves no success result', 
 });
 
 test('default registry inspection overrides the repository scoped registry with project 245', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   writeFileSync(
     join(value.root, '.npmrc'),
     '@daqian:registry=https://gitlab.daqian369.com/api/v4/projects/216/packages/npm/\n',
@@ -399,8 +100,8 @@ process.stdout.write(JSON.stringify(packageSpec.slice(packageSpec.lastIndexOf('@
 });
 
 test('release publishes protocol before SDK, verifies both, and promotes the result last', async () => {
-  const value = fixture();
-  const controlled = registry();
+  const value = createReleaseFixture();
+  const controlled = createRegistryStub();
   const calls: ReleaseCommand[] = [];
   await runSdkRelease(
     value,
@@ -446,8 +147,8 @@ test('release publishes protocol before SDK, verifies both, and promotes the res
 });
 
 test('release reuses readable versions without republishing or comparing artifact bytes', async () => {
-  const value = fixture();
-  const controlled = registry({
+  const value = createReleaseFixture();
+  const controlled = createRegistryStub({
     '@daqian/template-protocol': 'existing',
     '@daqian/template-sdk': 'existing',
   });
@@ -467,8 +168,8 @@ test('release reuses readable versions without republishing or comparing artifac
 });
 
 test('temporary 0600 registry auth is isolated from the inherited environment and removed', async () => {
-  const value = fixture();
-  const controlled = registry();
+  const value = createReleaseFixture();
+  const controlled = createRegistryStub();
   const calls: Array<{
     command: ReleaseCommand;
     config?: string;
@@ -526,10 +227,10 @@ test('temporary 0600 registry auth is isolated from the inherited environment an
 });
 
 test('protocol publication failure blocks SDK publication and leaves only a failed checkpoint', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   mkdirSync(join(value.root, 'artifacts/release'), { recursive: true });
   writeFileSync(value.resultPath, '{"stale":true}\n', { flag: 'wx' });
-  const controlled = registry();
+  const controlled = createRegistryStub();
   const calls: ReleaseCommand[] = [];
   await expect(
     runSdkRelease(
@@ -554,7 +255,7 @@ test('protocol publication failure blocks SDK publication and leaves only a fail
 });
 
 test('an unreadable protocol after publish blocks the SDK', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   const calls: ReleaseCommand[] = [];
   const inspector: RegistryInspector = async () => ({ state: 'missing' });
   await expect(
@@ -579,8 +280,8 @@ test('an unreadable protocol after publish blocks the SDK', async () => {
 });
 
 test('a retry reuses the published protocol after a partial SDK failure', async () => {
-  const value = fixture();
-  const controlled = registry();
+  const value = createReleaseFixture();
+  const controlled = createRegistryStub();
   await expect(
     runSdkRelease(
       value,
@@ -612,8 +313,8 @@ test('a retry reuses the published protocol after a partial SDK failure', async 
 });
 
 test('late checkpoint failure cannot leave a formal success result', async () => {
-  const value = fixture();
-  const controlled = registry();
+  const value = createReleaseFixture();
+  const controlled = createRegistryStub();
   const inspector: RegistryInspector = async (request, env) => {
     const result = await controlled.inspector(request, env);
     if (request.name === '@daqian/template-sdk' && result.state === 'existing') {
@@ -634,8 +335,8 @@ test('late checkpoint failure cannot leave a formal success result', async () =>
 
 test('release rejects permission and content changes to its frozen record snapshot', async () => {
   for (const mutation of ['permission', 'content'] as const) {
-    const value = fixture();
-    const controlled = registry();
+    const value = createReleaseFixture();
+    const controlled = createRegistryStub();
     const before = new Set(readdirSync(tmpdir()));
     const inspector: RegistryInspector = async (request, env) => {
       const snapshot = releaseSnapshot(before);
@@ -659,9 +360,9 @@ test('release rejects permission and content changes to its frozen record snapsh
 });
 
 test('release blocks result symlinks introduced after initial path validation', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   const outside = mkdtempSync(join(tmpdir(), 'sdk-release-race-'));
-  roots.push(outside);
+  releaseRoots.push(outside);
   mkdirSync(join(value.root, 'artifacts/release'), { recursive: true });
   await expect(
     runSdkRelease(value, 'fixture-token', vi.fn(), {
@@ -676,10 +377,10 @@ test('release blocks result symlinks introduced after initial path validation', 
 
 test('release blocks result targets or ancestors replaced during publication', async () => {
   for (const mutation of ['target', 'ancestor'] as const) {
-    const value = fixture();
+    const value = createReleaseFixture();
     const outside = mkdtempSync(join(tmpdir(), 'sdk-release-output-race-'));
-    roots.push(outside);
-    const controlled = registry();
+    releaseRoots.push(outside);
+    const controlled = createRegistryStub();
     await expect(
       runSdkRelease(
         value,
@@ -701,7 +402,7 @@ test('release blocks result targets or ancestors replaced during publication', a
 });
 
 test('release propagates filesystem errors while validating output components', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   const blocker = join(value.root, 'not-a-directory');
   writeFileSync(blocker, 'file');
   await expect(
@@ -719,8 +420,8 @@ test('release propagates filesystem errors while validating output components', 
 });
 
 test('an unreadable SDK after publish leaves no success result', async () => {
-  const value = fixture();
-  const states = registry({ '@daqian/template-protocol': 'existing' });
+  const value = createReleaseFixture();
+  const states = createRegistryStub({ '@daqian/template-protocol': 'existing' });
   const inspector: RegistryInspector = async (request) => ({
     state: request.name === '@daqian/template-protocol' ? 'existing' : 'missing',
   });
@@ -735,11 +436,11 @@ test('an unreadable SDK after publish leaves no success result', async () => {
 });
 
 test('release rejects absent credentials and preserves non-Error failures in the checkpoint', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   await expect(
     runSdkRelease(value, '', vi.fn(), { root: value.root, sourceInspector: cleanSource }),
   ).rejects.toThrow('release token is required');
-  const controlled = registry();
+  const controlled = createRegistryStub();
   await expect(
     runSdkRelease(
       value,
@@ -761,8 +462,8 @@ test('release rejects absent credentials and preserves non-Error failures in the
 });
 
 test('release uses the real Git inspector when no source override is supplied', async () => {
-  const value = gitFixture();
-  const controlled = registry({
+  const value = createGitFixture();
+  const controlled = createRegistryStub({
     '@daqian/template-protocol': 'existing',
     '@daqian/template-sdk': 'existing',
   });
@@ -774,9 +475,9 @@ test('release uses the real Git inspector when no source override is supplied', 
 });
 
 test('release rejects dangling result symlinks and output paths outside the repository', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   const outside = mkdtempSync(join(tmpdir(), 'sdk-release-outside-'));
-  roots.push(outside);
+  releaseRoots.push(outside);
   mkdirSync(join(value.root, 'artifacts/release'), { recursive: true });
   symlinkSync(join(outside, 'missing.json'), value.resultPath);
   await expect(
@@ -796,7 +497,7 @@ test('release rejects dangling result symlinks and output paths outside the repo
 });
 
 test('release CLI requires explicit token input and rejects malformed or escaping paths before execution', async () => {
-  const value = fixture();
+  const value = createReleaseFixture();
   await expect(runSdkReleaseCli([], value.root)).rejects.toThrow('--input is required');
   await expect(runSdkReleaseCli(['--input', 'missing.json'], value.root)).rejects.toThrow(
     '--token-env is required',
