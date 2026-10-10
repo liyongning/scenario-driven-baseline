@@ -1542,6 +1542,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - f) `SCN-SCENARIO-GATE-026` 与 `SCN-TEMPLATE-ENGINEERING-008` 的 Fixture 来源摘要按新 Requirement 正文刷新（3 份 JSON）。
 - **追加裁决（Scenario ID 检查口径）**：
   - `scripts/check-architecture.ts` 的 `extractScenarioIds` 收窄为"只看 ID 后面的字符"：后随 `.` 或 `/` 时视为文件名 / 目录名的一部分，不算 Scenario 引用；`.../SCN-X-001` 位于路径末尾（后随反引号、空格、行尾或中文标点）仍按引用检查。
+  - **ENG-06「指南中出现的 Scenario ID 都已登记」这条检查的实现口径**：路径中的 ID 不算引用（ID 后紧跟 `.` 或 `/`）。原因是删除白名单必须写明 SCN-008 自身的用例与 Fixture 路径，而删除示例后这个 ID 已不再登记；不修改 Spec 文字。
   - 反例单测 6 条：`SCN-SAMPLE-998` / `997`（路径内，不报）、`996`（路径末尾，报）、`995。`（中文标点，报）、`994 的引用`（空格，报）、`993` / `992`（行尾 / 文末，报）。`check-architecture.test.ts` 第 42、189 行的"应无问题"夹具按新口径自然恢复，未放宽任何断言。
   - 指南能力地图"模板示例解耦与删除白名单"行整块用 `template-example` 标记包裹；Markdown 表格不能在行间插注释，因此这一行单独成一块表，随示例一起删除。
   - **实施中自己引入的回归**：把 SCN-008 的用例与 Fixture 加进 `removal.files` 后，`assertWhitelistOnly` 原有的 `for (const file of removal.files) expect(value.coverageExcluded).toContain(file)` 必然失败——它把"白名单里的每个文件都必须出现在 `coverageExclusions` 里"当成事实，而这只在 `removal.files` 恰好等于 `example-runner.ts`（唯一同时被覆盖排除的白名单文件）时成立。按 Spec「同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目」改为派生断言：期望集合 = 清单原有排除项中位于删除面下者，多一条、少一条都失败。
