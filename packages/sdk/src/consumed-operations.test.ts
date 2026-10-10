@@ -16,18 +16,63 @@ async function annotate(context: TestContext, before: number, checkpoints: strin
 }
 // template-example:end
 
-// 标记外的断言与示例无关：声明被清空时同样成立（EX-09）。
-test('每条声明的 method 都是 generated 方法描述', () => {
-  for (const operation of consumedOperations) {
-    expect(operation.method.meta.name.length).toBeGreaterThan(0);
-    expect(operation.method.meta.requestType.length).toBeGreaterThan(0);
-    expect(operation.method.meta.responseType.length).toBeGreaterThan(0);
+/**
+ * 声明格式的结构子集：方法与请求字段策略的形状由类型定义保证，这里只做运行期可核对的非空校验。
+ * 与示例无关——声明为空数组时同样成立。
+ */
+type DeclaredOperation = Readonly<{
+  method: Readonly<{ meta: Readonly<{ name: string; requestType: string; responseType: string }> }>;
+  requestFields: Readonly<
+    Record<string, Readonly<{ cases: ReadonlyArray<string>; authority: string }>>
+  >;
+}>;
+
+/** 收集声明格式问题：缺 meta、空字段路径、缺映射策略或缺评审依据都要报出来。 */
+function declarationIssues(operations: ReadonlyArray<DeclaredOperation>): string[] {
+  const issues: string[] = [];
+  for (const [index, operation] of operations.entries()) {
+    const meta = operation.method.meta;
+    if (meta.name.length === 0) issues.push(`#${index}: method 缺少接口名`);
+    if (meta.requestType.length === 0) issues.push(`#${index}: method 缺少请求类型`);
+    if (meta.responseType.length === 0) issues.push(`#${index}: method 缺少响应类型`);
     for (const [path, policy] of Object.entries(operation.requestFields)) {
-      expect(path.length, path).toBeGreaterThan(0);
-      expect(policy.cases.length, path).toBeGreaterThan(0);
-      expect(policy.authority.length, path).toBeGreaterThan(0);
+      if (path.length === 0) issues.push(`#${index}: 请求字段路径为空`);
+      if (policy.cases.length === 0) issues.push(`#${index}: ${path} 没有映射策略`);
+      if (policy.authority.length === 0) issues.push(`#${index}: ${path} 没有评审依据`);
     }
   }
+  return issues;
+}
+
+/** 受控输入：格式校验对缺 meta、缺策略、空路径与缺依据都要报错，不是空转的循环。 */
+test('受控输入下声明格式校验会报出缺失项', () => {
+  const valid: DeclaredOperation = {
+    method: { meta: { name: 'CreateTrade', requestType: 'X', responseType: 'Y' } },
+    requestFields: { field: { cases: ['mapped-value'], authority: 'PC-01' } },
+  };
+  expect(declarationIssues([valid])).toEqual([]);
+  expect(
+    declarationIssues([{ ...valid, method: { meta: { ...valid.method.meta, name: '' } } }]),
+  ).toEqual(['#0: method 缺少接口名']);
+  expect(
+    declarationIssues([{ ...valid, requestFields: { field: { cases: [], authority: 'PC-01' } } }]),
+  ).toEqual(['#0: field 没有映射策略']);
+  expect(
+    declarationIssues([
+      { ...valid, requestFields: { '': { cases: ['mapped-value'], authority: 'PC-01' } } },
+    ]),
+  ).toEqual(['#0: 请求字段路径为空']);
+  expect(
+    declarationIssues([
+      { ...valid, requestFields: { field: { cases: ['mapped-value'], authority: '' } } },
+    ]),
+  ).toEqual(['#0: field 没有评审依据']);
+});
+
+/** 真实声明：删除示例后 `consumedOperations` 为空数组，这条断言仍然实际执行（不是循环空转）。 */
+test('真实声明满足格式校验，声明为空是合法状态', () => {
+  expect(declarationIssues(consumedOperations)).toEqual([]);
+  if (consumedOperations.length === 0) expect(consumedOperations).toEqual([]);
 });
 
 // template-example:begin
