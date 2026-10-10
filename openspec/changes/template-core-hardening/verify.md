@@ -804,7 +804,7 @@
 
 **Review / Acceptance：启用校验时发现的不同形响应数量 = 0**
 - 构造期对"Fixture JSON 体"与"测试代码内联体"走同一校验。启用后 `test:integration`（50 文件 / 112 用例）与 weapp（4 文件）在构造期全绿——**不同形响应 0 处**，无既有响应被修错或被误判。
-- 现有用例没有"需要故意返回非法响应"的场景（`error-handling/codec-error` 测的是请求编解码，不是服务端返回非法体），因此**补 `malformed` 声明的步骤 0 处**；`malformed` 语义仅由 `response-shape.test.ts` 的新 case 覆盖。
+- 现有用例没有"需要故意返回非法响应"的场景（`error-handling/codec-error` 测的是请求编解码，不是服务端返回非法体），Task 12 当时**补 `malformed` 声明的步骤 0 处**，`malformed` 语义仅由 `response-shape.test.ts` 的新 case 覆盖。**该记录已在「Final Code Review 与演练修复」第 6 条修正**：Shadow 之后（本 Change 交付前）补了"`rawBody` 必须显式声明 `malformed`"的构造期规则，`protocol/SCN-PROTOCOL-CONTRACT-002`、`weapp/SCN-PROTOCOL-CONTRACT-002`、`weapp/SCN-PROTOCOL-CONTRACT-008` 三处 `rawBody` step 随之补声明，实际补 3 处。
 - 构造错误信息含"路由/步骤序号/字段路径"（`${id}/${method} step ${n}: 响应与协议不一致：<issues>`），`shadow-construction` case 逐项断言。
 
 **方案与实际的差异**（含 Task 12 Files 之外的改动；均为按契约补充或只同步受影响产物，未改规划语义）
@@ -1360,3 +1360,15 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 单测：`pnpm exec vitest run --project test-tools-unit scripts/lib/source-inventory.test.ts scripts/check-fixtures.test.ts` → 2 文件 / 11 用例通过（891ms 级），其中 `scripts/check-fixtures.test.ts` 7 用例含新增的 note-only 反例与摘要修正后的干净 Fixture。
 - **反例口径**：断言的是 `issues` 里出现 `manifest schema`（schema 层拦截），不是"恰好一条问题"——owner/摘要检查现在无条件执行，schema 判断先失败时不再进入摘要比对。
 - **提交**：`fix(template): require fixture spec sources and always resolve owners`。
+
+### 第 6 条 · Task 12（I-1）：rawBody 不声明 malformed 就能跳过同形校验
+
+- **根因**：`packages/protocol/testing/shadow/server.ts:122` 的构造期结构校验只对 `body` 生效——`malformed` 分支之后直接 `if (!hasOwnProperty(step,'body')) return;`，于是只给 `rawBody`（原样发送、不做 JSON 序列化）的 step 既不做结构校验、也不认领 `malformed`，留下 PC-04 禁止的「不声明即不校验」路径。
+- **改动**：
+  - `server.ts`：`malformed` 已声明时照旧提前返回；否则若 step 自带 `rawBody` 就在构造期抛 ``rawBody 必须显式声明 malformed（结构校验只覆盖 body）``，与 `body` 校验同一循环、同一报错前缀（含 scenario/route/step 序号）。
+  - 三处 `rawBody` step 补 `malformed: { reason: '非法 JSON 响应体（解码错误义务）' }`：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts:248`、`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts:205`、`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts:57`；`server.test.ts` 里既有的 `rawBody: 'not-json'` step 同样补上。
+  - `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` 的 `requestStep` 形参类型补 `malformed`。
+- **证据**：`pnpm exec vitest run --project protocol-unit` → 18 文件 / 94 用例通过、退出码 0，其中 `packages/protocol/testing/shadow/response-shape.test.ts`（3 用例，含新增反例断言）与 `server.test.ts` 覆盖两条分支；`protocol/SCN-PROTOCOL-CONTRACT-002` 集成用例此前同改动运行通过（4076ms）。
+- **反例**：新增断言 `expect(() => createShadowServer({ ..., scenarios: [scenarioWith({ rawBody: '{', contentType: 'application/json' })] })).toThrow(/rawBody 必须显式声明 malformed/)`——修复前 `scenarioWith` 里这一形态构造成功且静默放行；断言只有在该 step 不声明 `malformed` 时才通过，声明了 `malformed` 的三处新用例同时覆盖"声明即放行"的另一侧。
+- **记录修正**：Task 12 段原有「补 `malformed` 声明的步骤 0 处」已在该段就地改注，指向本条。
+- **提交**：`fix(template): require malformed claims for rawBody shadow steps`。

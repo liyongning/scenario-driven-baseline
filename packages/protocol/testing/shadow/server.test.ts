@@ -128,7 +128,14 @@ describe('shadow server', () => {
                 { headers: { authorization: 'Bearer one' }, body: { tradeNo: 't' } },
                 { headers: { authorization: 'Bearer two' }, body: { tradeNo: 't' } },
               ],
-              steps: [{ body: null }, { rawBody: 'not-json', contentType: 'text/plain' }],
+              steps: [
+                { body: null },
+                {
+                  rawBody: 'not-json',
+                  contentType: 'text/plain',
+                  malformed: { reason: '非 JSON 的原样响应体（解码错误义务）' },
+                },
+              ],
             },
           },
         },

@@ -518,6 +518,15 @@ test(
     context
       .expect(() => createShadowServer({ routes, scenarios: [scenarioWith({ body: invalid })] }))
       .toThrow(/响应与协议不一致/);
+    // unclaimed-rejected：rawBody 只做原样发送，结构校验无从进行，同样必须显式认领 malformed。
+    context
+      .expect(() =>
+        createShadowServer({
+          routes,
+          scenarios: [scenarioWith({ rawBody: '{', contentType: 'application/json' })],
+        }),
+      )
+      .toThrow(/rawBody 必须显式声明 malformed/);
 
     // dynamic-pending：动态类型字段被报告为待定并判定失败，不被放行。
     const dynamicShape = syntheticShape.filter((field) => field.path === 'dynamic_field');

@@ -119,6 +119,12 @@ export function createShadowServer(
           );
         return;
       }
+      // rawBody 原样发送、不做 JSON 序列化，结构校验无从进行：必须显式认领 malformed，
+      // 否则会留下"不声明即不校验"的路径（PC-04）。
+      if (Object.prototype.hasOwnProperty.call(step, 'rawBody'))
+        throw new Error(
+          `${scenario.id}/${route.methodName} step ${index + 1}: rawBody 必须显式声明 malformed（结构校验只覆盖 body）`,
+        );
       if (!Object.prototype.hasOwnProperty.call(step, 'body')) return;
       const issues = route.validateResponse?.(step.body) ?? [];
       if (issues.length > 0)

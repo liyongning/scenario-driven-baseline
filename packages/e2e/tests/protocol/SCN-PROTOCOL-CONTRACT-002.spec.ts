@@ -222,7 +222,13 @@ async function runSharedEvidence(
   const request = () => messageOf(fixture, name, meta.requestCodec!);
   const deadline = () => Date.now() + 2_000;
   const requestStep = async (
-    step: Readonly<{ status?: number; body?: unknown; rawBody?: string; delayMs?: number }>,
+    step: Readonly<{
+      status?: number;
+      body?: unknown;
+      rawBody?: string;
+      delayMs?: number;
+      malformed?: Readonly<{ reason: string }>;
+    }>,
   ) => {
     const server = await createShadowServer({
       routes,
@@ -246,7 +252,11 @@ async function runSharedEvidence(
     status: 503,
     body: { baseResp: { success: false, statusCode: '123' } },
   });
-  const malformed = await requestStep({ rawBody: '{', status: 200 });
+  const malformed = await requestStep({
+    rawBody: '{',
+    status: 200,
+    malformed: { reason: '非法 JSON 响应体（解码错误义务）' },
+  });
 
   const noSend: HttpPort = {
     send: async () => {

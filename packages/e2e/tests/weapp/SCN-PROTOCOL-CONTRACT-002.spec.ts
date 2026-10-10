@@ -203,7 +203,11 @@ defineCase(
           { body: success },
           { body: business },
           { status: 503, body: business },
-          { rawBody: '{', contentType: 'application/json' },
+          {
+            rawBody: '{',
+            contentType: 'application/json',
+            malformed: { reason: '非法 JSON 响应体（解码错误义务）' },
+          },
           { delayMs: 30, body: {} },
           { disconnect: true },
         ],
