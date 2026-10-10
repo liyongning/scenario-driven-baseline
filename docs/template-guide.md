@@ -101,8 +101,10 @@
 
 - 整目录或整文件：`packages/sdk/src/example/`；`packages/protocol/testing/shadow/example/`；`packages/e2e/tests/example/`、`packages/e2e/tests/weapp/example/`；`packages/e2e/host/weapp/example-runner.ts`；`packages/e2e/tests/fixtures/` 下的 `SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`；`openspec/specs/template-example/`；示例删除验收自身的用例 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 与 Fixture `packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`（这条保证只在示例存在时有意义，随示例一起删除）；证明"新增消费接口只需登记声明与补矩阵 Fixture 键"的回归用例 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`（它依赖模板自带 IDL 中的具体接口，只对模板仓库有意义，随示例一起删除）。
 - 片段：全仓库所有成对标记之间的内容（连同标记本身），包括 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 的示例导出、`consumed-operations.ts` 的示例条目及其单测中的示例断言、[packages/e2e/host/weapp/app.js](../packages/e2e/host/weapp/app.js)、`packages/e2e/host/weapp/setup.ts`、`packages/e2e/host/weapp/vite.config.ts` 与 [packages/e2e/src/drivers/weapp-host.test.ts](../packages/e2e/src/drivers/weapp-host.test.ts) 中注册与配置示例运行器的片段、本指南与各级 `AGENTS.md` 中指向示例文件或引用 `SCN-TEMPLATE-EXAMPLE-*` 的段落、包级 `AGENTS.md`「子模块」一节中列出的示例模块条目、会创建副本的用例排除列表（[packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts)）与集成测试配置中包含 `example` 的 `include` 条目中指向示例文件或示例删除验收的部分。
-- JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`），删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。
+- JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`）；只删"示例接口中不再被标记外声明"的那些——使用方仍在调用的接口（见下）要在标记外保留同名条目，它对应的 Fixture 键必须保留，删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。
 - 同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目。
+
+**共用接口**：示例与使用方都要调用的接口（例如示例的 `QueryTrade`），删除示例前先把它的条目改写到 `consumed-operations.ts` 的标记外（与示例条目同形：引用同一 generated 常量，`authority` 换成使用方自己的评审依据），并在同一次删除里移除标记内的那份与对应的示例标记；矩阵 Fixture 中它对应的键保留。不要长期并存标记内与标记外两份同名条目：示例断言要求标记内的示例条目恰好是示例的两个接口，重复声明还会让方法与义务重复登记。使用方自己的其他接口一律写在标记外，标记内只保留模板示例的两个条目。
 
 **片段标记**：共享文件中只属于示例的片段用成对注释包裹——代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。只有注释行里的标记才算标记：字符串字面量与 Spec 正文中出现的同名文字不参与裁剪，也不会被当成标记。架构检查会校验标记成对出现、不嵌套；共享文件中引用示例、但没有被标记包裹的内容会被视为门禁依赖示例，示例删除演练会把它暴露出来。
 

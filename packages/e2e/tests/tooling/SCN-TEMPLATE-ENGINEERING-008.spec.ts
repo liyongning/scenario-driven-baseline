@@ -51,11 +51,17 @@ type InventoryScenario = Readonly<{
   id: string;
   verification: Readonly<{ cases: ReadonlyArray<InventoryCase> }>;
 }>;
+type InventoryItem = Readonly<{
+  id: string;
+  cases: ReadonlyArray<string>;
+  requiredIn: ReadonlyArray<string>;
+}>;
 type InventoryOutput = Readonly<{
   mode: string;
   issues: ReadonlyArray<string>;
-  contracts: ReadonlyArray<Readonly<{ id: string; requiredIn: ReadonlyArray<string> }>>;
+  contracts: ReadonlyArray<InventoryItem>;
   scenarios: ReadonlyArray<InventoryScenario>;
+  flows: ReadonlyArray<InventoryItem>;
 }>;
 /** 反例探针：刻意破坏共享 Scenario 的非平台绑定后再跑一次清单模式门禁。 */
 type Probe = Readonly<{
@@ -69,7 +75,10 @@ type Evidence = Readonly<{
   removed: ReadonlyArray<string>;
   markerFiles: ReadonlyArray<string>;
   declaredBefore: ReadonlyArray<string>;
+  outsideMethodsBefore: ReadonlyArray<string>;
+  matrixKeysBefore: ReadonlyArray<string>;
   matrixKeys: ReadonlyArray<string>;
+  matrixKeysAfter: ReadonlyArray<string>;
   coverageExcluded: ReadonlyArray<string>;
   manifestBefore: unknown;
   changed: ReadonlyArray<string>;
@@ -190,13 +199,37 @@ function removeWhitelistedPaths(root: string, removal: Removal): string[] {
   return removed;
 }
 
-/** 消费接口声明为空后矩阵 Fixture 不应再有接口键；返回删除前的键。 */
-function removeDeclaredMatrixKeys(root: string, removal: Removal): string[] {
-  const path = join(root, removal.matrixFixture);
-  const matrix = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-  const keys = Object.keys(matrix);
-  writeFileSync(path, `${JSON.stringify({}, null, 2)}\n`);
-  return keys;
+/** 矩阵 Fixture 的接口键（对象键顺序即文件顺序）。 */
+function fixtureKeys(root: string, removal: Removal): string[] {
+  return Object.keys(JSON.parse(readFileSync(join(root, removal.matrixFixture), 'utf8')) as object);
+}
+
+/**
+ * 只删示例删除后不再被标记外声明的矩阵键（A5/A6 口径），返回被删除的键。
+ * 共用接口（示例与使用方都调用）由使用方在标记外保留同名条目，对应的 Fixture 键必须保留；
+ * 模板仓库里标记外为空，所以移除全部示例键。
+ */
+function removeDeclaredMatrixKeys(
+  root: string,
+  removal: Removal,
+  removable: ReadonlyArray<string>,
+): string[] {
+  const matrix = JSON.parse(readFileSync(join(root, removal.matrixFixture), 'utf8')) as Record<
+    string,
+    unknown
+  >;
+  const removed = Object.keys(matrix).filter((key) => removable.includes(key));
+  if (removed.length === 0) return [];
+  const kept = Object.fromEntries(
+    Object.entries(matrix).filter(([key]) => !removable.includes(key)),
+  );
+  writeFileSync(join(root, removal.matrixFixture), `${JSON.stringify(kept, null, 2)}\n`);
+  return removed;
+}
+
+/** 声明体里登记的方法名；删除后的声明体只由标记外的条目组成。 */
+function methodsInBody(body: string): string[] {
+  return [...body.matchAll(/method: (\w+)/g)].map((match) => match[1]!);
 }
 
 /** 同步清单中指向已删除文件的覆盖率排除项；返回被移除的路径。 */
@@ -249,6 +282,17 @@ function expectedMissingBindings(copy: RepositoryCopy, inventory: InventoryOutpu
       }
     }
   }
+  // 协议义务与 FLOW 的 requiredIn 同样可能含平台项目：清单模式不要求平台报告，它们的缺失
+  // 绑定同属"副本中不可能产生绑定"（全部取自门禁输出，不手写）。
+  for (const [items, word] of [
+    [inventory.contracts, ''],
+    [inventory.flows, 'FLOW '],
+  ] as const)
+    for (const item of items)
+      for (const caseKey of item.cases)
+        for (const environment of item.requiredIn)
+          if (platformProjects.includes(environment))
+            expected.add(`${item.id}/${caseKey}: missing ${word}binding for ${environment}`);
   for (const spec of copyCreatingSpecs) {
     // 示例自身的 spec 随白名单删除、对应 Scenario 也已删除：没有可推导的缺失项。
     if (!existsSync(join(copy.root, spec))) continue;
@@ -344,8 +388,20 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
     const declaredBefore = [
       ...(fragments.get(declarationPath) ?? '').matchAll(/method: (\w+)/g),
     ].map((match) => match[1]!);
+    // 标记外登记的方法：使用方条目，以及被移到标记外的共用接口（模板仓库为空）。
+    // 只读声明数组的正文，避免把类型定义里的 `method:` 成员当成条目。
+    const outsideMethodsBefore = [
+      ...new Set(
+        methodsInBody(declarationBody(readFileSync(join(copy.root, declarationPath), 'utf8'))),
+      ),
+    ];
     const removed = removeWhitelistedPaths(copy.root, removal);
-    const matrixKeys = removeDeclaredMatrixKeys(copy.root, removal);
+    const matrixKeysBefore = fixtureKeys(copy.root, removal);
+    const removable = [...new Set(declaredBefore)].filter(
+      (name) => !outsideMethodsBefore.includes(name),
+    );
+    const matrixKeys = removeDeclaredMatrixKeys(copy.root, removal, removable);
+    const matrixKeysAfter = fixtureKeys(copy.root, removal);
     const coverageExcluded = syncCoverageExclusions(copy.root);
     const refresh = run(copy, 'pnpm', ['fixtures:refresh', removal.matrixOwner]);
     if (refresh.status !== 0) throw new Error(`fixtures:refresh failed: ${refresh.output}`);
@@ -383,7 +439,10 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
       removed,
       markerFiles: marked,
       declaredBefore,
+      outsideMethodsBefore,
+      matrixKeysBefore,
       matrixKeys,
+      matrixKeysAfter,
       coverageExcluded,
       manifestBefore,
       changed,
@@ -438,7 +497,19 @@ function assertWhitelistOnly(value: Evidence, removal: Removal, expect: Expect) 
   for (const directory of removal.directories) expect(value.removed).toContain(directory);
   for (const file of removal.files) expect(value.removed).toContain(file);
   expect(value.matrixKeys.length).toBeGreaterThan(0);
-  expect([...value.declaredBefore].sort()).toEqual([...value.matrixKeys].sort());
+  // 只删"示例接口中不再被标记外声明"的键（A5/A6）：共用接口由使用方在标记外保留同名条目，
+  // 对应的 Fixture 键必须保留；模板仓库里标记外为空，示例键因此全部删除。
+  expect(
+    [...value.matrixKeys].sort(),
+    '示例删除应移除的矩阵键 = 示例接口中不再被标记外声明的那些',
+  ).toEqual(
+    [...new Set(value.declaredBefore)]
+      .filter((name) => !value.outsideMethodsBefore.includes(name))
+      .sort(),
+  );
+  expect(value.matrixKeysAfter).toEqual(
+    value.matrixKeysBefore.filter((key) => !value.matrixKeys.includes(key)),
+  );
   const covered = (path: string) =>
     value.removed.some((item) => path === item || path.startsWith(`${item}/`)) ||
     value.markerFiles.includes(path) ||
@@ -461,7 +532,7 @@ function assertWhitelistOnly(value: Evidence, removal: Removal, expect: Expect) 
         path.startsWith('openspec/specs/') && !path.startsWith('openspec/specs/template-example/'),
     ),
   ).toEqual([]);
-  expect(value.changed).toContain(removal.matrixFixture);
+  if (value.matrixKeys.length > 0) expect(value.changed).toContain(removal.matrixFixture);
   expect(value.changed).toContain('project.manifest.json');
   // 覆盖率排除项只随指向的白名单对象一起消失：期望集合 = 清单原有排除项中位于删除面下者。
   // 白名单条目本身不要求都出现在排除项里——例如删除验收自身的用例与 Fixture 就没有覆盖项。
@@ -529,12 +600,19 @@ defineCase(
       expect(value.fastStatus, `${value.fastLog}\n${value.fastOutput.slice(-6000)}`).toBe(0);
     });
     await checkpoint('empty-declaration-matrix', () => {
-      expect(value.declarationBody).toBe('');
-      expect(
-        Object.keys(
-          JSON.parse(readFileSync(join(value.copy.root, removal.matrixFixture), 'utf8')) as object,
-        ),
-      ).toEqual([]);
+      // 删除后的声明体只由标记外的条目组成：模板仓库里标记外为空，此时才断言声明为空、
+      // 按消费接口派生的义务为空并结束；使用方保留标记外条目时按这些条目继续取证。
+      expect(methodsInBody(value.declarationBody)).toEqual(value.outsideMethodsBefore);
+      expect(value.declarationBody.length === 0).toBe(value.outsideMethodsBefore.length === 0);
+      // 矩阵键只减不增：删掉示例中不再被标记外声明的键，其余键（含共用接口）原样保留。
+      expect(value.matrixKeysAfter).toEqual(
+        value.matrixKeysBefore.filter((key) => !value.matrixKeys.includes(key)),
+      );
+      if (value.outsideMethodsBefore.length === 0) {
+        expect(value.declarationBody).toBe('');
+        expect(value.matrixKeysAfter).toEqual([]);
+      }
+      // 矩阵用例在两种状态下都执行完（声明为空时断言义务为空并结束，不因缺少示例路由失败）。
       expect(value.fastOutput).toContain(matrixSpecFile);
       const errors = value.inventory.contracts.filter((item) =>
         item.id.startsWith('idl.error-contract#business-error#'),
