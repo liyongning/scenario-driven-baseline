@@ -1785,3 +1785,71 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 **证据位置**：会话临时目录 `scratchpad/drill-17c/logs/`（`fast1.log`、`inventory.log`、`verify1.log`、`strip-markers.mjs`）；第 1、2 轮的证据分别在 `drill-17-tools/`、`drill-17b-tools/`。副本不提交。
 
 **结论**：示例删除演练通过；Task 17 验收完成。
+
+## 第四轮修复（支付 SDK 复刻演练）
+
+> 背景：Task 18 支付 SDK 复刻演练的 Agent 在写规划后、实施前做试验，确认两处阻塞（使用方在模板上无法新增协议接口）。证据目录 `scratchpad/drill-18/`（`blocker-repro.patch`、`verify1.log`、`inventory1.txt`，副本 `drill-18/repo` 只读）。用户裁决 A5 并给出第 0–4 条修复清单。受影响的 Task 10、12、16 先取消勾选（`6d7bfdf`），修完并复验后重新勾选。
+
+### 第 0 条 · A5 规划修订与"恰好"断言改为标记内口径
+
+- **规划提交**：`65089db docs(openspec): scope EX-09 exactness to the marked example entries by user decision`（spec template-example、design.md、plan-review.md，digest `6ef30dcf…`，freshness=PASS，提交前后各查一次）。
+- **实现提交**：`65209ea fix(template): scope the declaration exactness assertions to the marked example entries`——`scripts/lib/example-markers.ts` 新增 `markedLineRanges`/`lineInRanges`（复用既有"只有注释行才算标记"的判定，不在用例里另写一份标记语法）；`packages/sdk/src/consumed-operations.test.ts` 与 `packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts` 改为"只对标记内的示例条目断言恰好是 `CreateTrade`、`QueryTrade`"，标记外条目只进派生与双向检查；Fixture 来源摘要已按新口径刷新。
+- **补充修复（覆盖率的连带缺口）**：`65209ea` 的 `example-markers.ts` 新函数没有单测，`pnpm test:unit` 掉到 Statements 99.97% / Branches 99.95%。新增 `scripts/lib/example-markers.test.ts`（4 个用例：成对标记区间、字符串字面量里的同名文字不算标记、未闭合 `begin` 延伸到文件末尾、Markdown 标记与不成对报错），提交 `b3acbaf test(template): cover the example marker range helpers`。修复后四项覆盖率恢复 100%。
+- **证据**：`pnpm test:unit` → 66 文件 / 383 用例通过，Statements 100%（3375/3375）、Branches 100%（2222/2222）、Functions 100%、Lines 100%。
+- **反例**：`scripts/lib/example-markers.test.ts` 中的 `// template-example:end`（无 begin）必须被 `scanExampleMarkers` 报出；字符串字面量中的同名文字必须不参与裁剪。
+
+### 第 1 条 · T10/T12：协议矩阵支持 oneof 响应（integration、weapp、宿主运行器）
+
+- **根因**：`CreateTradePayResponse.pay_params` 是 oneof，派生器按 `wechat_jsapi`、`wechat_native`、`wechat_virtual` 三个分支分别产生 `decoded-branch`、`wire-present`、`wire-absent` 等义务；而矩阵 Fixture 每个接口只允许**一条**响应，用例只取 `responses[0]` 取证（`SCN-PROTOCOL-CONTRACT-002.spec.ts:500` 报 `expected undefined to be defined`）。weapp 侧的 `decodedAt` 也不认识 generated 的 `payParams.params.$case` 结构，分支子字段取不到值。
+- **Spec 原文核对（先核对再实施）**：`protocol-contract` 的 PC-01 只规定"矩阵数据放在 Fixture、以接口名为键""每条义务在 integration 与 weapp 都有通过证据"，**没有**"每个接口一条响应"的约束；主 Spec 的 PC-02 是错误码事实与来源校验，与响应条数无关。因此本条不需要改 Spec，A5 之外没有新的规划修订。
+- **改动**：
+  - 新增 `packages/e2e/tests/protocol/matrix-support.ts`：`MatrixEntry` 支持**多条** `responses`（每条只带一个分支，交给 Shadow 同形校验），`decodedAt` 支持 oneof 的 `$case` 分支，`occurrence`/`wireAt`/`omittedSample`/`missingOmissionSamples` 等纯函数与运行环境无关。
+  - 新增 `packages/e2e/tests/protocol/matrix-evidence.ts`：真实执行矩阵并按义务判定取证；每条派生义务必须至少由一条响应取证，找不到取证响应时按**义务 ID** 列进 `missingEvidence`；`missingSamples` 报出"声明了 omitted 却没有逐字段省略样例"的字段。
+  - integration `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` 改为调用共享实现的薄壳，4 个 checkpoint 名称与绑定不变。
+  - weapp `packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts`、`SCN-PROTOCOL-CONTRACT-008.spec.ts` 与宿主 `packages/e2e/host/weapp/protocol-runner.ts` 改为按 `samples`（每条响应一条请求 + 每个 omitted 字段一条样例 + 一条不配置上下文）执行；`packages/e2e/src/drivers/weapp-host.test.ts` 同步新入参。
+  - Fixture `SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 的 `responses` 改为数组，并按新内容 refresh 来源摘要（`manifest.json` 的 sha256）。
+- **证据（integration）**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r4-final-2 pnpm exec vitest run --project integration packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts` → 退出码 0（1 文件 / 1 用例，5.0s，日志 `artifacts/r4-final-2/logs/r4-regression-evidence.log`）；完整 integration 见本节"完成标准复验"。
+- **证据（weapp，逐文件、先预热、不用 `-t`）**：
+  - `pnpm weapp:prepare` 四次（`artifacts/r4-final-2/logs/prepare1..4.log`，退出码均为 0，每次约 25–48s）。
+  - `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts` → 通过，1 用例，9.3s（日志 `artifacts/r4-final-2/logs/weapp002c.log`）。
+  - `pnpm exec vitest run --project weapp packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts` → 通过，1 用例，9.5s（日志 `artifacts/r4-final-2/logs/weapp008.log`）。
+- **weapp 首两次失败与改法（整文件重跑记录）**：`weapp002.log`、`weapp002b.log` 显示 `x-product-id-omitted` 断言失败——头证据用 `methodRecords.at(-1)` 取到的是**整份套件**的最后一条请求（后续故障/超时请求用的是默认上下文），不是矩阵段最后一条"不配置上下文"的请求。改为按 `matrixRecords = methodRecords.slice(0, responses + omitted + 1)` 切出矩阵段后再取首/末记录；第三次整文件重跑通过。失败信息同时改为打印 `headers` 与请求体，便于以后定位（`weapp002b.log` 里能看到 `x-product-id: matrix-product` 与 `baseReq.productId`）。
+- **反例**：见第 3 条（少一条分支响应 → 报出该分支的 3 条义务；声明 omitted 却没样例 → 报字段）。
+
+### 第 2 条 · T10：omitted 逐字段取证
+
+- **根因**：稀疏请求只删掉了 `productId`，逐字段省略的证据只覆盖 `base_req.product_id` 一个字段；`requestFields` 里声明 `omitted` 的其它字段（`CreateTrade.items.sku_snapshot*`、`QueryTrade.biz_type/biz_trade_no/sync_channel`）没有样例，等于"声明了不校验"。
+- **改动**：Fixture 为每个接口补 `omitted` 列表（`CreateTrade` 4 项、`QueryTrade` 4 项），用例按列表逐字段生成省略样例并各发一次请求；共享实现用 `missingOmissionSamples` 对照声明，缺样例就按 `${接口}#request-mapping#${字段}` 报出，不再写死某个字段。weapp 与 integration 用同一份口径（`matrix-support.ts`）。
+- **证据**：两条用例的 `obligations-covered` 都断言 `missingSamples` 为空（integration 见 `r4-regression-evidence.log`；weapp 见 `weapp002c.log`）。
+- **反例**：回归证据用例里构造 `omitted: ['base_req.product_id']` 的 Fixture（少了 `open_id`），断言 `missingSamples` 含 `CreateTradePay#request-mapping#open_id` 且只报这一个字段——断言实际执行并命中（`r4-regression-evidence.log`）。
+
+### 第 3 条 · 关键回归证据：示例保留时标记外新增 oneof 消费接口
+
+- **改动**：新增 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`。它在受控根里读**仓库当前**的 `consumed-operations.ts`，把使用方条目追加在示例片段结束标记之后（示例已删除的副本里没有标记，则直接追加到声明数组末尾），并自己声明 `extensionAuthority`（不引用示例片段里会一起删除的 `requestAuthority`）；调用方源码、声明方法集合、矩阵 Fixture 都由当前内容派生，因此示例保留与删除两种状态下都成立。
+- **断言的"两步"**：只改声明（登记 `CreateTradePay` 与请求字段策略，含 `omitted`）与矩阵 Fixture（oneof 三个分支各一条响应）后——① 标记内的示例条目仍恰好是 `CreateTrade`、`QueryTrade`（示例删除后为 0 条）；② `buildContractInventory(root).issues` 为 0（双向对账：未使用的声明、未声明的调用都是 0）；③ 该接口派生的每条义务都有取证，三条分支义务都在 `covered` 里。
+- **归属**：不新增 Scenario/case，也不改 Spec 文字；作为 SCN-PROTOCOL-CONTRACT-002 `protocol-matrix` case 的附加证据，checkpoint 仍只用绑定里登记的 4 个（用例内的断言不登记成新 checkpoint，避免 GATE-11 的未登记 checkpoint 问题）。
+- **反例 1（少一条分支响应）**：去掉 `wechatNative` 那条响应后，`missingEvidence` 必须含该分支的 `decoded-branch`、`wire-present`、`wechat_native.code_url/decoded-value`，且报出的义务**全部**属于 `wechat_native`（其它分支不受影响）。
+- **反例 2（声明 omitted 却没有样例）**：见第 2 条。
+- **证据**：`r4-regression-evidence.log`（退出码 0，1 用例，5.0s）；两条反例的断言都在同一次运行中执行通过。
+
+### 第 4 条 · T16：指南补充
+
+- **改动**（`docs/template-guide.md`）：① 能力地图"IDL 协议义务派生与消费接口双向对账"一行补三点——新条目写在示例标记之外、oneof 响应按分支各一条（一条只带一个分支）、声明 `omitted` 的字段要有逐字段省略样例；② "从方案到验收"新增第 10 条"用例落位与覆盖率排除"——integration 用例放 `packages/e2e/tests/{protocol,tooling,flows,sdk}/**/*.spec.ts`（示例用例另在 `tests/example/`）、weapp 用例放 `packages/e2e/tests/weapp/**/*.spec.ts`，两组目录来自各 vitest 配置的 `include`；新增 weapp 宿主 runner 要在 `manifest.quality.coverageExclusions` 登记文件与理由，由 `pnpm check:coverage` 按清单核对；③ "已知限制"里补平台能力替身**怎样经用例注入**：替身按产品包定义的端口实现、放在 `packages/e2e/src/drivers/`，由用例在调用宿主 runner 前注入，宿主 runner 只按声明发真实 `wx.request` 并回传原始结果（替身仍没有代码样例，保持已知限制）。
+- **证据**：`pnpm format:check`、`pnpm check:architecture`、`pnpm check:fixtures` 退出码 0（`r4-final-2` 的 check:fast 日志 `artifacts/r4-final-2/logs/verify2.log`）。
+- **反例**：指南新增文字里不含未登记的 Scenario ID、不引用被删除的示例文件（事实检查与架构检查均 0 问题）。
+
+### 连带修复 · sdk-release 快照查找与并行临时目录
+
+- **根因**：`releaseSnapshot(before)` 用"系统临时目录里新增的 `template-sdk-release-*` 目录"定位本次 release 的暂存目录。`scripts/sdk-release.plan.test.ts` 与 `scripts/sdk-release.test.ts` 会被 vitest 并行执行，两者都会在同一个 `tmpdir()` 下创建并清理同类目录；后者的 `statSync` 可能读到前者**正在清理**的目录，抛 `ENOENT: ... stat '.../template-sdk-release-i90OZN'`，把真正的结论（`record snapshot … integrity/content` 拒绝）盖掉。这不是本轮引入的并发，而是本轮新增的用例文件改变了 vitest 的文件并行时序后稳定复现。
+- **改动**：① `scripts/sdk-release.test.ts` 每个用例独占一份 `TMPDIR`（`beforeEach` 里 `mkdtempSync` + `vi.stubEnv('TMPDIR', …)`，随既有 `afterEach` 一起清理/还原），快照查找只看本次用例自己的目录；② `packages/e2e/tests/tooling/sdk-release-fixture.ts` 的 `releaseSnapshot` 跳过已经消失的候选、并要求候选确实含有 `release-record.json`，不再让 ENOENT 成为断言失败原因。
+- **证据**：修复前 `artifacts/r4-final-2/logs/verify1.log`（run id `r4-final-1`，check:fast 在 `scripts/sdk-release.test.ts` 失败，退出码 1）与 `artifacts/r4-final-2/logs/fast2.log`（同一失败）；修复后 `pnpm exec vitest run --project test-tools-unit` 连续 2 次各 234 用例全绿，随后全量 verify 的三步全绿（`verify2.log`）。
+- **提交**：`e6426ff fix(template): isolate release snapshot lookup from parallel temp directories`。
+- **已知限制（只登记，不改）**：`SCN-TEMPLATE-EXAMPLE-005`（示例的窗口/超时用例，断言"窗口内至少重试 2 次"）对 CPU 争用敏感：本轮 `int4.log`、`int5.log`、`fast3.log` 各失败一次，隔离单跑 3 次全部通过、与另一文件并行也通过；同一失败在此前 `artifacts/core-hardening-t14b` 的集成报告里出现过。它是随示例一起删除的示例用例，本轮不改断言；只记录为负载敏感的已知抖动。
+
+### 提交与完成标准复验
+
+- **提交**：`65089db`（A5 规划）、`6d7bfdf`（取消勾选 T10/T12/T16）、`65209ea`（标记内口径）、`b3acbaf`（标记辅助函数单测）、`5ab0244`（oneof + 逐字段 omitted）、`f9cc578`（回归证据）、`dd3a2ff`（指南）、`e6426ff`（sdk-release 竞态）。
+- **全量**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r4-final-2` → 退出码 **0**；`check:fast` 通过（163807ms）、`test:e2e:weapp` 通过（477736ms）、`check:scenarios` 通过（1464ms）（日志 `artifacts/r4-final-2/logs/verify2.log`）。
+- **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r4-final-2 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r4-final-2/logs/scenarios2.log`）；说明全量 verify 跑完后报告没有过期。
+- **报告目录**：`artifacts/r4-final-2/`（`reports/unit.json`、`reports/integration.json`、`reports/weapp/`、`reports/scenarios.json`、`coverage/`）。
+- **本轮不做**：Task 17、18 仍不勾选；示例删除演练与支付 SDK 复刻演练由验收方另派全新 Agent 执行。
