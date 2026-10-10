@@ -116,8 +116,12 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
         ...process.env,
         PATH: `${resolve(repositoryRoot, 'node_modules/.bin')}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
       };
-  // 受控根以自身 active Change 为准：剔除外层 SCENARIO_GATE_CHANGES，避免作用域泄漏。
+  // 受控根以自身 active Change 与自身运行结果为准：剔除外层作用域与按需运行的报告设置，
+  // 否则同一份夹具在 `pnpm test:affected` 与全量运行下会写出不同的报告（partial 标记、run id、报告文件）。
   delete env.SCENARIO_GATE_CHANGES;
+  delete env.VERIFY_REPORT_FILE;
+  delete env.VERIFY_RUN_ID;
+  delete env.TEST_AFFECTED_PARTIAL;
   return {
     root,
     env,

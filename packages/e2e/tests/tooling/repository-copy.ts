@@ -131,7 +131,8 @@ export function copyEnvironment(): Record<string, string> {
     // 去掉外层 Vitest 的运行标记，副本才能独立启动自己的 Vitest；
     // 同时去掉验收报告变量，避免副本内的运行覆盖调用方的报告文件。
     if (key.startsWith('VITEST') || key === 'TEST') continue;
-    if (key === 'VERIFY_REPORT_FILE' || key === 'VERIFY_RUN_ID') continue;
+    if (key === 'VERIFY_REPORT_FILE' || key === 'VERIFY_RUN_ID' || key === 'TEST_AFFECTED_PARTIAL')
+      continue;
     if (value !== undefined) env[key] = value;
   }
   env.TEMPLATE_COPY = '1';
