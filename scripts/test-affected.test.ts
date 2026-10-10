@@ -99,28 +99,24 @@ describe('test:affected 依赖分析与执行路径', () => {
     }
   });
 
-  it('unit 类项目的报告名合并为 unit', () => {
-    const manifest = loadProjectManifest(process.cwd());
-    const commands = affectedCommands(process.cwd(), manifest, {
-      runId: 'affected-20260101T000000Z',
+  it('related 与被选中的 unit 文件各写一份报告，不互相覆盖', () => {
+    const root = process.cwd();
+    const manifest = loadProjectManifest(root);
+    const runId = 'affected-20260101T000000Z';
+    const commands = affectedCommands(root, manifest, {
+      runId,
       files: [{ project: 'test-tools-unit', className: 'unit', file: 'scripts/sample.test.ts' }],
-      related: [],
+      related: ['scripts/lib/affected-sample.ts'],
       build: false,
     });
-    expect(commands).toEqual([
-      {
-        command: 'vitest',
-        args: ['run', '--project', 'test-tools-unit', 'scripts/sample.test.ts'],
-        env: {
-          VERIFY_RUN_ID: 'affected-20260101T000000Z',
-          TEST_AFFECTED_PARTIAL: '1',
-          VERIFY_REPORT_FILE: join(
-            process.cwd(),
-            'artifacts/affected-20260101T000000Z/reports/unit.json',
-          ),
-        },
-      },
-    ]);
+    const report = (name: string) => join(root, 'artifacts', runId, 'reports', `${name}.json`);
+    const related = commands.find((step) => step.args[0] === 'related');
+    const files = commands.find((step) => step.args[0] === 'run');
+    // related 保持写 unit：affectedReportIssues 核对的就是这一步的真实结果，不会被逐文件运行覆盖。
+    expect(related?.env?.VERIFY_REPORT_FILE).toBe(report('unit'));
+    // 被选中的 unit 文件另写一份：写 0 个用例时也不会盖掉 related 的结论。
+    expect(files?.env?.VERIFY_REPORT_FILE).toBe(report('unit-files'));
+    expect(files?.args).toEqual(['run', '--project', 'test-tools-unit', 'scripts/sample.test.ts']);
   });
 
   it('平台文件按清单登记先执行 prepare，同一项目的文件合成一份报告', () => {

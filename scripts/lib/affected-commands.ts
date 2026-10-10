@@ -5,6 +5,16 @@ import { reportNameForFile } from './report-names.ts';
 import type { PlannedCommand } from '../run-by-manifest.ts';
 import type { AffectedTestFile } from './affected-types.ts';
 
+/** unit 类项目的默认报告名（清单与场景门禁共用）。 */
+const unitReportName = 'unit';
+/**
+ * 按需运行里「被选中的 unit 文件」用的独立报告名。
+ * `vitest related` 与逐文件运行都会写报告：共用 `unit` 时后写的会覆盖先写的，
+ * related 选中了改动文件却一个用例都没跑时，被覆盖的报告会让 `affectedReportIssues` 读不到 0 而漏报。
+ * related 保持写 `unit`，核对只针对这一步的真实结果。
+ */
+const unitFileReportName = 'unit-files';
+
 /** 组装按需运行的命令：先构建（改动落在产品/协议包 src）、再 unit related、再逐文件用例。 */
 export function affectedCommands(
   root: string,
@@ -32,7 +42,7 @@ export function affectedCommands(
       env: {
         VERIFY_RUN_ID: plan.runId,
         TEST_AFFECTED_PARTIAL: '1',
-        VERIFY_REPORT_FILE: reportPath(root, plan.runId, 'unit'),
+        VERIFY_REPORT_FILE: reportPath(root, plan.runId, unitReportName),
       },
     });
   // 同一份报告的文件合成一次运行：同一项目的多个文件写进同一份报告，不互相覆盖。
@@ -79,11 +89,12 @@ export function affectedCommands(
 }
 
 /**
- * 报告名沿用清单约定：unit 类项目合并为一份 `unit`；非 perFile 项目每个项目一份
- * `<项目名>`（同一项目的文件合成一次运行）；perFile 项目的报告名在调用处带上文件名。
+ * 报告名：按需运行选中的 unit 类文件写 `unit-files`（与 related 的 `unit` 分开，见上）；
+ * 非 perFile 项目每个项目一份 `<项目名>`（同一项目的文件合成一次运行）；
+ * perFile 项目的报告名在调用处带上文件名。
  */
 function reportFor(file: AffectedTestFile): string {
-  return file.className === 'unit' ? 'unit' : file.project;
+  return file.className === 'unit' ? unitFileReportName : file.project;
 }
 
 function reportPath(root: string, runId: string, name: string): string {
@@ -91,8 +102,9 @@ function reportPath(root: string, runId: string, name: string): string {
 }
 
 /**
- * 按需运行的报告核对：`vitest related` 选中了改动文件、unit 报告里实际执行的用例却为 0
+ * 按需运行的报告核对：`vitest related` 选中了改动文件、该步的报告里实际执行的用例却为 0
  * （例如项目名被当成路径过滤器过滤光了），说明选择失效——必须判失败，不能靠 `passWithNoTests`。
+ * 读的是 related 这一步写的 `unit` 报告：被选中的 unit 文件另写 `unit-files`，不覆盖它。
  */
 export function affectedReportIssues(
   root: string,
@@ -106,7 +118,7 @@ export function affectedReportIssues(
     (step) => step.command === 'vitest' && step.args[0] === 'related',
   );
   if (!ranRelated || plan.related.length === 0) return [];
-  const report = reportPath(root, plan.runId, 'unit');
+  const report = reportPath(root, plan.runId, unitReportName);
   const shown = relative(root, report);
   let tests: ReadonlyArray<unknown>;
   try {
