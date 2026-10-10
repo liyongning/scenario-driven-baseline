@@ -88,4 +88,4 @@
 
 ### IDL 协议义务派生
 
-协议义务派生针对示例协议的 `CreateTrade`、`QueryTrade` 两个 HTTP 方法；字段策略与待定项以 `protocol-contract` 的 PC-01 为准，派生器“待定字段为 0”是完成条件。新增 IDL 字段不能只刷新来源摘要而跳过覆盖；固定 Go 来源与 generated 来源分别核验。
+协议义务派生按产品包登记的消费接口声明（`manifest.packages[].consumedOperations`）派生：派生出哪些方法、每个方法的请求字段策略与义务 ID 都来自声明，不在门禁里写死接口名；字段策略与待定项以 `protocol-contract` 的 PC-01 为准，派生器“待定字段为 0”是完成条件。新增 IDL 字段不能只刷新来源摘要而跳过覆盖；固定 Go 来源与 generated 来源分别核验。
