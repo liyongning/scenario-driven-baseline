@@ -1463,3 +1463,61 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - M-4(b)：同一 integration 项目的两个文件进入计划时只有一条 `vitest run`、一份 `artifacts/<runId>/reports/integration.json`（断言 `new Set(reports).size === reports.length`）。
   - M-4(c)：prepare 步骤完全由清单 `testProjects[].prepare` 派生（测试用真实清单的 `weapp` 项目断言命令为 `pnpm run weapp:prepare` 且排在平台文件步骤之前），清单不登记时不会凭空出现该步骤。
 - **提交**：`fix(template): map test aliases and keep per-project affected reports`
+
+### 第 13 条 · Task 5/17（M-5）：`harmonizeScenarioTitles` 偏离登记
+
+- **事实**：`packages/e2e/tests/tooling/repository-copy.ts` 的 `applyChangeScope` 在调用真实 OpenSpec CLI 归档前，会把主 Spec 里同 ID Scenario 的标题按 delta 机械对齐（`harmonizeScenarioTitles`）。原因：归档校验比 OpenSpec 自己的合并语义更严——MODIFIED 块里被改写的标题会被判成「主 Spec 有、修改块没有」而拒绝归档。
+- **当前状态**：主 Spec 仍是旧标题（`openspec/specs/protocol-contract/spec.md`：`SCN-PROTOCOL-CONTRACT-001 义务清单只针对示例消费的接口`、`002 示例接口的协议义务都有运行证据`），delta 的最终标题是 `001 义务清单只针对产品声明的消费接口`、`002 声明接口的协议义务都有运行证据`。
+- **归档阶段前置动作（由验收方在 Archive 阶段执行，本次不做）**：真实归档前必须先把主 Spec 的这两个标题改成最终标题并单独提交，否则真实归档会被 CLI 拒绝。副本里的机械对齐只服务演练，不是归档的替代品。
+- **边界**：本项只登记，未改主 Spec、未改规划语义。
+
+### 第 13 条 · Task 17（M-6）：删除归档后多余的 `fixtures:refresh`
+
+- **根因**：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 在副本基线提交前对整个 Fixture 目录跑了一次 `pnpm fixtures:refresh <全部 owner>`。副本 helper 已经按作用域归档，归档前后 Requirement 块摘要不变，这次全量 refresh 不产生任何变化；它还掩盖了「归档是否真的改变摘要」这一事实。
+- **实证**：探针 `/tmp/m6-probe.mts`（构造受控副本 → 归档本 Change → 对磁盘上 19 个 owner 各跑一次 refresh）→ `/tmp/fcr-m6-probe.log`：`owners 19 changed-after-archive-refresh 0 []`，退出码 0。
+- **改动**：删除该步骤与随之不再使用的 `fixtureOwners` helper；保留「被删除内容改动的 Fixture 才 refresh」的那一次（`SCN-PROTOCOL-CONTRACT-002`）。
+- **反例（证明保留的那次不可省）**：同一探针把 `packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 置空后不 refresh 直接 `pnpm check:fixtures` → 退出码 **1**、`SCN-PROTOCOL-CONTRACT-002: sha256 mismatch for protocol-matrix.json`；只 refresh 该 owner 后 `manifests: 19, issues: []`、退出码 **0**（同一日志）。
+- **证据**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` → 2 用例通过、78.55s、退出码 **0**（`/tmp/s008-r3.log`）；同一探针在副本内跑完整 `check:fast` → 退出码 **0**，副本内 `test:integration` 39 文件 / 91 用例全绿（`/tmp/s008-probe-3.log`）。
+
+### 第 13 条 · Task 17（M-8）：`SCN-026` 的 concrete-assertions 扫描范围扩大
+
+- **根因**：GATE-026 的 `concrete-assertions` 只扫 `scripts/check-scenarios.test.ts`、`scripts/lib/scenario-gate.evidence.test.ts` 与 Fixture 登记的 GATE-001~011 用例。GATE-012~025 与门禁自身的 checkpoint / gate 单测不在范围内，「只用具体断言证明结论」的退化写法可以绕过。
+- **改动**：Fixture `SCN-SCENARIO-GATE-026/self-test-isolation-cli.json` 的 `gateSelfTestSpecs` 补齐 GATE-012~025（`fixtures:refresh SCN-SCENARIO-GATE-026` 重算摘要）；被扫文件列表增加 `scripts/check-scenarios.checkpoint.test.ts` 与 `scripts/check-scenarios.gate.test.ts`。
+- **证据**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm fixtures:refresh SCN-SCENARIO-GATE-026` 退出码 **0**；`SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures` → `manifests: 19, issues: []`、退出码 **0**；`SCENARIO_GATE_CHANGES=template-core-hardening pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts` → 1 用例通过、54.22s、退出码 **0**（`/tmp/fcr-026.log`）。
+- **反例**：扫描范围内的 22 个文件若出现 `expect.any(` 或 `process.cwd()`，`concrete-assertions` checkpoint 立即失败（已有的 `not.toContain` 断言）；本轮先按目录清点确认这 22 个文件当前都不含这两个写法。
+
+### 第 14 条（M-7）：`response-shape` 对没有可达字段的类型直接放行（已知限制，不修复）
+
+- **现状**：`scripts/lib/response-shape.ts` 的同形校验按响应类型声明的「可达字段」遍历；类型没有可达字段（空对象类型或全部字段不可达）时校验直接放行，不产生 issue。
+- **影响**：这类声明的同形证据弱于有字段的声明。当前协议来源与模板示例没有该形态的响应类型，实际不触发。
+- **处置**：按验收方要求只登记为已知限制，本 Change 不修复（改判定会改变校验语义，超出本次评审范围）。
+
+## 连带修复（修复清单条目落地时暴露的回归）
+
+修复清单第 3、7、11 条按原样落地后，仓库自身的门禁与示例删除演练仍有非绿项；以下三处是这三条的直接连带回归，已一并修复并复验。
+
+### 第 3 条 连带 · SDK 根入口在示例删除后必须仍是模块
+
+- **根因**：第 3 条删掉根入口的消费接口声明导出后，`packages/sdk/src/index.ts` 在示例删除后只剩注释（示例导出整段被 `template-example` 标记剥离）→ 副本内 `pnpm typecheck` 报 `packages/sdk/src/runtime/default.test.ts(47,30): error TS2306: File '<copy>/packages/sdk/src/index.ts' is not a module`，PC-05「SDK 根入口不导出请求 ID 生成器」的根入口检查失去可导入对象，示例删除演练无法全绿。
+- **改动**：入口在标记之外保留空导出块 `export {};`，并在注释里说明「删除模板示例后入口没有公共导出，仍保持模块身份」。不恢复任何被裁决删除的导出。
+- **证据**：副本内 `check:fast` 从 `typecheck` 失败（`/tmp/s008-probe-2.log`）变为退出码 **0**（`/tmp/s008-probe-3.log`）；SCN-008 用例 2/2 通过、退出码 **0**（`/tmp/s008-r3.log`）。
+- **反例**：去掉 `export {};` 后同一副本可复现 TS2306（`/tmp/s008-probe-2.log`）。
+
+### 第 7 条 连带 · `scripts/check-fixtures.ts` 未按 Prettier 格式化
+
+- **根因**：第 7 条把一处 `issues.push(...)` 写成多行后没有执行格式化，`format:check` 在仓库与副本里都会失败。
+- **改动**：`pnpm exec prettier --write scripts/check-fixtures.ts`；diff 只涉及那一行的折行（对照 `/tmp/check-fixtures.before.ts`），无语义变化。
+- **证据**：修复前 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` → `[warn] scripts/check-fixtures.ts`、退出码 **1**（`/tmp/repo-check-fast-1.log`）；修复后 `format:check` 通过（其后各步的日志见完成标准复验）。
+
+### 第 11 条 连带 · 按需入口的文件超限与单测覆盖率缺口
+
+- **根因**：第 11 条给 `scripts/test-affected.ts`（+60 有效行）与 `scripts/test-affected.test.ts`（+85 有效行）加代码与用例，越过仓库的行数上限（源文件 300、测试文件 600，空行与注释不计，ENG-08）——`pnpm lint` 退出码 1；同时新增的几条分支（平台项目没登记 `prepare`、报告缺 `tests` 字段、related 命中但 0 用例、缺少仓库 tsconfig、清单里没有协议包）没有 unit 证据，`pnpm test:unit` 的 100% 阈值失败。这两项在副本里被 SCN-026 / SCN-008 放大成「副本 check:fast 红」。
+- **改动**（不改规划语义、不改断言语义）：
+  - `scripts/lib/affected-commands.ts`（新增）：把 `affectedCommands`、`reportFor`、`reportPath`、`affectedReportIssues` 从 `scripts/test-affected.ts` 抽出；`test-affected.ts` 保持同名再导出，公共出口不变。
+  - `scripts/test-affected.evidence.test.ts`（新增）：把 SCN-020/021/022 的 module 证据用例拆出，连同它们需要的前导（`evidence`、`reasonOf`、`planFor` 与受控根常量）；场景绑定按 case 的 `meta` 登记，与文件路径无关。
+  - `scripts/test-affected.test.ts`：补 3 条 unit 证据——平台项目未登记 `prepare` 时只按文件运行；按需入口在 unit 报告零用例或缺 `tests` 字段时非零退出；分析用 tsconfig 在缺少仓库 tsconfig 或清单缺协议包时仍可用。
+- **证据**：
+  - `pnpm lint` 退出码 **0**；有效行数 `scripts/test-affected.ts` 353 → **247**、`scripts/test-affected.test.ts` 723 → **399**、`scripts/test-affected.evidence.test.ts` **341**。
+  - `pnpm test:unit` → 65 文件 / 377 用例通过，`statements / branches / functions / lines` 全部 **100%**，退出码 **0**。
+  - `pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts scripts/test-affected.evidence.test.ts` → 2 文件 / 17 用例通过、退出码 **0**（`/tmp/fcr-affected-unit.log`）。
+- **反例（修复前）**：`pnpm lint` 退出码 1（副本日志 `/tmp/s008-probe-2.log`：`scripts/test-affected.test.ts 719 > 600`、`scripts/test-affected.ts 334 > 300`、`'_prepare' is assigned a value but never used`）；`pnpm test:unit` 退出码 1（`ERROR: Coverage for statements (99.97%)` / `branches (99.81%)`，未覆盖 `scripts/test-affected.ts:166,230,367` 与 `scripts/lib/affected-analysis.ts:39`，日志 `/tmp/fcr-coverage-before.log`）。
