@@ -200,13 +200,6 @@ function removeDeclaredMatrixKeys(root: string, removal: Removal): string[] {
   return keys;
 }
 
-/** 副本中的 Fixture owner 由磁盘派生，不写死名单。 */
-function fixtureOwners(root: string): string[] {
-  return readdirSync(join(root, 'packages/e2e/tests/fixtures'), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-}
-
 /** 同步清单中指向已删除文件的覆盖率排除项；返回被移除的路径。 */
 function syncCoverageExclusions(root: string): string[] {
   const path = join(root, 'project.manifest.json');
@@ -320,12 +313,9 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
   const { removal } = fixture;
   const copy = createRepositoryCopy({ prefix: 'engineering-008-' });
   try {
-    // 归档把本 Change 的 delta 合并进主 Spec，来源摘要随之变化：先按交付状态重算全部 Fixture
-    // 摘要，再提交基线，使白名单删除的 diff 只反映删除本身。
-    const deliveredFixtures = run(copy, 'pnpm', ['fixtures:refresh', ...fixtureOwners(copy.root)]);
-    if (deliveredFixtures.status !== 0)
-      throw new Error(`fixtures:refresh failed: ${deliveredFixtures.output}`);
     // 模拟交付状态并格式化，再提交基线：白名单删除的 diff 只反映删除本身。
+    // 副本 helper 已按作用域归档，归档后的来源摘要与归档前一致（实测 19 个 owner 全无变化），
+    // 这里不再重算全部 Fixture 摘要；只有被删除内容改动的 Fixture 才需要 refresh。
     const archivedFormat = run(copy, 'pnpm', ['format']);
     if (archivedFormat.status !== 0) throw new Error(`format failed: ${archivedFormat.output}`);
     git(copy.root, ['add', '-A']);

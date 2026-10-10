@@ -175,8 +175,12 @@ defineCase(
       });
 
       await checkpoint('concrete-assertions', () => {
+        // 扫描范围覆盖 GATE-001~025 的用例（Fixture 逐项登记）与门禁自身的 checkpoint/gate 单测：
+        // 「只用具体断言证明结论」的退化写法在这些文件里同样不得出现。
         const sources = [
           'scripts/check-scenarios.test.ts',
+          'scripts/check-scenarios.checkpoint.test.ts',
+          'scripts/check-scenarios.gate.test.ts',
           'scripts/lib/scenario-gate.evidence.test.ts',
           ...probe.gateSelfTestSpecs,
         ];
