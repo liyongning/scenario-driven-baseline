@@ -1852,4 +1852,10 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **全量**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r4-final-2` → 退出码 **0**；`check:fast` 通过（163807ms）、`test:e2e:weapp` 通过（477736ms）、`check:scenarios` 通过（1464ms）（日志 `artifacts/r4-final-2/logs/verify2.log`）。
 - **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r4-final-2 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r4-final-2/logs/scenarios2.log`）；说明全量 verify 跑完后报告没有过期。
 - **报告目录**：`artifacts/r4-final-2/`（`reports/unit.json`、`reports/integration.json`、`reports/weapp/`、`reports/scenarios.json`、`coverage/`）。
+### 终态复验（记录本节的提交本身）
+
+- **命令**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r4-final-3`（HEAD `6f30136`）。
+- **退出码**：**0**；`check:fast` 通过（161934ms）、`test:e2e:weapp` 通过（278271ms）、`check:scenarios` 通过（1481ms）（日志 `artifacts/r4-final-3/logs/verify3.log`）。
+- **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r4-final-3 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r4-final-3/logs/scenarios3.log`）；verify 跑完后 `git status` 干净，报告没有过期。
+- **说明**：`r4-final-3` 之后只提交了本节与 `tasks.md` 的勾选（`docs(openspec): record the fourth-round fixes and recheck tasks`），没有触碰源码、测试或 Fixture；`r4-final-2` 是同一次修复状态下的前一轮全量证据。
 - **本轮不做**：Task 17、18 仍不勾选；示例删除演练与支付 SDK 复刻演练由验收方另派全新 Agent 执行。
