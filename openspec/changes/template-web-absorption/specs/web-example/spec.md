@@ -297,7 +297,7 @@ Web 示例 SHALL 与 `template-example` 一样可按白名单删除：示例独�
 
 白名单 SHALL 包括：Web 应用包中的示例业务模块、全局 store 中的示例状态、示例的预览数据集、示例的浏览器用例与 Fixture、`openspec/specs/web-example/`、全部 `web-example:begin/end` 标记之间的片段（含消费接口声明中的示例条目、指南能力地图与架构文档中的"Web 示例"一项），以及 `manifest.quality.coverageExclusions` 中指向已删除文件的条目。OpenAPI 示例契约 `packages/openapi/contracts/trade-v1.yaml` 属于协议来源，MUST NOT 列入白名单：使用方按替换点地图（ENG-06）替换协议来源，与 IDL 示例的处理一致。应用包与 OpenAPI 协议包的骨架（装配入口、空的消费接口声明、门禁规则）保留。
 
-同时删除 `template-example` 与 `web-example` 后确定性门禁仍全绿的证据由 ENG-06 的 SCN-TEMPLATE-ENGINEERING-008 统一承担；本要求只以 SCN-WEB-EXAMPLE-014 校验 `web-example` 标记成对。
+同时删除 `template-example` 与 `web-example` 后确定性门禁仍全绿的证据由 template-example EX-10 的 SCN-TEMPLATE-ENGINEERING-008 统一承担；本要求只以 SCN-WEB-EXAMPLE-014 校验 `web-example` 标记成对。
 
 #### Scenario: SCN-WEB-EXAMPLE-014 web-example 标记成对校验
 - **WHEN** 在受控临时根中分别在代码文件与 Markdown 文件中放入只有 `web-example:begin` 没有结束标记、多余的 `web-example:end`、两对嵌套的 `web-example` 标记；随后恢复合法输入

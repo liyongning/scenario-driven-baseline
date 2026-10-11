@@ -446,7 +446,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 - 必备测试：入口覆盖、store 写入审计、假时钟驱动的轮询、业务码完备性、一个"不可达分支改写"的正例。
 - 本地预览：至少两个数据集（进行中、已完成），演示"看某个状态下的 UI"；示例只要求数据集通过 `check:fixtures` 的契约校验，预览页面能打开的证据由 `browser-platform` 承担，不在示例中重复启动 dev server。
 
-**删除白名单**：按核心 Change 的机制（整目录、`template-example` 风格的片段标记）新增 `web-example` 标记与白名单，包括 Web 应用包中的示例模块、store、预览数据集、示例用例与 Fixture。OpenAPI 示例契约属于协议来源，不在白名单内：使用方按替换点地图替换协议来源，与 IDL 示例的处理一致。两个示例同时删除后门禁仍全绿的证据由 template-engineering 的示例删除 Scenario 统一承担，`web-example` 只校验标记成对。
+**删除白名单**：按核心 Change 的机制（整目录、`template-example` 风格的片段标记）新增 `web-example` 标记与白名单，包括 Web 应用包中的示例模块、store、预览数据集、示例用例与 Fixture。OpenAPI 示例契约属于协议来源，不在白名单内：使用方按替换点地图替换协议来源，与 IDL 示例的处理一致。两个示例同时删除后门禁仍全绿的证据由示例删除 Scenario（SCN-TEMPLATE-ENGINEERING-008）统一承担，`web-example` 只校验标记成对。核心 Change 归档后，该 Scenario 登记在 template-example 的 EX-10，随 `template-example` 一起删除（核心 A3）；本 Change 以 template-example delta 修改 EX-10，使它同时删除两个示例。另外，核心 Change 归档时的修订 A1（请求 ID 随机源改为 `Math.random`）、A3、A6、A7（删除白名单）已经合入主 Spec，本 Change 的 PC-05 与 ENG-06 MODIFIED 块以归档后的主 Spec 为底，只叠加本 Change 自己的改动。
 
 ### Decision: 依赖版本
 

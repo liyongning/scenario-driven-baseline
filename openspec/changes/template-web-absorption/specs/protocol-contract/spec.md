@@ -360,7 +360,7 @@ Shadow 返回给被测客户端的每个响应体 MUST 与协议来源描述的�
 请求 ID 的头名、格式与生成规则以公司规范为准，规范来源为 dq-tech-ai-plugin 中 `dq-be-core/skills/dq-be-libs/references/common-sdk.md` 第 92–97 行，以及 `dq-be-idl-convention`、`dq-fe-troubleshooting` 中的相关条目。
 
 - **头名**：协议包发出的每个请求 MUST 在请求头 `X-Request-Id` 中携带请求 ID，MUST NOT 再发送 `request_id` 头。同一个值 SHALL 同时写入 `BaseReq.requestId`。
-- **格式**：请求 ID MUST 为 `yyyyMMdd_HHmmss_SSS_abcdef`，共 26 个字符（匹配 `^\d{8}_\d{6}_\d{3}_[a-z]{6}$`）。时间部分 SHALL 按北京时间（UTC+8）计算，不依赖宿主时区；末尾 6 位为随机小写字母，SHALL 由 `crypto.getRandomValues` 生成。
+- **格式**：请求 ID MUST 为 `yyyyMMdd_HHmmss_SSS_abcdef`，共 26 个字符（匹配 `^\d{8}_\d{6}_\d{3}_[a-z]{6}$`）。时间部分 SHALL 按北京时间（UTC+8）计算，不依赖宿主时区；末尾 6 位为随机小写字母，标准生成器默认 SHALL 用 `Math.random` 生成，小程序、浏览器与 Node 使用同一实现，不设平台点位。请求 ID 只用于链路追踪，不是凭据，不要求密码学安全。
 - **生成方**：请求 ID MUST 由协议包 `transport/` 中的标准生成器生成，每次请求都生成新值。模板没有自动重试，重试时是否复用请求 ID 不在本 Requirement 范围内。
 - **不可覆盖（公共 API 破坏性变更）**：协议包公共选项 `ProtocolClientOptions` MUST 删除 `runtime.nextRequestId`，SDK 运行时端口 MUST 删除同名能力；宿主无论经 SDK 还是直接使用协议客户端，都无法覆盖或注入请求 ID。SDK 内不得保留其他请求 ID 生成器（删除带 `pay-` 前缀的旧实现）。这是协议包与产品包公共 API 的破坏性变更，双格式类型声明随之变化，SHALL 在 Change 说明与指南能力地图中注明。
 - **测试确定性**：用例 MUST NOT 依赖可预测的请求 ID：Shadow 以 `headerPatterns` 校验格式，并比对同一请求中 `X-Request-Id` 头与 `BaseReq.requestId` 相等。标准生成器的时钟与随机源只能通过内部参数注入供单测使用，这些参数 MUST NOT 出现在协议包与产品包的任何公共导出中。
@@ -396,7 +396,7 @@ Shadow 返回给被测客户端的每个响应体 MUST 与协议来源描述的�
 
 #### Scenario: SCN-PROTOCOL-CONTRACT-009 标准生成器按北京时间生成且不依赖宿主时区
 - **WHEN** 对清单中每个协议包的标准生成器，在显式设置的非 +8 时区（例如 `TZ=UTC` 与 `TZ=America/Los_Angeles`）下，以固定时刻与可控随机源调用，时刻包含跨越北京日期边界的情况（UTC 当日 16:00 之后）
-- **THEN** 时间部分等于该时刻的北京时间（含毫秒）；末尾 6 位为小写字母且来自 `crypto.getRandomValues`；结果长度为 26；不同宿主时区下结果相同。
+- **THEN** 时间部分等于该时刻的北京时间（含毫秒）；末尾 6 位为小写字母且由注入的随机源映射得到；未注入随机源时默认使用 `Math.random`；结果长度为 26；不同宿主时区下结果相同。
 
 ```json verification
 {
@@ -404,7 +404,7 @@ Shadow 返回给被测客户端的每个响应体 MUST 与协议来源描述的�
   "checkpoints": {
     "beijing-time": "时间部分按 UTC+8 计算，跨北京日期边界时日期正确",
     "tz-independent": "在非 +8 时区下运行结果与宿主时区无关",
-    "random-suffix": "末尾 6 位为小写字母且由 crypto.getRandomValues 生成",
+    "random-suffix": "末尾 6 位为小写字母且由注入的随机源映射得到，未注入时默认随机源为 Math.random",
     "fixed-length": "生成结果恰为 26 个字符"
   },
   "cases": [

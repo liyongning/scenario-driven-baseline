@@ -505,7 +505,7 @@
   - Modify：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 及 Fixture（同时删除 template-example 与 web-example，副本内 `check:fast` 与 `check:scenarios --inventory`，核对两个产品包依赖在副本内）。
 
   **Requirements / Scenarios**
-  - template-engineering：ENG-06 / SCN-TEMPLATE-ENGINEERING-008（`example-removal-scenarios` 承接自任务 1–13 的中途预期失败，见共同完成条件第 8 条）
+  - template-engineering：ENG-06（删除保证与副本构造）；template-example：EX-10 / SCN-TEMPLATE-ENGINEERING-008（`example-removal-scenarios` 承接自任务 1–13 的中途预期失败，见共同完成条件第 8 条）
 
   **Design Decisions**
   - Decision: Web 示例与示例契约（删除白名单）；Decision: 实施顺序（中途运行时的示例删除用例）

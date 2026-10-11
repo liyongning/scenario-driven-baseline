@@ -70,6 +70,7 @@
 - `template-engineering`：清单多包与组合绑定、按产品形态区分的工程检查（typecheck、注释发现、产物边界）、依赖规则按绑定生成、能力地图与替换点地图的两种选项。
 - `protocol-contract`：义务派生、响应校验与 Fixture 检查改为按协议适配器插拔（核心 Change 中的 IDL 实现作为第一种适配器）；IDL 协议包的浏览器网络适配器；Shadow 预览模式与"部分响应后断开"故障。
 - `scenario-gate`：协议义务与运行环境按组合绑定取值；预览数据集的 Fixture 校验。
+- `template-example`：EX-10 的示例删除验收（SCN-TEMPLATE-ENGINEERING-008）改为同时删除 `template-example` 与 `web-example`。核心 Change 归档后该 Scenario 登记在 template-example，本 Change 据此对齐。
 
 ## Impact
 
