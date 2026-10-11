@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-011",
+  "protocol": "openapi",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "6f66a4aefaaa11e434ee92d4944f4d75e0bdcafe4724bb0edd86eb2bba09cb85"
+    }
+  },
+  "cases": {
+    "method-wire": "method-wire.json"
+  },
+  "sha256": {
+    "method-wire.json": "59cb2430f706bb8ee6af9b45942a5de653e3d6e06a33ea1d41053ab902443bb5"
+  }
+}

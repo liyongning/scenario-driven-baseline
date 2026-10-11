@@ -251,3 +251,45 @@
 **Commit**
 
 - `feat(template): add OpenAPI protocol package with contract commands and generators`
+
+### Task 6 OpenAPI 执行器与协议适配器
+
+**规划与输入**
+
+- 起始 HEAD：`6e9a2be`。
+- 起始与结束 freshness：`PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**RED / GREEN**
+
+- RED 覆盖 OpenAPI 声明解析、接口义务、presence 联合判定、响应严格同形、信封认领、业务码、调用扫描、OpenAPI 路由与浏览器步骤执行器；旧工作区没有对应 OpenAPI 执行器、适配器和 Shadow 路由而失败。
+- GREEN 后，SCN-OPENAPI-CONTRACT-007～014、028 的 integration 用例，015～020 的 openapi-unit 用例，以及 027 的包形态与消费边界通过；021 的受控产品矩阵以临时根声明运行通过。
+- SCN-TEMPLATE-ENGINEERING-007 的依赖副本会在巡航前构建全部协议包，使 OpenAPI testing 的公共包名导入可在无提交产物的副本内解析；SCN-029 在 `web-openapi-browser` 尚未登记的当前阶段只核对 Web 用例目录，任务 8 登记绑定后继续核对目录派生绑定。受控 Fixture 根清除了外层 `SCENARIO_GATE_CHANGES`，避免把仓库的 Change 作用域泄漏到临时根。
+
+**Verification**
+
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 0。
+  - unit 99/99 文件、470/470 用例通过；statements/branches/functions/lines 均为 100%。
+  - integration 87/87 文件、158/158 用例通过；SCN-008 的两个 case 均通过。
+  - format、lint、build、typecheck、architecture、coverage、fixtures、package、bundle 与 component-tree 均退出 0；fixtures 共 45 个 manifest、`issues: []`。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 0，run id `affected-20261011T173637Z`。因包清单、构建输入、工具配置和平台适配目录变化全量触发 `check:fast`，实际执行结果与上一条相同。
+- 独立 `pnpm check:scenarios --change template-web-absorption`：退出码 1，34 条问题全部为尚未到实现任务的已登记测试项目中间态。
+  - `browser` 未登记：21 条，其中 20 条 Scenario 元数据与 1 条 `FLOW-WEB-EXAMPLE-001` 行；归属任务 10。
+  - `app-unit` 未登记：13 条；归属任务 8。
+  - 没有缺失绑定、非本 Change Scenario 或其他问题，符合 R5-M1 的 A2 增量口径。
+- 本周期全量 `pnpm verify --change template-web-absorption`：run id `template-web-absorption-apply-20261011T174045Z`。
+  - `check:fast`：通过（234550ms）。
+  - `test:e2e:weapp`：环境阻塞待补跑（190098ms）。`weapp:prepare` 在 180000ms 预算内未就绪，错误为“第 9 次微信开发者工具就绪探测 超过 11602ms 未返回”；未进入 weapp 用例。正式版此前已确认 `islogin=false`，外部 Nightly 实例仍在使用；按验收方口径未重试、不计业务失败或 OI。
+  - 使用同一 run id 从 `check:scenarios` 续跑：`check:fast` 与 weapp 跳过，`check:scenarios` 退出码 1（1069ms）；问题集合与上述独立的 34 条完全一致，仍归属任务 8、10。
+
+**Review / Acceptance**
+
+- 对照 xueshan 的 REST 执行器、契约清单、契约 schema 与 Fixture 检查实现完成吸收：保留可配置信封、路径参数、身份头、请求 ID、契约方法校验和严格 Fixture/响应同形；未引入宽松认领路径。
+- OpenAPI 生产入口只导出公共执行器、网络端口与生成物；完整契约 bundle 和测试适配器不进入生产导入图。OpenAPI 浏览器 runner 经根入口消费公共客户端，不硬编码业务接口。
+- 新增检查均以反例验证：非法声明、未知请求字段策略、未认领或悬空 Fixture、错误业务码、响应 schema 不符、传输失败与取消均有明确非零或判别结果。
+- 高并发下 AST 分支用例曾超过原 30 秒预算；将单例预算调整为 120 秒后连续三轮完整 unit 与两轮副本 `check:fast` 均通过。该调整只解决测试负载预算，不放宽断言。
+- 本轮 Task 6 自发现并修复的门禁回归均在提交前关闭，不新增 OI；OI 仍为 Tasks 2、3 累计 2 次且已关闭。`git diff --check` 退出码 0。
+- 未执行任务 14、15 的演练，未修改对应 checkbox；Task 4 与本次全量 verify 的 weapp 段继续等待验收方在环境恢复后补跑。
+
+**Commit**
+
+- `feat(template): add OpenAPI REST executor and protocol adapter`

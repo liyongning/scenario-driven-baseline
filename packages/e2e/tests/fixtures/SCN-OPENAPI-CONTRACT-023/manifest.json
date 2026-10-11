@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-023",
+  "protocol": "openapi",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "af26d059ecf758f31bd306adceb68b61bd1f366a90fd022e0556f49d2ce27c22"
+    }
+  },
+  "cases": {
+    "shadow-injection": "shadow-injection.json"
+  },
+  "sha256": {
+    "shadow-injection.json": "b94331597c6a0ca32edd69f281fcbf8b06795a53bbc29803cf706be4e082a42f"
+  }
+}

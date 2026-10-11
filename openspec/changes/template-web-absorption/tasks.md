@@ -224,7 +224,7 @@
   **Commit**
   - `feat(template): add OpenAPI protocol package with contract commands and generators`
 
-- [ ] 6. OpenAPI 执行器与协议适配器
+- [x] 6. OpenAPI 执行器与协议适配器
 
   **Files**
   - Create：`packages/openapi/src/rest/`（执行器：判别联合结果、可配置信封约定、路径参数、身份头映射、方法按契约、X-Request-Id 标准生成器、运行时忽略未知字段）、`src/transport/`、`src/adapters/network/fetch.ts`、根入口导出 `createFetchHttp`，以及全部单测。

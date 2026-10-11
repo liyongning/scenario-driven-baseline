@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-028",
+  "protocol": "openapi",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "3abc74ad035efc0b954cdfa7eeb77ff2f2f48c64fa5117c388438c579b8ed202"
+    }
+  },
+  "cases": {
+    "fetch-adapter-wire": "fetch-adapter-wire.json"
+  },
+  "sha256": {
+    "fetch-adapter-wire.json": "99c5ded86ddd4f12d1f46de8038f102abb6d705547f6dee9f59788a8ffb90625"
+  }
+}

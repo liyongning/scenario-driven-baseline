@@ -5,6 +5,7 @@
   "type": "module",
   "devDependencies": {
     "@daqian/template-sdk": "workspace:*",
-    "@daqian/template-protocol": "workspace:*"
+    "@daqian/template-protocol": "workspace:*",
+    "@daqian/template-openapi": "workspace:*"
   }
 }

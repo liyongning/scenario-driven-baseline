@@ -165,6 +165,7 @@ export function runGate(
             issues: string[];
             scenarios?: unknown[];
             flows?: unknown[];
+            contracts?: Array<{ id: string; requiredIn: string[]; cases: string[] }>;
             summaries?: unknown;
             digests?: unknown;
             help?: string;

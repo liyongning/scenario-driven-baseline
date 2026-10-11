@@ -21,7 +21,7 @@ export default defineProject({
     root: fileURLToPath(new URL('../..', import.meta.url)),
     name: 'integration',
     include: [
-      'packages/e2e/tests/{protocol,tooling,flows,sdk}/**/*.spec.ts',
+      'packages/e2e/tests/{protocol,tooling,flows,sdk,web-openapi-browser}/**/*.spec.ts',
       // template-example:begin
       'packages/e2e/tests/example/**/*.spec.ts',
       // template-example:end

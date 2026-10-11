@@ -1,0 +1,87 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { cliEvidence } from './scenario-gate-helpers.ts';
+import { repositoryRoot } from './helpers.ts';
+
+const openapiRoot = join(repositoryRoot, 'packages/openapi');
+const require = createRequire(import.meta.url);
+
+function filesUnder(root: string): string[] {
+  const files: string[] = [];
+  const visit = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else files.push(path.slice(root.length + 1));
+    }
+  };
+  visit(root);
+  return files;
+}
+
+cliEvidence(
+  'SCN-OPENAPI-CONTRACT-027',
+  'openapi-package-shape',
+  ['dual-format', 'root-named-export', 'no-extra-entry', 'not-in-release-plan'],
+  async (context, check) => {
+    const built = spawnSync('pnpm', ['--filter', '@daqian/template-openapi', 'build'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    });
+    context.expect(built.status, `${built.stdout}${built.stderr}`).toBe(0);
+    const packageJson = JSON.parse(readFileSync(join(openapiRoot, 'package.json'), 'utf8')) as {
+      files: string[];
+      exports: Record<string, unknown>;
+    };
+    const manifest = JSON.parse(
+      readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
+    ) as {
+      packages: Array<{ directory: string; name: string; role: string; form?: string }>;
+      bindings: Array<{ product: string; protocol: string }>;
+    };
+
+    await check('dual-format', () => {
+      for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts'])
+        context.expect(existsSync(join(openapiRoot, 'dist', file)), file).toBe(true);
+      context.expect(packageJson.files).toEqual(['dist']);
+    });
+
+    await check('root-named-export', async () => {
+      const esm = (await import(pathToFileURL(join(openapiRoot, 'dist/index.js')).href)) as Record<
+        string,
+        unknown
+      >;
+      const cjs = require(join(openapiRoot, 'dist/index.cjs')) as Record<string, unknown>;
+      for (const exports of [esm, cjs]) {
+        context.expect(typeof exports.createFetchHttp).toBe('function');
+        context.expect(typeof exports.createRestClient).toBe('function');
+      }
+    });
+
+    await check('no-extra-entry', () => {
+      context.expect(Object.keys(packageJson.exports)).toEqual(['.', './generated/*']);
+      const files = filesUnder(join(openapiRoot, 'dist'));
+      context
+        .expect(files.filter((file) => /(?:^|\/)(?:testing|adapter)(?:\/|\.|$)/.test(file)))
+        .toEqual([]);
+    });
+
+    await check('not-in-release-plan', () => {
+      const sdk = manifest.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'sdk')!;
+      const web = manifest.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'web-app');
+      const openapi = manifest.packages.find((pkg) => pkg.directory === 'openapi')!;
+      const sdkProtocol = manifest.bindings.find(
+        (binding) => binding.product === sdk.directory,
+      )!.protocol;
+      context.expect(openapi.directory).not.toBe(sdkProtocol);
+      if (web)
+        context
+          .expect(manifest.bindings.find((binding) => binding.product === web.directory)?.protocol)
+          .toBe(openapi.directory);
+    });
+  },
+  { timeoutMs: 60_000 },
+);

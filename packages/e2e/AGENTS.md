@@ -75,4 +75,5 @@
 
 - `packages/e2e/tests/protocol`：协议集成用例。
 - `packages/e2e/tests/tooling`：CLI 门禁正向与反例验证。
+- `packages/e2e/tests/web-openapi-browser`：Web/OpenAPI 协议集成与浏览器用例。
 - `packages/e2e/tests/weapp`：小程序用例，经真实 `wx.request` 访问 Shadow。

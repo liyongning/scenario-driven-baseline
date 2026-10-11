@@ -104,12 +104,17 @@ importers:
 
   packages/e2e:
     devDependencies:
+      '@daqian/template-openapi':
+        specifier: workspace:*
+        version: link:../openapi
       '@daqian/template-protocol':
         specifier: workspace:*
         version: link:../protocol
       '@daqian/template-sdk':
         specifier: workspace:*
         version: link:../sdk
+
+  packages/openapi: {}
 
   packages/protocol: {}
 

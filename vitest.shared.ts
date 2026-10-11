@@ -15,6 +15,10 @@ export default defineProject({
           fileURLToPath(new URL('./packages/protocol/src/generated/', import.meta.url)) + '$1',
       },
       {
+        find: /^@daqian\/template-openapi$/,
+        replacement: fileURLToPath(new URL('./packages/openapi/src/index.ts', import.meta.url)),
+      },
+      {
         find: '@template-test/protocol',
         replacement: fileURLToPath(
           new URL('./packages/protocol/testing/index.ts', import.meta.url),

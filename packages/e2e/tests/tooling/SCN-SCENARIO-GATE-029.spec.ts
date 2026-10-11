@@ -200,12 +200,10 @@ defineCase(
       });
       expect(idlCases.length).toBeGreaterThan(0);
       expect(idlCases.filter((item) => item.binding !== idlBinding!.name)).toEqual([]);
-      const misplacedWebCases = cases.filter(
-        (item) =>
-          item.file.includes('/tests/web-openapi-browser/') &&
-          item.binding !== 'web-openapi-browser',
-      );
-      expect(misplacedWebCases).toEqual([]);
+      const webCases = cases.filter((item) => item.file.includes('/tests/web-openapi-browser/'));
+      if (manifest.bindings.some((binding) => binding.name === 'web-openapi-browser'))
+        expect(webCases.filter((item) => item.binding !== 'web-openapi-browser')).toEqual([]);
+      else expect(webCases.every((item) => item.binding === undefined)).toBe(true);
     });
   },
 );
