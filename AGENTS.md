@@ -7,7 +7,7 @@
 - [有效能力 Spec](openspec/specs/)
 - 使用 `openspec list` 查看当前 Change；生命周期状态以当前物理仓库为根。
 - [仓库与跨仓库参考](README.md)
-- [模板使用指南](docs/template-guide.md)
+- [模板使用指南](docs/template-guide.md)：模板能力的唯一说明入口，按需查阅。涵盖能力地图、从规划到验收的流程与各类运行命令（含按需运行、统一验收入口与全量运行节奏）、初始化、移除模板示例、归档已知限制、版本对齐、使用方约定、复刻验收与替换点地图；需要运行测试与门禁、判断何时全量、删除示例或替换产品/协议/平台时，先读对应章节。
 - [技术架构文档](docs/architecture.md)
 - [项目清单](project.manifest.json)
 

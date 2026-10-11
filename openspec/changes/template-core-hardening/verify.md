@@ -5,7 +5,7 @@
 - Change: template-core-hardening
 - Schema: openspec-workflow
 - Verified Git revision: `7917bd726245b5048619295af2c35069be9d6119`（worktree 分支 `template-core-hardening-apply`）
-- Verification input manifest digest: `d7963b0bf82fc6417feb8ae92a32367d721085f73c9a8d9a81dbcca4e4c5e37e`（506 个路径）
+- Verification input manifest digest: `395d627b7581677c4ed0381fc25b3b78cd2fc1ceba5411c3f77391acc8b52a9d`（506 个路径；V-1~V-6 取证于 `d7963b0b…`，之后只改了根 AGENTS.md 与指南的两处文字，按 V-7 补验）
 - Manifest includes: `git ls-files -co --exclude-standard` 的全部路径（代码、测试、配置、文档、proposal/specs/design/tasks/plan-review），按路径排序，逐个计入路径、类型、可执行位、内容或符号链接目标；排除 Verification Artifact 自身。算法：会话临时目录 `scratchpad/final/manifest-digest.py`
 - Plan Review verdict: PASS
 - Reviewed digest: `dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9`
@@ -14,7 +14,7 @@
 - Unresolved Plan Review findings: Critical 0 / Important 0（R1~R4 与 Apply 期间用户裁决 A1~A7 均为 resolved）
 - Untracked inputs included: None
 - Excluded lifecycle paths: `openspec/changes/template-core-hardening/verify.md`（本文件）；Sync 将改写的 `openspec/specs/**` 与 Archive 移动的 Change 目录属于后续阶段输出
-- Verified at: 2026-10-11T02:25:23Z
+- Verified at: 2026-10-11T02:25:23Z（V-7 补验 2026-10-11T03:04:54Z）
 - Verification environment: macOS（Darwin 25.2.0）、Node v22.21.1、pnpm 10.20.0、Vitest 5.0.3、OpenSpec CLI 1.6.0（仓库固定）、微信开发者工具 2.01.2510290
 
 ## Apply Gate
@@ -199,6 +199,17 @@
 - Output reference: 命令输出
 - Key observations: `d7963b0b…`，506 个路径，无未跟踪输入；工作区干净
 
+#### V-7: 文档修订后的定向补验
+
+- Command: `pnpm exec prettier --check AGENTS.md docs/template-guide.md && pnpm check:architecture && VERIFY_RUN_ID=core-verify-phase pnpm check:scenarios`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T03:04:54Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: 命令输出（prettier 全部符合；check:architecture `issues: []`；check:scenarios `mode: complete`、`issues: []`）
+- Key observations: 修订内容为根 AGENTS.md 中指南链接的说明（按用户要求只指路、不写命令）与指南第 6 步的全量节奏措辞，均不进入源码摘要；读取这两份文档的检查只有格式、架构（项目地图、指南事实与 Scenario ID）与场景门禁，补验全部通过，V-1 的报告未过期。经用户同意，不重跑全量。
+
 ### Behavioral Results
 
 | Behavior / Claim | Evidence | Result |
@@ -257,7 +268,7 @@
 - Unresolved Critical findings: 0
 - Unresolved Important findings: 0
 - Accepted Minor findings: 14（Plan Review advisory 13 条；M-1）
-- Verification input manifest matches current inputs: yes（`d7963b0b…`）
+- Verification input manifest matches current inputs: yes（`395d627b…`）
 - Requirements without evidence: 0
 - Warnings and rationale: 小程序自动化挂起（影响是偶发需要重跑，不影响结论，已登记）；M-1（当前无子目录，不影响现有约束）；7 条演练非阻塞发现（使用方可自行发现、摩擦低，按用户口径只登记）
 - Blockers: None
