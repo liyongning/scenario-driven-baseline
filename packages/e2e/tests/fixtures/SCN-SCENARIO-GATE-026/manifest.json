@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-SCENARIO-GATE-026",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "abcff47b151ec6140fd0117441cf4747383cdfbb9bf344ad9470fbefa0cca32c"
+    }
+  },
+  "cases": {
+    "self-test-isolation-cli": "self-test-isolation-cli.json"
+  },
+  "sha256": {
+    "self-test-isolation-cli.json": "caa81aaa959e3e7301ab603a4dcd8f0ab360ed88fb5e823adc9630ab5832512a"
+  }
+}

@@ -8,8 +8,14 @@ export function createNodeHttpDriver(): HttpPort {
       const controller = new AbortController();
       let stopped = false;
       let timedOut = false;
-      const unsubscribe = request.cancellation?.subscribe(() => { stopped = true; controller.abort(); });
-      const timer = setTimeout(() => { timedOut = true; controller.abort(); }, request.timeoutMs);
+      const unsubscribe = request.cancellation?.subscribe(() => {
+        stopped = true;
+        controller.abort();
+      });
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, request.timeoutMs);
       try {
         const response = await fetch(request.url, {
           method: request.method,
@@ -18,11 +24,18 @@ export function createNodeHttpDriver(): HttpPort {
           signal: controller.signal,
         });
         const headers: Record<string, string> = {};
-        response.headers.forEach((value, key) => { headers[key] = value; });
-        return { ok: true, value: { status: response.status, headers, body: await response.text() } };
+        response.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        return {
+          ok: true,
+          value: { status: response.status, headers, body: await response.text() },
+        };
       } catch {
         if (stopped) return { ok: false, error: { code: 'CANCELLED' } };
-        return timedOut ? { ok: false, error: { code: 'TIMEOUT' } } : { ok: false, error: { code: 'NETWORK_ERROR' } };
+        return timedOut
+          ? { ok: false, error: { code: 'TIMEOUT' } }
+          : { ok: false, error: { code: 'NETWORK_ERROR' } };
       } finally {
         clearTimeout(timer);
         unsubscribe?.();

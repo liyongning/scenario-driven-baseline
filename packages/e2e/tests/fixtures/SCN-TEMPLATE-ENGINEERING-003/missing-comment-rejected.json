@@ -1,1 +1,1 @@
-{"mutations": ["type", "field", "union-value", "boolean-value", "method", "declaration"]}
+{"mutations": ["type", "field", "union-value", "boolean-value", "method", "declaration", "shared-field", "entry"]}

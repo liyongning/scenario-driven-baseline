@@ -1,1 +1,15 @@
-{"formatVersion":1,"ownerId":"SCN-TEMPLATE-EXAMPLE-002","sources":{"spec":{"path":"openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md","sha256":"867a4178073c0f8844854f6b41336852fe56843e17aae6e1ac536646354662b5"}},"cases":{"create-success":"create-success.json"},"sha256":{"create-success.json":"a0badd40aeae960eabb26878e7bfa55fcbd7aea230d61bde74c161612f37b424"}}
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-EXAMPLE-002",
+  "sources": {
+    "spec": {
+      "requirementDigest": "9de00f7b69af941fc897a9b1236640fc8f529dec2d2fd2aef36426c6fe2fbb62"
+    }
+  },
+  "cases": {
+    "create-success": "create-success.json"
+  },
+  "sha256": {
+    "create-success.json": "a0badd40aeae960eabb26878e7bfa55fcbd7aea230d61bde74c161612f37b424"
+  }
+}

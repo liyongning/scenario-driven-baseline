@@ -1,0 +1,40 @@
+{
+  "gateSelfTestSpecs": [
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-001.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-002.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-003.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-004.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-006.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-007.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-008.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-009.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-010.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-011.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-012.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-013.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-014.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-015.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-016.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-017.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-018.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-019.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-020.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-021.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-022.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-023.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-024.spec.ts",
+    "packages/e2e/tests/tooling/SCN-SCENARIO-GATE-025.spec.ts"
+  ],
+  "factCheckSpecs": [
+    "packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts",
+    "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts",
+    "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts"
+  ],
+  "defectChange": {
+    "name": "zz-isolation-probe",
+    "capability": "scenario-gate",
+    "requirement": "PROBE-999",
+    "scenario": "SCN-PROBE-999"
+  },
+  "forbiddenAssertions": ["expect.any(", "process.cwd()"]
+}

@@ -7,6 +7,8 @@ import type { ShadowRoute } from '../routes.ts';
 export const exampleRpcMethods = [CreateTrade.meta, QueryTrade.meta] as const;
 
 /** 从 generated metadata 发现示例创建与查询路由，经 IDL 路由来源转换为中立路由。 */
-export function discoverExampleRoutes(candidates: ReadonlyArray<RpcMethodMeta<unknown, unknown>> = exampleRpcMethods): ShadowRoute[] {
+export function discoverExampleRoutes(
+  candidates: ReadonlyArray<RpcMethodMeta<unknown, unknown>> = exampleRpcMethods,
+): ShadowRoute[] {
   return routesFromRpcMethods(exampleRpcMethods, candidates);
 }

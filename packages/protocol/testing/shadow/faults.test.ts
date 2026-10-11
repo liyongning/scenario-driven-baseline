@@ -28,6 +28,8 @@ describe('sendShadowStep', () => {
   });
 
   it('tolerates a disconnected response without a socket', async () => {
-    await expect(sendShadowStep(response(null) as never, { disconnect: true })).resolves.toBeUndefined();
+    await expect(
+      sendShadowStep(response(null) as never, { disconnect: true }),
+    ).resolves.toBeUndefined();
   });
 });

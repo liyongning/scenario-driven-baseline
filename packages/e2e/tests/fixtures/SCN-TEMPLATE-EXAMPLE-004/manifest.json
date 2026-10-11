@@ -1,1 +1,17 @@
-{"formatVersion":1,"ownerId":"SCN-TEMPLATE-EXAMPLE-004","sources":{"spec":{"path":"openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md","sha256":"867a4178073c0f8844854f6b41336852fe56843e17aae6e1ac536646354662b5"}},"cases":{"observe-completed":"observe-completed.json","observe-closed":"observe-closed.json"},"sha256":{"observe-completed.json":"90ba2d562a9bcf900758848d24da36b597de0416457467761d72afcf4d6e9694","observe-closed.json":"13d6b4d0506e67d8fa7db1c1cfbae72230adfed92f5c375a660db8cbc39ef20d"}}
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-EXAMPLE-004",
+  "sources": {
+    "spec": {
+      "requirementDigest": "4ac26153613977a9b6c255ebc2ee8cc2b55af5542bc33b45da9461bb09ae9efe"
+    }
+  },
+  "cases": {
+    "observe-completed": "observe-completed.json",
+    "observe-closed": "observe-closed.json"
+  },
+  "sha256": {
+    "observe-completed.json": "90ba2d562a9bcf900758848d24da36b597de0416457467761d72afcf4d6e9694",
+    "observe-closed.json": "13d6b4d0506e67d8fa7db1c1cfbae72230adfed92f5c375a660db8cbc39ef20d"
+  }
+}

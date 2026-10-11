@@ -4,8 +4,7 @@
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/template-engineering/spec.md",
-      "sha256": "c29e16119d5386cac7791b1ab7ea071d1616dd6d23001ea42fbdf116950c296b"
+      "requirementDigest": "6acda3f55124fbcd32303277c39e47af4669957165ca99a5f8e3614b9bce805d"
     }
   },
   "cases": {

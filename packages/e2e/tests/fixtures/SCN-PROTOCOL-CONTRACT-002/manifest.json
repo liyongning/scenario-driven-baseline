@@ -4,14 +4,13 @@
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/protocol-contract/spec.md",
-      "sha256": "e18fac44e932aeab68edb5a3bedac7bad31fac57bb54feb204522d289525842b"
+      "requirementDigest": "416f914e84f0255a742b5fe1df05e04518930739bd5a3ef83aabf570ea3ea288"
     }
   },
   "cases": {
     "protocol-matrix": "protocol-matrix.json"
   },
   "sha256": {
-    "protocol-matrix.json": "16608d06c5504ba5790046721b0e7baab612da9bc473d892e47345d04d68ff90"
+    "protocol-matrix.json": "f71b25b8cfc17401b8287aa74d2178ddd30ffe15feced1e2b54a23ee99e4e360"
   }
 }

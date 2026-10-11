@@ -4,8 +4,7 @@
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/template-engineering/spec.md",
-      "sha256": "c29e16119d5386cac7791b1ab7ea071d1616dd6d23001ea42fbdf116950c296b"
+      "requirementDigest": "d4b981367bb9f8654c2202b1fd1a1345873352d7458ef876d3d8d30f705b98ff"
     }
   },
   "cases": {
@@ -13,7 +12,7 @@
     "missing-comment-rejected": "missing-comment-rejected.json"
   },
   "sha256": {
-    "source-and-dual-declarations.json": "2f00db16a081804addd856b7073f2e7e7dbc7ebdf6b878f415633205dcf70112",
-    "missing-comment-rejected.json": "6eed91dbaf04ad0c200966d3b005f9214a53cd2b31e7a42f1832a50ec74392e3"
+    "source-and-dual-declarations.json": "5e3bad76dbd3731bcd5ba895035b362def56febd44ee787b78ca0596cdbbac1e",
+    "missing-comment-rejected.json": "f626a0e991edeec37b179b32cc057e7c5d835342252713931c03f4539ed18c11"
   }
 }

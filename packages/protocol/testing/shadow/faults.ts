@@ -7,10 +7,15 @@ export type ShadowStep = Readonly<{
   contentType?: string;
   delayMs?: number;
   disconnect?: boolean;
+  /**
+   * 认领一个故意非法的响应体（PC-04）：只有显式声明且 reason 非空时才跳过结构校验，
+   * 不存在"不声明即不校验"的路径。
+   */
+  malformed?: Readonly<{ reason: string }>;
 }>;
 
 export async function sendShadowStep(response: Response, step: ShadowStep): Promise<void> {
-  if (step.delayMs !== undefined) await new Promise(resolve => setTimeout(resolve, step.delayMs));
+  if (step.delayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, step.delayMs));
   if (step.disconnect) {
     response.socket?.destroy();
     return;

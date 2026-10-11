@@ -1,5 +1,5 @@
 {
-  "create": {
+  "CreateTrade": {
     "request": {
       "bizType": "example-biz",
       "bizTradeNo": "biz-matrix",
@@ -20,7 +20,6 @@
       "originalAmount": "200",
       "discountAmount": "10",
       "baseReq": {
-        "requestId": "matrix-request",
         "productId": "matrix-product"
       }
     },
@@ -51,13 +50,18 @@
         }
       },
       {}
+    ],
+    "omitted": [
+      "items.sku_snapshot",
+      "items.sku_snapshot.wechat_virtual_product_id",
+      "items.sku_snapshot.biz_snapshot",
+      "base_req.product_id"
     ]
   },
-  "query": {
+  "QueryTrade": {
     "request": {
       "tradeNo": "trade-matrix",
       "baseReq": {
-        "requestId": "matrix-request",
         "productId": "matrix-product"
       }
     },
@@ -111,6 +115,12 @@
         }
       },
       {}
+    ],
+    "omitted": [
+      "biz_type",
+      "biz_trade_no",
+      "sync_channel",
+      "base_req.product_id"
     ]
   }
 }

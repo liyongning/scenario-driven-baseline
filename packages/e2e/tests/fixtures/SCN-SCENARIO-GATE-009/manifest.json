@@ -4,8 +4,7 @@
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/scenario-gate/spec.md",
-      "sha256": "9a0ae4c1dbb2931efcd43b0ac00e299d4a5b9d88586695cd19a895c85486405f"
+      "requirementDigest": "51b3bac92d04862be358e6d8f8c84de7b6a3764d78397ba70093af815d25396e"
     }
   },
   "cases": {

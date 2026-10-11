@@ -6,8 +6,7 @@
     "idlCommit": "5539be8f09323709fa65f6568efe22896ec35d24",
     "paymentSemanticCommit": "4e5cb22659fd4f4c36d06ae81256dc1c43e691d9",
     "spec": {
-      "path": "openspec/changes/archive/2026-10-02-remove-payment-business/specs/protocol-contract/spec.md",
-      "sha256": "e18fac44e932aeab68edb5a3bedac7bad31fac57bb54feb204522d289525842b"
+      "requirementDigest": "7a8617d02536336c7ac0fe874e95c17d814a63bde849f638eb22b0c1a771914c"
     },
     "idlFiles": {
       "error_code.go": "10b5ec750907b4f851c926014b3952c916d154b47144f1e932c7b5ead3fc4afc",
@@ -214,7 +213,7 @@
     "generatedCurrent": {
       "lockVersion": 2,
       "tool": {
-        "version": "0.1.2",
+        "version": "0.1.3",
         "projectionVersion": 4
       },
       "sourceId": "payment-idl",
@@ -401,7 +400,7 @@
     "baselineSha256": "ecb8b02b9d7c85602e40a1207b8dfed3eef6b52a27456c7546717bf0aef8d716",
     "refreshScriptSha256": "7589d0e6408e71de84c2995e8ef5f4ca0a16fa696c3f3baf301989776a30f3a1",
     "currentBaseline": "SCN-PROTOCOL-CONTRACT-003/provenance/current.lock",
-    "currentBaselineSha256": "c8e2578bde1db3a29292be389fc3d9721f7968b9848799bb33ace9bd89ecb8ab"
+    "currentBaselineSha256": "1ddd47b7b753e9069336adb8320e6498b5f5094a285d1ed71896b2b48c6fd22e"
   },
   "provenance": {
     "commands": {
@@ -414,7 +413,7 @@
       "before.lock": "ecb8b02b9d7c85602e40a1207b8dfed3eef6b52a27456c7546717bf0aef8d716",
       "status.json": "cc50ef70eaf5cf5923beced4b6b6754a92c6efade62ab83ddc6d5765d0cefb3d",
       "sync.json": "f38d69434b0e90fd354bb23686f69a62eb98c9120e8cf7c59b24aa015e28fa01",
-      "current.lock": "c8e2578bde1db3a29292be389fc3d9721f7968b9848799bb33ace9bd89ecb8ab"
+      "current.lock": "1ddd47b7b753e9069336adb8320e6498b5f5094a285d1ed71896b2b48c6fd22e"
     },
     "origin": "Historical 2026-09-09 sync/status remains fixed; current.lock records the reviewed 2026-09-10 CreateTrade projection independently."
   }

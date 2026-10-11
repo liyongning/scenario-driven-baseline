@@ -10,16 +10,21 @@ describe('compareJsonPresence', () => {
     expect(compareJsonPresence({ tradeNo: 't', xpayEnv: 0 }, { tradeNo: 't' })).toEqual([
       '$.xpayEnv: missing key',
     ]);
-    expect(compareJsonPresence({ tradeNo: 't', xpayEnv: 'XPAY_ENV_SANDBOX' }, { tradeNo: 't', xpayEnv: 'XPAY_ENV_UNSPECIFIED' })).toEqual([
-      '$.xpayEnv: expected "XPAY_ENV_SANDBOX", received "XPAY_ENV_UNSPECIFIED"',
-    ]);
+    expect(
+      compareJsonPresence(
+        { tradeNo: 't', xpayEnv: 'XPAY_ENV_SANDBOX' },
+        { tradeNo: 't', xpayEnv: 'XPAY_ENV_UNSPECIFIED' },
+      ),
+    ).toEqual(['$.xpayEnv: expected "XPAY_ENV_SANDBOX", received "XPAY_ENV_UNSPECIFIED"']);
   });
 
   it('reports nested values and array order without codec normalization', () => {
-    expect(compareJsonPresence(
-      { baseReq: { requestId: 'r-1' }, values: [1, 2] },
-      { baseReq: { requestId: 'r-2' }, values: [2, 1] },
-    )).toEqual([
+    expect(
+      compareJsonPresence(
+        { baseReq: { requestId: 'r-1' }, values: [1, 2] },
+        { baseReq: { requestId: 'r-2' }, values: [2, 1] },
+      ),
+    ).toEqual([
       '$.baseReq.requestId: expected "r-1", received "r-2"',
       '$.values[0]: expected 1, received 2',
       '$.values[1]: expected 2, received 1',

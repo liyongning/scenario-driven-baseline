@@ -2,19 +2,59 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://daqian.example/fixture.schema.json",
   "type": "object",
-  "required": ["formatVersion", "ownerId", "sources", "cases", "sha256"],
+  "required": [
+    "formatVersion",
+    "ownerId",
+    "sources",
+    "cases",
+    "sha256"
+  ],
   "properties": {
-    "formatVersion": { "const": 1 },
-    "ownerId": { "type": "string", "pattern": "^[A-Z][A-Z0-9-]*$", "description": "ownerId 的基础形态；项目允许的具体格式由 scenario-gate.config.json 校验。" },
-    "sources": { "type": "object", "minProperties": 1 },
+    "formatVersion": {
+      "const": 1
+    },
+    "ownerId": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9-]*$",
+      "description": "ownerId 的基础形态；项目允许的具体格式由 scenario-gate.config.json 校验。"
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "required": [
+        "spec"
+      ],
+      "properties": {
+        "spec": {
+          "type": "object",
+          "required": [
+            "requirementDigest"
+          ],
+          "properties": {
+            "requirementDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$",
+              "description": "所属 Requirement 块规范化文本（LF、去行尾空白、去空行）的 sha256；不再记录 Spec 路径。"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
     "cases": {
       "type": "object",
       "minProperties": 1,
-      "additionalProperties": { "type": "string", "pattern": "^[^/]+\\.json$" }
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[^/]+\\.json$"
+      }
     },
     "sha256": {
       "type": "object",
-      "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
     }
   },
   "additionalProperties": true

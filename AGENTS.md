@@ -7,8 +7,17 @@
 - [有效能力 Spec](openspec/specs/)
 - 使用 `openspec list` 查看当前 Change；生命周期状态以当前物理仓库为根。
 - [仓库与跨仓库参考](README.md)
-- [模板使用指南](docs/template-guide.md)
+- [模板使用指南](docs/template-guide.md)：模板能力的唯一说明入口，按需查阅。涵盖能力地图、从规划到验收的流程与各类运行命令（含按需运行、统一验收入口与全量运行节奏）、初始化、移除模板示例、归档已知限制、版本对齐、使用方约定、复刻验收与替换点地图；需要运行测试与门禁、判断何时全量、删除示例或替换产品/协议/平台时，先读对应章节。
+- [技术架构文档](docs/architecture.md)
 - [项目清单](project.manifest.json)
+
+### 项目地图
+
+仓库是清单驱动的三包模板，规则按层级渐进展开：本文件写全局规则，包级文件写包级规则，模块文件只写本模块的边界。包、模块与 AGENTS 配对由 `pnpm check:project-map` 机械核对。
+
+- `packages/sdk`（产品包）：SDK 公共入口与业务分层，规则见 [packages/sdk/AGENTS.md](packages/sdk/AGENTS.md)。
+- `packages/protocol`（协议包）：协议引擎、平台适配与测试用 Shadow，规则见 [packages/protocol/AGENTS.md](packages/protocol/AGENTS.md)。
+- `packages/e2e`（测试包）：行为与工程用例、驱动与报告，规则见 [packages/e2e/AGENTS.md](packages/e2e/AGENTS.md)。
 
 ### 项目清单
 
@@ -17,7 +26,26 @@
 最小示例：
 
 ```json
-{"packages":[{"directory":"sdk","name":"@scope/sdk","role":"product","private":false,"allowedDirectories":["src"]}],"requiredCommands":["check:fast"],"testProjects":[{"name":"sdk-unit","class":"unit"}],"fingerprints":{"sourceRoots":["packages/sdk/src"],"hostRoots":[]}}
+{
+  "packages": [
+    {
+      "directory": "sdk",
+      "name": "@scope/sdk",
+      "role": "product",
+      "private": false,
+      "allowedDirectories": ["src"]
+    }
+  ],
+  "requiredCommands": ["check:fast"],
+  "testProjects": [
+    { "name": "sdk-unit", "class": "unit", "config": "packages/sdk/vitest.config.ts" }
+  ],
+  "fingerprints": {
+    "sourceRoots": ["packages/sdk/src"],
+    "buildInputs": ["pnpm-lock.yaml"],
+    "protocolInputs": ["proto-gen.lock"]
+  }
+}
 ```
 
 以下事实必须改清单：包目录与包名（`manifest.packages[].directory`、`manifest.packages[].name`）、允许的一级子目录、根 `package.json` 的必需命令、测试项目名与类别、源码摘要目录，以及可选的发布设置 `manifest.release`。改代码前先改清单，再让门禁按清单核对。
@@ -31,7 +59,7 @@
 
 ### 场景门禁与归档
 
-门禁读取 `openspec/specs/**`，再合并未归档 active Change 的 Spec delta；`archive/` 只保存历史。Scenario/FLOW 的格式来自 `scenario-gate.config.json`，每个 Scenario 只能有一个 verification 块，FLOW 表必须位于 Requirement 正文。归档或同步前运行完整场景门禁，确认清单、绑定、报告和来源摘要仍一致，并把验收索引保存到 `artifacts/<run-id>/tasks/`。
+门禁读取 `openspec/specs/**`，再合并未归档 active Change 的 Spec delta；`archive/` 只保存历史。Scenario/FLOW 的格式来自 `scenario-gate.config.json`，每个 Scenario 只能有一个 verification 块，FLOW 表必须位于 Requirement 正文。归档或同步前运行完整场景门禁，确认清单、绑定、报告和来源摘要仍一致；验收结论写在 Change 的 verify 记录里，`artifacts/` 只是本地运行产物目录。
 
 ### 执行规则
 
@@ -46,6 +74,8 @@
 9. 发布由用户显式触发的统一入口完成，可在本地或其他受控执行器运行，不依赖或交付 Pipeline/Runner。
 10. ProtoGen Consumer 按产品实际依赖在 IDL 仓库登记；项目内使用根 devDependency，通过 `pnpm proto:*` 或 `pnpm exec` 调用，安装/升级时核对私有 registry 的最新正式版本并保存精确版本与锁文件。
 11. 小程序自动化复用本机微信开发者工具与 miniprogram-automator，不开发 UI 自动化框架或工具控制器，不以 CI 环境缺失阻断本地运行。
+12. 优先采用现成方案：遇到问题先查官方文档与业界或社区的成熟方案，查不到再做实验，最后才考虑自研；引入框架生态时优先使用官方脚手架。确需自研通用能力时，在 Design 中写明已查过哪些方案、为何不采用。
+13. 能力变化同步架构文档：新增或改变能力的 Change 在 Design 阶段同步更新 [技术架构文档](docs/architecture.md)（回答“解决什么问题、为什么这样设计”，与指南“怎么用、怎么换”分工）；文档细节层按指南「能力地图」逐项成节。
 
 ### 外部交互替身的设计标准
 
@@ -58,4 +88,4 @@
 
 ### IDL 协议义务派生
 
-协议义务派生针对示例协议的 `CreateTrade`、`QueryTrade` 两个 HTTP 方法；字段策略与待定项以 `protocol-contract` 的 PC-01 为准，派生器“待定字段为 0”是完成条件。新增 IDL 字段不能只刷新来源摘要而跳过覆盖；固定 Go 来源与 generated 来源分别核验。
+协议义务派生按产品包登记的消费接口声明（`manifest.packages[].consumedOperations`）派生：派生出哪些方法、每个方法的请求字段策略与义务 ID 都来自声明，不在门禁里写死接口名；字段策略与待定项以 `protocol-contract` 的 PC-01 为准，派生器“待定字段为 0”是完成条件。新增 IDL 字段不能只刷新来源摘要而跳过覆盖；固定 Go 来源与 generated 来源分别核验。

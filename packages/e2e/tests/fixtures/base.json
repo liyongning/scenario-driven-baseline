@@ -3,12 +3,12 @@
     "headers": {
       "Authorization": "Bearer fixture-token",
       "X-Product-ID": "fixture-product",
-      "request_id": "pay-fixture-1"
+      "X-Request-Id": "20260101_000000_000_abcdef"
     },
     "body": {
       "baseReq": {
         "productId": "fixture-product",
-        "requestId": "pay-fixture-1"
+        "requestId": "20260101_000000_000_abcdef"
       }
     }
   }

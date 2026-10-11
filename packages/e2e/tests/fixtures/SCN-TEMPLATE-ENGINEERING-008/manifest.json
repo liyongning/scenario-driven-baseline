@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-008",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "654ed83ba887359e4365ec9eae7b458b92edcf0c09a8690261664ff68cbf318d"
+    }
+  },
+  "cases": {
+    "example-removal-fast": "example-removal.json",
+    "example-removal-scenarios": "example-removal.json"
+  },
+  "sha256": {
+    "example-removal.json": "b928a06bd3840170ae34c58e22ba9c9e07a8f50f054591ecb2817f3ffc4fbfd7"
+  }
+}

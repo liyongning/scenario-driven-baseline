@@ -2,13 +2,13 @@
 
 通用 TypeScript Headless SDK 工作区模板：三个包（产品包、协议包、private 测试工程）加一个可复制的示例能力，按“按示例扩展新业务”的分层扩展新业务。工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，改包、命令、测试项目或发布设置时先改清单。
 
-使用入口见 [模板使用指南](docs/template-guide.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
+使用入口见 [模板使用指南](docs/template-guide.md)，设计理由见 [技术架构文档](docs/architecture.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
-| Workspace 目录 | 包名 | 职责 |
-| --- | --- | --- |
-| packages/sdk | @daqian/template-sdk | 公共入口与示例能力（`src/example/`）：工厂校验装配，核心编排端口，适配器负责外部协议映射 |
-| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow |
-| packages/e2e | @daqian/template-e2e | private 测试工程，不发布 |
+| Workspace 目录    | 包名                      | 职责                                                                                                              |
+| ----------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| packages/sdk      | @daqian/template-sdk      | 公共入口与业务能力：工厂校验装配，核心编排端口，适配器负责外部协议映射，业务模块按工厂 → 核心 → 端口 → 适配器分层 |
+| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow                                                    |
+| packages/e2e      | @daqian/template-e2e      | private 测试工程，不发布                                                                                          |
 
 消费方只安装产品包。产品包采用独立版本，协议依赖固定到精确版本，发布统一由 SDK 发布入口处理；不需要发布能力时可按指南“包发布”替换点整块删除。
 
@@ -25,6 +25,7 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 
 - [Agent 工作入口](AGENTS.md)
 - [模板使用指南](docs/template-guide.md)
+- [技术架构文档](docs/architecture.md)
 - [有效能力 Spec](openspec/specs/)
 - [工具准备记录](docs/engineering/bootstrap.md)
 
@@ -42,4 +43,6 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 
 以 sdk-template 为基线初始化本项目：先按 docs/template-guide.md 的"初始化方式"做适配评估，产品方案与前后端方案在 <路径>。使用过程中的发现记入 docs/template-feedback.md。
 
+## 维护者说明
 
+工作流 schema（`openspec/schemas/`）不随本模板提交：`.gitignore` 不忽略它，使用方按 Change Skill 安装后应正常提交。模板仓库自己维护时，如果不希望跟踪 schema，在 `.git/info/exclude` 中本地排除，而不是修改 `.gitignore`。

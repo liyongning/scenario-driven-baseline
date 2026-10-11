@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://daqian.example/project.manifest.schema.json",
   "title": "项目清单",
-  "description": "登记模板项目形态的唯一事实来源：包、必需命令、测试项目、源码摘要目录与发布设置；工程门禁只从此清单读取这些事实。",
+  "description": "登记模板项目形态的唯一事实来源：包、必需命令、测试项目、源码摘要输入、质量例外与发布设置；工程门禁只从此清单读取这些事实。",
   "type": "object",
   "additionalProperties": false,
   "required": ["packages", "requiredCommands", "testProjects", "fingerprints"],
@@ -12,7 +12,7 @@
       "type": "array",
       "minItems": 3,
       "items": {
-        "description": "单个包的目录、包名、角色、私有标记与允许的一级子目录。",
+        "description": "单个包的目录、包名、角色、私有标记、允许的一级子目录、模块根与消费接口声明。",
         "type": "object",
         "additionalProperties": false,
         "required": ["directory", "name", "role", "private", "allowedDirectories"],
@@ -45,8 +45,52 @@
               "type": "string",
               "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
             }
+          },
+          "moduleRoots": {
+            "description": "包内承载模块的根目录，其一级子目录视为模块。",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "description": "包内模块根目录的相对路径。",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "consumedOperations": {
+            "description": "产品包内声明消费接口的模块路径；只允许 product 角色填写。",
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "description": "声明消费接口的模块相对路径。",
+              "type": "string",
+              "minLength": 1
+            }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "product",
+                  "description": "角色为产品包时允许声明消费接口。"
+                }
+              },
+              "required": ["role"]
+            },
+            "else": {
+              "properties": {
+                "consumedOperations": {
+                  "type": "array",
+                  "maxItems": 0,
+                  "description": "非 product 角色不得声明消费接口，必须缺省或为空。"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "requiredCommands": {
@@ -61,14 +105,14 @@
       }
     },
     "testProjects": {
-      "description": "Vitest 测试项目及其类别；场景门禁按此校验 requiredIn 与 case 类别。",
+      "description": "Vitest 测试项目及其类别；场景门禁按此校验 requiredIn 与 case 类别，根 vitest 配置按 config 组装项目。",
       "type": "array",
       "minItems": 2,
       "items": {
-        "description": "单个测试项目的名称与类别。",
+        "description": "单个测试项目的名称、类别与项目配置文件。",
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "class"],
+        "required": ["name", "class", "config"],
         "properties": {
           "name": {
             "description": "Vitest 项目名，也是场景 case 的 requiredIn 取值。",
@@ -78,18 +122,32 @@
           "class": {
             "description": "测试项目类别：单元、集成或平台。",
             "enum": ["unit", "integration", "platform"]
+          },
+          "config": {
+            "description": "该测试项目的 Vitest 项目配置文件路径，根 vitest 配置按它组装 projects。",
+            "type": "string",
+            "minLength": 1
+          },
+          "perFile": {
+            "description": "为 true 时验收入口逐文件运行该项目，每个文件一份报告。",
+            "type": "boolean"
+          },
+          "prepare": {
+            "description": "逐文件运行前执行的准备命令名，例如退出并预热微信开发者工具。",
+            "type": "string",
+            "minLength": 1
           }
         }
       }
     },
     "fingerprints": {
-      "description": "参与验证摘要的源码与宿主目录。",
+      "description": "参与验证摘要的源码目录、构建输入与协议来源输入。",
       "type": "object",
       "additionalProperties": false,
-      "required": ["sourceRoots", "hostRoots"],
+      "required": ["sourceRoots", "buildInputs", "protocolInputs"],
       "properties": {
         "sourceRoots": {
-          "description": "参与源码摘要的目录，收集其中的 .ts 与 .js 文件。",
+          "description": "源码目录；目录下全部 git 跟踪文件与未被忽略的新文件都参与源码清单，不按扩展名过滤。",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
@@ -99,14 +157,79 @@
             "minLength": 1
           }
         },
-        "hostRoots": {
-          "description": "参与宿主摘要的目录，额外收集 .json、.wxml 与 .wxss 文件。",
+        "buildInputs": {
+          "description": "影响构建或测试结果、但不在源码目录内的文件或目录，支持末段通配。",
           "type": "array",
           "uniqueItems": true,
           "items": {
-            "description": "相对仓库根的宿主目录路径。",
+            "description": "相对仓库根的构建输入路径，末段可用 * 通配。",
             "type": "string",
             "minLength": 1
+          }
+        },
+        "protocolInputs": {
+          "description": "协议来源锁文件等参与协议摘要的输入路径。",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "description": "相对仓库根的协议来源输入路径。",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "quality": {
+      "description": "质量例外登记：覆盖率排除与行数上限豁免，每项都带路径与非空理由。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coverageExclusions", "maxLinesExemptions"],
+      "properties": {
+        "coverageExclusions": {
+          "description": "覆盖率排除登记；只登记只能在平台宿主进程中执行、无法由 unit 项目加载的代码文件。",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "description": "一条覆盖率排除：文件路径与排除理由。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "reason"],
+            "properties": {
+              "path": {
+                "description": "被排除文件的相对路径。",
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "description": "排除该文件的非空理由。",
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "maxLinesExemptions": {
+          "description": "行数上限豁免登记；只登记确有整文件豁免理由的文件。",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "description": "一条行数豁免：文件路径与豁免理由。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "reason"],
+            "properties": {
+              "path": {
+                "description": "被豁免文件的相对路径。",
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "description": "豁免该文件行数上限的非空理由。",
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         }
       }

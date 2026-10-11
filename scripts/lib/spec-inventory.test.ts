@@ -16,11 +16,25 @@ describe('readSpecInventory', () => {
   it('uses remark AST to extract scenario verification and the authoritative FLOW table', async () => {
     const root = await mkdtemp(join(tmpdir(), 'template-spec-'));
     const path = join(root, 'spec.md');
-    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | SCN-SAMPLE-CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`);
+    await writeFile(
+      path,
+      `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | SCN-SAMPLE-CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`,
+    );
     const inventory = await readSpecInventory([path]);
     expect(inventory.issues).toEqual([]);
-    expect(inventory.scenarios[0]).toMatchObject({ id: 'SCN-SAMPLE-CORE-001', verification: { cases: [{ key: 'ok', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['sent'] }] } });
-    expect(inventory.flows[0]).toMatchObject({ id: 'FLOW-SAMPLE-001', cases: ['normal', 'long'], requiredIn: ['integration', 'weapp'] });
+    expect(inventory.scenarios[0]).toMatchObject({
+      id: 'SCN-SAMPLE-CORE-001',
+      verification: {
+        cases: [
+          { key: 'ok', kind: 'behavior', requiredIn: ['integration', 'weapp'], checks: ['sent'] },
+        ],
+      },
+    });
+    expect(inventory.flows[0]).toMatchObject({
+      id: 'FLOW-SAMPLE-001',
+      cases: ['normal', 'long'],
+      requiredIn: ['integration', 'weapp'],
+    });
   });
 
   it('keeps missing/invalid metadata and duplicate IDs in the denominator as explicit issues', async () => {
@@ -28,20 +42,28 @@ describe('readSpecInventory', () => {
     const first = join(root, 'one.md');
     const second = join(root, 'two.md');
     await writeFile(first, '#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n');
-    await writeFile(second, `#### Scenario: SCN-SAMPLE-CORE-001 Again\n${block.replace('"sent"', '"unknown"')}`);
+    await writeFile(
+      second,
+      `#### Scenario: SCN-SAMPLE-CORE-001 Again\n${block.replace('"sent"', '"unknown"')}`,
+    );
     const inventory = await readSpecInventory([first, second]);
     expect(inventory.scenarios).toHaveLength(2);
-    expect(inventory.issues).toEqual(expect.arrayContaining([
-      expect.stringContaining('SCN-SAMPLE-CORE-001: verification metadata missing'),
-      expect.stringContaining('duplicate Scenario ID SCN-SAMPLE-CORE-001'),
-    ]));
+    expect(inventory.issues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('SCN-SAMPLE-CORE-001: verification metadata missing'),
+        expect.stringContaining('duplicate Scenario ID SCN-SAMPLE-CORE-001'),
+      ]),
+    );
   });
 
   it('reports malformed JSON, duplicate case keys/checkpoints, invalid FLOW IDs, and duplicate FLOW IDs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'template-spec-errors-'));
     const path = join(root, 'spec.md');
-    const duplicateCases = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["x"]},{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["missing"]}],"blockedBy":[]}';
-    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-001 Broken JSON
+    const duplicateCases =
+      '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["x"]},{"key":"same","kind":"behavior","requiredIn":["integration"],"checks":["missing"]}],"blockedBy":[]}';
+    await writeFile(
+      path,
+      `#### Scenario: SCN-SAMPLE-CORE-001 Broken JSON
 
 \`\`\`json verification
 {
@@ -60,13 +82,19 @@ ${duplicateCases}
 | BAD-FLOW | CORE-001 | pay → result | normal | integration | bad |
 | FLOW-SAMPLE-001 | CORE-001 | pay → result | normal | integration | first |
 | FLOW-SAMPLE-001 | CORE-001 | pay → result | normal | integration | duplicate |
-`);
+`,
+    );
     const inventory = await readSpecInventory([path]);
-    expect(inventory.issues).toEqual(expect.arrayContaining([
-      expect.stringContaining('verification JSON cannot be parsed'), expect.stringContaining('verification metadata missing'),
-      expect.stringContaining('duplicate verification case key'), expect.stringContaining('unknown checkpoint missing'),
-      expect.stringContaining('invalid FLOW ID BAD-FLOW'), expect.stringContaining('duplicate FLOW ID FLOW-SAMPLE-001'),
-    ]));
+    expect(inventory.issues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('verification JSON cannot be parsed'),
+        expect.stringContaining('verification metadata missing'),
+        expect.stringContaining('duplicate verification case key'),
+        expect.stringContaining('unknown checkpoint missing'),
+        expect.stringContaining('invalid FLOW ID BAD-FLOW'),
+        expect.stringContaining('duplicate FLOW ID FLOW-SAMPLE-001'),
+      ]),
+    );
   });
 
   it('rejects missing/unknown kinds and project categories that do not match the case kind', async () => {
@@ -79,19 +107,32 @@ ${duplicateCases}
       '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["sdk-unit"],"checks":["x"]}],"blockedBy":[]}',
       '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"engineering","requiredIn":["protocol-unit"],"checks":["x"]}],"blockedBy":[]}',
     ];
-    await writeFile(path, blocks.map((json, index) => `#### Scenario: SCN-SAMPLE-CORE-00${index + 1} Invalid\n\`\`\`json verification\n${json}\n\`\`\``).join('\n'));
+    await writeFile(
+      path,
+      blocks
+        .map(
+          (json, index) =>
+            `#### Scenario: SCN-SAMPLE-CORE-00${index + 1} Invalid\n\`\`\`json verification\n${json}\n\`\`\``,
+        )
+        .join('\n'),
+    );
 
     const inventory = await readSpecInventory([path]);
 
     expect(inventory.scenarios).toHaveLength(5);
-    expect(inventory.issues.filter(issue => issue.includes('invalid verification metadata'))).toHaveLength(5);
+    expect(
+      inventory.issues.filter((issue) => issue.includes('invalid verification metadata')),
+    ).toHaveLength(5);
   });
 
   it('rejects more than one verification block instead of selecting one', async () => {
     const root = await mkdtemp(join(tmpdir(), 'template-spec-multiple-verification-'));
     const path = join(root, 'spec.md');
-    const block = '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["integration"],"checks":["x"]}],"blockedBy":[]}';
-    await writeFile(path, `#### Scenario: SCN-SAMPLE-CORE-009 Multiple
+    const block =
+      '{"formatVersion":2,"checkpoints":{"x":"x"},"cases":[{"key":"x","kind":"behavior","requiredIn":["integration"],"checks":["x"]}],"blockedBy":[]}';
+    await writeFile(
+      path,
+      `#### Scenario: SCN-SAMPLE-CORE-009 Multiple
 
 \`\`\`json verification
 ${block}
@@ -99,11 +140,12 @@ ${block}
 
 \`\`\`json verification
 ${block}
-\`\`\``);
+\`\`\``,
+    );
     const inventory = await readSpecInventory([path]);
-    expect(inventory.issues).toEqual(expect.arrayContaining([
-      expect.stringContaining('multiple verification metadata blocks'),
-    ]));
+    expect(inventory.issues).toEqual(
+      expect.arrayContaining([expect.stringContaining('multiple verification metadata blocks')]),
+    );
     expect(inventory.scenarios[0]?.verification).toBeUndefined();
   });
 
@@ -113,34 +155,54 @@ ${block}
     await writeFile(path, '#### Scenario:\n\nA malformed scenario\n');
     const inventory = await readSpecInventory([path]);
     expect(inventory.scenarios).toHaveLength(1);
-    expect(inventory.issues).toEqual(expect.arrayContaining([expect.stringContaining('Scenario heading Scenario: is malformed')]));
+    expect(inventory.issues).toEqual(
+      expect.arrayContaining([expect.stringContaining('Scenario heading Scenario: is malformed')]),
+    );
   });
 
   it('enforces configured IDs, FLOW placement, required cells, and allowed environments', async () => {
-    const config = { scenarioIdPatterns: ['^SCN-OK$'], flowIdPatterns: ['^FLOW-OK$'], ownerIdPattern: '^SCN-OK$' };
-    const header = '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
-    const source = { path: 'controlled-spec', kind: 'main' as const, content: `${header}| FLOW-OK | SCN-OK | create → observe | normal | integration | outside |\n\n### Requirement: TEST flow\n\n#### Scenario: BAD-ID Invalid\n\n${block}\n\n${header}| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | wrong environment |\n| FLOW-OK | bad-id | create → observe | normal | integration | bad related |\n| FLOW-OK | SCN-OK | | normal | integration | missing stage |\n| FLOW-OK | SCN-OK | create → observe | normal | integration |\n` };
+    const config = {
+      scenarioIdPatterns: ['^SCN-OK$'],
+      flowIdPatterns: ['^FLOW-OK$'],
+      ownerIdPattern: '^SCN-OK$',
+    };
+    const header =
+      '| FLOW ID | Related | Stages | Cases | Environments | Notes |\n| --- | --- | --- | --- | --- | --- |\n';
+    const source = {
+      path: 'controlled-spec',
+      kind: 'main' as const,
+      content: `${header}| FLOW-OK | SCN-OK | create → observe | normal | integration | outside |\n\n### Requirement: TEST flow\n\n#### Scenario: BAD-ID Invalid\n\n${block}\n\n${header}| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | wrong environment |\n| FLOW-OK | bad-id | create → observe | normal | integration | bad related |\n| FLOW-OK | SCN-OK | | normal | integration | missing stage |\n| FLOW-OK | SCN-OK | create → observe | normal | integration |\n`,
+    };
     const inventory = await readSpecInventory([source], config);
-    expect(inventory.issues).toEqual(expect.arrayContaining([
-      expect.stringContaining('FLOW table is outside a Requirement'),
-      expect.stringContaining('Scenario ID BAD-ID does not match'),
-      expect.stringContaining('invalid FLOW row FLOW-OK'),
-      expect.stringContaining('FLOW row has an empty required column'),
-      expect.stringContaining('FLOW row has 5 columns, expected 6'),
-    ]));
+    expect(inventory.issues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('FLOW table is outside a Requirement'),
+        expect.stringContaining('Scenario ID BAD-ID does not match'),
+        expect.stringContaining('invalid FLOW row FLOW-OK'),
+        expect.stringContaining('FLOW row has an empty required column'),
+        expect.stringContaining('FLOW row has 5 columns, expected 6'),
+      ]),
+    );
   });
 
   it('reads the reviewed v2 denominator without reducing any category', async () => {
     const inventory = await readSpecInventory([
-      new URL('../../openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md', import.meta.url).pathname,
+      new URL(
+        '../../openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md',
+        import.meta.url,
+      ).pathname,
     ]);
-    const cases = inventory.scenarios.flatMap(scenario => scenario.verification?.cases ?? []);
+    const cases = inventory.scenarios.flatMap((scenario) => scenario.verification?.cases ?? []);
     expect(inventory.issues).toEqual([]);
     expect(inventory.scenarios).toHaveLength(11);
     expect(cases).toHaveLength(22);
-    expect(cases.filter(item => item.kind === 'behavior')).toHaveLength(9);
-    expect(cases.filter(item => item.kind === 'module')).toHaveLength(7);
-    expect(cases.filter(item => item.kind === 'engineering')).toHaveLength(6);
-    expect(inventory.scenarios.filter(scenario => scenario.verification?.cases.some(item => item.kind === 'behavior'))).toHaveLength(7);
+    expect(cases.filter((item) => item.kind === 'behavior')).toHaveLength(9);
+    expect(cases.filter((item) => item.kind === 'module')).toHaveLength(7);
+    expect(cases.filter((item) => item.kind === 'engineering')).toHaveLength(6);
+    expect(
+      inventory.scenarios.filter((scenario) =>
+        scenario.verification?.cases.some((item) => item.kind === 'behavior'),
+      ),
+    ).toHaveLength(7);
   });
 });
