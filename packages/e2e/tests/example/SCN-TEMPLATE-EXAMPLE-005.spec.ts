@@ -48,9 +48,11 @@ defineCase(
     restore = installWx();
     // 窗口远大于"单次超时 + 间隔"（1500ms 对 200ms + 150ms）：计时抖动或 CPU 争用不会把轮询
     // 压到窗口结束前只发出一次请求；语义仍是"单次超时只结束该次请求、窗口内继续查询"。
+    const requestTimeoutMs = 200;
+    const intervalMs = 150;
     const result = await exampleClient(server.url, {
-      requestTimeoutMs: 200,
-      intervalMs: 150,
+      requestTimeoutMs,
+      intervalMs,
       windowMs: 1_500,
     }).observe({ id: 'resource-005', externalRef: 'example-005' });
     await checkpoint('request-timeout-local', () =>
@@ -60,7 +62,9 @@ defineCase(
       expect(result).toMatchObject({ end: 'window_elapsed' }),
     );
     const count = server.records().length;
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    // 观察等待必须长于一个轮询间隔：晚于窗口结束一个间隔才发出的轮询（迟到的定时器）才会被记到，
+    // 否则窗口结束后多排一次轮询的缺陷在 30ms 的观察窗里恒真地"通过"。
+    await new Promise((resolve) => setTimeout(resolve, intervalMs + 200));
     await checkpoint('no-request-after-end', () => expect(server!.records()).toHaveLength(count));
   },
   { fixtureRoot },
