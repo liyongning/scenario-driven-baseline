@@ -7,7 +7,7 @@
 
 工程 MUST 从 ProtoGen 生成的协议描述，为产品包实际消费的接口自动派生协议义务清单。本模板消费的接口是示例使用的 `CreateTrade` 与 `QueryTrade`。义务包括：HTTP 路由；请求与响应每个可达字段的映射与编码边界；公共请求上下文（Header 与 BaseReq）；响应处理；通信错误处理；超时。每条义务的必需 case 与运行环境由派生规则给出，覆盖分母以派生结果为准（见 `scenario-gate` 的 GATE-07），不从已有测试反推。无法判定映射方式的字段 SHALL 标为待定并报告，不得静默忽略。派生不得包含产品包未消费的接口。
 
-#### Scenario: SCN-PROTOCOL-CONTRACT-001 义务清单只针对示例消费的接口
+#### Scenario: SCN-PROTOCOL-CONTRACT-001 义务清单只针对产品声明的消费接口
 - **WHEN** 基于当前 generated 描述运行派生，再构造一个存在未判定字段的输入作为反例
 - **THEN** 清单只包含 `CreateTrade` 与 `QueryTrade` 的义务，每条义务都有 case 与运行环境；反例中的未判定字段被报告为待定，不被忽略。
 
@@ -27,7 +27,7 @@
 }
 ```
 
-#### Scenario: SCN-PROTOCOL-CONTRACT-002 示例接口的协议义务都有运行证据
+#### Scenario: SCN-PROTOCOL-CONTRACT-002 声明接口的协议义务都有运行证据
 - **WHEN** 通过公共协议客户端与 Shadow 网关，逐项执行派生出的协议义务
 - **THEN** 每条义务在 integration 与 weapp（真实 `wx.request`）中都有通过的证据；场景门禁中与协议义务相关的问题数为 0。
 
