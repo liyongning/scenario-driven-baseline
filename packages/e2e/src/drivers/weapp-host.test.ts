@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runProtocolSuite } from '../../host/weapp/protocol-runner.ts';
+import { decodedProjection, runProtocolSuite } from '../../host/weapp/protocol-runner.ts';
 // template-example:begin
 import { runExampleCase } from '../../host/weapp/example-runner.ts';
 // template-example:end
@@ -138,6 +138,23 @@ describe('official minimal weapp host', () => {
     ]);
   });
   // template-example:end
+
+  // I-1：weapp 矩阵的 decoded-default 证据必须比较真实解码值。旧口径对两边都调用
+  // `codec.toJSON`，它会省略缺省值，于是"缺省值是 ''"这类断言两边都取到 undefined、恒真。
+  it('keeps proto defaults in the decoded projection used by matrix evidence', () => {
+    expect(
+      decodedProjection({ tradeNo: '', orderNos: [], status: 0, baseResp: undefined }),
+    ).toEqual({ tradeNo: '', orderNos: [], status: 0 });
+    // 反例：解码把缺省值解成 undefined 时，投影结果与默认消息的投影不再相等，缺省类检查判失败。
+    expect(decodedProjection({ tradeNo: undefined, orderNos: [], status: 0 })).not.toEqual(
+      decodedProjection({ tradeNo: '', orderNos: [], status: 0 }),
+    );
+    // 自动化通道只传 JSON：int64 的 bigint 转成十进制字符串，投影里不残留 bigint。
+    expect(decodedProjection({ amount: 0n, nested: { total: 12n } })).toEqual({
+      amount: '0',
+      nested: { total: '12' },
+    });
+  });
 
   it('returns decoded results without nested bigint values', async () => {
     const request = vi.fn((options: { success(value: unknown): void; complete?(): void }) => {

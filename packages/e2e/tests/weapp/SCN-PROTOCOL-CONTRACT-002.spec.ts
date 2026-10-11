@@ -13,6 +13,8 @@ import {
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../src/drivers/weapp.ts';
+// 宿主把解码结果按同一份投影交回用例；期望侧必须用同一个投影，比较的才是真实解码值（I-1）。
+import { decodedProjection } from '../../host/weapp/protocol-runner.ts';
 import {
   decodedAt,
   matrixContext,
@@ -46,7 +48,7 @@ type ProtocolResult = Readonly<{
   ok: boolean;
   httpStatus?: number;
   wire?: Record<string, unknown>;
-  /** 解码结果的 JSON 投影（oneof 已按选中分支展开）：与共享纯函数的解码路径口径一致。 */
+  /** 解码结果的 JSON 投影（保留缺省值、oneof 已按选中分支展开）：期望侧用同一个投影核验。 */
   decoded?: unknown;
   code?: string;
 }>;
@@ -274,7 +276,7 @@ defineCase(
         .slice(0, entry.responses.length)
         .map((item) => ({ decoded: item.decoded, wire: item.wire }));
       const responseCodec = meta.responseCodec;
-      const emptyDecoded = responseCodec.toJSON(responseCodec.fromJSON({}));
+      const emptyDecoded = decodedProjection(responseCodec.fromJSON({}));
 
       /** 请求侧取样：省略类用声明的逐字段样例，其余取第一条字段存在/缺失的请求。 */
       const requestEvidence = (caseKey: string, path: string): number => {
@@ -385,7 +387,7 @@ defineCase(
                 // 解码值按取证响应比对：oneof 分支子字段由选中该分支的响应取证。
                 expect(decodedAt(rich.decoded, responsePath)).toEqual(
                   decodedAt(
-                    responseCodec.toJSON(responseCodec.fromJSON(entry.responses[evidence.index])),
+                    decodedProjection(responseCodec.fromJSON(entry.responses[evidence.index])),
                     responsePath,
                   ),
                 );

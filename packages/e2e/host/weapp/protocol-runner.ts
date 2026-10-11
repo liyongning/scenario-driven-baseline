@@ -80,6 +80,20 @@ type ProtocolSuiteInput = Readonly<{
   idl?: 'declared' | 'generated';
 }>;
 
+/**
+ * 解码结果的 JSON 投影：自动化通道只传 JSON，int64 的 bigint 必须转成十进制字符串。
+ * 这里不能用 `codec.toJSON`——它会省略与缺省值相等的字段，于是"解码缺省值"类的证据
+ * （例如空响应体解出的 `tradeNo` 应是 `''`）两边都取到 undefined，断言恒真。
+ * 因此保留真实解码值（含缺省值），只做 JSON 安全化：`undefined` 键按 proto presence 语义省略。
+ */
+export function decodedProjection(message: unknown): unknown {
+  return JSON.parse(
+    JSON.stringify(message, (_key, value) =>
+      typeof value === 'bigint' ? value.toString() : value,
+    ),
+  );
+}
+
 /** 最小宿主只装配协议公共入口；网络始终由协议包的真实 wx.request 适配器提供。 */
 export async function runProtocolCase(input: ProtocolCaseInput) {
   const meta = declaredMethod(input.name);
@@ -102,7 +116,7 @@ export async function runProtocolCase(input: ProtocolCaseInput) {
         ok: true,
         httpStatus: result.value.http.status,
         wire: result.value.wire,
-        decoded: meta.responseCodec.toJSON(result.value.data),
+        decoded: decodedProjection(result.value.data),
       }
     : result;
 }
@@ -112,7 +126,7 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
   const runMethod = async (spec: ProtocolSuiteMethod, meta: DeclaredMethod) => {
     const codec = meta.responseCodec;
     const message = (source: Record<string, unknown>) => meta.requestCodec!.fromJSON(source);
-    // 解码结果按 JSON 投影返回（oneof 已按选中分支展开、int64 已转字符串），
+    // 解码结果按 JSON 投影返回（保留缺省值、oneof 已按选中分支展开、int64 已转字符串），
     // 解码路径的比对由用例侧的共享纯函数按同一口径完成。
     const serialize = (
       result: Awaited<ReturnType<ReturnType<typeof createProtocolClient>['request']>>,
@@ -122,7 +136,7 @@ export async function runProtocolSuite(input: ProtocolSuiteInput) {
             ok: true,
             httpStatus: result.value.http.status,
             wire: result.value.wire,
-            decoded: codec.toJSON(result.value.data),
+            decoded: decodedProjection(result.value.data),
           }
         : { ok: false, code: result.error.code };
     const contextOf = (options: Readonly<{ context?: Readonly<Record<string, string>> }>) =>
