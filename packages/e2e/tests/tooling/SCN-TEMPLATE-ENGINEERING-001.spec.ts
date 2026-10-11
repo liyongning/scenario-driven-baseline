@@ -5,7 +5,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll } from 'vitest';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import {
+  bindingForProduct,
+  loadProjectManifest,
+  packageByDirectory,
+  packagesByRole,
+} from '../../../../scripts/lib/project-manifest.ts';
 import { discoverEntryExports } from './public-doc.ts';
 import { buildCopyInputs, createBuildCopy, type RepositoryCopy } from './repository-copy.ts';
 
@@ -24,8 +29,12 @@ type PackageState = Readonly<{
   sdkManifest: PackedManifest;
 }>;
 const manifest = loadProjectManifest(root);
-const productPackage = packageByRole(manifest, 'product');
-const protocolPackage = packageByRole(manifest, 'protocol');
+const productPackage = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+if (!productPackage) throw new Error('template has no sdk product package');
+const protocolPackage = packageByDirectory(
+  manifest,
+  bindingForProduct(manifest, productPackage.directory).protocol,
+);
 let state: PackageState;
 
 function run(command: string, args: string[], cwd = root): string {
@@ -127,6 +136,7 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
       caseId: caseKey,
       fixtureCase: caseKey,
       environment: 'integration',
+      binding: 'sdk-idl-weapp',
       covers: [{ id: 'SCN-TEMPLATE-ENGINEERING-001', caseKey, checks }],
     },
     async ({ fixture: value, checkpoint, expect }) => {

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,6 +22,31 @@ function manifestRoot(manifest: unknown): string {
   const root = mkdtempSync(join(tmpdir(), 'dependency-rules-'));
   roots.push(root);
   writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+  const packages =
+    (manifest as { packages?: ReadonlyArray<Record<string, unknown>> }).packages ?? [];
+  const protocols = packages.filter(
+    (pkg): pkg is Record<string, unknown> & { name: string } =>
+      pkg.role === 'protocol' && typeof pkg.name === 'string',
+  );
+  for (const pkg of packages) {
+    if (typeof pkg.directory !== 'string' || typeof pkg.name !== 'string') continue;
+    const directory = join(root, 'packages', pkg.directory);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({
+        name: pkg.name,
+        private: pkg.private,
+        ...(pkg.role === 'product'
+          ? {
+              dependencies: Object.fromEntries(
+                protocols.map((protocol) => [protocol.name, 'workspace:*']),
+              ),
+            }
+          : {}),
+      }),
+    );
+  }
   return root;
 }
 
@@ -47,7 +72,15 @@ function renamedTestManifest(): ProjectManifest {
 type Rule = Readonly<{ name: string; from: { path: string; pathNot?: string } }>;
 type Rules = Readonly<{
   escapeRegExp(value: string): string;
-  packageByRole(manifest: ProjectManifest, role: string): { directory: string; name: string };
+  packagesByRole(
+    manifest: ProjectManifest,
+    role: string,
+  ): ReadonlyArray<{ directory: string; name: string }>;
+  testPackage(manifest: ProjectManifest): { directory: string; name: string };
+  bindingForProduct(
+    manifest: ProjectManifest,
+    productDirectory: string,
+  ): { name: string; product: string; protocol: string; platforms: ReadonlyArray<string> };
   moduleRoots(pkg: Readonly<{ moduleRoots?: ReadonlyArray<string> }>): string[];
   sourceRoot(pkg: Readonly<{ moduleRoots?: ReadonlyArray<string> }>): string;
   modulePath(
@@ -127,11 +160,14 @@ function renamedManifest(): ProjectManifest {
         ? { ...pkg, directory: 'renamed-sdk', name: '@sample/renamed-sdk' }
         : pkg,
     ),
+    bindings: manifest.bindings.map((binding) =>
+      binding.product === 'sdk' ? { ...binding, product: 'renamed-sdk' } : binding,
+    ),
   };
 }
 
 const ruleByName = (list: ReadonlyArray<Rule>, name: string): Rule => {
-  const found = list.find((item) => item.name === name);
+  const found = list.find((item) => item.name === name || item.name.startsWith(`${name}:`));
   if (!found) throw new Error(`missing rule ${name}`);
   return found;
 };
@@ -149,11 +185,13 @@ evidence(
         .toBe('^packages/sdk/src/[^/]+/(core|ports)/');
       context
         .expect(ruleByName(repositoryRules, 'cross-workspace-no-direct-files').from.path)
-        .toBe('^packages/(sdk|protocol)/(?:src)/');
+        .toBe('^packages/((?:sdk)|(?:protocol))/(?:src)/');
       context
         .expect(rules.cruiseTargets(repository))
         .toEqual(['packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing']);
-      context.expect(rules.runtimeFile(repository)).toBe('packages/sdk/src/runtime/default.ts');
+      context
+        .expect(rules.runtimeFile(repository))
+        .toEqual(['packages/sdk/src/runtime/default.ts']);
 
       const renamed = renamedManifest();
       const renamedRules = rules.dependencyRules(renamed);
@@ -176,7 +214,7 @@ evidence(
         ]);
       context
         .expect(rules.runtimeFile(renamed))
-        .toBe('packages/renamed-sdk/src/runtime/default.ts');
+        .toEqual(['packages/renamed-sdk/src/runtime/default.ts']);
     });
   },
 );
@@ -204,13 +242,65 @@ test('escapeRegExp escapes regular expression metacharacters', () => {
   expect(rules.escapeRegExp('a.b*c(d)')).toBe('a\\.b\\*c\\(d\\)');
 });
 
-test('packageByRole rejects missing roles and missing package lists', () => {
+test('package readers use manifest roles without assuming a unique package', () => {
   const manifest = loadProjectManifest(repositoryRoot);
-  expect(rules.packageByRole(manifest, 'product').name).toBe('@daqian/template-sdk');
-  expect(() => rules.packageByRole(manifest, 'unknown')).toThrow(/no unknown package/);
-  expect(() => rules.packageByRole({} as unknown as ProjectManifest, 'product')).toThrow(
-    /no product package/,
+  expect(rules.packagesByRole(manifest, 'product').map((item) => item.name)).toEqual([
+    '@daqian/template-sdk',
+  ]);
+  expect(rules.packagesByRole(manifest, 'unknown')).toEqual([]);
+  expect(rules.packagesByRole({ packages: [] } as unknown as ProjectManifest, 'product')).toEqual(
+    [],
   );
+  expect(rules.packagesByRole({} as unknown as ProjectManifest, 'product')).toEqual([]);
+  expect(rules.testPackage(manifest).directory).toBe('e2e');
+  expect(rules.bindingForProduct(manifest, 'sdk')).toMatchObject({
+    name: 'sdk-idl-weapp',
+    protocol: 'protocol',
+  });
+  expect(() => rules.testPackage({ packages: [] } as unknown as ProjectManifest)).toThrow(
+    /no test package/,
+  );
+  expect(() =>
+    rules.bindingForProduct({ bindings: [] } as unknown as ProjectManifest, 'missing'),
+  ).toThrow(/no binding for missing/);
+  expect(() => rules.bindingForProduct({} as unknown as ProjectManifest, 'missing')).toThrow(
+    /no binding for missing/,
+  );
+});
+
+test('dependency rules skip an absent bound protocol and reject unbound protocol imports', () => {
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const packages = [
+    ...manifest.packages,
+    {
+      directory: 'other-protocol',
+      name: '@sample/other-protocol',
+      role: 'protocol',
+      protocolKind: 'openapi',
+      private: false,
+      allowedDirectories: ['src'],
+      moduleRoots: ['src'],
+    },
+  ];
+  const withUnboundProtocol = {
+    ...manifest,
+    packages,
+  } as ProjectManifest;
+  expect(
+    rules
+      .dependencyRules(withUnboundProtocol)
+      .some((rule) => rule.name.startsWith('product-bound-protocol-only:')),
+  ).toBe(true);
+
+  const missingBinding = {
+    ...withUnboundProtocol,
+    bindings: [{ ...manifest.bindings[0]!, protocol: 'missing' }],
+  } as ProjectManifest;
+  expect(
+    rules
+      .dependencyRules(missingBinding)
+      .some((rule) => rule.name.startsWith('product-bound-protocol-exports-only:')),
+  ).toBe(false);
 });
 
 test('module roots default to src and cruise targets skip the test package', () => {

@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-PROTOCOL-CONTRACT-002",
+  "protocol": "protocol",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "requirementDigest": "416f914e84f0255a742b5fe1df05e04518930739bd5a3ef83aabf570ea3ea288"
+      "requirementDigest": "0ac741997fa38532e9cbe131a17fc7da5ccf56b597b404f58078716b8d849fa0"
     }
   },
   "cases": {

@@ -23,7 +23,7 @@ import {
   defaultReportPaths,
   defaultReportNames,
   maxLinesExemptions,
-  packageByRole,
+  packagesByRole,
   projectManifestFile,
   reportNameFor,
   testProjectConfigs,
@@ -45,6 +45,12 @@ afterEach(() => {
 
 type MutableManifest = {
   packages: ManifestPackage[];
+  bindings: Array<{
+    name: string;
+    product: string;
+    protocol: string;
+    platforms: string[];
+  }>;
   requiredCommands: string[];
   testProjects: TestProject[];
   fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
@@ -58,6 +64,7 @@ const baseManifest = (): MutableManifest => ({
       directory: 'sample-product',
       name: '@sample/product',
       role: 'product',
+      form: 'sdk',
       private: false,
       allowedDirectories: ['src'],
       moduleRoots: ['src'],
@@ -66,6 +73,7 @@ const baseManifest = (): MutableManifest => ({
       directory: 'sample-protocol',
       name: '@sample/protocol',
       role: 'protocol',
+      protocolKind: 'idl',
       private: false,
       allowedDirectories: ['src', 'testing'],
       moduleRoots: ['src', 'testing'],
@@ -77,6 +85,14 @@ const baseManifest = (): MutableManifest => ({
       private: true,
       allowedDirectories: ['src', 'host', 'tests'],
       moduleRoots: ['src', 'host', 'tests'],
+    },
+  ],
+  bindings: [
+    {
+      name: 'sample-product-protocol',
+      product: 'sample-product',
+      protocol: 'sample-protocol',
+      platforms: ['platform'],
     },
   ],
   requiredCommands: ['check:fast'],
@@ -100,6 +116,35 @@ function writeManifest(root: string, manifest: unknown) {
     join(root, projectManifestFile),
     typeof manifest === 'string' ? manifest : JSON.stringify(manifest),
   );
+  if (typeof manifest !== 'object' || manifest === null) return;
+  const packages =
+    (manifest as { packages?: ReadonlyArray<Record<string, unknown>> }).packages ?? [];
+  const protocols = packages.filter((item) => item.role === 'protocol');
+  for (const pkg of packages) {
+    if (typeof pkg.directory !== 'string' || typeof pkg.name !== 'string') continue;
+    const directory = join(root, 'packages', pkg.directory);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({
+        name: pkg.name,
+        version: '0.0.0',
+        private: pkg.private,
+        ...(pkg.role === 'product'
+          ? {
+              dependencies: Object.fromEntries(
+                protocols
+                  .filter(
+                    (protocol): protocol is Record<string, unknown> & { name: string } =>
+                      typeof protocol.name === 'string',
+                  )
+                  .map((protocol) => [protocol.name, 'workspace:*']),
+              ),
+            }
+          : {}),
+      }),
+    );
+  }
 }
 
 function temporaryRoot(prefix = 'project-manifest-') {
@@ -218,7 +263,7 @@ evidence(
         .expect(testProjectsByClass(manifest, ['integration', 'platform']))
         .toEqual(['integration', 'platform']);
       context.expect(testProjectsByClass(manifest, ['integration'])).toEqual(['integration']);
-      context.expect(packageByRole(manifest, 'protocol').directory).toBe('sample-protocol');
+      context.expect(packagesByRole(manifest, 'protocol')[0]!.directory).toBe('sample-protocol');
       context.expect(validateManifest(manifest)).toEqual([]);
       context
         .expect(testProjectConfigs(manifest))
@@ -254,18 +299,18 @@ evidence(
           },
         ],
       });
-      context.expect(() => loadProjectManifest(semantic)).toThrow(/is invalid/);
+      context.expect(() => loadProjectManifest(semantic)).toThrow(/does not match|is invalid/);
 
       // 语义校验：角色、目录/包名唯一、测试包私有、测试项目名唯一与类别覆盖。
       const cases: Array<[string, (value: MutableManifest) => void]> = [
         [
-          'expected exactly one product package',
+          'expected at least one product package',
           (value) => {
             value.packages = [value.packages[1]!, value.packages[2]!];
           },
         ],
         [
-          'expected exactly one protocol package',
+          'expected at least one protocol package',
           (value) => {
             value.packages = [value.packages[0]!, value.packages[2]!];
           },
@@ -323,9 +368,7 @@ evidence(
         context.expect(validateManifest(value as ProjectManifest).join('\n')).toContain(message);
       }
       const noProduct = { ...baseManifest(), packages: baseManifest().packages.slice(1) };
-      context
-        .expect(() => packageByRole(noProduct as unknown as ProjectManifest, 'product'))
-        .toThrow(/no product package/);
+      context.expect(packagesByRole(noProduct as ProjectManifest, 'product')).toEqual([]);
     });
 
     await check('obligation-environments', async () => {
@@ -477,8 +520,8 @@ evidence(
       context
         .expect(planCommand(root, 'build').map((step) => step.args[1]))
         .toEqual([
-          packageByRole(manifest, 'protocol').name,
-          packageByRole(manifest, 'product').name,
+          ...packagesByRole(manifest, 'protocol').map((item) => item.name),
+          ...packagesByRole(manifest, 'product').map((item) => item.name),
         ]);
       context
         .expect(planCommand(root, 'test:unit')[0]!.args)

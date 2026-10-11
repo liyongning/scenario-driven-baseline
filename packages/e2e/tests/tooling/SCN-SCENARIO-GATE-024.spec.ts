@@ -48,7 +48,7 @@ cliEvidence(
       await check('stop-on-failure', () => {
         context.expect(blocked.status).not.toBe(0);
         context
-          .expect(labels(blockedInvocations))
+          .expect(labels(blockedInvocations), blocked.output)
           .toEqual(['check:fast', 'test:e2e:sample-platform']);
       });
 

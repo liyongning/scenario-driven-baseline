@@ -18,6 +18,7 @@ defineCase(
     caseId: 'invalid-input',
     fixtureCase: 'invalid-input',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-003',
@@ -48,6 +49,7 @@ defineCase(
     caseId: 'create-failures',
     fixtureCase: 'create-failures',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-003',

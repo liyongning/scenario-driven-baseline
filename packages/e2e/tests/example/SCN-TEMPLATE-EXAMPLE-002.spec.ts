@@ -18,6 +18,7 @@ defineCase(
     caseId: 'create-success',
     fixtureCase: 'create-success',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-002',

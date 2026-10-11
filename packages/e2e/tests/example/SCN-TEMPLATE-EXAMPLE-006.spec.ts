@@ -24,6 +24,7 @@ defineCase(
     caseId: 'host-cancel',
     fixtureCase: 'host-cancel',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-006',

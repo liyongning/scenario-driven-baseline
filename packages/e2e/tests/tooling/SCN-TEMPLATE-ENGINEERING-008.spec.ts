@@ -14,9 +14,10 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, vi, type TestContext } from 'vitest';
 import {
   loadProjectManifest,
-  packageByRole,
+  sdkProduct,
   testProjectsByClass,
 } from '../../../../scripts/lib/project-manifest.ts';
+import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { copyCreatingSpecs } from '../../vitest.config.integration.ts';
 import { repositoryRoot } from './helpers.ts';
@@ -59,7 +60,7 @@ type InventoryItem = Readonly<{
 type InventoryOutput = Readonly<{
   mode: string;
   issues: ReadonlyArray<string>;
-  contracts: ReadonlyArray<InventoryItem>;
+  contracts?: ReadonlyArray<InventoryItem>;
   scenarios: ReadonlyArray<InventoryScenario>;
   flows: ReadonlyArray<InventoryItem>;
 }>;
@@ -167,10 +168,9 @@ function markerFiles(root: string): string[] {
     '\n',
   )) {
     if (!path) continue;
-    const absolute = join(root, path);
-    if (!existsSync(absolute)) continue;
+    if (!existsSync(join(root, path))) continue;
     if (
-      readFileSync(absolute, 'utf8')
+      readFileSync(join(root, path), 'utf8')
         .split('\n')
         .some((line) => markerAt(path, line) !== undefined)
     )
@@ -285,7 +285,7 @@ function expectedMissingBindings(copy: RepositoryCopy, inventory: InventoryOutpu
   // 协议义务与 FLOW 的 requiredIn 同样可能含平台项目：清单模式不要求平台报告，它们的缺失
   // 绑定同属"副本中不可能产生绑定"（全部取自门禁输出，不手写）。
   for (const [items, word] of [
-    [inventory.contracts, ''],
+    [inventory.contracts ?? [], ''],
     [inventory.flows, 'FLOW '],
   ] as const)
     for (const item of items)
@@ -373,8 +373,7 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
         '-m',
         'copy: archive scoped change',
       ]);
-    const declarationPath = packageByRole(loadProjectManifest(copy.root), 'product')
-      .consumedOperations![0]!;
+    const declarationPath = sdkProduct(loadProjectManifest(copy.root)).consumedOperations![0]!;
     const manifestPath = join(copy.root, 'project.manifest.json');
     const manifestBefore = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
     const marked = markerFiles(copy.root);
@@ -577,6 +576,7 @@ defineCase(
     caseId: 'example-removal-fast',
     fixtureCase: 'example-removal-fast',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-008',
@@ -599,7 +599,7 @@ defineCase(
     await checkpoint('fast-gates-green', () => {
       expect(value.fastStatus, `${value.fastLog}\n${value.fastOutput.slice(-6000)}`).toBe(0);
     });
-    await checkpoint('empty-declaration-matrix', () => {
+    await checkpoint('empty-declaration-matrix', async () => {
       // 删除后的声明体只由标记外的条目组成：模板仓库里标记外为空，此时才断言声明为空、
       // 按消费接口派生的义务为空并结束；使用方保留标记外条目时按这些条目继续取证。
       expect(methodsInBody(value.declarationBody)).toEqual(value.outsideMethodsBefore);
@@ -614,7 +614,7 @@ defineCase(
       }
       // 矩阵用例在两种状态下都执行完（声明为空时断言义务为空并结束，不因缺少示例路由失败）。
       expect(value.fastOutput).toContain(matrixSpecFile);
-      const errors = value.inventory.contracts.filter((item) =>
+      const errors = (await buildContractInventory(value.copy.root)).obligations.filter((item) =>
         item.id.startsWith('idl.error-contract#business-error#'),
       );
       expect(errors.length).toBe(1);
@@ -642,7 +642,7 @@ defineCase(
       }
     });
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 900_000 },
 );
 
 defineCase(
@@ -651,6 +651,7 @@ defineCase(
     caseId: 'example-removal-scenarios',
     fixtureCase: 'example-removal-scenarios',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-008',
@@ -682,5 +683,5 @@ defineCase(
       ).toEqual([...new Set([...expected, value.probe.brokenIssue])].sort());
     });
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 900_000 },
 );

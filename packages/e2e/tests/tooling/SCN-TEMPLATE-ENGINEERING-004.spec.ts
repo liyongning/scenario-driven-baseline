@@ -50,6 +50,7 @@ function releaseFixture(registry: string) {
             directory: 'sdk',
             name: '@daqian/template-sdk',
             role: 'product',
+            form: 'sdk',
             private: false,
             allowedDirectories: ['src'],
           },
@@ -57,6 +58,7 @@ function releaseFixture(registry: string) {
             directory: 'protocol',
             name: '@daqian/template-protocol',
             role: 'protocol',
+            protocolKind: 'idl',
             private: false,
             allowedDirectories: ['src'],
           },
@@ -66,6 +68,14 @@ function releaseFixture(registry: string) {
             role: 'test',
             private: true,
             allowedDirectories: ['src'],
+          },
+        ],
+        bindings: [
+          {
+            name: 'sdk-idl-weapp',
+            product: 'sdk',
+            protocol: 'protocol',
+            platforms: [],
           },
         ],
         requiredCommands: ['check:fast'],
@@ -112,6 +122,7 @@ defineCase(
     caseId: 'preflight-valid-plan',
     fixtureCase: 'preflight-valid-plan',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-004',
@@ -143,6 +154,7 @@ defineCase(
     caseId: 'preflight-rejects-drift',
     fixtureCase: 'preflight-rejects-drift',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-004',
@@ -175,6 +187,7 @@ defineCase(
     caseId: 'preflight-rejects-placeholder',
     fixtureCase: 'preflight-rejects-placeholder',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-004',
@@ -202,6 +215,7 @@ defineCase(
     caseId: 'publish-order',
     fixtureCase: 'publish-order',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-004',

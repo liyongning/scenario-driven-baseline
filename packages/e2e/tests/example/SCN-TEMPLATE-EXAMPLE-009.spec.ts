@@ -8,6 +8,7 @@ defineCase(
     caseId: 'shadow-excluded',
     fixtureCase: 'shadow-excluded',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       { id: 'SCN-TEMPLATE-EXAMPLE-009', caseKey: 'shadow-excluded', checks: ['not-in-product'] },
     ],

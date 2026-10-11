@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
@@ -23,6 +23,7 @@ function fixtureRoot(): string {
             directory: 'sample-product',
             name: '@sample/product',
             role: 'product',
+            form: 'sdk',
             private: false,
             allowedDirectories: ['src'],
             moduleRoots: ['src'],
@@ -31,6 +32,7 @@ function fixtureRoot(): string {
             directory: 'sample-protocol',
             name: '@sample/protocol',
             role: 'protocol',
+            protocolKind: 'idl',
             private: false,
             allowedDirectories: ['src', 'testing'],
             moduleRoots: ['src', 'testing'],
@@ -42,6 +44,14 @@ function fixtureRoot(): string {
             private: true,
             allowedDirectories: ['src', 'tests'],
             moduleRoots: ['src', 'tests'],
+          },
+        ],
+        bindings: [
+          {
+            name: 'sample-product-idl',
+            product: 'sample-product',
+            protocol: 'sample-protocol',
+            platforms: ['mini'],
           },
         ],
         requiredCommands: ['build'],
@@ -65,6 +75,17 @@ function fixtureRoot(): string {
       2,
     ),
   );
+  for (const [directory, name, dependencies] of [
+    ['sample-product', '@sample/product', { '@sample/protocol': 'workspace:*' }],
+    ['sample-protocol', '@sample/protocol', undefined],
+    ['e2e', '@sample/e2e', undefined],
+  ] as const) {
+    mkdirSync(join(root, 'packages', directory), { recursive: true });
+    writeFileSync(
+      join(root, 'packages', directory, 'package.json'),
+      JSON.stringify({ name, ...(dependencies ? { dependencies } : {}) }),
+    );
+  }
   return root;
 }
 
@@ -120,6 +141,34 @@ test('rejects unknown commands and unregistered platform projects', () => {
   const root = fixtureRoot();
   expect(() => planCommand(root, 'nope')).toThrow(/unknown command nope/);
   expect(() => planCommand(root, 'test:e2e:missing')).toThrow(/is not a registered test project/);
+});
+
+test('inserts manifest-registered protocol checks before check:fast steps', () => {
+  const root = fixtureRoot();
+  expect(planCommand(root, 'check:fast')[0]).toEqual({
+    command: 'pnpm',
+    args: ['format:check'],
+  });
+  const manifestPath = join(root, 'project.manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+    packages: Array<{ role: string; checks?: string[] }>;
+    requiredCommands: string[];
+  };
+  manifest.packages.find((item) => item.role === 'protocol')!.checks = ['proto:custom'];
+  manifest.requiredCommands.push('proto:custom');
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  expect(planCommand(root, 'check:fast')[0]).toEqual({
+    command: 'pnpm',
+    args: ['proto:custom'],
+  });
+
+  manifest.requiredCommands = manifest.requiredCommands.filter(
+    (command) => command !== 'proto:custom',
+  );
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  expect(() => planCommand(root, 'check:fast')).toThrow(
+    /protocol check proto:custom is not registered/,
+  );
 });
 
 test('runs planned steps in order and stops at the first non-zero exit code', () => {

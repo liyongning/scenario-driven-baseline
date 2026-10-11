@@ -4,8 +4,11 @@ import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { afterAll, beforeAll, test, type TestContext } from 'vitest';
 import {
+  bindingForProduct,
   loadProjectManifest,
-  packageByRole,
+  packageByDirectory,
+  packagesByRole,
+  testPackage,
   type ProjectManifest,
 } from '../../../../scripts/lib/project-manifest.ts';
 import { createBuildCopy, type RepositoryCopy } from './repository-copy.ts';
@@ -23,8 +26,15 @@ const dependencyRules = createRequire(import.meta.url)(
 ) as DependencyRules;
 
 const repositoryManifest = loadProjectManifest(repositoryRoot);
-const productPackage = packageByRole(repositoryManifest, 'product');
-const protocolPackage = packageByRole(repositoryManifest, 'protocol');
+const productPackage = packagesByRole(repositoryManifest, 'product').find(
+  (item) => item.form === 'sdk',
+);
+if (!productPackage) throw new Error('template has no sdk product package');
+const protocolPackage = packageByDirectory(
+  repositoryManifest,
+  bindingForProduct(repositoryManifest, productPackage.directory).protocol,
+);
+const e2ePackage = testPackage(repositoryManifest);
 const productSource = `packages/${productPackage.directory}/src`;
 const protocolSource = `packages/${protocolPackage.directory}/src`;
 
@@ -74,7 +84,7 @@ function expectViolation(context: TestContext, root: string, target: string, rul
 /** 恢复合法依赖后整个依赖图必须通过。 */
 function expectRestored(context: TestContext, root: string, manifest: ProjectManifest): void {
   const result = cruise(root, dependencyRules.cruiseTargets(manifest));
-  context.expect(result.status).toBe(0);
+  context.expect(result.status, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
 }
 
 beforeAll(() => {
@@ -126,11 +136,11 @@ test(
     const toTestPackage = write(
       copy.root,
       `${protocolSource}/synthetic-to-test-package.ts`,
-      `import '../../${packageByRole(repositoryManifest, 'test').directory}/src/synthetic-target';\n`,
+      `import '../../${e2ePackage.directory}/src/synthetic-target';\n`,
     );
     write(
       copy.root,
-      `packages/${packageByRole(repositoryManifest, 'test').directory}/src/synthetic-target.ts`,
+      `packages/${e2ePackage.directory}/src/synthetic-target.ts`,
       'export const syntheticTarget = 1;\n',
     );
     expectViolation(context, copy.root, toTestPackage, 'protocol-no-reverse-import');
@@ -150,17 +160,18 @@ test(
       `${productSource}/synthetic-cross-package.ts`,
       `import '../../${protocolPackage.directory}/src/synthetic-internal';\n`,
     );
-    expectViolation(context, copy.root, crossPackage, 'sdk-cross-package-exports-only');
+    expectViolation(
+      context,
+      copy.root,
+      crossPackage,
+      `product-bound-protocol-exports-only:${productPackage.directory}`,
+    );
     for (const relative of [reverse, toTestPackage, leak, crossPackage])
       rmSync(join(copy.root, relative), { force: true });
     rmSync(join(copy.root, `${protocolSource}/synthetic-internal.ts`), { force: true });
-    rmSync(
-      join(
-        copy.root,
-        `packages/${packageByRole(repositoryManifest, 'test').directory}/src/synthetic-target.ts`,
-      ),
-      { force: true },
-    );
+    rmSync(join(copy.root, `packages/${e2ePackage.directory}/src/synthetic-target.ts`), {
+      force: true,
+    });
     expectRestored(context, copy.root, repositoryManifest);
     await context.annotate(
       JSON.stringify({
@@ -314,6 +325,7 @@ test(
     const manifestPath = join(renamed.root, 'project.manifest.json');
     const renamedManifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       packages: Array<{ directory: string; name: string; role: string }>;
+      bindings: Array<{ product: string; protocol: string }>;
     };
     const directories: Record<string, string> = {
       product: renamedProduct,
@@ -324,13 +336,17 @@ test(
       entry.directory = directories[entry.role]!;
       entry.name = `@renamed/${entry.role}`;
     }
+    for (const binding of renamedManifest.bindings) {
+      binding.product = renamedProduct;
+      binding.protocol = renamedProtocol;
+    }
     writeFileSync(manifestPath, `${JSON.stringify(renamedManifest, null, 2)}\n`);
     removeTemplateExample(renamed.root, renamedProduct);
     const generated = dependencyRules.dependencyRules(
       renamedManifest as unknown as ProjectManifest,
     );
     const reverseRule = generated.find((rule) => rule.name === 'protocol-no-reverse-import')!;
-    context.expect(reverseRule.from.path).toContain(`^packages/${renamedProtocol}/`);
+    context.expect(reverseRule.from.path).toContain(renamedProtocol);
     context
       .expect(JSON.stringify(generated))
       .not.toContain(`packages/${productPackage.directory}/`);

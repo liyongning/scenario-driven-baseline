@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daqian.example/dataset.schema.json",
+  "type": "object",
+  "required": ["formatVersion", "protocol"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": {
+      "const": 1,
+      "description": "预览数据集格式版本。"
+    },
+    "protocol": {
+      "description": "预览数据集响应所属协议包目录。",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "数据集用途的可读说明。",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

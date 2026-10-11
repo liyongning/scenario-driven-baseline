@@ -10,10 +10,22 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** 按角色取唯一的包；角色缺失属于清单非法。 */
-function packageByRole(manifest, role) {
-  const found = (manifest.packages ?? []).find((item) => item.role === role);
-  if (!found) throw new Error(`project.manifest.json has no ${role} package`);
+/** 按角色取全部包；不再假定 product 或 protocol 角色唯一。 */
+function packagesByRole(manifest, role) {
+  return (manifest.packages ?? []).filter((item) => item.role === role);
+}
+
+/** test 角色在清单合法时恰好一个。 */
+function testPackage(manifest) {
+  const found = packagesByRole(manifest, 'test')[0];
+  if (!found) throw new Error('project.manifest.json has no test package');
+  return found;
+}
+
+/** 取产品包绑定；清单校验保证每条产品包恰好绑定一次。 */
+function bindingForProduct(manifest, productDirectory) {
+  const found = (manifest.bindings ?? []).find((item) => item.product === productDirectory);
+  if (!found) throw new Error(`project.manifest.json has no binding for ${productDirectory}`);
   return found;
 }
 
@@ -43,30 +55,34 @@ function cruiseTargets(manifest) {
 
 /** 按角色生成依赖规则；顺序与既有配置一致。 */
 function dependencyRules(manifest) {
-  const product = packageByRole(manifest, 'product');
-  const protocol = packageByRole(manifest, 'protocol');
-  const test = packageByRole(manifest, 'test');
-  const productDir = escapeRegExp(product.directory);
-  const protocolDir = escapeRegExp(protocol.directory);
+  const products = packagesByRole(manifest, 'product');
+  const protocols = packagesByRole(manifest, 'protocol');
+  const test = testPackage(manifest);
+  const productDirs = products.map((pkg) => escapeRegExp(pkg.directory));
+  const protocolDirs = protocols.map((pkg) => escapeRegExp(pkg.directory));
   const testDir = escapeRegExp(test.directory);
-  const productRoot = escapeRegExp(sourceRoot(product));
-  const protocolRoot = escapeRegExp(sourceRoot(protocol));
-  const productionRoots = [...new Set([sourceRoot(product), sourceRoot(protocol)])]
+  const productionRoots = [...new Set([...products, ...protocols].map(sourceRoot))]
     .map((root) => escapeRegExp(root))
     .join('|');
   const allDirs = manifest.packages.map((pkg) => escapeRegExp(pkg.directory)).join('|');
-  return [
+  const productPattern = `(?:${productDirs.join('|')})`;
+  const protocolPattern = `(?:${protocolDirs.join('|')})`;
+  const rules = [
     {
       name: 'protocol-no-reverse-import',
       severity: 'error',
-      from: { path: `^packages/${protocolDir}/${protocolRoot}/` },
-      to: { path: `^packages/(?:${productDir}|${testDir})/` },
+      from: {
+        path: `^packages/${protocolPattern}/(?:${[...new Set(protocols.map(sourceRoot))]
+          .map((root) => escapeRegExp(root))
+          .join('|')})/`,
+      },
+      to: { path: `^packages/(?:${productPattern}|${testDir})/` },
     },
     {
       name: 'production-no-test',
       severity: 'error',
       from: {
-        path: `^packages/(?:${productDir}|${protocolDir})/(?:${productionRoots})/`,
+        path: `^packages/(?:${productPattern}|${protocolPattern})/(?:${productionRoots})/`,
         pathNot: '[.]test[.]ts$',
       },
       to: { path: `(^packages/${testDir}/|/testing/|[.]test[.]ts$|^@template-test/)` },
@@ -77,7 +93,7 @@ function dependencyRules(manifest) {
       severity: 'error',
       // 捕获组 $1 是来源包目录，供 to.path 排除同包内的相对导入。
       from: {
-        path: `^packages/(${productDir}|${protocolDir})/(?:${productionRoots})/`,
+        path: `^packages/(${productPattern}|${protocolPattern})/(?:${productionRoots})/`,
       },
       to: {
         path: `^packages/(?!$1/)(?:${allDirs})/`,
@@ -85,82 +101,103 @@ function dependencyRules(manifest) {
         dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'],
       },
     },
-    {
-      name: 'sdk-cross-package-exports-only',
-      severity: 'error',
-      from: { path: `^packages/${productDir}/${productRoot}/` },
-      to: {
-        path: `^packages/${protocolDir}/`,
-        pathNot: `^packages/${protocolDir}/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))`,
+  ];
+  for (const product of products) {
+    const productDir = escapeRegExp(product.directory);
+    const productRoot = escapeRegExp(sourceRoot(product));
+    const binding = bindingForProduct(manifest, product.directory);
+    const boundProtocol = protocols.find((item) => item.directory === binding.protocol);
+    if (!boundProtocol) continue;
+    const boundDir = escapeRegExp(boundProtocol.directory);
+    const unboundProtocols = protocolDirs.filter((directory) => directory !== boundDir);
+    if (unboundProtocols.length > 0) {
+      rules.push({
+        name: `product-bound-protocol-only:${product.directory}`,
+        severity: 'error',
+        from: { path: `^packages/${productDir}/${productRoot}/` },
+        to: { path: `^packages/(?:${unboundProtocols.join('|')})/` },
+      });
+    }
+    rules.push(
+      {
+        name: `product-bound-protocol-exports-only:${product.directory}`,
+        severity: 'error',
+        from: { path: `^packages/${productDir}/${productRoot}/` },
+        to: {
+          path: `^packages/${boundDir}/`,
+          pathNot: `^packages/${boundDir}/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))`,
+        },
       },
-    },
-    {
-      name: 'core-no-platform-or-node',
-      severity: 'error',
-      from: {
-        path: `^packages/${productDir}/${productRoot}/(runtime|[^/]+/(core|ports))/`,
-        pathNot: '[.]test[.]ts$',
+      {
+        name: `core-no-platform-or-node:${product.directory}`,
+        severity: 'error',
+        from: {
+          path: `^packages/${productDir}/${productRoot}/(runtime|[^/]+/(core|ports))/`,
+          pathNot: '[.]test[.]ts$',
+        },
+        to: { dependencyTypes: ['core'] },
       },
-      to: { dependencyTypes: ['core'] },
-    },
-    // 分层守卫按目录模式覆盖产品包源码根下全部业务模块（runtime/ 除外）的 core/ports，新增模块无需改本配置；约定见产品包 AGENTS.md。
-    {
-      name: 'domain-core-no-generated',
-      severity: 'error',
-      from: { path: `^packages/${productDir}/${productRoot}/[^/]+/(core|ports)/` },
-      to: { path: `^packages/${protocolDir}/(src/|dist/)?generated/` },
-    },
-    // Shadow 引擎只接收中立路由（PC-03）：只有 shadow/ 目录下的引擎文件（server/faults/requests/routes 等）不得导入 ProtoGen
-    // 生成代码；路由来源不受限——idl-routes.ts 与业务路由目录 testing/shadow/<业务>/ 本来就是生成描述的接入点。
-    {
-      name: 'shadow-engine-no-generated',
+      {
+        name: `domain-core-no-generated:${product.directory}`,
+        severity: 'error',
+        from: { path: `^packages/${productDir}/${productRoot}/[^/]+/(core|ports)/` },
+        to: { path: `^packages/${boundDir}/(src/|dist/)?generated/` },
+      },
+      {
+        name: `domain-isolation:${product.directory}`,
+        severity: 'error',
+        from: {
+          path: `^packages/${productDir}/${productRoot}/([^/]+)/`,
+          pathNot: `^packages/${productDir}/${productRoot}/runtime/`,
+        },
+        to: {
+          path: `^packages/${productDir}/${productRoot}/([^/]+)/`,
+          pathNot: [
+            `^packages/${productDir}/${productRoot}/runtime/`,
+            `^packages/${productDir}/${productRoot}/$1/`,
+          ],
+        },
+      },
+    );
+  }
+  for (const protocol of protocols) {
+    rules.push({
+      name: `shadow-engine-no-generated:${protocol.directory}`,
       severity: 'error',
       comment:
         'Shadow 引擎文件（shadow/ 一级目录下的 server/faults/requests/routes 等）必须与协议来源解耦；路由来源文件（idl-routes.ts 与 testing/shadow/<业务>/）可导入生成描述。',
       from: {
-        path: `^packages/${protocolDir}/(?:${moduleRoots(protocol)
+        path: `^packages/${escapeRegExp(protocol.directory)}/(?:${moduleRoots(protocol)
           .map((root) => escapeRegExp(root))
           .join('|')})/shadow/[^/]+[.]ts$`,
-        pathNot: `(^packages/${protocolDir}/(?:${moduleRoots(protocol)
+        pathNot: `(^packages/${escapeRegExp(protocol.directory)}/(?:${moduleRoots(protocol)
           .map((root) => escapeRegExp(root))
           .join('|')})/shadow/idl-routes[.]ts$|[.]test[.]ts$)`,
       },
-      to: { path: `^packages/${protocolDir}/src/generated/` },
-    },
-    // 产品包内各业务模块目录互不导入；可共用的只有 runtime/ 与协议包公开入口，index.ts 作为装配入口豁免。
-    {
-      name: 'domain-isolation',
-      severity: 'error',
-      from: {
-        path: `^packages/${productDir}/${productRoot}/([^/]+)/`,
-        pathNot: `^packages/${productDir}/${productRoot}/runtime/`,
-      },
-      to: {
-        path: `^packages/${productDir}/${productRoot}/([^/]+)/`,
-        pathNot: [
-          `^packages/${productDir}/${productRoot}/runtime/`,
-          `^packages/${productDir}/${productRoot}/$1/`,
-        ],
-      },
-    },
-  ];
+      to: { path: `^packages/${escapeRegExp(protocol.directory)}/src/generated/` },
+    });
+  }
+  return rules;
 }
 
 /** 业务模块的 core/ports 与运行辅助文件路径；eslint 用它限制平台全局对象。 */
 function restrictedGlobalFiles(manifest) {
-  const product = packageByRole(manifest, 'product');
-  const directory = escapeRegExp(product.directory);
-  const root = escapeRegExp(sourceRoot(product));
-  return [
-    `packages/${directory}/${root}/*/core/**/*.ts`,
-    `packages/${directory}/${root}/*/ports/**/*.ts`,
-  ];
+  return packagesByRole(manifest, 'product').flatMap((product) => {
+    const directory = escapeRegExp(product.directory);
+    const root = escapeRegExp(sourceRoot(product));
+    return [
+      `packages/${directory}/${root}/*/core/**/*.ts`,
+      `packages/${directory}/${root}/*/ports/**/*.ts`,
+    ];
+  });
 }
 
 /** 产品包运行辅助文件的路径；eslint 用它放行 setTimeout 等宿主全局对象。 */
 function runtimeFile(manifest) {
-  const product = packageByRole(manifest, 'product');
-  return `packages/${escapeRegExp(product.directory)}/${escapeRegExp(sourceRoot(product))}/runtime/default.ts`;
+  return packagesByRole(manifest, 'product').map(
+    (product) =>
+      `packages/${escapeRegExp(product.directory)}/${escapeRegExp(sourceRoot(product))}/runtime/default.ts`,
+  );
 }
 
 /** 行数上限：源文件 300、测试文件 600；空行与注释都不计入。 */
@@ -169,7 +206,7 @@ const TEST_MAX_LINES = 600;
 
 /** 测试文件集合：任意 `*.test.*` / `*.spec.*`，以及测试角色包 `tests/` 目录下的全部文件。 */
 function testFilePatterns(manifest) {
-  const test = packageByRole(manifest, 'test');
+  const test = testPackage(manifest);
   const code = '{js,mjs,cjs,ts,mts,cts}';
   return [
     `**/*.test.${code}`,
@@ -198,7 +235,9 @@ function maxLinesConfig(manifest) {
 
 module.exports = {
   escapeRegExp,
-  packageByRole,
+  packagesByRole,
+  testPackage,
+  bindingForProduct,
   moduleRoots,
   sourceRoot,
   modulePath,

@@ -127,7 +127,7 @@ test('包名、private 标识、反向依赖与必需命令错误被拒绝', asy
   writeFileSync(join(root, 'package.json'), JSON.stringify({}));
   const errors = await checkArchitecture(root, 0);
   expect(errors).toContain('wrong package name protocol');
-  expect(errors).toContain('protocol cannot depend on SDK/E2E');
+  expect(errors).toContain('protocol cannot depend on products or E2E');
   expect(errors).toContain('e2e must be private');
   expect(errors).toContain('missing command typecheck');
 });

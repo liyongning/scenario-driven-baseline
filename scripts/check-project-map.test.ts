@@ -42,6 +42,22 @@ function fixture(mutate?: (manifest: FixtureManifest) => void): string {
   for (const directory of fixtureDirectories) mkdirSync(join(root, directory), { recursive: true });
   for (const directory of ['sample-product', 'sample-protocol', 'sample-test'])
     writeFileSync(join(root, 'packages', directory, 'AGENTS.md'), `# ${directory}\n`);
+  const packages = manifest.packages as Array<{
+    directory: string;
+    name: string;
+    private: boolean;
+    role: string;
+  }>;
+  for (const pkg of packages) {
+    writeFileSync(
+      join(root, 'packages', pkg.directory, 'package.json'),
+      JSON.stringify({
+        name: pkg.name,
+        private: pkg.private,
+        ...(pkg.role === 'product' ? { dependencies: { '@sample/protocol': 'workspace:*' } } : {}),
+      }),
+    );
+  }
   writeFileSync(join(root, 'packages/sample-product/src/loose.ts'), 'export const loose = 1;\n');
   // 不在模块范围或应被跳过的目录即使有 CLAUDE.md 也不参与配对。
   writeFileSync(join(root, 'dist/leftover/CLAUDE.md'), '@AGENTS.md\n');

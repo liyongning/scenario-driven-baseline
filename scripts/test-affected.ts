@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import {
   errorMessage,
   loadProjectManifest,
-  packageByRole,
+  testPackage,
   type ProjectManifest,
 } from './lib/project-manifest.ts';
 import { expandSelections, scanCaseBindings } from './lib/affected-bindings.ts';
@@ -128,7 +128,7 @@ const buildRoles = new Set(['product', 'protocol']);
 /** 计算按需运行的完整计划；不执行任何用例。 */
 export async function planAffected(root: string, options: AffectedOptions): Promise<AffectedPlan> {
   const manifest = loadProjectManifest(root);
-  const testDirectory = `packages/${packageByRole(manifest, 'test').directory}`;
+  const testDirectory = `packages/${testPackage(manifest).directory}`;
   const changed = changedFilesSince(root, options.base);
   const reasons = fullTriggers(manifest, changed, testDirectory);
   if (reasons.length > 0)

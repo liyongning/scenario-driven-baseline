@@ -3,10 +3,9 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   loadProjectManifest,
-  packageByRole,
+  packagesByRole,
   reportNameFor,
   testProjectsByClass,
-  type PackageRole,
 } from './lib/project-manifest.ts';
 
 /** 一条待执行的命令：可执行文件、参数与环境变量覆盖。 */
@@ -16,8 +15,19 @@ export type PlannedCommand = Readonly<{
   env?: Readonly<Record<string, string>>;
 }>;
 
-/** 构建顺序：协议角色先于产品角色（产品包编译依赖协议包产物）。 */
-const buildOrder: ReadonlyArray<PackageRole> = ['protocol', 'product'];
+/** check:fast 的工程步骤；协议包前置检查按清单插到最前。 */
+const fastSteps = [
+  'format:check',
+  'lint',
+  'build',
+  'typecheck',
+  'check:architecture',
+  'test:unit',
+  'check:coverage',
+  'check:fixtures',
+  'test:integration',
+  'check:package',
+] as const;
 
 function reportFile(root: string, name: string): string {
   return resolve(root, `artifacts/${process.env.VERIFY_RUN_ID ?? 'local'}/reports/${name}.json`);
@@ -43,23 +53,28 @@ function vitestStep(
 export function planCommand(root: string, commandName: string): PlannedCommand[] {
   const manifest = loadProjectManifest(root);
   if (commandName === 'build')
-    return buildOrder.map((role) => ({
-      command: 'pnpm',
-      args: ['--filter', packageByRole(manifest, role).name, 'build'],
+    return [...packagesByRole(manifest, 'protocol'), ...packagesByRole(manifest, 'product')].map(
+      (pkg) => ({
+        command: 'pnpm',
+        args: ['--filter', pkg.name, 'build'],
+      }),
+    );
+  if (commandName === 'typecheck') {
+    const protocolSteps = packagesByRole(manifest, 'protocol').map((pkg) => ({
+      command: 'tsc',
+      args: ['-p', `packages/${pkg.directory}/tsconfig.build.json`, '--noEmit'],
     }));
-  if (commandName === 'typecheck')
+    const productSteps = packagesByRole(manifest, 'product').map((pkg) => ({
+      command: 'tsc',
+      args: ['-p', `packages/${pkg.directory}/tsconfig.build.json`, '--noEmit'],
+    }));
     return [
-      ...buildOrder.map((role) => ({
-        command: 'tsc',
-        args: [
-          '-p',
-          `packages/${packageByRole(manifest, role).directory}/tsconfig.build.json`,
-          '--noEmit',
-        ],
-      })),
+      ...protocolSteps,
+      ...productSteps,
       { command: 'tsc', args: ['-p', 'tsconfig.test.json'] },
       { command: 'tsc', args: ['-p', 'tsconfig.tools.json'] },
     ];
+  }
   if (commandName === 'test:unit')
     return [
       vitestStep(root, testProjectsByClass(manifest, ['unit']), { coverage: true, report: 'unit' }),
@@ -74,6 +89,16 @@ export function planCommand(root: string, commandName: string): PlannedCommand[]
     const project = manifest.testProjects.find((item) => item.name === name);
     if (!project) throw new Error(`${commandName}: ${name} is not a registered test project`);
     return [vitestStep(root, [name], { report: reportNameFor(project) })];
+  }
+  if (commandName === 'check:fast') {
+    const protocolChecks = packagesByRole(manifest, 'protocol').flatMap((pkg) => pkg.checks ?? []);
+    for (const check of protocolChecks)
+      if (!manifest.requiredCommands.includes(check))
+        throw new Error(`check:fast: protocol check ${check} is not registered`);
+    return [...protocolChecks, ...fastSteps].map((step) => ({
+      command: 'pnpm',
+      args: [step],
+    }));
   }
   throw new Error(`unknown command ${commandName}`);
 }

@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-TEMPLATE-ENGINEERING-008",
+  "protocol": "protocol",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "requirementDigest": "654ed83ba887359e4365ec9eae7b458b92edcf0c09a8690261664ff68cbf318d"
+      "requirementDigest": "a35e6cca11662b1b7370bfeff5805faeb0e437bf4b78ee82c746495879ebda7f"
     }
   },
   "cases": {

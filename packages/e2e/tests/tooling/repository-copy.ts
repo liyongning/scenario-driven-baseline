@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   loadProjectManifest,
-  packageByRole,
+  packagesByRole,
   type ProjectManifest,
 } from '../../../../scripts/lib/project-manifest.ts';
 import { listGitFiles } from '../../../../scripts/lib/source-inventory.ts';
@@ -220,7 +220,8 @@ function harmonizeScenarioTitles(root: string, change: string): void {
 /** 副本内 workspace 产品包的 realpath；workspace 链接可能落在任一包的 node_modules 下。 */
 export function workspaceRealpath(root: string): string {
   const manifest = loadProjectManifest(root);
-  const product = packageByRole(manifest, 'product');
+  const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+  if (!product) throw new Error('copy has no sdk product package');
   const candidates = [
     join(root, 'node_modules'),
     ...manifest.packages.map((pkg) => join(root, 'packages', pkg.directory, 'node_modules')),

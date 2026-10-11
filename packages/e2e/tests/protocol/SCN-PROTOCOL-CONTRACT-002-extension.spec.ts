@@ -251,6 +251,7 @@ test(
         ownerId: 'SCN-PROTOCOL-CONTRACT-002',
         caseId: 'protocol-matrix-extension',
         environment: 'integration',
+        binding: 'sdk-idl-weapp',
         fixtureCase: 'protocol-matrix',
         covers: [
           {

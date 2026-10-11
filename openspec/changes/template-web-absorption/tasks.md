@@ -40,7 +40,7 @@
 
 **Tracking rule:** One independently implementable and reviewable task maps to one unindented top-level checkbox. RED, GREEN, verification, and review steps are indented plain bullets, not additional tracked checkboxes.
 
-- [ ] 1. 清单多包与组合绑定（只登记 `sdk-idl-weapp`）
+- [x] 1. 清单多包与组合绑定（只登记 `sdk-idl-weapp`）
 
   **Files**
   - Modify：`project.manifest.schema.json`、`project.manifest.json`（每角色多包、test 唯一、`form`、`protocolKind`、`globalStore`、`bindings`、`quality.componentNameExemptions`，新属性带中文说明；现有包补 `form: sdk`、`protocolKind: idl`；只登记绑定 `sdk-idl-weapp`）；`scripts/lib/project-manifest.ts` 及单测（约束：product 与 protocol 各至少一个、绑定名唯一、每个 product 恰好一条绑定、platforms 只引用 platform 类、产品包以 workspace 依赖声明绑定的协议包）。

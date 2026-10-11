@@ -2,12 +2,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import { loadProjectManifest, packagesByRole } from '../../../../scripts/lib/project-manifest.ts';
 import { discoverEntryExports, publicDocIssues, type DocRequirement } from './public-doc.ts';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
-const product = packageByRole(loadProjectManifest(root), 'product');
+const manifest = loadProjectManifest(root);
+const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+if (!product) throw new Error('template has no sdk product package');
 const productRoot = resolve(root, 'packages', product.directory, 'src');
 const declarationFiles = ['index.d.ts', 'index.d.cts'].map((file) =>
   resolve(root, 'packages', product.directory, 'dist', file),
@@ -125,6 +127,7 @@ defineCase(
     caseId: 'source-and-dual-declarations',
     fixtureCase: 'source-and-dual-declarations',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-003',
@@ -151,6 +154,7 @@ defineCase(
     caseId: 'missing-comment-rejected',
     fixtureCase: 'missing-comment-rejected',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-003',

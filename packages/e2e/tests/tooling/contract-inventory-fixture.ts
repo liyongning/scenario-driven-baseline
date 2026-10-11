@@ -9,8 +9,10 @@ import {
   repositoryProtocolSource,
 } from './declaration-fixture.ts';
 import {
+  bindingForProduct,
   loadProjectManifest,
-  packageByRole,
+  packageByDirectory,
+  packagesByRole,
   testProjectsByClass,
 } from '../../../../scripts/lib/project-manifest.ts';
 
@@ -42,8 +44,12 @@ export async function copyGenerated(prefix: string) {
 /** 受控临时根中的包目录由清单推导，测试不写死包名与目录。 */
 export function controlled(root: string) {
   const manifest = loadProjectManifest(root);
-  const product = packageByRole(manifest, 'product');
-  const protocol = packageByRole(manifest, 'protocol');
+  const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+  if (!product) throw new Error('fixture has no sdk product package');
+  const protocol = packageByDirectory(
+    manifest,
+    bindingForProduct(manifest, product.directory).protocol,
+  );
   return {
     declaration: `packages/${product.directory}/src/consumed-operations.ts`,
     caller: `packages/${product.directory}/src/caller.ts`,

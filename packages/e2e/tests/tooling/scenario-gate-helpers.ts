@@ -13,7 +13,6 @@ import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
 import { createControlledRoot } from './controlled-root.ts';
 import { writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
 
 /** 仓库根由模块位置推导，门禁自测不依赖调用方的工作目录。 */
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -110,8 +109,11 @@ function mirrorSources(source: string, target: string): void {
 }
 
 export function enableInventory(root: string, options: InventoryOptions = {}) {
-  const manifest = loadProjectManifest(root);
-  const protocol = packageByRole(manifest, 'protocol');
+  const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as {
+    packages: ReadonlyArray<{ directory: string; role: string }>;
+  };
+  const protocol = manifest.packages.find((pkg) => pkg.role === 'protocol');
+  if (!protocol) throw new Error('fixture has no protocol package');
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
   if (options.realSources) {
     for (const pkg of manifest.packages) {

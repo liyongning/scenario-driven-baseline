@@ -312,10 +312,37 @@ describe('test:affected 依赖分析与执行路径', () => {
 it('scanCaseBindings 读取受控根里的全部绑定', { timeout: 30_000 }, () => {
   const fixture = createAffectedFixture();
   try {
+    fixture.write(
+      'packages/e2e/tests/sample-product-idl/directory.spec.ts',
+      [
+        "import { defineCase } from '../../src/cases/define-case.ts';",
+        "defineCase({ ownerId: 'SCN-SAMPLE-DIR-001', caseId: 'normal', environment: 'integration', fixtureCase: 'normal', covers: [] }, () => {});",
+        '',
+      ].join('\n'),
+    );
+    fixture.write(
+      'packages/e2e/tests/other/unbound.spec.ts',
+      [
+        "import { defineCase } from '../../src/cases/define-case.ts';",
+        "defineCase({ ownerId: 'SCN-SAMPLE-OTHER-001', caseId: 'normal', environment: 'integration', fixtureCase: 'normal', covers: [] }, () => {});",
+        '',
+      ].join('\n'),
+    );
     const bindings = scanCaseBindings(fixture.root, loadProjectManifest(fixture.root));
     expect(bindings.map((item) => item.file).sort()).toEqual(
-      [integrationSpec, platformSpec, toolingSpec, flowSpec].sort(),
+      [
+        integrationSpec,
+        platformSpec,
+        toolingSpec,
+        flowSpec,
+        'packages/e2e/tests/sample-product-idl/directory.spec.ts',
+        'packages/e2e/tests/other/unbound.spec.ts',
+      ].sort(),
     );
+    expect(bindings.find((item) => item.file.endsWith('directory.spec.ts'))?.binding).toBe(
+      'sample-product-idl',
+    );
+    expect(bindings.find((item) => item.file.endsWith('unbound.spec.ts'))?.binding).toBeUndefined();
   } finally {
     fixture.cleanup();
   }

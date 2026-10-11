@@ -33,6 +33,7 @@ defineCase(
     caseId: 'request-id-wire',
     fixtureCase: 'request-id-wire',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-PROTOCOL-CONTRACT-008',

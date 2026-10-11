@@ -1,6 +1,7 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-SCENARIO-GATE-026",
+  "protocol": "protocol",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {

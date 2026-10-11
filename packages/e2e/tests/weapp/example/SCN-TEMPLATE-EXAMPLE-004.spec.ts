@@ -24,6 +24,7 @@ defineCase(
     caseId: 'weapp-observe-completed',
     fixtureCase: 'observe-completed',
     environment: 'weapp',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-004',

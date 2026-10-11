@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -13,6 +13,7 @@ export const minimalManifest = (): Record<string, unknown> => ({
       directory: 'sample-product',
       name: '@sample/product',
       role: 'product',
+      form: 'sdk',
       private: false,
       allowedDirectories: ['src'],
       moduleRoots: ['src'],
@@ -21,6 +22,7 @@ export const minimalManifest = (): Record<string, unknown> => ({
       directory: 'sample-protocol',
       name: '@sample/protocol',
       role: 'protocol',
+      protocolKind: 'idl',
       private: false,
       allowedDirectories: ['src', 'testing'],
       moduleRoots: ['src', 'testing'],
@@ -32,6 +34,14 @@ export const minimalManifest = (): Record<string, unknown> => ({
       private: true,
       allowedDirectories: ['src', 'host', 'tests'],
       moduleRoots: ['src', 'host', 'tests'],
+    },
+  ],
+  bindings: [
+    {
+      name: 'sample-product-protocol',
+      product: 'sample-product',
+      protocol: 'sample-protocol',
+      platforms: [],
     },
   ],
   requiredCommands: ['check:fast'],
@@ -93,6 +103,44 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
   mkdirSync(join(root, 'openspec/changes'), { recursive: true });
   for (const directory of options.directories ?? [])
     mkdirSync(join(root, directory), { recursive: true });
+  const manifest = (options.manifest ?? minimalManifest()) as
+    | {
+        packages?: ReadonlyArray<{
+          directory: string;
+          name: string;
+          private: boolean;
+          role: string;
+        }>;
+      }
+    | undefined;
+  if (options.manifest !== null) {
+    for (const pkg of manifest?.packages ?? []) {
+      const path = join(root, 'packages', pkg.directory, 'package.json');
+      mkdirSync(dirname(path), { recursive: true });
+      if (existsSync(path)) continue;
+      writeFileSync(
+        path,
+        JSON.stringify(
+          {
+            name: pkg.name,
+            version: '0.0.0',
+            private: pkg.private,
+            ...(pkg.role === 'product'
+              ? {
+                  dependencies: Object.fromEntries(
+                    (manifest?.packages ?? [])
+                      .filter((candidate) => candidate.role === 'protocol')
+                      .map((candidate) => [candidate.name, 'workspace:*']),
+                  ),
+                }
+              : {}),
+          },
+          null,
+          2,
+        ),
+      );
+    }
+  }
   for (const [relative, content] of Object.entries(options.files ?? {})) {
     const path = join(root, relative);
     mkdirSync(dirname(path), { recursive: true });

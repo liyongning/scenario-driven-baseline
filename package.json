@@ -26,7 +26,7 @@
     "check:package": "tsx scripts/check-package.ts",
     "release:preflight": "tsx scripts/check-release.ts",
     "sdk-release": "tsx scripts/sdk-release.ts",
-    "check:fast": "pnpm proto:validate && pnpm proto:status && pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm check:architecture && pnpm test:unit && pnpm check:coverage && pnpm check:fixtures && pnpm test:integration && pnpm check:package",
+    "check:fast": "tsx scripts/run-by-manifest.ts check:fast",
     "weapp:prepare": "tsx scripts/weapp-prepare.ts",
     "verify": "tsx scripts/verify.ts",
     "check": "pnpm verify"

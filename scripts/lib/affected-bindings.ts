@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import ts from 'typescript';
 import { collectFiles } from './fingerprints.ts';
-import { packageByRole, type ProjectManifest } from './project-manifest.ts';
+import { testPackage, type ProjectManifest } from './project-manifest.ts';
 import type { AffectedTestFile } from './affected-types.ts';
 
 /** 静态提取的一条 `defineCase` 绑定：文件、owner、case、环境与全部 cover ID。 */
@@ -11,6 +11,7 @@ export type StaticBinding = Readonly<{
   ownerId: string;
   caseId: string;
   environment: string;
+  binding?: string;
   covers: ReadonlyArray<string>;
   flowId?: string;
 }>;
@@ -40,6 +41,7 @@ export function extractCaseBindings(file: string, source: string): StaticBinding
         const ownerId = text(properties.get('ownerId'));
         const caseId = text(properties.get('caseId'));
         const environment = text(properties.get('environment'));
+        const binding = text(properties.get('binding'));
         const flowId = text(properties.get('flowId'));
         if (ownerId && caseId && environment) {
           const covers: string[] = [];
@@ -57,6 +59,7 @@ export function extractCaseBindings(file: string, source: string): StaticBinding
             ownerId,
             caseId,
             environment,
+            ...(binding === undefined ? {} : { binding }),
             covers,
             ...(flowId === undefined ? {} : { flowId }),
           });
@@ -71,13 +74,22 @@ export function extractCaseBindings(file: string, source: string): StaticBinding
 
 /** 扫描测试包 `tests/` 下全部 spec 的绑定；扩展选择与代码选择共用这份台账。 */
 export function scanCaseBindings(root: string, manifest: ProjectManifest): StaticBinding[] {
-  const testDirectory = `packages/${packageByRole(manifest, 'test').directory}`;
+  const testDirectory = `packages/${testPackage(manifest).directory}`;
   const files = collectFiles(resolve(root, testDirectory, 'tests'), (path) =>
     path.endsWith('.spec.ts'),
   ).sort();
-  return files.flatMap((path) =>
-    extractCaseBindings(relative(root, path), readFileSync(path, 'utf8')),
-  );
+  return files.flatMap((path) => {
+    const file = relative(root, path);
+    const relativeTests = file.split('tests/')[1]?.split('/')[0];
+    return extractCaseBindings(file, readFileSync(path, 'utf8')).map((item) => ({
+      ...item,
+      ...(item.binding === undefined &&
+      relativeTests &&
+      manifest.bindings.some((binding) => binding.name === relativeTests)
+        ? { binding: relativeTests }
+        : {}),
+    }));
+  });
 }
 
 /** 由选中的 ID 扩展到绑定它们的全部测试文件，覆盖其登记的全部环境。 */

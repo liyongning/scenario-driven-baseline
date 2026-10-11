@@ -15,11 +15,13 @@ import { headingsOf, linkTarget, linksTo, markdown, relativeLinks } from './lib/
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 import { unregisteredScenarioIds } from './lib/scenario-ids.ts';
 import { loadScenarioConfig } from './lib/scenario-config.ts';
+import { checkTestBindingDeclarations } from './lib/test-binding-checks.ts';
 import {
   errorMessage,
   loadProjectManifest,
-  packageByRole,
+  packagesByRole,
   projectManifestSchemaUrl,
+  testPackage,
   type ProjectManifest,
 } from './lib/project-manifest.ts';
 import { readEffectiveSpecs } from './lib/spec-sources.ts';
@@ -66,12 +68,12 @@ const templateEnvironmentNames = new Set([
 ]);
 /** 指南「移除模板示例」必须逐项写明的删除白名单；包路径按清单角色派生，与 ENG-06 的清单一致。 */
 function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
-  const product = packageByRole(manifest, 'product').directory;
-  const protocol = packageByRole(manifest, 'protocol').directory;
-  const test = packageByRole(manifest, 'test').directory;
+  const products = packagesByRole(manifest, 'product');
+  const protocols = packagesByRole(manifest, 'protocol');
+  const test = testPackage(manifest).directory;
   return [
-    `packages/${product}/src/example/`,
-    `packages/${protocol}/testing/shadow/example/`,
+    ...products.map((item) => `packages/${item.directory}/src/example/`),
+    ...protocols.map((item) => `packages/${item.directory}/testing/shadow/example/`),
     `packages/${test}/tests/example/`,
     `packages/${test}/tests/weapp/example/`,
     `packages/${test}/host/weapp/example-runner.ts`,
@@ -85,7 +87,7 @@ function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
     `packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`,
     'template-example:begin',
     'template-example:end',
-    `packages/${product}/src/index.ts`,
+    ...products.map((item) => `packages/${item.directory}/src/index.ts`),
     'consumed-operations.ts',
     `packages/${test}/host/weapp/app.js`,
     `packages/${test}/src/drivers/weapp-host.test.ts`,
@@ -235,9 +237,7 @@ export async function checkArchitecture(
         errors.push(`broken link ${path} -> ${node.url}`);
     });
   }
-  const product = manifest.packages.find((item) => item.role === 'product')!;
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
-  const test = manifest.packages.find((item) => item.role === 'test')!;
+  const test = testPackage(manifest);
   for (const entry of manifest.packages) {
     const directory = join(root, 'packages', entry.directory);
     if (!existsSync(directory)) {
@@ -255,13 +255,17 @@ export async function checkArchitecture(
         errors.push(`unexpected directory packages/${entry.directory}/${child.name}`);
     }
   }
-  const protocolManifest = readManifest(`packages/${protocol.directory}/package.json`);
-  if (
-    Object.keys(protocolManifest.dependencies ?? {}).some((dep) =>
-      [product.name, test.name].includes(dep),
+  const productNames = packagesByRole(manifest, 'product').map((item) => item.name);
+  for (const protocol of packagesByRole(manifest, 'protocol')) {
+    const protocolManifest = readManifest(`packages/${protocol.directory}/package.json`);
+    if (
+      Object.keys(protocolManifest.dependencies ?? {}).some((dep) =>
+        [...productNames, test.name].includes(dep),
+      )
     )
-  )
-    errors.push('protocol cannot depend on SDK/E2E');
+      errors.push(`${protocol.directory} cannot depend on products or E2E`);
+  }
+  errors.push(...checkTestBindingDeclarations(root, manifest));
   errors.push(...checkSchemaDocumentation(root));
   errors.push(...checkExampleMarkers(root, manifest));
   errors.push(...checkProjectMap(root, manifest));

@@ -25,6 +25,7 @@ export const affectedManifest = (): Record<string, unknown> => ({
       directory: 'sample-product',
       name: '@sample/product',
       role: 'product',
+      form: 'sdk',
       private: false,
       allowedDirectories: ['src'],
       moduleRoots: ['src'],
@@ -34,6 +35,7 @@ export const affectedManifest = (): Record<string, unknown> => ({
       directory: 'protocol',
       name: '@daqian/template-protocol',
       role: 'protocol',
+      protocolKind: 'idl',
       private: false,
       allowedDirectories: ['src'],
       moduleRoots: ['src'],
@@ -45,6 +47,14 @@ export const affectedManifest = (): Record<string, unknown> => ({
       private: true,
       allowedDirectories: ['src', 'tests', 'host'],
       moduleRoots: ['src', 'tests'],
+    },
+  ],
+  bindings: [
+    {
+      name: 'sample-product-idl',
+      product: 'sample-product',
+      protocol: 'protocol',
+      platforms: ['sample-platform'],
     },
   ],
   requiredCommands: ['check:fast', 'test:affected'],
@@ -298,7 +308,11 @@ export function createAffectedFixture(): AffectedFixture {
       'eslint.config.js': 'export default [];\n',
       'package.json': JSON.stringify({ name: 'affected-fixture', private: true }, null, 2),
       'packages/sample-product/package.json': JSON.stringify(
-        { name: '@sample/product', exports: { '.': './dist/index.js' } },
+        {
+          name: '@sample/product',
+          exports: { '.': './dist/index.js' },
+          dependencies: { '@daqian/template-protocol': 'workspace:*' },
+        },
         null,
         2,
       ),

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadProjectManifest, packageByRole, type ProjectManifest } from './project-manifest.ts';
+import { loadProjectManifest, testPackage, type ProjectManifest } from './project-manifest.ts';
 
 /** 手写源码清单中的文件分类：手写代码、测试支撑与静态资源。 */
 export type SourceClass = 'code' | 'test' | 'asset';
@@ -74,7 +74,7 @@ export function classifySourceFile(path: string, testPackagePrefix: string): Sou
 
 /** test 角色包 `tests/` 目录的相对前缀。 */
 function testPackageTestsPrefix(manifest: ProjectManifest): string {
-  return `packages/${packageByRole(manifest, 'test').directory}`;
+  return `packages/${testPackage(manifest).directory}`;
 }
 
 /**

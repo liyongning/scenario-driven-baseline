@@ -5,14 +5,14 @@
   "description": "登记模板项目形态的唯一事实来源：包、必需命令、测试项目、源码摘要输入、质量例外与发布设置；工程门禁只从此清单读取这些事实。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["packages", "requiredCommands", "testProjects", "fingerprints"],
+  "required": ["packages", "bindings", "requiredCommands", "testProjects", "fingerprints"],
   "properties": {
     "packages": {
-      "description": "工程中的 npm 包清单；product、protocol、test 三种角色各恰好一个。",
+      "description": "工程中的 npm 包清单；product 与 protocol 角色各至少一个，test 角色恰好一个。",
       "type": "array",
       "minItems": 3,
       "items": {
-        "description": "单个包的目录、包名、角色、私有标记、允许的一级子目录、模块根与消费接口声明。",
+        "description": "单个包的目录、包名、角色、私有标记、允许的一级子目录、模块根、形态与协议种类。",
         "type": "object",
         "additionalProperties": false,
         "required": ["directory", "name", "role", "private", "allowedDirectories"],
@@ -67,6 +67,29 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "form": {
+            "description": "产品包的工程形态，决定类型检查、注释发现和产物检查；只允许 product 角色填写。",
+            "enum": ["sdk", "web-app"]
+          },
+          "protocolKind": {
+            "description": "协议包适配器种类，门禁据此加载对应协议适配器；只允许 protocol 角色填写。",
+            "enum": ["idl", "openapi"]
+          },
+          "globalStore": {
+            "description": "Web 应用包内全局 store 模块的相对路径；只允许 web-app 形态填写。",
+            "type": "string",
+            "minLength": 1
+          },
+          "checks": {
+            "description": "协议包在 check:fast 中按清单执行的前置检查命令。",
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "description": "需要执行的根脚本命令名。",
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "allOf": [
@@ -88,9 +111,151 @@
                   "description": "非 product 角色不得声明消费接口，必须缺省或为空。"
                 }
               }
+            },
+            "then": {
+              "required": ["form"],
+              "properties": {
+                "form": {
+                  "description": "产品包的工程形态，决定类型检查、注释发现和产物检查；只允许 product 角色填写。",
+                  "enum": ["sdk", "web-app"]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "protocol",
+                  "description": "角色为协议包时允许声明协议种类。"
+                }
+              },
+              "required": ["role"]
+            },
+            "then": {
+              "required": ["protocolKind"],
+              "properties": {
+                "protocolKind": {
+                  "description": "协议包适配器种类，门禁据此加载对应协议适配器；只允许 protocol 角色填写。",
+                  "enum": ["idl", "openapi"]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "protocolKind": {
+                  "description": "非 protocol 角色不得声明协议适配器种类。",
+                  "not": {}
+                },
+                "checks": {
+                  "description": "非 protocol 角色不得声明协议包前置检查。",
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "form": {
+                  "const": "web-app",
+                  "description": "Web 应用形态允许登记全局 store。"
+                }
+              },
+              "required": ["form"]
+            },
+            "else": {
+              "properties": {
+                "globalStore": {
+                  "description": "只有 web-app 形态产品包可以声明全局 store 路径。",
+                  "not": {}
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "product",
+                  "description": "产品包可登记消费接口和产品形态。"
+                }
+              },
+              "required": ["role"]
+            },
+            "else": {
+              "properties": {
+                "form": {
+                  "description": "只有 product 角色可以声明产品工程形态。",
+                  "not": {}
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "protocol",
+                  "description": "协议包可登记协议种类与前置检查。"
+                }
+              },
+              "required": ["role"]
+            },
+            "else": {
+              "properties": {
+                "protocolKind": {
+                  "description": "只有 protocol 角色可以声明协议适配器种类。",
+                  "not": {}
+                },
+                "checks": {
+                  "description": "只有 protocol 角色可以声明协议包前置检查。",
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
             }
           }
         ]
+      }
+    },
+    "bindings": {
+      "description": "产品、协议与平台测试项目的组合绑定，是协议义务和用例环境的唯一拓扑来源。",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "description": "一条组合绑定：名称、产品包目录、协议包目录与平台测试项目名。",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "product", "protocol", "platforms"],
+        "properties": {
+          "name": {
+            "description": "组合绑定的稳定名称，也是 tests/<name>/ 目录和用例 binding 字段的取值。",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "product": {
+            "description": "产品包在 packages/ 下的目录名。",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "protocol": {
+            "description": "协议包在 packages/ 下的目录名。",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "platforms": {
+            "description": "该绑定要求平台证据的 testProjects 名称列表；骨架阶段可以为空。",
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "description": "平台类 testProjects 的名称。",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
       }
     },
     "requiredCommands": {
@@ -181,7 +346,7 @@
       }
     },
     "quality": {
-      "description": "质量例外登记：覆盖率排除与行数上限豁免，每项都带路径与非空理由。",
+      "description": "质量例外登记：覆盖率排除、行数上限与组件命名豁免，每项都带路径与非空理由。",
       "type": "object",
       "additionalProperties": false,
       "required": ["coverageExclusions", "maxLinesExemptions"],
@@ -226,6 +391,29 @@
               },
               "reason": {
                 "description": "豁免该文件行数上限的非空理由。",
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "componentNameExemptions": {
+          "description": "Vue 多词组件名规则豁免登记；只登记确有理由的组件文件。",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "description": "一条组件命名豁免：组件文件路径与豁免理由。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "reason"],
+            "properties": {
+              "path": {
+                "description": "被豁免组件文件的相对路径。",
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "description": "豁免该组件多词命名规则的非空理由。",
                 "type": "string",
                 "minLength": 1
               }

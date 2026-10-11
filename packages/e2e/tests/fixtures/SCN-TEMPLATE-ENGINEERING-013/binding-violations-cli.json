@@ -1,0 +1,9 @@
+{
+  "cases": [
+    "protocol-form",
+    "product-protocol-kind",
+    "sdk-global-store",
+    "missing-product-form",
+    "missing-protocol-kind"
+  ]
+}

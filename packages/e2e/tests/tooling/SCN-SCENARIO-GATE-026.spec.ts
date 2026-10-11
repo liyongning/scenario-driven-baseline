@@ -122,6 +122,7 @@ defineCase(
     caseId: 'self-test-isolation-cli',
     fixtureCase: 'self-test-isolation-cli',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-SCENARIO-GATE-026',
@@ -229,5 +230,5 @@ defineCase(
       rmSync(copy.root, { recursive: true, force: true });
     }
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 300_000 },
 );

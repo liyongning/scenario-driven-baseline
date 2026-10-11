@@ -230,7 +230,7 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<
           expect(result.stdout + result.stderr).toMatch(
             {
               'missing-agent-entry': /missing packages\/e2e\/AGENTS.md/,
-              'reverse-dependency': /protocol cannot depend on SDK\/E2E/,
+              'reverse-dependency': /protocol cannot depend on products or E2E/,
               'shadow-in-production': /test-only path/,
               'scenario-directory-escape': /unexpected directory packages\/e2e\/outside-scenarios/,
               'lint-violation': /no-explicit-any|Unexpected any/,

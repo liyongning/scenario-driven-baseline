@@ -1,6 +1,7 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-PROTOCOL-CONTRACT-003",
+  "protocol": "protocol",
   "sources": {
     "kind": "fixed-go-source",
     "idlCommit": "5539be8f09323709fa65f6568efe22896ec35d24",

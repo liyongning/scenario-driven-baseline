@@ -4,6 +4,7 @@
       "directory": "sdk",
       "name": "@daqian/template-sdk",
       "role": "product",
+      "form": "sdk",
       "private": false,
       "allowedDirectories": ["src", "dist", "node_modules"],
       "moduleRoots": ["src"],
@@ -13,6 +14,8 @@
       "directory": "protocol",
       "name": "@daqian/template-protocol",
       "role": "protocol",
+      "protocolKind": "idl",
+      "checks": ["proto:validate", "proto:status"],
       "private": false,
       "allowedDirectories": ["src", "testing", "dist", "node_modules"],
       "moduleRoots": ["src", "testing"]
@@ -24,6 +27,14 @@
       "private": true,
       "allowedDirectories": ["src", "host", "tests", "node_modules"],
       "moduleRoots": ["src", "host", "tests"]
+    }
+  ],
+  "bindings": [
+    {
+      "name": "sdk-idl-weapp",
+      "product": "sdk",
+      "protocol": "protocol",
+      "platforms": ["weapp"]
     }
   ],
   "requiredCommands": [
@@ -127,7 +138,8 @@
         "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
       }
     ],
-    "maxLinesExemptions": []
+    "maxLinesExemptions": [],
+    "componentNameExemptions": []
   },
   "release": {
     "registry": "https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/",

@@ -8,7 +8,7 @@ import dependencyRules from './scripts/lib/dependency-rules.cjs';
 
 // 产品包与协议包的路径按清单角色生成，配置里不写死包目录；清单从当前工作目录读取。
 const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'project.manifest.json'), 'utf8'));
-const protocolPackage = dependencyRules.packageByRole(manifest, 'protocol');
+const protocolPackages = dependencyRules.packagesByRole(manifest, 'protocol');
 
 export default defineConfig([
   {
@@ -19,7 +19,7 @@ export default defineConfig([
       'artifacts/**',
       '.local/**',
       '.superpowers/**',
-      `packages/${protocolPackage.directory}/src/generated/**`,
+      ...protocolPackages.map((pkg) => `packages/${pkg.directory}/src/generated/**`),
     ],
   },
   { files: ['**/*.{js,mjs,cjs,ts,mts,cts}'], plugins: { js }, extends: ['js/recommended'] },
@@ -49,7 +49,7 @@ export default defineConfig([
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
-    files: [dependencyRules.runtimeFile(manifest)],
+    files: dependencyRules.runtimeFile(manifest),
     languageOptions: { globals: { setTimeout: 'readonly', clearTimeout: 'readonly' } },
   },
   // 行数上限与豁免只来自清单：源文件 300、测试文件 600，空行与注释不计（ENG-08）。

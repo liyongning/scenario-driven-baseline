@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-SCENARIO-GATE-009",
+  "protocol": "protocol",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "requirementDigest": "51b3bac92d04862be358e6d8f8c84de7b6a3764d78397ba70093af815d25396e"
+      "requirementDigest": "2fbf34f0501ab66c4ea0e70a98a5c515cdd3719636366d3173eee7f6572a5618"
     }
   },
   "cases": {

@@ -18,6 +18,7 @@ defineCase(
     caseId: 'window-and-timeout',
     fixtureCase: 'window-and-timeout',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-005',

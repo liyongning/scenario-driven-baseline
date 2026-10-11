@@ -129,6 +129,7 @@ defineCase(
     caseId: 'protocol-matrix',
     fixtureCase: 'protocol-matrix',
     environment: 'weapp',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-PROTOCOL-CONTRACT-002',

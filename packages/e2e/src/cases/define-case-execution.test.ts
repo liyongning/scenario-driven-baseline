@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createControlledRoot } from '../../tests/tooling/controlled-root.ts';
 
 const state = vi.hoisted(() => ({
   registered: undefined as undefined | ((context: unknown) => Promise<void>),
   fixtureRoots: [] as string[],
+  testOptions: [] as unknown[],
 }));
 
 vi.mock('vitest', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vitest')>();
   return {
     ...actual,
-    test: vi.fn((_name: string, _options: unknown, body: (context: unknown) => Promise<void>) => {
+    test: vi.fn((_name: string, options: unknown, body: (context: unknown) => Promise<void>) => {
+      state.testOptions.push(options);
       state.registered = body;
     }),
   };
@@ -31,7 +34,7 @@ const binding = {
   covers: [{ id: 'SCN-SAMPLE-CONTRACT-023', caseKey: 'omitted', checks: ['wire'] }],
 };
 
-function context() {
+function context(filepath?: string) {
   let assertionCalls = 0;
   const localExpect = Object.assign(
     (received: unknown) => ({
@@ -42,13 +45,18 @@ function context() {
     }),
     { getState: () => ({ assertionCalls }) },
   );
-  return { expect: localExpect, annotate: vi.fn(async () => undefined) };
+  return {
+    expect: localExpect,
+    annotate: vi.fn(async () => undefined),
+    ...(filepath ? { task: { file: { filepath } } } : {}),
+  };
 }
 
 describe('defineCase execution', () => {
   beforeEach(() => {
     state.registered = undefined;
     state.fixtureRoots.length = 0;
+    state.testOptions.length = 0;
   });
 
   it('loads the fixture, records assertions, and annotates executed checkpoints', async () => {
@@ -98,6 +106,21 @@ describe('defineCase execution', () => {
     await state.registered!(context());
   });
 
+  it('uses the requested timeout while keeping the default for existing cases', () => {
+    defineCase(binding, () => undefined, { timeoutMs: 12_345 });
+    expect(state.testOptions[0]).toMatchObject({ timeout: 12_345 });
+    defineCase(binding, () => undefined);
+    expect(state.testOptions[1]).toMatchObject({ timeout: 5_000 });
+  });
+
+  it('validates the runtime binding with the test file path when Vitest provides it', async () => {
+    defineCase(binding, ({ expect: localExpect, checkpoint }) => {
+      localExpect(true).toBe(true);
+      return checkpoint('wire', () => localExpect(true).toBe(true));
+    });
+    await state.registered!(context('/repo/packages/e2e/tests/tooling/runtime-binding.spec.ts'));
+  });
+
   it('rejects bodies without assertions or required checkpoints and uses the default fixture root', async () => {
     defineCase(binding, () => undefined);
     await expect(state.registered!(context())).rejects.toThrow(/executed no assertions/);
@@ -111,5 +134,27 @@ describe('defineCase execution', () => {
 
   it('rejects invalid bindings before registering a test', () => {
     expect(() => defineCase({ ...binding, caseId: '' }, () => undefined)).toThrow(/caseId/);
+  });
+
+  it('rejects binding drift before executing the test body', async () => {
+    const fixture = createControlledRoot({ prefix: 'define-case-runtime-' });
+    const repositoryRoot = process.cwd();
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(repositoryRoot);
+    let executed = false;
+    try {
+      defineCase(
+        { ...binding, binding: 'sdk-idl-weapp' },
+        () => {
+          executed = true;
+        },
+        { fixtureRoot: '/fixtures' },
+      );
+      cwd.mockReturnValue(fixture.root);
+      await expect(state.registered!(context())).rejects.toThrow(/is not registered/);
+      expect(executed).toBe(false);
+    } finally {
+      cwd.mockRestore();
+      fixture.cleanup();
+    }
   });
 });

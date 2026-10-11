@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createControlledRoot } from '../packages/e2e/tests/tooling/controlled-root.ts';
-import { packageByRole, type ProjectManifest } from './lib/project-manifest.ts';
+import { testPackage, type ProjectManifest } from './lib/project-manifest.ts';
 import { checkPackageArtifacts, runPackageCli } from './check-package.ts';
 
 const repositoryManifest = JSON.parse(
@@ -14,8 +14,10 @@ const repositoryManifest = JSON.parse(
 const packageRoot = createControlledRoot({
   manifest: repositoryManifest,
   files: {
-    [`packages/${packageByRole(repositoryManifest, 'test').directory}/package.json`]:
-      JSON.stringify({ name: 'fixture-e2e', private: true }),
+    [`packages/${testPackage(repositoryManifest).directory}/package.json`]: JSON.stringify({
+      name: 'fixture-e2e',
+      private: true,
+    }),
   },
   prefix: 'package-cli-root-',
 });

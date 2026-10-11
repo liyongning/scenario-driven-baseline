@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { loadProjectManifest, packageByRole } from './lib/project-manifest.ts';
+import { loadProjectManifest, testPackage } from './lib/project-manifest.ts';
 import { writeProjectConfig } from './lib/weapp-project-config.ts';
 
 /** 微信开发者工具 CLI 的默认位置；可用 `WECHAT_DEVTOOLS_CLI` 覆盖。 */
@@ -15,7 +15,7 @@ export type PrepareCommand = Readonly<{ command: string; args: ReadonlyArray<str
 /** 宿主小程序项目的绝对路径：由清单里的测试包目录派生，不写死包目录。 */
 export function hostProject(root: string): string {
   const manifest = loadProjectManifest(root);
-  return resolve(root, 'packages', packageByRole(manifest, 'test').directory, hostProjectRelative);
+  return resolve(root, 'packages', testPackage(manifest).directory, hostProjectRelative);
 }
 
 /**

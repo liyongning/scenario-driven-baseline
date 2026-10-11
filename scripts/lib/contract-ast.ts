@@ -1,12 +1,16 @@
 import { join, relative, resolve } from 'node:path';
 import ts from 'typescript';
 import { collectFiles } from './fingerprints.ts';
-import { packageByRole, type ProjectManifest } from './project-manifest.ts';
+import type { ManifestPackage, ProjectManifest } from './project-manifest.ts';
 
 /** 分析用 TS program：把各包包名映射到包内源码根，协议包解析到 `src` 而不是 `dist`。 */
-export function analysisProgram(root: string, manifest: ProjectManifest, generatedRoot: string) {
-  const product = packageByRole(manifest, 'product');
-  const protocol = packageByRole(manifest, 'protocol');
+export function analysisProgram(
+  root: string,
+  manifest: ProjectManifest,
+  generatedRoot: string,
+  product: ManifestPackage,
+  protocol: ManifestPackage,
+) {
   const productSrc = resolve(root, 'packages', product.directory, 'src');
   const protocolSrc = resolve(root, 'packages', protocol.directory, 'src');
   const paths: Record<string, string[]> = {

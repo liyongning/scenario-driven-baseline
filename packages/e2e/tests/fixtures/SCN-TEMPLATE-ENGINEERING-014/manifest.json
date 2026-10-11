@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-014",
+  "protocol": "protocol",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "7225a248575976c1c43642c7e9eddd4f72a327d58696cfe7f34f5dd9cad79e1f"
+    }
+  },
+  "cases": {
+    "binding-exclusive-rules-cli": "binding-exclusive-rules-cli.json",
+    "binding-readers-rules": "binding-readers-rules.json",
+    "multi-package-cli": "multi-package-cli.json",
+    "single-binding-cli": "single-binding-cli.json",
+    "no-unique-role-lookup": "no-unique-role-lookup.json"
+  },
+  "sha256": {
+    "binding-exclusive-rules-cli.json": "dd407426ff0e31c703993f3055a6a1f65afc9c57e6a74047da6ebf8af2b0d945",
+    "binding-readers-rules.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "multi-package-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "single-binding-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "no-unique-role-lookup.json": "020fd3e81ee7473a77a5a335d4ce079c179de0f02af7e842a06fb42649f667e4"
+  }
+}
