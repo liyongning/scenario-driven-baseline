@@ -53,6 +53,7 @@ test('完整三包和可解析规则链接通过；依赖工具失败传递', as
     'packages/sdk/src',
     'packages/protocol/src',
     'packages/protocol/testing',
+    'packages/e2e/src/shadow',
   ]);
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', '-1'], root),

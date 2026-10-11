@@ -126,7 +126,7 @@ export function createShadowServer(
           `${scenario.id}/${route.methodName} step ${index + 1}: rawBody 必须显式声明 malformed（结构校验只覆盖 body）`,
         );
       if (!Object.prototype.hasOwnProperty.call(step, 'body')) return;
-      const issues = route.validateResponse?.(step.body) ?? [];
+      const issues = route.validateResponse?.(step.body, step.status ?? 200) ?? [];
       if (issues.length > 0)
         throw new Error(
           `${scenario.id}/${route.methodName} step ${index + 1}: 响应与协议不一致：${issues.join('; ')}`,

@@ -64,6 +64,7 @@
 - `packages/e2e/src/cases`：用例绑定、Fixture 装载与协议结果核对。
 - `packages/e2e/src/drivers`：外部交互替身驱动，替换端侧平台 API。
 - `packages/e2e/src/reporters`：报告收集与场景门禁汇总。
+- `packages/e2e/src/shadow`：协议无关的测试用 Shadow 引擎。
 - `packages/e2e/host/weapp`：最小微信小程序测试宿主。
 
 <!-- template-example:begin -->

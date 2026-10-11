@@ -2,7 +2,8 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
 import { consumedOperations } from '../../../../packages/sdk/src/consumed-operations.ts';
-import { discoverDeclaredRoutes, type RunningShadowServer } from '@template-test/protocol';
+import { discoverDeclaredRoutes } from '@template-test/protocol';
+import type { RunningShadowServer } from '@template-test/shadow';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import {

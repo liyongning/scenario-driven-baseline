@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-SCENARIO-GATE-027",
+  "protocol": "protocol",
+  "sources": {
+    "spec": {
+      "requirementDigest": "2fbf34f0501ab66c4ea0e70a98a5c515cdd3719636366d3173eee7f6572a5618"
+    }
+  },
+  "cases": {
+    "binding-environment-cli": "binding-environment-cli.json"
+  },
+  "sha256": {
+    "binding-environment-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

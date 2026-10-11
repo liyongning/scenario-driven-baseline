@@ -10,7 +10,8 @@ import {
   CreateTradePay,
   QueryTrade,
 } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
-import { discoverDeclaredRoutes, type RunningShadowServer } from '@template-test/protocol';
+import { discoverDeclaredRoutes } from '@template-test/protocol';
+import type { RunningShadowServer } from '@template-test/shadow';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { lineInRanges, markedLineRanges } from '../../../../scripts/lib/example-markers.ts';
 import { declarationRoot, writeFixtureFile } from '../tooling/declaration-fixture.ts';

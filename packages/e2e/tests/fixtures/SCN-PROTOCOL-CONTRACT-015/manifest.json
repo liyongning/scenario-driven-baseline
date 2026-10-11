@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-015",
+  "protocol": "protocol",
+  "sources": {
+    "spec": {
+      "requirementDigest": "34e64d603554edf4af2ed728d70363d04bfd5c84c47b940132ef40b44e28f61f"
+    }
+  },
+  "cases": {
+    "idl-adapter-inventory-cli": "idl-adapter-inventory-cli.json"
+  },
+  "sha256": {
+    "idl-adapter-inventory-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

@@ -25,7 +25,7 @@ test(
       scenarioCase: {
         ownerId: 'SCN-PROTOCOL-CONTRACT-011',
         caseId: 'request-recording',
-        environment: 'protocol-unit',
+        environment: 'test-tools-unit',
         fixtureCase: null,
         covers: [
           {
@@ -106,7 +106,7 @@ test(
       scenarioCase: {
         ownerId: 'SCN-PROTOCOL-CONTRACT-012',
         caseId: 'path-template',
-        environment: 'protocol-unit',
+        environment: 'test-tools-unit',
         fixtureCase: null,
         covers: [
           {
@@ -185,7 +185,7 @@ test(
       scenarioCase: {
         ownerId: 'SCN-PROTOCOL-CONTRACT-013',
         caseId: 'bounded-poll',
-        environment: 'protocol-unit',
+        environment: 'test-tools-unit',
         fixtureCase: null,
         covers: [
           {

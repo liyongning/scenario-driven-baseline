@@ -18,8 +18,8 @@
   "sha256": {
     "binding-exclusive-rules-cli.json": "dd407426ff0e31c703993f3055a6a1f65afc9c57e6a74047da6ebf8af2b0d945",
     "binding-readers-rules.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
-    "multi-package-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
-    "single-binding-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "multi-package-cli.json": "741a81e33d06dd32ea8a2181664b8d402acdeac2a20722b98409d09813b85aa8",
+    "single-binding-cli.json": "cdeecde77f57d4d072b2752d7e45e2c312fd06c3daf53417b4312c7cf64dc572",
     "no-unique-role-lookup.json": "020fd3e81ee7473a77a5a335d4ce079c179de0f02af7e842a06fb42649f667e4"
   }
 }

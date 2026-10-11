@@ -55,7 +55,7 @@ test(
         ownerId: 'SCN-PROTOCOL-CONTRACT-010',
         caseId: 'shadow-header-patterns',
         fixtureCase: null,
-        environment: 'protocol-unit',
+        environment: 'test-tools-unit',
         covers: [
           {
             id: 'SCN-PROTOCOL-CONTRACT-010',

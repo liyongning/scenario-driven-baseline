@@ -620,7 +620,7 @@ defineCase(
       expect(errors.length).toBe(1);
       expect(errors[0]!.requiredIn).toEqual(['integration']);
     });
-    await checkpoint('no-recursive-copy', () => {
+    await checkpoint('no-recursive-copy', async () => {
       expect(value.copy.env.TEMPLATE_COPY).toBe('1');
       // 副本里会创建副本的用例仍被排除：排除列表里凡在副本中仍存在的 spec 都还在配置里；
       // 随示例删除的条目（示例用例与示例删除验收自身）不再出现（A3）。

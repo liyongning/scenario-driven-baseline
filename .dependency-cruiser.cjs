@@ -1,7 +1,11 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
-const { dependencyRules } = require('./scripts/lib/dependency-rules.cjs');
+const {
+  dependencyRules,
+  escapeRegExp,
+  testPackage,
+} = require('./scripts/lib/dependency-rules.cjs');
 
 // 拓扑规则由清单按角色生成；清单从当前工作目录读取，副本门禁因此指向副本自身的包。
 const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'project.manifest.json'), 'utf8'));
@@ -132,7 +136,7 @@ module.exports = {
         path: '^(packages)',
         // `testing/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
         // 因此允许它使用根 devDependency，如 express。
-        pathNot: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/',
+        pathNot: `[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/|^packages/${escapeRegExp(testPackage(manifest).directory)}/`,
       },
       to: {
         dependencyTypes: ['npm-dev'],

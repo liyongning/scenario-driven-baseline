@@ -1,5 +1,6 @@
-import { test } from 'vitest';
+import { test, vi } from 'vitest';
 import { CreateTrade, QueryTrade } from '../../src/generated/idl/infra/trade/v1/trade.ts';
+import idlAdapter from '../adapter.ts';
 import { routesFromRpcMethods } from './idl-routes.ts';
 
 // 证据直接以 generated 方法常量构造输入，不依赖模板示例目录（SCN-PROTOCOL-CONTRACT-004）。
@@ -70,6 +71,14 @@ test(
         ),
       )
       .toThrow(/generated output is missing response type MissingResponse/);
+    const responseValidator = vi.spyOn(idlAdapter, 'responseValidator').mockReturnValue(undefined);
+    try {
+      context
+        .expect(() => routesFromRpcMethods(requiredMethods, requiredMethods))
+        .toThrow(/has no response validator/);
+    } finally {
+      responseValidator.mockRestore();
+    }
     await context.annotate(
       JSON.stringify({
         assertions: context.expect.getState().assertionCalls - assertionsBefore,

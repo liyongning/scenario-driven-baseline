@@ -1,22 +1,14 @@
 import ts from 'typescript';
+import type {
+  FieldDiscovery,
+  Obligation,
+  RequestPolicy,
+} from '../../../../scripts/lib/protocol-adapters.ts';
 import { type ReachableField, type ShapeEncoding } from './response-shape.ts';
 
 export type Direction = 'request' | 'response';
 /** 可达字段的编码类别由协议同形校验模块统一维护（PC-04）。 */
 export type Encoding = ShapeEncoding;
-export type Obligation = Readonly<{ id: string; cases: string[]; requiredIn: string[] }>;
-export type RequestPolicy = Readonly<{ cases: string[]; authority: string }>;
-export type FieldDiscovery = Readonly<{
-  method: string;
-  direction: Direction;
-  typeName: string;
-  path: string;
-  optional: boolean;
-  oneofBranch: boolean;
-  encoding: Encoding | null;
-  applicability: 'applicable' | 'pending';
-  authority: string | null;
-}>;
 /** 声明模块里一条消费接口：方法描述的声明位置、元数据与请求字段策略。 */
 export type ConsumedDeclaration = Readonly<{
   name: string;

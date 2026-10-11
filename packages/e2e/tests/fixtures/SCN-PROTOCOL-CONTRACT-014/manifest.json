@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-014",
+  "protocol": "protocol",
+  "sources": {
+    "spec": {
+      "requirementDigest": "34e64d603554edf4af2ed728d70363d04bfd5c84c47b940132ef40b44e28f61f"
+    }
+  },
+  "cases": {
+    "adapter-loading-cli": "adapter-loading-cli.json",
+    "no-kind-branching": "no-kind-branching.json"
+  },
+  "sha256": {
+    "adapter-loading-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "no-kind-branching.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { collectReachableFields } from './response-shape.ts';
+import ts from 'typescript';
 import {
   bindingForProduct,
   loadProjectManifest,
@@ -10,19 +10,10 @@ import {
   type ManifestPackage,
   type ProjectManifest,
 } from './project-manifest.ts';
-import {
-  exportedType,
-  fieldObligations,
-  sharedMethodObligations,
-  type FieldDiscovery,
-  type Obligation,
-} from './contract-fields.ts';
-import { analysisProgram } from './contract-ast.ts';
-import {
-  businessErrorNames,
-  calledMethods,
-  readDeclarationModule,
-} from './contract-declarations.ts';
+import type { FieldDiscovery, Obligation } from './protocol-adapters.ts';
+import { analysisProgram } from './analysis-program.ts';
+import { collectFiles } from './fingerprints.ts';
+import { loadProtocolAdapter, type ProtocolOperation } from './protocol-adapters.ts';
 
 type InventoryOptions = Readonly<{ generatedRoot?: string }>;
 
@@ -37,7 +28,47 @@ type BindingInventoryInput = Readonly<{
   integrationOnly: ReadonlyArray<string>;
 }>;
 
-function buildBindingInventory(input: BindingInventoryInput) {
+function readDeclarations(
+  program: ts.Program,
+  modulePath: string,
+  issues: string[],
+  resolveElement: (
+    element: ts.Expression,
+    source: ts.SourceFile,
+    position: string,
+  ) => ProtocolOperation | undefined,
+): ProtocolOperation[] {
+  const source = program
+    .getSourceFiles()
+    .find((file) => resolvePath(file.fileName) === resolvePath(modulePath));
+  if (!source) {
+    issues.push(`consumedOperations 声明模块不存在或未进入分析范围：${modulePath}`);
+    return [];
+  }
+  const checker = program.getTypeChecker();
+  const module = checker.getSymbolAtLocation(source);
+  const exported =
+    module && checker.getExportsOfModule(module).find((item) => item.name === 'consumedOperations');
+  const valueDeclaration = exported?.valueDeclaration;
+  const initializer =
+    valueDeclaration && ts.isVariableDeclaration(valueDeclaration)
+      ? valueDeclaration.initializer
+      : undefined;
+  if (!initializer || !ts.isArrayLiteralExpression(initializer)) {
+    issues.push(`consumedOperations 声明模块未导出数组：${modulePath}`);
+    return [];
+  }
+  return initializer.elements.flatMap((element) => {
+    const operation = resolveElement(element, source, modulePath);
+    return operation ? [operation] : [];
+  });
+}
+
+function resolvePath(path: string) {
+  return resolve(path);
+}
+
+async function buildBindingInventory(input: BindingInventoryInput) {
   const { root, manifest, binding, product, protocol, generatedRoot, requiredIn, integrationOnly } =
     input;
   const protocolDirectory = protocol.directory;
@@ -45,62 +76,66 @@ function buildBindingInventory(input: BindingInventoryInput) {
   const program = analysisProgram(root, manifest, generatedRoot, product, protocol);
   const checker = program.getTypeChecker();
   const issues: string[] = [];
+  const adapter = await loadProtocolAdapter(manifest, protocolDirectory, { root });
   const declarations = (product.consumedOperations ?? []).flatMap((module) =>
-    readDeclarationModule(checker, program, generatedRoot, resolve(root, module), module, issues),
+    readDeclarations(program, resolve(root, module), issues, (element, source, position) =>
+      adapter.resolveDeclaration({
+        element,
+        checker,
+        program,
+        generatedRoot,
+        modulePath: source.fileName,
+        position,
+        issues,
+      }),
+    ),
   );
   const obligations: Obligation[] = [];
   const discoveries: FieldDiscovery[] = [];
-  for (const declaration of declarations) {
-    obligations.push({
-      id: `${declaration.prefix}.${declaration.name}#http-route#$`,
-      cases: [declaration.name],
-      requiredIn: [...requiredIn],
-    });
-    for (const [direction, typeName] of [
-      ['request', declaration.requestType],
-      ['response', declaration.responseType],
-    ] as const) {
-      const fields = collectReachableFields(
-        checker,
-        exportedType(checker, declaration.source, typeName),
-      );
-      const derived = fieldObligations(
-        declaration.prefix,
-        declaration.name,
-        direction,
-        typeName,
-        fields,
-        declaration.requestFields,
-        requiredIn,
-        issues,
-      );
-      obligations.push(...derived.obligations);
-      discoveries.push(...derived.discoveries);
-    }
-    obligations.push(...sharedMethodObligations(declaration.prefix, declaration.name, requiredIn));
-  }
-  const errors = businessErrorNames(checker, program, protocolSrc);
-  obligations.push({
-    id: 'idl.error-contract#business-error#$',
-    cases: errors,
-    requiredIn: [...integrationOnly],
-  });
-  // 双向对账：声明了但没有调用、调用了但没有声明都是门禁问题（SCN-PROTOCOL-CONTRACT-005）。
-  const declared = new Set(declarations.map((item) => item.name));
-  const calls = calledMethods(
+  const bindingDerived = adapter.deriveObligations({
     checker,
     program,
-    resolve(root, 'packages', product.directory, 'src'),
-  );
+    protocolSrc,
+    requiredIn,
+    integrationOnly,
+    issues,
+  });
+  obligations.push(...bindingDerived.obligations);
+  discoveries.push(...bindingDerived.discoveries);
+  for (const declaration of declarations) {
+    const derived = adapter.deriveObligations({
+      operation: declaration,
+      checker,
+      program,
+      protocolSrc,
+      requiredIn,
+      integrationOnly,
+      issues,
+    });
+    obligations.push(...derived.obligations);
+    discoveries.push(...derived.discoveries);
+  }
+  // 双向对账：声明了但没有调用、调用了但没有声明都是门禁问题（SCN-PROTOCOL-CONTRACT-005）。
+  const declared = new Set(declarations.map((item) => item.methodName));
+  const productSrc = resolve(root, 'packages', product.directory, 'src');
+  const calls = adapter.scanCalls({
+    checker,
+    program,
+    productSrc,
+    sourceFiles: collectFiles(
+      productSrc,
+      (path) => path.endsWith('.ts') && !path.endsWith('.d.ts'),
+    ),
+  });
   for (const call of calls)
     if (!declared.has(call.method)) issues.push(`未声明的调用：${call.method}（${call.position}）`);
   for (const declaration of declarations)
-    if (!calls.some((call) => call.method === declaration.name))
-      issues.push(`未使用的声明：${declaration.name}（${declaration.position}）`);
+    if (!calls.some((call) => call.method === declaration.methodName))
+      issues.push(`未使用的声明：${declaration.methodName}（${declaration.position}）`);
   return {
     binding: binding.name,
     methods: declarations.map((item) => ({
-      name: item.name,
+      name: item.methodName,
       method: item.httpMethod,
       path: item.path,
     })),
@@ -113,22 +148,24 @@ function buildBindingInventory(input: BindingInventoryInput) {
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
   const manifest = loadProjectManifest(root);
   const integration = testProjectsByClass(manifest, ['integration']);
-  const results = packagesByRole(manifest, 'product').map((product) => {
-    const binding = bindingForProduct(manifest, product.directory);
-    const protocol = packageByDirectory(manifest, binding.protocol);
-    const generatedRoot =
-      options.generatedRoot ?? resolve(root, 'packages', protocol.directory, 'src/generated');
-    return buildBindingInventory({
-      root,
-      manifest,
-      binding,
-      product,
-      protocol,
-      generatedRoot,
-      requiredIn: [...integration, ...binding.platforms],
-      integrationOnly: integration,
-    });
-  });
+  const results = await Promise.all(
+    packagesByRole(manifest, 'product').map(async (product) => {
+      const binding = bindingForProduct(manifest, product.directory);
+      const protocol = packageByDirectory(manifest, binding.protocol);
+      const generatedRoot =
+        options.generatedRoot ?? resolve(root, 'packages', protocol.directory, 'src/generated');
+      return buildBindingInventory({
+        root,
+        manifest,
+        binding,
+        product,
+        protocol,
+        generatedRoot,
+        requiredIn: [...integration, ...binding.platforms],
+        integrationOnly: integration,
+      });
+    }),
+  );
   return {
     methods: results.flatMap((item) => item.methods),
     discoveries: results.flatMap((item) => item.discoveries),

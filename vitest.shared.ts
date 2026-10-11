@@ -20,6 +20,10 @@ export default defineProject({
           new URL('./packages/protocol/testing/index.ts', import.meta.url),
         ),
       },
+      {
+        find: '@template-test/shadow',
+        replacement: fileURLToPath(new URL('./packages/e2e/src/shadow/index.ts', import.meta.url)),
+      },
     ],
   },
   test: { root, environment: 'node', clearMocks: true, restoreMocks: true },

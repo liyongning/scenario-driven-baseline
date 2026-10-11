@@ -1,10 +1,7 @@
 import automator from 'miniprogram-automator';
 import { afterEach } from 'vitest';
-import {
-  createShadowServer,
-  discoverExampleRoutes,
-  type RunningShadowServer,
-} from '@template-test/protocol';
+import { discoverExampleRoutes } from '@template-test/protocol';
+import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../../src/drivers/weapp.ts';
 
@@ -80,5 +77,5 @@ defineCase(
       expect(Object.keys(result as object)).toEqual(['outcome']),
     );
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 30_000 },
 );

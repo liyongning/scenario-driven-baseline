@@ -34,11 +34,12 @@ test(
           {
             id: 'SCN-PROTOCOL-CONTRACT-004',
             caseKey: 'engine-no-generated-cli',
-            checks: ['engine-no-generated'],
+            checks: ['engine-no-generated', 'engine-in-test-infra'],
           },
         ],
       },
     },
+    timeout: 30_000,
   },
   async (context) => {
     const assertionsBefore = context.expect.getState().assertionCalls;
@@ -67,16 +68,34 @@ test(
         resolve('packages/protocol/package.json'),
         join(root, 'packages/protocol/package.json'),
       );
+      mkdirSync(join(root, 'packages/e2e'), { recursive: true });
+      cpSync(resolve('packages/e2e/src/shadow'), join(root, 'packages/e2e/src/shadow'), {
+        recursive: true,
+      });
+      cpSync(resolve('packages/e2e/package.json'), join(root, 'packages/e2e/package.json'));
       symlinkSync(resolve('node_modules'), join(root, 'node_modules'), 'dir');
 
-      const engine = join(root, 'packages/protocol/testing/shadow/server.ts');
+      const engine = join(root, 'packages/e2e/src/shadow/server.ts');
       writeFileSync(
         engine,
-        `${readFileSync(engine, 'utf8')}\nimport type { RpcMethodMeta } from '../../src/generated/std.ts';\nvoid (null as unknown as RpcMethodMeta<unknown, unknown>);\n`,
+        `${readFileSync(engine, 'utf8')}\nimport type { RpcMethodMeta } from '../../../protocol/src/generated/std.ts';\nvoid (null as unknown as RpcMethodMeta<unknown, unknown>);\n`,
       );
-      const violated = depcruise(root, 'packages/protocol/testing/shadow/server.ts');
-      context.expect(violated.status).not.toBe(0);
-      context.expect(violated.stdout + violated.stderr).toContain('shadow-engine-no-generated');
+      const generatedViolation = depcruise(root, 'packages/e2e/src/shadow/server.ts');
+      context.expect(generatedViolation.status).not.toBe(0);
+      context
+        .expect(generatedViolation.stdout + generatedViolation.stderr)
+        .toContain('shadow-engine-no-generated');
+
+      const routeConstructor = join(root, 'packages/e2e/src/shadow/route-import.ts');
+      writeFileSync(
+        routeConstructor,
+        "import { routesFromRpcMethods } from '../../../protocol/testing/shadow/idl-routes.ts';\nvoid routesFromRpcMethods;\n",
+      );
+      const testingViolation = depcruise(root, 'packages/e2e/src/shadow/route-import.ts');
+      context.expect(testingViolation.status).not.toBe(0);
+      context
+        .expect(testingViolation.stdout + testingViolation.stderr)
+        .toContain('shadow-engine-no-generated');
 
       // 反例：业务路由目录是路由来源，不受引擎约束——导入 generated 时依赖检查通过（PC-03 只约束引擎文件）。
       const businessRoute = join(root, 'packages/protocol/testing/shadow/payment/routes.ts');
@@ -88,6 +107,21 @@ test(
       const allowed = depcruise(root, 'packages/protocol/testing/shadow/payment/routes.ts');
       context.expect(allowed.status, allowed.stdout + allowed.stderr).toBe(0);
 
+      const protocolFile = join(root, 'packages/protocol/testing/reverse.ts');
+      writeFileSync(
+        protocolFile,
+        "import { createShadowServer } from '../../e2e/src/shadow/server.ts';\nvoid createShadowServer;\n",
+      );
+      const reverseViolation = depcruise(root, 'packages/protocol/testing/reverse.ts');
+      context.expect(reverseViolation.status).not.toBe(0);
+      context
+        .expect(reverseViolation.stdout + reverseViolation.stderr)
+        .toContain('protocol-no-reverse-import');
+
+      const testingEntry = (await import('@template-test/protocol')) as Record<string, unknown>;
+      context.expect(testingEntry.createShadowServer).toBeUndefined();
+      context.expect(testingEntry.compareJsonPresence).toBeUndefined();
+
       // 未修改的仓库中协议包源码通过依赖检查。
       const restored = depcruise(repositoryRoot, 'packages/protocol/src');
       context.expect(restored.status).toBe(0);
@@ -95,7 +129,7 @@ test(
       await context.annotate(
         JSON.stringify({
           assertions: context.expect.getState().assertionCalls - assertionsBefore,
-          checkpoints: ['engine-no-generated'],
+          checkpoints: ['engine-no-generated', 'engine-in-test-infra'],
         }),
         'scenario-evidence',
       );

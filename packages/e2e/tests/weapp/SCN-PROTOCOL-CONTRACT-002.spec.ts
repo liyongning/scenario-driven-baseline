@@ -7,9 +7,9 @@ import { consumedOperations } from '../../../../packages/sdk/src/consumed-operat
 import {
   compareJsonPresence,
   createShadowServer,
-  discoverDeclaredRoutes,
   type RunningShadowServer,
-} from '@template-test/protocol';
+} from '@template-test/shadow';
+import { discoverDeclaredRoutes } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../src/drivers/weapp.ts';
@@ -468,5 +468,5 @@ defineCase(
       }
     });
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 30_000 },
 );

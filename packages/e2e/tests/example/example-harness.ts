@@ -1,11 +1,11 @@
 import { createExampleClient } from '@daqian/template-sdk';
+import { discoverExampleRoutes } from '@template-test/protocol';
 import {
   createShadowServer,
-  discoverExampleRoutes,
   type RunningShadowServer,
   type ShadowEnvironmentClass,
   type ShadowStep,
-} from '@template-test/protocol';
+} from '@template-test/shadow';
 
 export function installWx(onAbort?: () => void) {
   const original = (globalThis as Record<string, unknown>).wx;

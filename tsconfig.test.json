@@ -5,7 +5,8 @@
     "paths": {
       "@daqian/template-protocol": ["packages/protocol/src/index.ts"],
       "@daqian/template-sdk": ["packages/sdk/src/index.ts"],
-      "@template-test/protocol": ["packages/protocol/testing/index.ts"]
+      "@template-test/protocol": ["packages/protocol/testing/index.ts"],
+      "@template-test/shadow": ["packages/e2e/src/shadow/index.ts"]
     }
   },
   "include": ["packages/**/*.ts"],

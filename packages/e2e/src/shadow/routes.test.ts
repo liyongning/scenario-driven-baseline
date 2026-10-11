@@ -12,7 +12,7 @@ test(
       scenarioCase: {
         ownerId: 'SCN-PROTOCOL-CONTRACT-004',
         caseId: 'neutral-route',
-        environment: 'protocol-unit',
+        environment: 'test-tools-unit',
         fixtureCase: null,
         covers: [
           {

@@ -81,7 +81,7 @@
   **Commit**
   - `feat(template): support multiple packages per role with product bindings`
 
-- [ ] 2. 协议适配器接口、IDL 适配器迁移与 Shadow 引擎迁入测试包
+- [x] 2. 协议适配器接口、IDL 适配器迁移与 Shadow 引擎迁入测试包
 
   **Files**
   - Create：`packages/protocol/testing/adapter.ts`（IDL 协议适配器：`resolveDeclaration`、`deriveObligations`、`responseValidator`、`checkFixture`、`scanCalls`）及单测；`scripts/lib/protocol-adapters.ts`（按清单 `packages[].protocolKind` 与绑定加载适配器）及单测。

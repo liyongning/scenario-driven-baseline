@@ -4,7 +4,9 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { scanCaseBindings } from './lib/affected-bindings.ts';
+import { checkDatasets } from './lib/dataset-fixtures.ts';
 import { loadProjectManifest } from './lib/project-manifest.ts';
+import { loadProtocolAdapter, type ProtocolAdapter } from './lib/protocol-adapters.ts';
 import { loadScenarioConfig } from './lib/scenario-config.ts';
 import {
   activeChangeNames,
@@ -50,6 +52,13 @@ export async function checkFixtures(
   ) as object;
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
+  const datasetSchema = JSON.parse(
+    await readFile(
+      new URL('../packages/e2e/tests/fixtures/dataset.schema.json', import.meta.url),
+      'utf8',
+    ),
+  ) as object;
+  const validateDataset = ajv.compile(datasetSchema);
   const projectManifest = loadProjectManifest(options.repositoryRoot);
   const protocols = new Set(
     projectManifest.packages
@@ -64,6 +73,17 @@ export async function checkFixtures(
   });
   const scoped = options.changes !== undefined;
   const issues: string[] = [...projection.issues];
+  const adapterCache = new Map<string, Promise<ProtocolAdapter>>();
+  const adapterFor = (protocolDirectory: string) => {
+    let adapter = adapterCache.get(protocolDirectory);
+    if (!adapter) {
+      adapter = loadProtocolAdapter(projectManifest, protocolDirectory, {
+        root: options.repositoryRoot,
+      });
+      adapterCache.set(protocolDirectory, adapter);
+    }
+    return adapter;
+  };
   const entries = await readdir(options.fixtureRoot, { withFileTypes: true });
   let manifests = 0;
   for (const entry of entries.filter((item) => item.isDirectory())) {
@@ -134,10 +154,12 @@ export async function checkFixtures(
       ...Object.values(manifest.cases),
       ...Object.values(manifest.supportingFiles ?? {}),
     ]);
+    const protocolFiles: Record<string, unknown> = {};
     for (const file of declared) {
       if (file === 'manifest.json') continue;
       try {
         const contents = await readFile(join(directory, file), 'utf8');
+        protocolFiles[file] = contents;
         if (manifest.sha256[file] !== sha256(contents))
           issues.push(`${entry.name}: sha256 mismatch for ${file}`);
       } catch {
@@ -149,7 +171,26 @@ export async function checkFixtures(
       if (file.isFile() && file.name.endsWith('.json') && !declared.has(file.name))
         issues.push(`${entry.name}: undeclared fixture file ${file.name}`);
     }
+    if (manifest.protocol && protocols.has(manifest.protocol)) {
+      try {
+        const adapter = await adapterFor(manifest.protocol);
+        const delegated = await adapter.checkFixture(manifest, protocolFiles);
+        issues.push(...delegated.map((issue) => `${entry.name}: ${issue}`));
+      } catch (error) {
+        issues.push(
+          `${entry.name}: protocol adapter ${manifest.protocol} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
+  await checkDatasets({
+    fixtureRoot: options.fixtureRoot,
+    protocols,
+    validate: validateDataset,
+    ajv,
+    adapterFor,
+    issues,
+  });
   return { manifests, issues };
 }
 

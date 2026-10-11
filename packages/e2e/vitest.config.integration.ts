@@ -38,6 +38,7 @@ export default defineProject({
       '@template-test/protocol': fileURLToPath(
         new URL('../protocol/testing/index.ts', import.meta.url),
       ),
+      '@template-test/shadow': fileURLToPath(new URL('./src/shadow/index.ts', import.meta.url)),
     },
   },
 });

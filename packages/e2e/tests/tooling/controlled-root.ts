@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { createOpenSpecStub } from './openspec-stub.ts';
 
 const repositoryRoot = resolve(import.meta.dirname, '../../../..');
@@ -64,6 +65,8 @@ export type ControlledRootOptions = Readonly<{
   openspec?: 'stub' | 'real';
   /** 是否创建初始提交；默认 true，源码清单要求 git 工作区。 */
   commit?: boolean;
+  /** 是否为 IDL 协议包写入可加载的适配器替身；缺省 true。 */
+  protocolAdapters?: boolean;
   prefix?: string;
 }>;
 
@@ -110,6 +113,11 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
           name: string;
           private: boolean;
           role: string;
+          protocolKind?: string;
+        }>;
+        bindings?: ReadonlyArray<{
+          product: string;
+          protocol: string;
         }>;
       }
     | undefined;
@@ -128,9 +136,14 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
             ...(pkg.role === 'product'
               ? {
                   dependencies: Object.fromEntries(
-                    (manifest?.packages ?? [])
-                      .filter((candidate) => candidate.role === 'protocol')
-                      .map((candidate) => [candidate.name, 'workspace:*']),
+                    (manifest?.bindings ?? [])
+                      .filter((binding) => binding.product === pkg.directory)
+                      .flatMap((binding) => {
+                        const protocol = manifest?.packages?.find(
+                          (candidate) => candidate.directory === binding.protocol,
+                        );
+                        return protocol ? [[protocol.name, 'workspace:*']] : [];
+                      }),
                   ),
                 }
               : {}),
@@ -138,6 +151,17 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
           null,
           2,
         ),
+      );
+    }
+  }
+  if (options.protocolAdapters !== false) {
+    for (const pkg of manifest?.packages ?? []) {
+      if (pkg.role !== 'protocol' || pkg.protocolKind !== 'idl') continue;
+      const path = join(root, 'packages', pkg.directory, 'testing/adapter.ts');
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(
+        path,
+        `export { default } from '${pathToFileURL(join(repositoryRoot, 'packages/protocol/testing/adapter.ts')).href}';\n`,
       );
     }
   }

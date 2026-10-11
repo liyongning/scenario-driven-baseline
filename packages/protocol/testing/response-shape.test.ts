@@ -8,14 +8,9 @@ import {
   CreateTrade,
   CreateTradePay,
   QueryTrade,
-} from '../../src/generated/idl/infra/trade/v1/trade.ts';
-import {
-  collectReachableFields,
-  validateResponseShape,
-} from '../../../../scripts/lib/response-shape.ts';
-import { routesFromRpcMethods } from './idl-routes.ts';
-import type { ShadowRoute } from './routes.ts';
-import { createShadowServer } from './server.ts';
+} from '../src/generated/idl/infra/trade/v1/trade.ts';
+import { collectReachableFields, validateResponseShape } from './idl/response-shape.ts';
+import { routesFromRpcMethods } from './shadow/idl-routes.ts';
 
 /** 共用的响应上下文样本，与协议矩阵 Fixture 的字段形态一致。 */
 const baseResp = {
@@ -87,22 +82,12 @@ const fixtureSamples = {
 type MethodSource = Parameters<typeof routesFromRpcMethods>[0][number];
 
 /** 用 generated 方法常量派生响应结构校验器：与 Shadow 构造期注入的是同一函数。 */
-function validatorFor(method: MethodSource): (body: unknown) => string[] {
+function validatorFor(method: MethodSource): (body: unknown, status?: number) => string[] {
   const route = routesFromRpcMethods([method], [method]).find(
     (candidate) => candidate.methodName === method.name,
   );
   if (!route?.validateResponse) throw new Error(`missing response validator for ${method.name}`);
-  return route.validateResponse;
-}
-
-/** 取构造失败的报错信息；构造成功视为用例失败。 */
-function constructionError(build: () => unknown): string {
-  try {
-    build();
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-  throw new Error('expected shadow construction to fail');
+  return (body, status = 200) => route.validateResponse!(body, status);
 }
 
 /**
@@ -206,6 +191,8 @@ test(
               'unknown-field-rejected',
               'encoding-rejected',
               'oneof-conflict-rejected',
+              'idl-issue-path',
+              'idl-ignores-status',
             ],
           },
         ],
@@ -235,6 +222,14 @@ test(
     context
       .expect(queryTrade({ trade: { orders: [{ orderNo: 'ON-1', unknownField: 1 }] } }))
       .toEqual(['$.trade.orders[0].unknownField: 响应类型中不存在的字段']);
+    // idl-issue-path：结构问题逐条带字段路径。
+    context
+      .expect(
+        [...createTrade({ tradeNo: 1 }), ...queryTrade({ trade: { payAmount: 190 } })].every(
+          (issue) => /^\$[.[]/.test(issue),
+        ),
+      )
+      .toBe(true);
 
     // encoding-rejected：int64 必须是十进制字符串，枚举必须是合法名称，字符串字段不能给别的类型。
     context
@@ -255,6 +250,12 @@ test(
     context
       .expect(createTradePay({ payParams: { wechatJsapi: {}, wechatNative: {} } }))
       .toEqual(['$.payParams: 同一 oneof 出现多个分支 wechat_jsapi、wechat_native']);
+
+    // idl-ignores-status：同一响应体在不同 HTTP 状态码下得到相同结论。
+    const statusBodies = [fixtureSamples.CreateTrade[0], { tradeNo: 'TN-1', unknownField: 'x' }];
+    for (const body of statusBodies) {
+      context.expect(createTrade(body, 200)).toEqual(createTrade(body, 503));
+    }
 
     // 合成描述的派生结果：每类编码各就各位，动态类型没有编码类别（待定）。
     context.expect(syntheticField('text_field').encoding).toBe('json-string');
@@ -380,6 +381,9 @@ test(
           'unknown-field-rejected',
           'encoding-rejected',
           'oneof-conflict-rejected',
+          'idl-issue-path',
+          'idl-ignores-status',
+          'idl-ignores-status',
         ],
       }),
       'scenario-evidence',
@@ -388,100 +392,20 @@ test(
 );
 
 test(
-  'SCN-PROTOCOL-CONTRACT-006 shadow-construction',
+  'SCN-PROTOCOL-CONTRACT-007 idl-dynamic-pending',
   {
-    // 派生校验器要编译 generated 与合成 TS 类型：副本/负载下默认 5s 易误判超时。
-    timeout: 30_000,
-    meta: {
-      scenarioCase: {
-        ownerId: 'SCN-PROTOCOL-CONTRACT-006',
-        caseId: 'shadow-construction',
-        environment: 'protocol-unit',
-        fixtureCase: null,
-        covers: [
-          {
-            id: 'SCN-PROTOCOL-CONTRACT-006',
-            caseKey: 'shadow-construction',
-            checks: ['error-location', 'both-sources'],
-          },
-        ],
-      },
-    },
-  },
-  async (context) => {
-    const assertionsBefore = context.expect.getState().assertionCalls;
-    const routes = routesFromRpcMethods([CreateTrade.meta], [CreateTrade.meta]);
-    const scenarioWith = (body: unknown) => ({
-      id: 'both-sources',
-      routes: { CreateTrade: { expectedRequests: [{ body: {} }], steps: [{ body }] } },
-    });
-
-    // both-sources：同形响应来自真实 Fixture JSON 与内联字面量两种来源都能构造成功。
-    context
-      .expect(() =>
-        createShadowServer({
-          routes,
-          scenarios: [scenarioWith(fixtureSamples.CreateTrade[0])],
-        }),
-      )
-      .not.toThrow();
-    context
-      .expect(() =>
-        createShadowServer({
-          routes,
-          scenarios: [
-            scenarioWith({ tradeNo: 'TN-1', orderNos: ['ON-1'], status: 'TRADE_STATUS_CREATED' }),
-          ],
-        }),
-      )
-      .not.toThrow();
-
-    // error-location：内联来源的非法响应在构造期立即失败，报出路由方法名、step 序号与字段路径。
-    const inlineError = constructionError(() =>
-      createShadowServer({
-        routes,
-        scenarios: [scenarioWith({ tradeNo: 'TN-1', unknownField: 'x' })],
-      }),
-    );
-    context.expect(inlineError).toContain('both-sources/CreateTrade step 1');
-    context.expect(inlineError).toContain('$.unknownField: 响应类型中不存在的字段');
-
-    // both-sources：同一非法体在 Fixture JSON 来源下报出与内联来源一致的错误。
-    const fixtureResponse = fixtureSamples.CreateTrade[0] as Record<string, unknown>;
-    const fixtureError = constructionError(() =>
-      createShadowServer({
-        routes,
-        scenarios: [scenarioWith({ ...fixtureResponse, unknownField: 'x' })],
-      }),
-    );
-    context.expect(fixtureError).toBe(inlineError);
-
-    await context.annotate(
-      JSON.stringify({
-        assertions: context.expect.getState().assertionCalls - assertionsBefore,
-        checkpoints: ['error-location', 'both-sources'],
-      }),
-      'scenario-evidence',
-    );
-  },
-);
-
-test(
-  'SCN-PROTOCOL-CONTRACT-007 malformed-claim-rules',
-  {
-    // 派生校验器要编译 generated 与合成 TS 类型：副本/负载下默认 5s 易误判超时。
     timeout: 30_000,
     meta: {
       scenarioCase: {
         ownerId: 'SCN-PROTOCOL-CONTRACT-007',
-        caseId: 'malformed-claim-rules',
+        caseId: 'idl-dynamic-pending',
         environment: 'protocol-unit',
         fixtureCase: null,
         covers: [
           {
             id: 'SCN-PROTOCOL-CONTRACT-007',
-            caseKey: 'malformed-claim-rules',
-            checks: ['claimed-skipped', 'unclaimed-rejected', 'dynamic-pending'],
+            caseKey: 'idl-dynamic-pending',
+            checks: ['dynamic-pending'],
           },
         ],
       },
@@ -489,79 +413,15 @@ test(
   },
   async (context) => {
     const assertionsBefore = context.expect.getState().assertionCalls;
-    const routes = routesFromRpcMethods([CreateTrade.meta], [CreateTrade.meta]);
-    const invalid = { tradeNo: 'TN-1', unknownField: 'x' };
-    const scenarioWith = (step: Record<string, unknown>) => ({
-      id: 'claim',
-      routes: { CreateTrade: { expectedRequests: [{ body: {} }], steps: [step] } },
-    });
-
-    // claimed-skipped：显式声明 malformed 且 reason 非空时跳过结构校验，构造成功。
-    context
-      .expect(() =>
-        createShadowServer({
-          routes,
-          scenarios: [scenarioWith({ body: invalid, malformed: { reason: '解码错误义务' } })],
-        }),
-      )
-      .not.toThrow();
-    // reason 必须非空，空声明不放行。
-    context
-      .expect(() =>
-        createShadowServer({
-          routes,
-          scenarios: [scenarioWith({ body: invalid, malformed: { reason: '   ' } })],
-        }),
-      )
-      .toThrow(/malformed reason must not be empty/);
-    // unclaimed-rejected：同样的非法体不声明 malformed 时在构造期被拒绝。
-    context
-      .expect(() => createShadowServer({ routes, scenarios: [scenarioWith({ body: invalid })] }))
-      .toThrow(/响应与协议不一致/);
-    // unclaimed-rejected：rawBody 只做原样发送，结构校验无从进行，同样必须显式认领 malformed。
-    context
-      .expect(() =>
-        createShadowServer({
-          routes,
-          scenarios: [scenarioWith({ rawBody: '{', contentType: 'application/json' })],
-        }),
-      )
-      .toThrow(/rawBody 必须显式声明 malformed/);
-
-    // dynamic-pending：动态类型字段被报告为待定并判定失败，不被放行。
     const dynamicShape = syntheticShape.filter((field) => field.path === 'dynamic_field');
     context
       .expect(validateResponseShape(dynamicShape, { dynamicField: 1 }))
       .toEqual(['$.dynamicField: 字段类型无法判定（待定），不得放行']);
-    const dynamicRoute: ShadowRoute = {
-      methodName: 'DynamicRoute',
-      httpMethod: 'POST',
-      path: '/api/dynamic',
-      validateResponse: (body) => validateResponseShape(dynamicShape, body),
-    };
-    context
-      .expect(() =>
-        createShadowServer({
-          routes: [dynamicRoute],
-          scenarios: [
-            {
-              id: 'dynamic',
-              routes: {
-                DynamicRoute: {
-                  expectedRequests: [{ body: {} }],
-                  steps: [{ body: { dynamicField: 1 } }],
-                },
-              },
-            },
-          ],
-        }),
-      )
-      .toThrow(/待定/);
 
     await context.annotate(
       JSON.stringify({
         assertions: context.expect.getState().assertionCalls - assertionsBefore,
-        checkpoints: ['claimed-skipped', 'unclaimed-rejected', 'dynamic-pending'],
+        checkpoints: ['dynamic-pending'],
       }),
       'scenario-evidence',
     );

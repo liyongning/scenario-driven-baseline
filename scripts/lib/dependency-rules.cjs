@@ -48,9 +48,11 @@ function modulePath(pkg, roots = moduleRoots(pkg)) {
 
 /** 依赖图必须覆盖的目录：产品包与协议包的模块根；测试包不进依赖图。 */
 function cruiseTargets(manifest) {
+  const test = testPackage(manifest);
   return manifest.packages
     .filter((pkg) => pkg.role !== 'test')
-    .flatMap((pkg) => moduleRoots(pkg).map((root) => `packages/${pkg.directory}/${root}`));
+    .flatMap((pkg) => moduleRoots(pkg).map((root) => `packages/${pkg.directory}/${root}`))
+    .concat(`packages/${test.directory}/src/shadow`);
 }
 
 /** 按角色生成依赖规则；顺序与既有配置一致。 */
@@ -67,14 +69,15 @@ function dependencyRules(manifest) {
   const allDirs = manifest.packages.map((pkg) => escapeRegExp(pkg.directory)).join('|');
   const productPattern = `(?:${productDirs.join('|')})`;
   const protocolPattern = `(?:${protocolDirs.join('|')})`;
+  const protocolModulePattern = `(?:${[...new Set(protocols.flatMap((pkg) => moduleRoots(pkg)))]
+    .map((root) => escapeRegExp(root))
+    .join('|')})`;
   const rules = [
     {
       name: 'protocol-no-reverse-import',
       severity: 'error',
       from: {
-        path: `^packages/${protocolPattern}/(?:${[...new Set(protocols.map(sourceRoot))]
-          .map((root) => escapeRegExp(root))
-          .join('|')})/`,
+        path: `^packages/${protocolPattern}/${protocolModulePattern}/`,
       },
       to: { path: `^packages/(?:${productPattern}|${testDir})/` },
     },
@@ -160,23 +163,17 @@ function dependencyRules(manifest) {
       },
     );
   }
-  for (const protocol of protocols) {
-    rules.push({
-      name: `shadow-engine-no-generated:${protocol.directory}`,
-      severity: 'error',
-      comment:
-        'Shadow 引擎文件（shadow/ 一级目录下的 server/faults/requests/routes 等）必须与协议来源解耦；路由来源文件（idl-routes.ts 与 testing/shadow/<业务>/）可导入生成描述。',
-      from: {
-        path: `^packages/${escapeRegExp(protocol.directory)}/(?:${moduleRoots(protocol)
-          .map((root) => escapeRegExp(root))
-          .join('|')})/shadow/[^/]+[.]ts$`,
-        pathNot: `(^packages/${escapeRegExp(protocol.directory)}/(?:${moduleRoots(protocol)
-          .map((root) => escapeRegExp(root))
-          .join('|')})/shadow/idl-routes[.]ts$|[.]test[.]ts$)`,
-      },
-      to: { path: `^packages/${escapeRegExp(protocol.directory)}/src/generated/` },
-    });
-  }
+  rules.push({
+    name: 'shadow-engine-no-generated',
+    severity: 'error',
+    comment:
+      '测试包中的 Shadow 引擎必须与协议来源解耦：只能消费中立路由与步骤，不得导入任一协议包的 generated 或 testing 模块。',
+    from: {
+      path: `^packages/${testDir}/src/shadow/.*[.]ts$`,
+      pathNot: '[.]test[.]ts$',
+    },
+    to: { path: `^packages/${protocolPattern}/(?:src/generated|testing)/` },
+  });
   return rules;
 }
 

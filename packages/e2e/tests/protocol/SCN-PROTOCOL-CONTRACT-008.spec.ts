@@ -2,11 +2,8 @@
 import { afterEach } from 'vitest';
 import { createProtocolClient } from '@daqian/template-protocol';
 import { CreateTrade } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
-import {
-  createShadowServer,
-  routesFromRpcMethods,
-  type RunningShadowServer,
-} from '@template-test/protocol';
+import { routesFromRpcMethods } from '@template-test/protocol';
+import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { createNodeHttpDriver } from '../../src/drivers/node.ts';
 

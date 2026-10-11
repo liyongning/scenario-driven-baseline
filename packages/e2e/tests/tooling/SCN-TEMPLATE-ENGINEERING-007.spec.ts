@@ -283,8 +283,8 @@ test(
     const before = context.expect.getState().assertionCalls;
     const engine = write(
       copy.root,
-      `packages/${protocolPackage.directory}/testing/shadow/synthetic-engine.ts`,
-      `import '../../src/generated/index';\n`,
+      `packages/${e2ePackage.directory}/src/shadow/synthetic-engine.ts`,
+      `import '../../../${protocolPackage.directory}/src/generated/index';\n`,
     );
     expectViolation(context, copy.root, engine, 'shadow-engine-no-generated');
     rmSync(join(copy.root, engine), { force: true });

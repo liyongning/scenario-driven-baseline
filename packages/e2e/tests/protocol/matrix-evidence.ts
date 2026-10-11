@@ -12,7 +12,7 @@ import {
   type RunningShadowServer,
   type ShadowEnvironmentClass,
   type ShadowRoute,
-} from '@template-test/protocol';
+} from '@template-test/shadow';
 import type { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { createNodeHttpDriver } from '../../src/drivers/node.ts';
 import {

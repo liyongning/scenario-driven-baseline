@@ -188,7 +188,12 @@ evidence(
         .toBe('^packages/((?:sdk)|(?:protocol))/(?:src)/');
       context
         .expect(rules.cruiseTargets(repository))
-        .toEqual(['packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing']);
+        .toEqual([
+          'packages/sdk/src',
+          'packages/protocol/src',
+          'packages/protocol/testing',
+          'packages/e2e/src/shadow',
+        ]);
       context
         .expect(rules.runtimeFile(repository))
         .toEqual(['packages/sdk/src/runtime/default.ts']);
@@ -205,6 +210,7 @@ evidence(
           'packages/renamed-sdk/src',
           'packages/protocol/src',
           'packages/protocol/testing',
+          'packages/e2e/src/shadow',
         ]);
       context
         .expect(rules.restrictedGlobalFiles(renamed))
@@ -230,12 +236,9 @@ test('shadow engine rule covers engine files but not route sources', () => {
   const matched = (file: string) => path.test(file) && !pathNot.test(file);
   // 引擎文件（含后续新增的）受约束。
   for (const engine of ['server', 'faults', 'requests', 'routes', 'synthetic-engine'])
-    expect(matched(`packages/protocol/testing/shadow/${engine}.ts`), engine).toBe(true);
-  // 路由来源不受限：IDL 路由来源、业务路由目录、示例目录与单测都不在约束内。
+    expect(matched(`packages/e2e/src/shadow/${engine}.ts`), engine).toBe(true);
+  expect(matched('packages/e2e/src/shadow/server.test.ts')).toBe(false);
   expect(matched('packages/protocol/testing/shadow/idl-routes.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/payment/routes.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/example/routes.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/server.test.ts')).toBe(false);
 });
 
 test('escapeRegExp escapes regular expression metacharacters', () => {
@@ -324,7 +327,7 @@ test('module roots default to src and cruise targets skip the test package', () 
         { directory: 'spec', name: '@x/spec', role: 'test', private: true, allowedDirectories: [] },
       ],
     } as unknown as ProjectManifest),
-  ).toEqual(['packages/prod/src']);
+  ).toEqual(['packages/prod/src', 'packages/spec/src/shadow']);
 });
 
 evidence(
