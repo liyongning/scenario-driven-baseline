@@ -12,7 +12,12 @@ import {
   executeMatrixEvidence,
   nameOf,
 } from './matrix-evidence.ts';
-import { matrixContext, type MatrixFixture } from './matrix-support.ts';
+import {
+  encodingMatches,
+  matrixContext,
+  requestEvidenceIndex,
+  type MatrixFixture,
+} from './matrix-support.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -114,6 +119,29 @@ defineCase(
       // 声明了 omitted 的字段必须有逐字段省略样例；每条派生义务都要有取证请求/响应。
       expect(summary.missingSamples, '声明 omitted 却没有省略样例的字段').toEqual([]);
       expect(summary.missingEvidence, '找不到取证响应的义务').toEqual([]);
+      // 反例（I-2）：请求侧 optional-absence 必须取"字段确实缺失"的请求作证据，未知编码 case 必须报错。
+      // 退回旧口径（把缺失类判成存在类、encodingMatches 未知 case 默认通过）时下面三条断言失败。
+      const alwaysSent = { rawBody: { baseReq: { requestId: 'a', productId: 'p' } } };
+      const productIdOmitted = { rawBody: { baseReq: { requestId: 'b' } } };
+      expect(
+        requestEvidenceIndex(
+          'request-optional-absence',
+          'base_req.product_id',
+          [alwaysSent],
+          new Map(),
+        ),
+      ).toBe(-1);
+      expect(
+        requestEvidenceIndex(
+          'request-optional-absence',
+          'base_req.product_id',
+          [alwaysSent, productIdOmitted],
+          new Map(),
+        ),
+      ).toBe(1);
+      expect(() => encodingMatches('request-unknown-case', 'value')).toThrow(
+        /request-unknown-case/,
+      );
     });
 
     await checkpoint('real-client-path', () => {

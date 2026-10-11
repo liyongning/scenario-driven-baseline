@@ -105,6 +105,64 @@ export function missingOmissionSamples(
   return omittedFields.filter((path) => !declared.includes(path));
 }
 
+/** 一条请求记录的最小形态：请求侧取证只看请求体。 */
+export type RequestRecord = Readonly<{ rawBody: unknown }>;
+
+/**
+ * 请求字段义务里"字段必须缺失"的 case：逐字段省略（`omitted`）与缺失类（`-absent`、`-absence`）。
+ * 派生出的 case 名是 `request-optional-absence`，不以 `absent` 结尾，判定不能只看字符串后缀。
+ */
+export function requestAbsenceCase(caseKey: string): boolean {
+  return caseKey === 'omitted' || caseKey.endsWith('-absent') || caseKey.endsWith('-absence');
+}
+
+/**
+ * 请求侧取证：返回应作为该 case 证据的请求下标，找不到时返回 -1（由调用方计入缺证）。
+ * - 缺失类 case 必须取"字段确实缺失"的请求；声明了逐字段省略样例时优先用该样例。
+ *   不得退回"字段存在"的请求——那会让"总被发送的 optional 字段"义务恒真。
+ * - 其余 case 取第一条字段存在的请求。
+ */
+export function requestEvidenceIndex(
+  caseKey: string,
+  path: string,
+  records: ReadonlyArray<RequestRecord>,
+  omittedRecordIndex: ReadonlyMap<string, number>,
+): number {
+  const requiresAbsence = requestAbsenceCase(caseKey);
+  if (requiresAbsence) {
+    const declared = omittedRecordIndex.get(path);
+    if (declared !== undefined) return declared;
+  }
+  for (const [index, record] of records.entries()) {
+    if ((wireAt(record.rawBody, path) !== undefined) === requiresAbsence) continue;
+    return index;
+  }
+  return -1;
+}
+
+/**
+ * 编码边界 case 的取值形态核验。未知 case 一律报错：派生规则新增 case 时这里必须显式给出判定，
+ * 不允许用"默认通过"把义务变成恒真。
+ */
+export function encodingMatches(caseKey: string, value: unknown): boolean {
+  if (
+    caseKey.endsWith('json-string') ||
+    caseKey.endsWith('json-int64-string') ||
+    caseKey.endsWith('enum-name')
+  )
+    return typeof value === 'string';
+  if (caseKey.endsWith('json-number')) return typeof value === 'number';
+  if (caseKey.endsWith('json-boolean')) return typeof value === 'boolean';
+  if (caseKey.endsWith('repeated-array')) return Array.isArray(value);
+  if (
+    caseKey.endsWith('nested-object') ||
+    caseKey.endsWith('oneof-object') ||
+    caseKey.endsWith('string-map')
+  )
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  throw new Error(`协议矩阵没有登记编码边界 case ${caseKey} 的判定规则`);
+}
+
 /** 缺失/默认类 case 由空响应取证，不需要取样响应。 */
 export function absenceCase(caseKey: string): boolean {
   return (

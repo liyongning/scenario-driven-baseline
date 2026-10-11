@@ -60,8 +60,12 @@ function encodingCases(
 ): string[] {
   if (mappingCases.every((item) => item === 'omitted')) return [`${direction}-wire-absent`];
   const cases = [`${direction}-${field.encoding}`];
-  if (mappingCases.includes('omitted') || field.optional)
-    cases.push(`${direction}-optional-absence`);
+  // 请求侧"可以缺失"由声明的映射策略决定（`omitted`）：类型 optional 只说明 proto presence，
+  // 例如 `base_req` 由公共请求上下文填充、调用方无法省略，按 optional 派生会得到取不到证的义务；
+  // 响应侧的缺失由类型 optional 决定（服务端可以不发该字段）。
+  const optionalAbsence =
+    direction === 'request' ? mappingCases.includes('omitted') : field.optional;
+  if (optionalAbsence) cases.push(`${direction}-optional-absence`);
   if (field.oneofBranch) cases.push(`${direction}-oneof-absence`);
   return cases;
 }

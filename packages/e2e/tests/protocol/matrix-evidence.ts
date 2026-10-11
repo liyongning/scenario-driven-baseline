@@ -17,8 +17,11 @@ import type { buildContractInventory } from '../../../../scripts/lib/contract-in
 import { createNodeHttpDriver } from '../../src/drivers/node.ts';
 import {
   decodedAt,
+  encodingMatches,
   missingOmissionSamples,
   omittedSample,
+  requestAbsenceCase,
+  requestEvidenceIndex,
   responseEvidence,
   wireAt,
   type MatrixEntry,
@@ -141,25 +144,6 @@ function withoutDynamicRequestId(body: unknown): unknown {
   const clone = structuredClone(body) as { baseReq?: Record<string, unknown> } | undefined;
   if (clone?.baseReq) delete clone.baseReq.requestId;
   return clone;
-}
-
-function encodingMatches(caseKey: string, value: unknown): boolean {
-  if (
-    caseKey.endsWith('json-string') ||
-    caseKey.endsWith('json-int64-string') ||
-    caseKey.endsWith('enum-name')
-  )
-    return typeof value === 'string';
-  if (caseKey.endsWith('json-number')) return typeof value === 'number';
-  if (caseKey.endsWith('json-boolean')) return typeof value === 'boolean';
-  if (caseKey.endsWith('repeated-array')) return Array.isArray(value);
-  if (
-    caseKey.endsWith('nested-object') ||
-    caseKey.endsWith('oneof-object') ||
-    caseKey.endsWith('string-map')
-  )
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-  return true;
 }
 
 /**
@@ -485,17 +469,9 @@ export async function executeMatrixEvidence(
     const responseCodec = metaOf(operation).responseCodec;
     const emptyDecoded = responseCodec.fromJSON({});
 
-    /** 请求侧取样：省略类用声明的逐字段样例，其余取第一条字段存在/缺失的请求。 */
-    const requestEvidence = (caseKey: string, path: string): number => {
-      const wanted = caseKey === 'omitted' || caseKey.endsWith('absent');
-      const declared = omittedRecordIndex.get(path);
-      if (wanted && declared !== undefined) return declared;
-      for (const [index, record] of records.entries()) {
-        const defined = wireAt(record.rawBody, path) !== undefined;
-        if (defined !== wanted) return index;
-      }
-      return -1;
-    };
+    /** 请求侧取样：规则在 matrix-support.ts 中与 weapp 用例共用（缺失类必须取字段缺失的请求）。 */
+    const requestEvidence = (caseKey: string, path: string): number =>
+      requestEvidenceIndex(caseKey, path, records, omittedRecordIndex);
 
     // 声明了 omitted 却没有逐字段省略样例：按义务 ID 报出（反例）。
     const omittedFields = obligationsOf(inventory, name)
@@ -524,7 +500,7 @@ export async function executeMatrixEvidence(
               return;
             }
             const actual = wireAt(records[index]!.rawBody, path);
-            if (caseKey === 'omitted') expect(actual).toBeUndefined();
+            if (requestAbsenceCase(caseKey)) expect(actual).toBeUndefined();
             else expect(actual).toBeDefined();
             return;
           }
@@ -606,7 +582,7 @@ export async function executeMatrixEvidence(
               return;
             }
             const actual = wireAt(records[index]!.rawBody, requestPath);
-            if (caseKey.endsWith('absent')) expect(actual).toBeUndefined();
+            if (requestAbsenceCase(caseKey)) expect(actual).toBeUndefined();
             else expect(encodingMatches(caseKey, actual)).toBe(true);
             return;
           }
