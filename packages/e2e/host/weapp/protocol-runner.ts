@@ -124,7 +124,6 @@ export async function runProtocolCase(input: ProtocolCaseInput) {
 /** 单次自动化连接内执行整份协议矩阵与通信故障；所有发出的请求仍走真实 wx.request。 */
 export async function runProtocolSuite(input: ProtocolSuiteInput) {
   const runMethod = async (spec: ProtocolSuiteMethod, meta: DeclaredMethod) => {
-    const codec = meta.responseCodec;
     const message = (source: Record<string, unknown>) => meta.requestCodec!.fromJSON(source);
     // 解码结果按 JSON 投影返回（保留缺省值、oneof 已按选中分支展开、int64 已转字符串），
     // 解码路径的比对由用例侧的共享纯函数按同一口径完成。
