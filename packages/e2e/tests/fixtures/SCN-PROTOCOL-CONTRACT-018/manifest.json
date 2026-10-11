@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-018",
+  "protocol": "protocol",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "dc250035caccbfe2776e163204639a05addb124c9f5f5e957632a4dca4d792eb"
+    }
+  },
+  "cases": {
+    "fetch-through-shadow": "fetch-through-shadow.json",
+    "production-network-wiring": "production-network-wiring.json"
+  },
+  "sha256": {
+    "fetch-through-shadow.json": "9502c8b37144bca79d1665693c9532a0bea3bcdff40d59c86cf538517602e1db",
+    "production-network-wiring.json": "0e5179140ecd1e3463bb071d7d73e73ac4387e7bd16349c2b69de1e05912922f"
+  }
+}

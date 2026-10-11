@@ -4,7 +4,7 @@
  * 取值与取证规则的纯函数在 `matrix-support.ts`；这里只负责经公共协议客户端真实执行并逐义务判定。
  */
 import { expect } from 'vitest';
-import { createProtocolClient, type HttpPort } from '@daqian/template-protocol';
+import { createFetchHttp, createProtocolClient, type HttpPort } from '@daqian/template-protocol';
 import type { RpcMethodMeta } from '@daqian/template-protocol/generated/std';
 import {
   compareJsonPresence,
@@ -14,7 +14,6 @@ import {
   type ShadowRoute,
 } from '@template-test/shadow';
 import type { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
-import { createNodeHttpDriver } from '../../src/drivers/node.ts';
 import {
   decodedAt,
   encodingMatches,
@@ -115,7 +114,7 @@ function communicationClient(
   return createProtocolClient({
     gatewayBaseUrl: url,
     getAccessToken: token as () => string | null | Promise<string | null>,
-    http: createNodeHttpDriver(),
+    http: createFetchHttp(),
     ...(context === null ? {} : { requestContext: context }),
     runtime: {
       nowMs: runtime?.nowMs ?? (() => Date.now()),

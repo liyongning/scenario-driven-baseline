@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, expectTypeOf, test, vi } from 'vitest';
+import { createFetchHttp as createFetchHttpImplementation } from './adapters/network/fetch';
 import { createWechatMiniappHttp as createWechatMiniappHttpImplementation } from './adapters/network/wechat-miniapp';
 import type { HttpPort } from './ports/http';
-import { createWechatMiniappHttp } from './index';
+import { createFetchHttp, createWechatMiniappHttp } from './index';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -18,21 +19,76 @@ describe('协议包生产根入口', () => {
     expect(factory()).toMatchObject({ send: expect.any(Function) });
   });
 
+  test('以具名函数导出浏览器 fetch 网络工厂及 HttpPort 类型', () => {
+    const factory: () => HttpPort = createFetchHttp;
+    expect(factory).toBeTypeOf('function');
+    expect(factory).toBe(createFetchHttpImplementation);
+    expectTypeOf(factory).returns.toMatchTypeOf<HttpPort>();
+    expect(factory()).toMatchObject({ send: expect.any(Function) });
+  });
+
   test('根模块加载和工厂创建不读取平台全局', async () => {
     vi.resetModules();
     const prior = Object.getOwnPropertyDescriptor(globalThis, 'wx');
+    const priorFetch = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
     Object.defineProperty(globalThis, 'wx', {
       configurable: true,
       get() {
         throw new Error('根入口加载或创建时读取了 wx');
       },
     });
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      get() {
+        throw new Error('根入口加载或创建时读取了 fetch');
+      },
+    });
     try {
       const protocolRoot = await import('./index');
       expect(protocolRoot.createWechatMiniappHttp()).toMatchObject({ send: expect.any(Function) });
+      expect(protocolRoot.createFetchHttp()).toMatchObject({ send: expect.any(Function) });
     } finally {
       if (prior) Object.defineProperty(globalThis, 'wx', prior);
       else Reflect.deleteProperty(globalThis, 'wx');
+      if (priorFetch) Object.defineProperty(globalThis, 'fetch', priorFetch);
+      else Reflect.deleteProperty(globalThis, 'fetch');
+    }
+  });
+
+  test('只有实际 send 才读取 fetch 并保持既有网络结果', async () => {
+    vi.useFakeTimers();
+    let platformReads = 0;
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      get() {
+        platformReads += 1;
+        return async () => new Response('accepted', { status: 202, headers: { 'X-Root': 'yes' } });
+      },
+    });
+
+    try {
+      const http = createFetchHttp();
+      expect(platformReads).toBe(0);
+      await expect(
+        http.send({
+          url: 'https://gateway.invalid/pay',
+          method: 'POST',
+          headers: {},
+          body: '{}',
+          timeoutMs: 50,
+        }),
+      ).resolves.toEqual({
+        ok: true,
+        value: {
+          status: 202,
+          headers: expect.objectContaining({ 'x-root': 'yes' }),
+          body: 'accepted',
+        },
+      });
+      expect(platformReads).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      Reflect.deleteProperty(globalThis, 'fetch');
     }
   });
 

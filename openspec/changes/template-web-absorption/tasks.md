@@ -155,7 +155,7 @@
   **Commit**
   - `feat(template): select engineering checks by product form`
 
-- [ ] 4. IDL 协议包的浏览器网络适配器、浏览器步骤执行器与生产实现集成
+- [x] 4. IDL 协议包的浏览器网络适配器、浏览器步骤执行器与生产实现集成
 
   **Files**
   - Create：`packages/protocol/src/adapters/network/fetch.ts` 及单测（以规划阶段 V2 实验实现为底稿）；`packages/protocol/src/index.ts` 具名导出 `createFetchHttp` 并补导出测试与"导入时不读 fetch"测试。

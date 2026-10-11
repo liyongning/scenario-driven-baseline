@@ -6,7 +6,7 @@
 
 ## 对外入口
 
-- `node.ts` 导出 `createNodeHttpDriver` 集成网络桥；`weapp.ts` 导出连接、执行宿主函数与断开的驱动。
+- `weapp.ts` 导出连接、执行宿主函数与断开的驱动；集成网络经协议包根入口的 `createFetchHttp` 使用生产实现。
 
 ## 允许依赖
 

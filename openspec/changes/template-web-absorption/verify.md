@@ -160,3 +160,49 @@
 **Commit**
 
 - `feat(template): select engineering checks by product form`
+
+### Task 4 IDL 浏览器网络适配器、浏览器步骤执行器与生产实现集成
+
+**规划与输入**
+
+- 起始 HEAD：`5330379`。
+- 起始 freshness：`PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 结束 freshness：`PASS`，digest 与起始值一致；`git diff --check` 退出码 0。
+
+**RED / GREEN**
+
+- RED 覆盖 SCN-PROTOCOL-CONTRACT-017、018、021：`createFetchHttp` 尚不存在，integration 仍导入测试专用 `createNodeHttpDriver`，浏览器步骤执行器也尚不存在时，各行为义务先失败。
+- GREEN：新增浏览器 fetch 适配器，发送时才读取 `globalThis.fetch`；发送前取消与零/负预算不访问平台；超时与取消通过自有计时器与 `AbortController` 区分并中止请求；响应体读取计入预算；结果只交付一次；HTTP 非 2xx 保留为有效响应，平台拒绝映射为 `NETWORK_ERROR`；请求选项固定 `credentials: 'same-origin'`、`cache: 'no-store'`，不重放。
+- 浏览器步骤执行器只经协议包根入口导入公共客户端与 `createFetchHttp`，按 generated 方法元数据扫描并执行可序列化计划，不写死接口名；无法解析的方法回传 `UNRESOLVED_METHOD` 和原方法名。
+- 协议包根入口具名导出 `createFetchHttp`，SDK 根入口不转导出；integration 协议矩阵与 SCN-008 已改用生产实现，测试专用 Node 驱动及其单测已删除。
+
+**Fixture 与摘要**
+
+- 新增 SCN-PROTOCOL-CONTRACT-018 的两个 Fixture case，并执行 `pnpm fixtures:refresh`。
+- `pnpm check:fixtures`：退出码 0，`manifests: 31`，`issues: []`。
+
+**Verification**
+
+- 目标 protocol unit：`pnpm exec vitest run --project protocol-unit packages/protocol/src/adapters/network/fetch.test.ts packages/protocol/testing/browser-runner.test.ts`：退出码 0，2/2 文件、4/4 用例通过。
+- 目标 integration：`SCN-PROTOCOL-CONTRACT-002`、`008`、`018` 共退出码 0，3/3 文件、4/4 用例通过；SCN-018 的成功、HTTP 状态、超时、取消与零字节断开五类请求均只记录一次且 Shadow 无剩余问题。
+- `pnpm lint`、`pnpm typecheck`、`pnpm check:architecture`：退出码均为 0；架构检查输出 `no dependency violations found`。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 1，仅 SCN-TEMPLATE-ENGINEERING-008 的允许失败。
+  - format、build、typecheck、architecture 通过；unit 83/83 文件、413/413 用例通过，statements/branches/functions/lines 均为 100%；fixtures 31 个 manifest 通过。
+  - integration 67/68 文件、138/139 用例通过；`example-removal-fast` 通过，唯一失败为 `example-removal-scenarios`，输出问题仍全部是 `openapi-unit`、`app-unit`、`browser` 未登记项，按 R5-M1 归属后续任务 5、8、10 与任务 14。
+  - 单独以 protocol-unit 覆盖率参数运行新增文件时，全局阈值会因其他 unit 项目未纳入而退出 1；完整 `pnpm test:unit` 已证明全部手写代码四项覆盖率 100%，新增两个文件无未覆盖行，该命令作用域问题不记业务失败。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，run id `affected-20261011T141144Z`；因适配器与驱动目录变化全量触发 `check:fast`。
+  - unit 83/83 文件、413/413 用例通过；integration 67/68 文件、138/139 用例通过；唯一失败仍为上述允许的 SCN-008，归属任务 14。
+- Task 4 的 weapp 段为环境阻塞待补跑：`pnpm verify --change template-web-absorption --from test:e2e:weapp`，run id `template-web-absorption-apply-20261011T141758Z`，退出码 1。
+  - `weapp:prepare` 在 180000ms 预算内未就绪，错误为“第 9 次微信开发者工具就绪探测 超过 5664ms 未返回”；未进入任何 weapp 用例。
+  - 运行前 `pgrep` 无残留正式版进程；随后正式版 PID 65752 已由 prepare 拉起但探测超时。验收方确认正式版 `islogin=false`，并由另一处 Nightly 实例（`--remote-debugging-port=39300`）登录导致会话被踢；按验收方口径记为环境阻塞待补跑，不计业务失败或 OI。
+  - 该次 verify 因从 weapp 步开始，`check:fast` 与后续 `check:scenarios` 按计划跳过。
+
+**Review / Acceptance**
+
+- 已对照小程序适配器逐项核对网络行为义务；新增断言的超时等待均通过假计时器触发，响应体读取期间取消与超时分别有独立证据。
+- 执行器源码检查确认不写死业务接口名，只经协议包包名根入口导入公共客户端与网络工厂，不以相对路径导入 `src/`。
+- 未执行任务 14、15 的演练，未修改对应 checkbox；weapp 补跑等待验收方在环境恢复后通知。
+
+**Commit**
+
+- `feat(template): add fetch network adapter and browser runner to the IDL protocol package`

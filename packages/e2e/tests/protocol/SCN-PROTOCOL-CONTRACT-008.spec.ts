@@ -1,11 +1,10 @@
 // @SCN-PROTOCOL-CONTRACT-008: 经公共协议客户端发出的请求都带规范格式的 X-Request-Id。
 import { afterEach } from 'vitest';
-import { createProtocolClient } from '@daqian/template-protocol';
+import { createFetchHttp, createProtocolClient } from '@daqian/template-protocol';
 import { CreateTrade } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
 import { routesFromRpcMethods } from '@template-test/protocol';
 import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { createNodeHttpDriver } from '../../src/drivers/node.ts';
 
 /** 公司规范：26 字符、北京时间、末尾 6 位小写字母（PC-05）。 */
 const requestIdPattern = '^\\d{8}_\\d{6}_\\d{3}_[a-z]{6}$';
@@ -69,7 +68,7 @@ defineCase(
     const client = createProtocolClient({
       gatewayBaseUrl: server.url,
       getAccessToken: () => 'fixture-token',
-      http: createNodeHttpDriver(),
+      http: createFetchHttp(),
       runtime: { nowMs: () => Date.now(), sleepMs: () => new Promise(() => undefined) },
     });
     const results = [];
