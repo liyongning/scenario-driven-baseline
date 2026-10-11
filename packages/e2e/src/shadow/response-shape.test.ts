@@ -71,7 +71,11 @@ test(
     const acceptedRoute = routeWith(acceptedCalls);
     context
       .expect(() =>
-        createShadowServer({ routes: [acceptedRoute], scenarios: [scenario({ tradeNo: 'TN-1' })] }),
+        createShadowServer({
+          environmentClass: 'integration',
+          routes: [acceptedRoute],
+          scenarios: [scenario({ tradeNo: 'TN-1' })],
+        }),
       )
       .not.toThrow();
     context.expect(acceptedCalls).toEqual([{ body: { tradeNo: 'TN-1' }, status: 200 }]);
@@ -81,6 +85,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [statusRoute],
           scenarios: [scenario({ tradeNo: 'TN-1' }, 503)],
         }),
@@ -92,6 +97,7 @@ test(
     const rejectedRoute = routeWith(rejectedCalls, true);
     const inlineError = constructionError(() =>
       createShadowServer({
+        environmentClass: 'integration',
         routes: [rejectedRoute],
         scenarios: [scenario({ tradeNo: 'TN-1', unknownField: 'x' })],
       }),
@@ -105,6 +111,7 @@ test(
     const fixtureBody = JSON.parse('{"tradeNo":"TN-1","unknownField":"x"}') as unknown;
     const fixtureError = constructionError(() =>
       createShadowServer({
+        environmentClass: 'integration',
         routes: [rejectedRoute],
         scenarios: [scenario(fixtureBody)],
       }),
@@ -158,6 +165,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [route],
           scenarios: [withStep({ body: invalid, malformed: { reason: 'decoder contract' } })],
         }),
@@ -168,6 +176,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [route],
           scenarios: [withStep({ body: invalid, malformed: { reason: '   ' } })],
         }),
@@ -176,13 +185,18 @@ test(
 
     context
       .expect(() =>
-        createShadowServer({ routes: [route], scenarios: [withStep({ body: invalid })] }),
+        createShadowServer({
+          environmentClass: 'integration',
+          routes: [route],
+          scenarios: [withStep({ body: invalid })],
+        }),
       )
       .toThrow(/响应与协议不一致/);
 
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [route],
           scenarios: [withStep({ rawBody: '{', contentType: 'application/json' })],
         }),
@@ -192,6 +206,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [route],
           scenarios: [
             withStep({

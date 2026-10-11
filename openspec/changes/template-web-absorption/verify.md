@@ -293,3 +293,39 @@
 **Commit**
 
 - `feat(template): add OpenAPI REST executor and protocol adapter`
+
+### Task 7 Shadow 扩展：预览模式与部分响应后断开
+
+**规划与输入**
+
+- 起始 HEAD：`49b37ea`。
+- 起始与结束 freshness：`PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**RED / GREEN**
+
+- RED 时新建的预览用例因独立模块尚不存在而失败；`partial-then-disconnect` 仍返回完整 JSON，尚未产生客户端可观察的响应不完整；依赖边界用例也先证明预览构造入口既未隔离，引擎入口转导出绕过也未被拒绝。
+- GREEN 后，预览模式按接口加实际路径参数独立推进序列，声明 `pathParams` 的条目精确匹配，未声明条目匹配任意参数，序列末尾无限重复；已注册未编排与未注册请求返回 404、写入记录并打印警告，`verify()` 保持无问题；预览响应在构造期执行与测试模式相同的同形校验。
+- 测试模式入口要求 `environmentClass` 并拒绝 `mode: 'preview'`；`createPreviewShadowServer` 位于独立模块且未被引擎入口转导出。`partial-then-disconnect` 先发送响应头和部分响应体再销毁连接，零字节 `disconnect` 保持未发送响应字节的对照，两类请求均记录。
+
+**Verification**
+
+- 定向预览、部分响应与故障单测：退出码 0，5/5 用例通过；Shadow、预览与依赖规则定向测试：退出码 0，31/31 用例通过；SCN-PROTOCOL-CONTRACT-019 的 integration 边界用例：退出码 0，1/1 通过。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 0。
+  - unit 101/101 文件、474/474 用例通过；statements/branches/functions/lines 均为 100%。
+  - integration 88/88 文件、159/159 用例通过；SCN-PROTOCOL-CONTRACT-019、020 均通过。
+  - architecture、typecheck、format、lint、build、package、bundle 与 component-tree 均退出 0。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：计划 run id `affected-20261011T180108Z`。第 1 步 related 10/10 文件、29/29 用例通过；固定计划的第 2 步进入 `weapp:prepare` 后，因 Task 4 已登记的环境阻塞且当前要求不重试 weapp，在准备完成前中止，退出码 130，没有把它记为业务失败。
+  - 为避免再次触发 weapp，另运行 `pnpm test:affected --dry-run`：退出码 0，run id `affected-20261011T180201Z`；完整计划仍选择 18 个 ID、22 个测试文件和 12 个固定步骤，其中 5 个 weapp 文件继续受 Task 4 环境阻塞影响。
+  - 手动执行同一计划中不涉及 weapp 的 integration 步骤：退出码 0，17/17 文件、20/20 用例通过；报告写入 `artifacts/affected-20261011T180108Z/reports/integration.json`。
+- 独立 `pnpm check:scenarios --change template-web-absorption`：退出码 1，34 条问题仍全部为尚未到实现任务的已登记测试项目中间态；`browser` 未登记 21 条归属任务 10，`app-unit` 未登记 13 条归属任务 8，没有 Task 7 相关问题。
+
+**Review / Acceptance**
+
+- 依赖检查用受控临时根逐一验证：`packages/e2e/src/preview/` 导入通过；用例、harness 直接导入被拒绝；引擎入口临时转导出后，由用例经入口导入仍被拒绝并指出中转文件。恢复引擎入口后用 `depcruise` 复核通过，确认规则不能靠重导出绕过。
+- `shadow-engine-no-generated` 继续覆盖新增预览模块；预览构造模块只复用中立路由、步骤与共享同形校验，不导入任何协议包 generated 或 testing 模块。
+- 新增断言均核对实际用例数而非只看退出码；预览未命中与部分响应故障都有可观察结果，不是恒真检查。Task 7 未新增 OI，未执行任务 14、15 的演练，未修改对应 checkbox。
+- `pnpm format:check`、`git diff --check` 退出码均为 0。
+
+**Commit**
+
+- `feat(template): add shadow preview mode and partial-then-disconnect fault`

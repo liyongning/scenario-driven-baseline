@@ -46,6 +46,22 @@ export type RunningShadowServer = Readonly<{
 
 type RouteState = { cursor: number; issues: string[] };
 
+/** 测试模式与预览模式共用的响应同形校验；位置信息由调用方提供。 */
+export function validateShadowStep(route: ShadowRoute, step: ShadowStep, location: string): void {
+  if (step.malformed !== undefined) {
+    if (step.malformed.reason.trim() === '')
+      throw new Error(`${location}: malformed reason must not be empty`);
+    return;
+  }
+  // rawBody 原样发送、不做 JSON 序列化，结构校验无从进行：必须显式认领 malformed，
+  // 否则会留下"不声明即不校验"的路径（PC-04）。
+  if (Object.prototype.hasOwnProperty.call(step, 'rawBody'))
+    throw new Error(`${location}: rawBody 必须显式声明 malformed（结构校验只覆盖 body）`);
+  if (!Object.prototype.hasOwnProperty.call(step, 'body')) return;
+  const issues = route.validateResponse?.(step.body, step.status ?? 200) ?? [];
+  if (issues.length > 0) throw new Error(`${location}: 响应与协议不一致：${issues.join('; ')}`);
+}
+
 export function shadowUrl(address: string | AddressInfo | null): string {
   if (!address || typeof address === 'string')
     throw new Error('shadow server did not bind a TCP port');
@@ -62,9 +78,14 @@ export function createShadowServer(
   options: Readonly<{
     scenarios: ReadonlyArray<ShadowScenario>;
     routes: ReadonlyArray<ShadowRoute>;
-    environmentClass?: ShadowEnvironmentClass;
+    environmentClass: ShadowEnvironmentClass;
+    mode?: 'test' | 'preview';
   }>,
 ) {
+  if (options.mode === 'preview')
+    throw new Error('createShadowServer only supports test mode; use createPreviewShadowServer');
+  if (options.environmentClass === undefined)
+    throw new Error('test shadow server requires environmentClass');
   if (options.scenarios.length !== 1) throw new Error('a shadow server owns exactly one scenario');
   const scenario = options.scenarios[0]!;
   const registeredPaths = new Map<string, string>();
@@ -111,27 +132,9 @@ export function createShadowServer(
       );
     }
     // 响应体结构校验（PC-04）：构造期完成，Fixture 与内联体走同一校验；malformed 必须显式认领。
-    configured?.steps.forEach((step, index) => {
-      if (step.malformed !== undefined) {
-        if (step.malformed.reason.trim() === '')
-          throw new Error(
-            `${scenario.id}/${route.methodName} step ${index + 1}: malformed reason must not be empty`,
-          );
-        return;
-      }
-      // rawBody 原样发送、不做 JSON 序列化，结构校验无从进行：必须显式认领 malformed，
-      // 否则会留下"不声明即不校验"的路径（PC-04）。
-      if (Object.prototype.hasOwnProperty.call(step, 'rawBody'))
-        throw new Error(
-          `${scenario.id}/${route.methodName} step ${index + 1}: rawBody 必须显式声明 malformed（结构校验只覆盖 body）`,
-        );
-      if (!Object.prototype.hasOwnProperty.call(step, 'body')) return;
-      const issues = route.validateResponse?.(step.body, step.status ?? 200) ?? [];
-      if (issues.length > 0)
-        throw new Error(
-          `${scenario.id}/${route.methodName} step ${index + 1}: 响应与协议不一致：${issues.join('; ')}`,
-        );
-    });
+    configured?.steps.forEach((step, index) =>
+      validateShadowStep(route, step, `${scenario.id}/${route.methodName} step ${index + 1}`),
+    );
     states.set(`${scenario.id}/${route.methodName}`, { cursor: 0, issues: [] });
   }
 

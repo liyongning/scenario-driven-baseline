@@ -40,6 +40,7 @@ test(
   async (context) => {
     const assertionsBefore = context.expect.getState().assertionCalls;
     const server = await createShadowServer({
+      environmentClass: 'integration',
       routes,
       scenarios: [
         {
@@ -135,6 +136,7 @@ test(
       },
     };
     const server = await createShadowServer({
+      environmentClass: 'integration',
       routes: [templateRoute],
       scenarios: [scenario],
     }).start();
@@ -154,6 +156,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [{ ...templateRoute, path: '/trades/{tradeId' }],
           scenarios: [{ id: 'broken-open', routes: {} }],
         }),
@@ -162,6 +165,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes: [{ ...templateRoute, path: '/trades/{}' }],
           scenarios: [{ id: 'broken-empty', routes: {} }],
         }),
@@ -299,7 +303,7 @@ test(
               },
             },
           ],
-        }),
+        } as never),
       )
       .toThrow();
 

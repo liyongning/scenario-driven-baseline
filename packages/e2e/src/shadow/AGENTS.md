@@ -6,7 +6,7 @@
 
 ## 对外入口
 
-- `index.ts` 是引擎入口；`server.ts` 导出 `createShadowServer` 与 `ShadowEnvironmentClass`，`routes.ts`、`faults.ts`、`requests.ts` 提供中立路由、步骤与请求核对。
+- `index.ts` 是引擎入口；`server.ts` 导出测试模式 `createShadowServer` 与 `ShadowEnvironmentClass`，`preview-server.ts` 独立导出预览构造函数且不被入口转导出；`routes.ts`、`faults.ts`、`requests.ts` 提供中立路由、步骤与请求核对。
 
 ## 允许依赖
 
@@ -15,7 +15,7 @@
 
 ## 本地约束
 
-- 路由由 E2E 用例从协议 testing 入口取得后经 `createShadowServer({ routes })` 注入；`environmentClass` 只在使用有界轮询时要求。
+- 路由由 E2E 用例从协议 testing 入口取得后经 `createShadowServer({ routes })` 注入；测试模式必须传入 `environmentClass`。预览模式只允许 `packages/e2e/src/preview/` 导入独立构造函数，且不产生请求次数证据。
 - 只执行用例提供的步骤与故障，不解释业务场景；请求记录由场景断言逐字段核验，不写死动态请求 ID。
 
 ## 子模块

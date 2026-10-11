@@ -260,7 +260,7 @@
   **Commit**
   - `feat(template): add OpenAPI REST executor and protocol adapter`
 
-- [ ] 7. Shadow 扩展：预览模式与部分响应后断开
+- [x] 7. Shadow 扩展：预览模式与部分响应后断开
 
   **Files**
   - Modify：`packages/e2e/src/shadow/server.ts`、`faults.ts` 及单测（任务 2 迁移后的引擎；`mode: 'test' | 'preview'`；测试模式入口 `createShadowServer` 拒绝 `mode: 'preview'`；序列游标按"条目 + 实际路径参数"、精确条目优先、最后一条重复、不判问题；`partial-then-disconnect` 故障）。

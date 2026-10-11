@@ -174,6 +174,14 @@ function dependencyRules(manifest) {
     },
     to: { path: `^packages/${protocolPattern}/(?:src/generated|testing)/` },
   });
+  rules.push({
+    name: 'shadow-preview-constructor-restricted',
+    severity: 'error',
+    comment:
+      '预览模式只能由预览启动器创建；用例、harness 与其他模块不得直接或经引擎入口导入预览构造函数。',
+    from: { pathNot: `^packages/${testDir}/src/preview/` },
+    to: { path: `^packages/${testDir}/src/shadow/preview-server[.]ts$` },
+  });
   return rules;
 }
 

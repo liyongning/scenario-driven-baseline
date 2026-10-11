@@ -23,6 +23,7 @@ afterEach(async () => Promise.all(running.splice(0).map((server) => server.close
 
 async function start(steps: ReadonlyArray<Record<string, unknown>>) {
   const server = createShadowServer({
+    environmentClass: 'integration',
     routes,
     scenarios: [
       {
@@ -45,6 +46,7 @@ describe('shadow server', () => {
   it('isolates each scenario by server instance, keeps request order, and reports missing and extra requests', async () => {
     const make = async (id: string, tradeNo: string, turns: number[]) => {
       const configured = createShadowServer({
+        environmentClass: 'integration',
         routes,
         scenarios: [
           {
@@ -118,6 +120,7 @@ describe('shadow server', () => {
 
   it('matches selected headers and preserves null and raw non-json responses', async () => {
     const server = createShadowServer({
+      environmentClass: 'integration',
       routes,
       scenarios: [
         {
@@ -158,6 +161,7 @@ describe('shadow server', () => {
 
   it('records dynamic request ids for fieldwise scenario assertions without weakening header checks', async () => {
     const configured = createShadowServer({
+      environmentClass: 'integration',
       routes,
       scenarios: [
         {
@@ -196,6 +200,7 @@ describe('shadow server', () => {
     expect(unmatched.status).toBe(404);
 
     const configured = createShadowServer({
+      environmentClass: 'integration',
       routes,
       scenarios: [
         {
@@ -231,6 +236,7 @@ describe('shadow server', () => {
   it('rejects multiple scenario namespaces and unequal request/response sequences', () => {
     expect(() =>
       createShadowServer({
+        environmentClass: 'integration',
         routes,
         scenarios: [
           { id: 'a', routes: {} },
@@ -240,6 +246,7 @@ describe('shadow server', () => {
     ).toThrow(/one scenario/);
     expect(() =>
       createShadowServer({
+        environmentClass: 'integration',
         routes,
         scenarios: [
           {
@@ -256,6 +263,7 @@ describe('shadow server', () => {
     ).toThrow(/same length/);
     expect(() =>
       createShadowServer({
+        environmentClass: 'integration',
         routes,
         scenarios: [
           {

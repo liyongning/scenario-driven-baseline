@@ -31,6 +31,7 @@ test(
       { methodName: 'NeutralTrade', httpMethod: 'POST', path: '/api/neutral/trade' },
     ];
     const server = await createShadowServer({
+      environmentClass: 'integration',
       routes,
       scenarios: [
         {

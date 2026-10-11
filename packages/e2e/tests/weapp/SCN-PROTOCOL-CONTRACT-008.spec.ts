@@ -62,6 +62,7 @@ defineCase(
       { disconnect: true },
     ];
     const server = await createShadowServer({
+      environmentClass: 'platform',
       routes,
       scenarios: [
         {

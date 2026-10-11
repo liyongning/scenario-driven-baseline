@@ -18,6 +18,7 @@ afterEach(async () => {
 /** 单次期望请求：请求头按 headerPatterns 校验，请求体仍逐字段比对。 */
 async function start(expectedHeaders: Record<string, string>) {
   const configured = createShadowServer({
+    environmentClass: 'integration',
     routes,
     scenarios: [
       {
@@ -91,6 +92,7 @@ test(
     context
       .expect(() =>
         createShadowServer({
+          environmentClass: 'integration',
           routes,
           scenarios: [
             {

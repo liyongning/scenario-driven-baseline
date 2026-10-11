@@ -69,7 +69,11 @@ function renamedTestManifest(): ProjectManifest {
 }
 
 /** 依赖规则生成函数在 CJS 中实现，供 dependency-cruiser 配置与 eslint 配置共用。 */
-type Rule = Readonly<{ name: string; from: { path: string; pathNot?: string } }>;
+type Rule = Readonly<{
+  name: string;
+  from: { path?: string; pathNot?: string };
+  to?: { path?: string };
+}>;
 type Rules = Readonly<{
   escapeRegExp(value: string): string;
   packagesByRole(
@@ -234,7 +238,7 @@ test('shadow engine rule covers engine files but not route sources', () => {
     rules.dependencyRules(loadProjectManifest(repositoryRoot)),
     'shadow-engine-no-generated',
   );
-  const path = new RegExp(rule.from.path);
+  const path = new RegExp(rule.from.path!);
   // pathNot 与 dependency-cruiser 同义：命中的引擎文件再被排除项减去。
   const pathNot = new RegExp(rule.from.pathNot!);
   const matched = (file: string) => path.test(file) && !pathNot.test(file);
@@ -243,6 +247,22 @@ test('shadow engine rule covers engine files but not route sources', () => {
     expect(matched(`packages/e2e/src/shadow/${engine}.ts`), engine).toBe(true);
   expect(matched('packages/e2e/src/shadow/server.test.ts')).toBe(false);
   expect(matched('packages/protocol/testing/shadow/idl-routes.ts')).toBe(false);
+});
+
+test('preview constructor is importable only from the preview launcher directory', () => {
+  const rule = ruleByName(
+    rules.dependencyRules(loadProjectManifest(repositoryRoot)),
+    'shadow-preview-constructor-restricted',
+  );
+  const excludedFrom = new RegExp(rule.from.pathNot!);
+  const to = new RegExp(rule.to!.path!);
+  const rejected = (source: string) =>
+    !excludedFrom.test(source) && to.test('packages/e2e/src/shadow/preview-server.ts');
+  expect(rejected('packages/e2e/src/preview/launcher.ts')).toBe(false);
+  expect(rejected('packages/e2e/src/preview/preview-server.test.ts')).toBe(false);
+  expect(rejected('packages/e2e/tests/tooling/preview.spec.ts')).toBe(true);
+  expect(rejected('packages/e2e/src/harness.ts')).toBe(true);
+  expect(rejected('packages/e2e/src/shadow/index.ts')).toBe(true);
 });
 
 test('escapeRegExp escapes regular expression metacharacters', () => {
