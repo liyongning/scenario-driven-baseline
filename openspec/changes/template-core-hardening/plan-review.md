@@ -12,8 +12,8 @@
 
 - Reviewed input paths: proposal.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, specs/template-example/spec.md, design.md, tasks.md
 - Canonicalization version: 1
-- Reviewed digest: 284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303
-- Current digest: 284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303
+- Reviewed digest: dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9
+- Current digest: dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9
 
 ## Review Summary
 
@@ -66,6 +66,7 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | A4 | Important | Final Code Review I-4；EX-09、PC-01 | 实施中在 SDK 根入口新增 `consumedOperations` 及三个类型的公共导出，Spec 与 design 未要求 | 用户裁决"不导出"：用例改为读源码；design 只要求声明模块导出，不构成规划修订，仅登记 | resolved |
 | A5 | Important | template-example EX-09、SCN-TEMPLATE-EXAMPLE-012；design 迁出表 | 支付 SDK 复刻演练发现：EX-09 要求整份消费接口声明"恰好"是示例的两个接口，使用方新增接口时示例用例必然失败，与"先加后删"矛盾 | 用户裁决：只约束标记内的示例条目恰好是 CreateTrade、QueryTrade，声明允许标记外的使用方条目；派生接口集合由"恰好为"改为"包含" | resolved |
 | A6 | Important | template-engineering ENG-06 白名单；design 白名单 | 支付 SDK 复刻演练第 2 轮发现：第四轮新增的"新增消费接口"回归用例写死 `CreateTradePay` 并追加到真实声明，使用方声明同一接口时重复、替换 IDL 后必然失败，挡住"先加后删" | 用户裁决"随示例删除"：该用例加入删除白名单，且只基于标记内示例条目与示例键构造数据 | resolved |
+| A7 | Important | template-engineering ENG-06 白名单"JSON 中的示例键"；design 白名单 | Verify 阶段增量代码审查发现：第五轮实现与指南对共用接口（使用方仍在调用的示例接口）保留矩阵键、声明移到标记外，而 ENG-06 原文要求两个示例键一律删除 | 用户裁决"改 Spec 对齐现实现"：补共用接口例外，代码不变 | resolved |
 | R3-M1 ~ R3-M10 | Minor | 见第 3 次审查记录 | outdated 例外、`testProjects[].config` 可选时机、`test:affected` 作用域、排除理由措辞、proposal 未列 `nextRequestId` 破坏性变更、`environmentClass` 强制条件、EX-012 纳入 GATE-026 的任务归属、请求体 requestId 的写死点、proposal 中 verify 参数写法、`check:project-map` 脚本 | 不触发修复，记录为 advisory | accepted |
 
 ### Re-review Attempts
@@ -84,11 +85,12 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | Apply 期间用户裁决修订 4 | 6ef30dcf6cd2dc7a7e15c9c579e9b39d09198a61300bba89944a18a2ce81cb0a | Approved（用户裁决） | 0 | 0 | 13 | EX-09 只约束示例条目（A5）；`openspec validate --strict` 通过 |
 | Apply 期间用户裁决修订 5 | 2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026 | Approved（用户裁决） | 0 | 0 | 13 | "新增消费接口"回归用例随示例删除（A6）；`openspec validate --strict` 通过 |
 | 任务 18 计划内修订 | 284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303 | Approved（用户确认） | 0 | 0 | 13 | 按任务 18 契约关闭 design OI-CH-02，结论经用户 2026-10-10 确认（维持现节奏，并增加交付前无作用域完整运行）；只改开放问题表，不改需求与任务契约 |
+| Apply 期间用户裁决修订 6 | dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9 | Approved（用户裁决） | 0 | 0 | 13 | ENG-06 白名单补共用接口例外（A7）；`openspec validate --strict` 通过 |
 
 ## Gate Decision
 
 - Decision: PASS
-- Blocking reason: None。第 4 次审查后的两条 Important 已按用户裁决修正并经用户确认；放行依据为用户裁决，而非第 5 次独立审查。2026-10-10 Apply 期间按用户裁决修订随机源措辞（A1），同日按用户裁决修订 SCN-008 场景门禁口径（A2），并将 SCN-008 移入 template-example、随示例一起删除（A3），并将 EX-09 改为只约束示例条目（A5），将"新增消费接口"回归用例加入删除白名单（A6），按任务 18 契约关闭 OI-CH-02，digest 随之更新。
+- Blocking reason: None。第 4 次审查后的两条 Important 已按用户裁决修正并经用户确认；放行依据为用户裁决，而非第 5 次独立审查。2026-10-10 Apply 期间按用户裁决修订随机源措辞（A1），同日按用户裁决修订 SCN-008 场景门禁口径（A2），并将 SCN-008 移入 template-example、随示例一起删除（A3），并将 EX-09 改为只约束示例条目（A5），将"新增消费接口"回归用例加入删除白名单（A6），按任务 18 契约关闭 OI-CH-02，2026-10-11 按用户裁决补共用接口例外（A7），digest 随之更新。
 - Accepted Minor findings: R3-M1、M2、M4、M6、M8、M10 与 R4-M3、M5（outdated 例外、`testProjects[].config` 可选时机、排除理由措辞、`environmentClass` 强制条件、请求体 requestId 写死点、`check:project-map` 脚本、scripts 值中的命令名、任务 4 副本 helper 时机），实施方可在 Apply 中直接处理；R3-M3/M5/M7/M9 与 R4-M1/M2/M4/M6 已修正。
 - Freshness check command: `/Users/liyongning/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-core-hardening --check-review openspec/changes/template-core-hardening/plan-review.md`
 
@@ -99,12 +101,12 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
   "version": 1,
   "change": "template-core-hardening",
   "schema": "openspec-workflow",
-  "reviewer": "user decision after independent review attempt 4; amended by user decision during apply (A1, A2, A3, A5, A6)",
+  "reviewer": "user decision after independent review attempt 4; amended by user decision during apply (A1, A2, A3, A5, A6, A7)",
   "prompt_provenance": "skill/change/references/plan-reviewer-prompt.md",
   "reviewed_at": "2026-10-10T00:00:00Z",
   "canonicalization_version": 1,
-  "reviewed_sha256": "284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303",
-  "current_sha256": "284e4d098bae6ef4992b4daf0bc2db19ae9a50faea67d7efe5ad1dee00334303",
+  "reviewed_sha256": "dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9",
+  "current_sha256": "dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9",
   "reviewer_status": "Approved",
   "gate": "PASS",
   "critical": 0,

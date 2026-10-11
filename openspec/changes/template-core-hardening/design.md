@@ -485,7 +485,7 @@ module 类证据（手写 `annotate`）适用同一规则。
   - `openspec/specs/template-example/`；
   - 只对模板仓库有意义的维护证据：示例删除验收 `SCN-TEMPLATE-ENGINEERING-008` 的用例与 Fixture（A3），以及"新增消费接口"回归用例 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`（Apply 期间用户裁决修订 A6，2026-10-10：支付 SDK 复刻演练第 2 轮发现它写死 `CreateTradePay` 并追加到真实声明，使用方声明同一接口或替换 IDL 后必然失败；改为随示例删除，且只基于标记内示例条目与示例键构造数据）。
 - 片段：全仓库所有 `template-example:begin/end` 标记之间的内容，包括 `packages/sdk/src/index.ts` 的示例导出、`consumed-operations.ts` 的示例条目、宿主注册、指南与 AGENTS 的示例段落。
-- JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`），删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。JSON 不能写注释标记，因此这一项在白名单中逐个列出。
+- JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`），删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。JSON 不能写注释标记，因此这一项在白名单中逐个列出。共用接口例外：使用方仍在调用的示例接口（与示例共用同一 IDL 接口）不删除其矩阵键；它在声明中的条目 MUST 在同一次删除中移到标记外、成为使用方条目（标记内外不得同时声明同一接口，否则义务会重复登记）。没有被使用方使用的示例接口照常删除。（Apply 期间用户裁决修订 A7，2026-10-11：支付 SDK 复刻演练第 3 轮中支付查单与示例共用 `QueryTrade`，按原文一律删键会让使用方删完示例后立即失败。）
 - 同步：`quality.coverageExclusions` 中指向已删除文件的条目。
 
 项目地图只把 `moduleRoots` 的一级子目录视为模块。`protocol/testing/shadow/example`、`e2e/tests/weapp/example` 这类二级示例目录不是模块，不需要模块级 AGENTS.md，按整目录随白名单删除即可。
