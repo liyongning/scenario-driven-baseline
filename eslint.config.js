@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import vue from 'eslint-plugin-vue';
 import { defineConfig } from 'eslint/config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -24,6 +25,13 @@ export default defineConfig([
   },
   { files: ['**/*.{js,mjs,cjs,ts,mts,cts}'], plugins: { js }, extends: ['js/recommended'] },
   tseslint.configs.recommended,
+  ...vue.configs['flat/base'],
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: { parser: tseslint.parser, extraFileExtensions: ['.vue'] },
+    },
+  },
   {
     files: [
       'scripts/**/*.ts',

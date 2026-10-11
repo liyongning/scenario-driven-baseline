@@ -121,7 +121,7 @@
   **Commit**
   - `refactor(template): extract protocol adapters and move the shadow engine into the test package`
 
-- [ ] 3. 按产品形态区分的工程检查骨架与 Vue 工具链依赖
+- [x] 3. 按产品形态区分的工程检查骨架与 Vue 工具链依赖
 
   **Files**
   - Modify：根 `package.json`、`pnpm-lock.yaml`：以精确版本引入 Vue 工具链依赖 `@vitejs/plugin-vue` 6.0.9、`vue-tsc` 3.3.12、`eslint-plugin-vue` 10.11.1、`vue-eslint-parser` 10.4.1（Design"依赖版本"），使 `.vue` 的类型检查、行数与覆盖率规则可在受控临时根中验证；其余 Web 依赖随任务 8 的 `packages/web` 引入。

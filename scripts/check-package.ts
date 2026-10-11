@@ -8,7 +8,7 @@ import {
   bindingForProduct,
   loadProjectManifest,
   packageByDirectory,
-  sdkProduct,
+  packagesByRole,
   testPackage,
 } from './lib/project-manifest.ts';
 
@@ -66,7 +66,15 @@ export async function runPackageCli(
   let input: PackageInput;
   const commands: Array<Readonly<{ command: string; exitCode: number }>> = [];
   const manifest = loadProjectManifest(root);
-  const product = sdkProduct(manifest);
+  const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+  if (!product)
+    return {
+      commands: [],
+      sdkVersion: undefined,
+      protocolVersion: undefined,
+      issues: [],
+      exitCode: 0,
+    };
   const protocol = packageByDirectory(
     manifest,
     bindingForProduct(manifest, product.directory).protocol,

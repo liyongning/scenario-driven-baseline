@@ -12,7 +12,7 @@ export type SourceFile = Readonly<{ path: string; class: SourceClass }>;
 /** 按清单源码目录收集到的手写源码文件清单。 */
 export type SourceInventory = Readonly<{ files: ReadonlyArray<SourceFile> }>;
 
-const codeExtensions = ['.ts', '.js', '.mjs', '.cjs'] as const;
+const codeExtensions = ['.ts', '.js', '.mjs', '.cjs', '.vue'] as const;
 const excludedDirectories = new Set(['generated', '.generated']);
 const excludedFileNames = new Set(['AGENTS.md', 'CLAUDE.md']);
 

@@ -221,7 +221,10 @@ function maxLinesExemptions(manifest) {
 function maxLinesConfig(manifest) {
   const limit = (max) => ['error', { max, skipBlankLines: true, skipComments: true }];
   return [
-    { files: ['**/*.{js,mjs,cjs,ts,mts,cts}'], rules: { 'max-lines': limit(SOURCE_MAX_LINES) } },
+    {
+      files: ['**/*.{js,mjs,cjs,ts,mts,cts,vue}'],
+      rules: { 'max-lines': limit(SOURCE_MAX_LINES) },
+    },
     { files: testFilePatterns(manifest), rules: { 'max-lines': limit(TEST_MAX_LINES) } },
     ...maxLinesExemptions(manifest).map((item) => ({
       files: [item.path],

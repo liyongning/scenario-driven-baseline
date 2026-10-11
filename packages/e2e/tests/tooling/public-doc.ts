@@ -1,4 +1,5 @@
-import { relative, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import ts from 'typescript';
 
 /** 一条公共类型的中文注释要求：类型名，以及可选的字段名与状态值（联合分支 / 枚举成员）。 */
@@ -15,6 +16,16 @@ export type PublicTypeRequirement = DocRequirement &
     file: string;
   }>;
 
+/** 公共注释的发现方式由产品形态决定：SDK 走入口，Web 应用走源码。 */
+export type CommentMode = 'entry' | 'source';
+
+/** 按清单 form 选择公共注释发现方式，不按包名或目录名判断。 */
+export function commentModeForProduct(form: string): CommentMode {
+  if (form === 'sdk') return 'entry';
+  if (form === 'web-app') return 'source';
+  throw new Error(`unsupported product form ${form}`);
+}
+
 /** 产品包根入口的发现结果：运行时值名与需要中文注释的手写类型。 */
 export type EntryDiscovery = Readonly<{
   /** 根入口导出的运行时值名，与构建产物的模块键一致。 */
@@ -26,6 +37,7 @@ export type EntryDiscovery = Readonly<{
 const chinese = /[\u3400-\u9fff]/;
 /** 生成代码目录：入口追溯到这里的声明不参与检查（ENG-03）。 */
 const generated = /(^|\/)generated\//;
+const uiDirectory = /(^|\/)ui\//;
 
 function isHandwritten(root: string, node: ts.Node): boolean {
   const file = relative(root, node.getSourceFile().fileName).split('\\').join('/');
@@ -50,6 +62,14 @@ function isRuntimeValue(node: ts.Node): boolean {
     ts.isEnumDeclaration(node) ||
     ts.isVariableDeclaration(node) ||
     ts.isFunctionDeclaration(node)
+  );
+}
+
+function isExported(node: ts.Node): boolean {
+  return (
+    ts.canHaveModifiers(node) &&
+    (ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ??
+      false)
   );
 }
 
@@ -235,4 +255,122 @@ export function publicDocIssues(source: string, requirements: readonly DocRequir
     }
   }
   return issues;
+}
+
+function sourceFiles(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (['generated', '.generated', 'node_modules', 'dist'].includes(entry.name)) continue;
+      files.push(...sourceFiles(path));
+    } else if (entry.isFile() && /\.(?:ts|tsx|mts|cts)$/.test(entry.name)) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+function normalizedRelative(root: string, path: string): string {
+  return relative(root, path).split('\\').join('/');
+}
+
+function injectionKeyTypes(source: ts.SourceFile, checker: ts.TypeChecker): ts.Node[] {
+  const found: ts.Node[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isTypeReferenceNode(node) && node.typeName.getText(source) === 'InjectionKey') {
+      for (const argument of node.typeArguments ?? []) {
+        const symbol = ts.isTypeReferenceNode(argument)
+          ? checker.getSymbolAtLocation(argument.typeName)
+          : checker.getTypeAtLocation(argument).symbol;
+        for (const declaration of symbol?.declarations ?? [])
+          if (isTypeDeclaration(declaration)) found.push(declaration);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/** 发现 Web 应用源码模式下的公共注释检查对象；生成代码、UI 内部类型与声明产物不在范围内。 */
+export function discoverSourceDocRequirements(
+  options: Readonly<{
+    root: string;
+    packageRoot: string;
+    globalStore?: string;
+    consumedOperations?: readonly string[];
+  }>,
+): PublicTypeRequirement[] {
+  const packageRoot = resolve(options.packageRoot);
+  const files = sourceFiles(join(packageRoot, 'src'));
+  const program = ts.createProgram(files, {
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    skipLibCheck: true,
+    noEmit: true,
+  });
+  const checker = program.getTypeChecker();
+  const selected = new Map<string, ts.Statement[]>();
+  const requiredFiles = new Set(
+    [options.globalStore, ...(options.consumedOperations ?? [])]
+      .filter((path): path is string => Boolean(path))
+      .map((path) => resolve(packageRoot, path)),
+  );
+  const add = (file: string, declarations: readonly ts.Statement[]) => {
+    if (declarations.length === 0) return;
+    selected.set(file, [...(selected.get(file) ?? []), ...declarations]);
+  };
+  for (const file of files) {
+    const path = normalizedRelative(options.root, file);
+    if (generated.test(path) || uiDirectory.test(path)) continue;
+    const source = program.getSourceFile(file);
+    if (!source) continue;
+    const declarations = source.statements.filter(namedType);
+    if (/(?:^|\/)ports\//.test(path) || /(?:^|\/)core\//.test(path))
+      add(file, declarations.filter(isExported));
+    if (requiredFiles.has(file)) add(file, declarations);
+    for (const declaration of injectionKeyTypes(source, checker)) {
+      const declarationFile = declaration.getSourceFile().fileName;
+      const declarationPath = normalizedRelative(options.root, declarationFile);
+      if (generated.test(declarationPath) || uiDirectory.test(declarationPath)) continue;
+      if (ts.isSourceFile(declaration.parent) && namedType(declaration as ts.Statement))
+        add(declarationFile, [declaration as ts.Statement]);
+    }
+  }
+  const requirements: PublicTypeRequirement[] = [];
+  for (const [file, declarations] of selected) {
+    const grouped = new Map<string, ts.Statement[]>();
+    for (const declaration of declarations) {
+      if (!namedType(declaration)) continue;
+      const name = declaration.name.text;
+      grouped.set(name, [...(grouped.get(name) ?? []), declaration]);
+    }
+    const relativeFile = normalizedRelative(options.root, file);
+    for (const [name, nodes] of grouped)
+      requirements.push({ ...requirementOf(name, nodes), file: relativeFile });
+  }
+  return requirements;
+}
+
+/** 源码模式注释检查：按声明所在文件报告问题，不读取或要求声明产物。 */
+export function sourceModeIssues(
+  options: Readonly<{
+    root: string;
+    packageRoot: string;
+    globalStore?: string;
+    consumedOperations?: readonly string[];
+  }>,
+): string[] {
+  const requirements = discoverSourceDocRequirements(options);
+  const byFile = new Map<string, DocRequirement[]>();
+  for (const requirement of requirements)
+    byFile.set(requirement.file, [...(byFile.get(requirement.file) ?? []), requirement]);
+  return [...byFile].flatMap(([file, requirementsInFile]) =>
+    publicDocIssues(readFileSync(join(options.root, file), 'utf8'), requirementsInFile).map(
+      (issue) => `${file}: ${issue}`,
+    ),
+  );
 }

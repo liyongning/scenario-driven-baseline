@@ -145,6 +145,7 @@ describe('source inventory', () => {
     );
     expect(classifySourceFile('scripts/check.spec.mts', 'packages/sample-test')).toBe('test');
     expect(classifySourceFile('scripts/check.mjs', 'packages/sample-test')).toBe('code');
+    expect(classifySourceFile('src/Widget.vue', 'packages/sample-test')).toBe('code');
     expect(classifySourceFile('scripts/data.json', 'packages/sample-test')).toBe('asset');
   });
 });

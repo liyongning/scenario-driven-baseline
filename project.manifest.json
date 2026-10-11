@@ -57,6 +57,8 @@
     "fixtures:refresh",
     "check:scenarios",
     "check:package",
+    "check:bundle",
+    "check:component-tree",
     "check:fast",
     "weapp:prepare",
     "verify",

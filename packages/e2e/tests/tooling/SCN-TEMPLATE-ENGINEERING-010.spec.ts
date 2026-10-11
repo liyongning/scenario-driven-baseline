@@ -54,6 +54,22 @@ const paddedLines = (): string => {
   return `${[...body, ...padding].join('\n')}\n`;
 };
 
+/** 有效行数 301：template、script、style 三段都计入 max-lines。 */
+const vueLines = (): string => {
+  const template = Array.from({ length: 100 }, (_, index) => `<div>${index}</div>`);
+  const script = [
+    '<script setup lang="ts">',
+    ...Array.from({ length: 101 }, (_, index) => `const value${index} = ${index};`),
+    '</script>',
+  ];
+  const style = [
+    '<style scoped>',
+    ...Array.from({ length: 100 }, (_, index) => `.item-${index} { color: red; }`),
+    '</style>',
+  ];
+  return [...template, ...script, ...style, ''].join('\n');
+};
+
 function runPrettier(root: string, patterns: ReadonlyArray<string> = ['.']) {
   const result = spawnSync(prettier, ['--check', ...patterns], { cwd: root, encoding: 'utf8' });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
@@ -138,6 +154,7 @@ cliEvidence(
         'src/over-301.ts': codeLines(301),
         'src/over-601.test.ts': codeLines(601),
         'src/at-600.test.ts': codeLines(600),
+        'src/over-301.vue': vueLines(),
       });
       try {
         const result = runEslint(fixture.root);
@@ -147,6 +164,7 @@ cliEvidence(
           .expect(result.output)
           .toContain('File has too many lines (301). Maximum allowed is 300');
         context.expect(result.output).toContain('src/over-601.test.ts');
+        context.expect(result.output).toContain('src/over-301.vue');
         context
           .expect(result.output)
           .toContain('File has too many lines (601). Maximum allowed is 600');

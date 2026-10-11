@@ -343,7 +343,7 @@ evidence(
       const source = blockAt(config, 0);
       const tests = blockAt(config, 1);
       context.expect(config).toHaveLength(2);
-      context.expect(source.files).toEqual(['**/*.{js,mjs,cjs,ts,mts,cts}']);
+      context.expect(source.files).toEqual(['**/*.{js,mjs,cjs,ts,mts,cts,vue}']);
       context
         .expect(source.rules['max-lines'])
         .toEqual(['error', { max: 300, skipBlankLines: true, skipComments: true }]);

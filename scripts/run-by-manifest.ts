@@ -27,6 +27,8 @@ const fastSteps = [
   'check:fixtures',
   'test:integration',
   'check:package',
+  'check:bundle',
+  'check:component-tree',
 ] as const;
 
 function reportFile(root: string, name: string): string {
@@ -64,10 +66,22 @@ export function planCommand(root: string, commandName: string): PlannedCommand[]
       command: 'tsc',
       args: ['-p', `packages/${pkg.directory}/tsconfig.build.json`, '--noEmit'],
     }));
-    const productSteps = packagesByRole(manifest, 'product').map((pkg) => ({
-      command: 'tsc',
-      args: ['-p', `packages/${pkg.directory}/tsconfig.build.json`, '--noEmit'],
-    }));
+    const productSteps = packagesByRole(manifest, 'product').map((pkg) => {
+      if (pkg.form === 'web-app')
+        return {
+          command: 'vue-tsc',
+          args: [
+            '--build',
+            `packages/${pkg.directory}/tsconfig.app.json`,
+            `packages/${pkg.directory}/tsconfig.core.json`,
+            `packages/${pkg.directory}/tsconfig.vitest.json`,
+          ],
+        };
+      return {
+        command: 'tsc',
+        args: ['-p', `packages/${pkg.directory}/tsconfig.build.json`, '--noEmit'],
+      };
+    });
     return [
       ...protocolSteps,
       ...productSteps,
