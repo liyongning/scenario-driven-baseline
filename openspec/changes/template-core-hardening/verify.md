@@ -2002,3 +2002,47 @@ A6 把 extension 回归用例加入删除白名单，删除逻辑在第五轮改
 - 日志：会话临时目录 `scratchpad/final/verify.log`、`scenarios.log`。
 
 **结论**：Task 17 复核通过、Task 18 完成；Apply 阶段的全部任务完成。
+
+## 第六轮修复（Verify 阶段增量代码审查）
+
+审查范围 `12f7455..cc92f93`，4 条阻塞问题（门禁假绿或反例失效）。流程：先提交用户裁决 A7 的规划修订，再取消勾选受影响 Task（10、16、17、18），逐条修复、复验后重新勾选。本 Change 仍处 active，运行一律带 `SCENARIO_GATE_CHANGES=template-core-hardening`。
+
+**A7 规划修订（提交 5cabeed）**：`docs(openspec): allow shared example interfaces to stay on example removal by user decision`。ENG-06 白名单补"共用接口例外"（示例与使用方共用的接口在删除示例时移到标记外并保留对应 Fixture 键），与第五轮实现一致，代码不改。digest `dad69146…`，freshness PASS。
+
+### I-1 weapp 矩阵 decoded-default 恒真（提交 60f7836，连带 a2f7deb）
+
+- **根因**：weapp 宿主把解码结果经 `codec.toJSON(...)` 交回用例；ts_proto 的 `toJSON` 省略默认值，`decodedAt(toJSON(data), path)` 与 `decodedAt(emptyDecoded, path)` 在缺省路径上两侧都是 `undefined`，比较恒真。weapp 下 44 条 `decoded-default` 义务即使把 `trade_no` 解成 `undefined` 也全部通过。
+- **改动**：`packages/e2e/host/weapp/protocol-runner.ts` 新增导出 `decodedProjection(message)`，直接投影真实解码值（保留默认值；`bigint` 转字符串；`undefined` 键在 JSON 序列化时省略），`runProtocolCase`／`runProtocolSuite` 与 weapp 用例的期望侧（`emptyDecoded`、decoded-value/branch）改用同一投影。连带提交 a2f7deb 删除改造后不再使用的 `codec` 变量（lint 报未使用）。
+- **证据**：`artifacts/r6-logs/i1-probe.log`。旧口径 `CreateTradeResponse toJSON: {}`；新投影 `{"tradeNo":"","orderNos":[],"status":"TRADE_STATUS_UNSPECIFIED"}`，`trade_no` 旧 = `undefined`、新 = `""`。
+- **反例**：`packages/e2e/src/drivers/weapp-host.test.ts` 新增 `keeps proto defaults in the decoded projection used by matrix evidence`；先写测试得到 `decodedProjection is not a function` 的 RED，再实现。
+
+### I-2 请求侧 request-optional-absence 假绿（提交 aa831dc）
+
+- **根因**：`requestEvidence` 用 `caseKey.endsWith('absent')` 判断"应缺失"，而派生出的 case 名是 `request-optional-absence`（不是 `-absent` 结尾），判定落到 `encodingMatches` 的默认 `return true`。一个 optional 请求字段恒被发送时对应义务仍判通过；模板原有的 `CreateTrade`/`QueryTrade` 的 `request.base_req`、`request.base_req.product_id` 4 条同类义务就是这样假绿。
+- **改动**：判定抽到共享模块 `packages/e2e/tests/protocol/matrix-support.ts`（`requestAbsenceCase`／`requestEvidenceIndex`／`encodingMatches`），未知 case 抛错、删除默认 `return true`；integration 与 weapp 用例删掉各自重复实现并改用共享函数。派生侧收窄：`scripts/lib/contract-fields.ts` 的请求侧 optional-absence 只在字段声明了 `omitted` 时派生（响应侧仍按 `field.optional`）。`base_req`／`base_req.request_id` 由公共请求上下文填充、每个请求都存在，按类型 optional 派生只会得到永远取不到证的义务；PC-01 写明请求字段如何映射是产品的事实。
+- **证据**：`artifacts/r6-logs/i2-probe.log`（`path=base_req` 旧口径 index=0 判通过 = 假绿、新口径 index=-1 计入缺证；`path=base_req.product_id` 旧=0 判通过、新取到缺失请求 index=1；未知 case 旧=true、新抛错）；`artifacts/r6-logs/obligations-after-i2.txt`（收窄后请求侧 optional-absence 只剩 `CreateTrade#encoding-boundary#request.base_req.product_id` 与 `QueryTrade#…` 两条，且矩阵 Fixture 已有逐字段省略样例取证）。
+- **反例**：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` 的 `obligations-covered` 新增断言：恒发请求时 `requestEvidenceIndex('request-optional-absence','base_req.product_id',[alwaysSent],Map)` 为 -1、含缺失请求时为 1、`encodingMatches('request-unknown-case',…)` 抛错。
+- **影响**：派生义务集合变化（`base_req`、`base_req.request_id` 不再派生 optional-absence），`pnpm test:unit`（385）与 integration 全绿，`scripts/lib/contract-inventory.test.ts` 未断死这两条。
+
+### I-3 EXAMPLE-005 的 no-request-after-end 反例失效（提交 20a549a）
+
+- **根因**：`intervalMs` 已改为 150ms，观察等待仍是 30ms，短于一个轮询间隔，拦不住"窗口结束后又排了一次轮询"。
+- **改动**：`packages/e2e/tests/example/SCN-TEMPLATE-EXAMPLE-005.spec.ts` 提取 `requestTimeoutMs=200`／`intervalMs=150` 常量，观察等待改为 `intervalMs + 200`（大于一个间隔）。
+- **证据（变异体实验）**：`artifacts/r6-logs/i3-probe.log`。临时给 `packages/sdk/src/example/core/client.ts` 三处 `window_elapsed` 返回点加一次 `latePoll()`：旧等待 30ms → 用例通过（假绿）；新等待 350ms → 失败 `AssertionError: expected [...] to have a length of 9 but got 10`。变异体已还原（仓库内无 `latePoll`），还原后 `vitest run --project integration packages/e2e/tests/example` 9 文件 / 11 用例通过。
+
+### I-4 Scenario ID 检查口径过宽（提交 f7309de，连带 e95e4f8）
+
+- **根因**：`scripts/lib/scenario-ids.ts` 里 "ID 后面紧跟 `.` 或 `/` 一律跳过" 过宽：句末英文句号的 ID、`SCN-X-001/002` 简写里的 ID 都不再检查，架构文档约 6 处简写引用失去检查。
+- **改动**：只跳过路径里的 ID——ID 前面紧挨 `/`，且后面紧跟已知扩展名（`.spec`/`.test`/`.ts`/`.tsx`/`.json`/`.md`/`.mjs`/`.cjs`/`.yml`/`.yaml`）或 `/` 再接非数字（目录名）。句末 `.`、`ID/编号` 简写、路径末尾（后面没有分隔符）都继续检查。e95e4f8 把 `match.index ?? 0` 换成 `match.index`，避免引入未覆盖分支（`check:fast` 含 100% 分支覆盖率硬门禁）。口径实现说明：`/` 前缀是"处于路径中"的必要条件，因此"路径末尾的 ID 仍算引用"（既有 ENG-06 检查点）与本次"简写 ID 继续检查"两条同时成立。
+- **证据**：`artifacts/r6-logs/i4-probe.log`（旧口径对 `参见 SCN-FOO-999.` 与 `SCN-FOO-999/010` 都返回 `[]`；新口径分别报 `SCN-FOO-999`）；`pnpm check:architecture` 退出码 0——架构文档 6 处简写 ID（`SCN-PROTOCOL-CONTRACT-001/002/005` 等）全部已登记，指南路径内的 ID 不受影响，无需改文档。
+- **反例**：新增 `scripts/lib/scenario-ids.test.ts`：`SCN-X-001.spec.ts`、`fixtures/SCN-X-001/`、`fixtures/SCN-X-001/evidence.json` 不报；`参见 SCN-FOO-999.`、`SCN-FOO-999/010`、路径末尾 `fixtures/SCN-FOO-999`、以及中文句号/反引号/空格/行尾等情形继续报。
+
+### 完成标准复验
+
+- 全量 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r6-final-2`：退出码 **0**；check:fast 161.2s、test:e2e:weapp 492.4s、check:scenarios 1.4s。日志 `artifacts/r6-logs/verify-r6-final-2.log`。
+- 独立 `SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r6-final-2 pnpm check:scenarios`：退出码 0，`mode: complete`，`issues: []`（61 个 Scenario）。日志 `artifacts/r6-logs/scenarios-r6-final-2.log`。
+- **weapp 挂起重跑记录**：`r6-final-1` 中 `packages/e2e/tests/weapp/example/SCN-TEMPLATE-EXAMPLE-004.spec.ts` 连续两次 120s 超时（`Test timed out in 120000ms`，断言数 0，属 e2e AGENTS 登记的 "launch/evaluate 不返回" 已知挂起）；按约定退出主进程预热后手工整文件重跑通过（10.1s），日志 `artifacts/r6-logs/weapp-004-rerun.log`、`artifacts/r6-logs/weapp-reprepare-004.log`，失败现象见 `artifacts/r6-logs/verify-r6-final-1.log`。`r6-final-2` 中该文件首跑通过（12.5s）；`SCN-PROTOCOL-CONTRACT-008` 一次 120s 超时后自动重跑通过（9.6s）；其余文件首跑通过。与被测行为无关，未改断言或跳过用例。
+- **外部环境**：`r6-final-2` 第一次尝试在 `proto:status` 上遇到 IDL registry SSH 瞬时中断（`Connection closed … port 22`），重跑即恢复，未做任何绕过。
+- 复验后重新勾选 Task 10、16、17、18。
+
+**未解决项 / 登记**：M-1（`shadow-engine-no-generated` 只约束 shadow/ 一级文件）经验收方判定为可接受的 Minor，不修。
