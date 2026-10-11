@@ -26,6 +26,7 @@ type MutableBinding = Record<string, unknown> & {
 type MutableManifest = Record<string, unknown> & {
   packages: MutablePackage[];
   bindings: MutableBinding[];
+  fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
 };
 
 function baseManifest(): MutableManifest {
@@ -181,7 +182,15 @@ defineCase(
         private: false,
         allowedDirectories: ['src', 'testing'],
         moduleRoots: ['src', 'testing'],
+        contract: {
+          file: 'packages/second-protocol/contracts/openapi.yaml',
+          lock: 'packages/second-protocol/contracts/openapi.lock.json',
+        },
       });
+      noProduct.fingerprints.protocolInputs.push(
+        'packages/second-protocol/contracts/openapi.yaml',
+        'packages/second-protocol/contracts/openapi.lock.json',
+      );
       expectManifestIssue(noProduct, 'expected at least one product package');
     });
 

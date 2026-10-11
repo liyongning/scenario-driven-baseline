@@ -185,13 +185,15 @@ evidence(
         .toBe('^packages/sdk/src/[^/]+/(core|ports)/');
       context
         .expect(ruleByName(repositoryRules, 'cross-workspace-no-direct-files').from.path)
-        .toBe('^packages/((?:sdk)|(?:protocol))/(?:src)/');
+        .toBe('^packages/((?:sdk)|(?:protocol|openapi))/(?:src)/');
       context
         .expect(rules.cruiseTargets(repository))
         .toEqual([
           'packages/sdk/src',
           'packages/protocol/src',
           'packages/protocol/testing',
+          'packages/openapi/src',
+          'packages/openapi/testing',
           'packages/e2e/src/shadow',
         ]);
       context
@@ -210,6 +212,8 @@ evidence(
           'packages/renamed-sdk/src',
           'packages/protocol/src',
           'packages/protocol/testing',
+          'packages/openapi/src',
+          'packages/openapi/testing',
           'packages/e2e/src/shadow',
         ]);
       context
@@ -273,6 +277,12 @@ test('package readers use manifest roles without assuming a unique package', () 
 
 test('dependency rules skip an absent bound protocol and reject unbound protocol imports', () => {
   const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  expect(
+    rules
+      .dependencyRules(manifest)
+      .some((rule) => rule.name.startsWith('product-bound-protocol-only:')),
+  ).toBe(false);
+
   const packages = [
     ...manifest.packages,
     {

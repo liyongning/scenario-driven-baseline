@@ -90,6 +90,24 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "contract": {
+            "description": "OpenAPI 协议包的契约与 lock 相对仓库根路径；仅 openapi 协议包可填写。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "lock"],
+            "properties": {
+              "file": {
+                "description": "OpenAPI 契约文件相对仓库根的路径。",
+                "type": "string",
+                "minLength": 1
+              },
+              "lock": {
+                "description": "契约来源、版本、摘要与生成物摘要 lock 文件相对仓库根的路径。",
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         },
         "allOf": [
@@ -213,6 +231,38 @@
                   "description": "只有 protocol 角色可以声明协议包前置检查。",
                   "type": "array",
                   "maxItems": 0
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "protocol",
+                  "description": "协议包可以登记协议来源。"
+                },
+                "protocolKind": {
+                  "const": "openapi",
+                  "description": "OpenAPI 协议包必须登记契约与 lock。"
+                }
+              },
+              "required": ["role", "protocolKind"]
+            },
+            "then": {
+              "required": ["contract"],
+              "properties": {
+                "contract": {
+                  "description": "OpenAPI 协议包的契约与 lock 路径。",
+                  "type": "object"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "contract": {
+                  "description": "只有 OpenAPI 协议包可以登记契约与 lock。",
+                  "not": {}
                 }
               }
             }

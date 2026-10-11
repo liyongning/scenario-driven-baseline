@@ -88,8 +88,12 @@ function multiBindingGate(): ControlledFixtureRoot & ControlledRoot {
           role: 'protocol',
           protocolKind: 'openapi',
           private: false,
-          allowedDirectories: ['src', 'testing'],
+          allowedDirectories: ['src', 'testing', 'contracts'],
           moduleRoots: ['src', 'testing'],
+          contract: {
+            file: 'packages/protocol-b/contracts/openapi.yaml',
+            lock: 'packages/protocol-b/contracts/openapi.lock.json',
+          },
         },
         {
           directory: 'e2e',
@@ -114,7 +118,11 @@ function multiBindingGate(): ControlledFixtureRoot & ControlledRoot {
       fingerprints: {
         sourceRoots: ['scripts'],
         buildInputs: [],
-        protocolInputs: ['proto-gen.lock'],
+        protocolInputs: [
+          'proto-gen.lock',
+          'packages/protocol-b/contracts/openapi.yaml',
+          'packages/protocol-b/contracts/openapi.lock.json',
+        ],
       },
       quality: { coverageExclusions: [], maxLinesExemptions: [] },
     },

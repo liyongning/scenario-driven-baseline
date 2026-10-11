@@ -12,14 +12,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, vi, type TestContext } from 'vitest';
-import {
-  loadProjectManifest,
-  sdkProduct,
-  testProjectsByClass,
-} from '../../../../scripts/lib/project-manifest.ts';
+import { loadProjectManifest, sdkProduct } from '../../../../scripts/lib/project-manifest.ts';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { copyCreatingSpecs } from '../../vitest.config.integration.ts';
+import { expectedMissingBindings, type InventoryOutput } from './example-removal-expected.ts';
 import { repositoryRoot } from './helpers.ts';
 import {
   createRepositoryCopy,
@@ -47,23 +44,6 @@ type Removal = Readonly<{
   matrixOwner: string;
 }>;
 type RemovalFixture = Readonly<{ removal: Removal }>;
-type InventoryCase = Readonly<{ key: string; requiredIn: ReadonlyArray<string> }>;
-type InventoryScenario = Readonly<{
-  id: string;
-  verification: Readonly<{ cases: ReadonlyArray<InventoryCase> }>;
-}>;
-type InventoryItem = Readonly<{
-  id: string;
-  cases: ReadonlyArray<string>;
-  requiredIn: ReadonlyArray<string>;
-}>;
-type InventoryOutput = Readonly<{
-  mode: string;
-  issues: ReadonlyArray<string>;
-  contracts?: ReadonlyArray<InventoryItem>;
-  scenarios: ReadonlyArray<InventoryScenario>;
-  flows: ReadonlyArray<InventoryItem>;
-}>;
 /** 反例探针：刻意破坏共享 Scenario 的非平台绑定后再跑一次清单模式门禁。 */
 type Probe = Readonly<{
   status: number | null;
@@ -260,61 +240,6 @@ function parseInventory(output: string): InventoryOutput {
   const end = output.lastIndexOf('\n}');
   if (start < 0 || end < start) throw new Error('场景门禁没有输出 JSON 正文');
   return JSON.parse(output.slice(start + 1, end + 2)) as InventoryOutput;
-}
-
-/**
- * 副本中“不可能产生绑定”的用例所对应的缺失项（A2 用户裁决：多一条、少一条都算失败）：
- * 1. 被 `TEMPLATE_COPY` 排除的会创建副本的用例：绑定由排除列表里的 spec 文件提供，用例名从
- *    有效 Spec 清单取、环境取该文件里声明的环境，不另写名单；
- * 2. `requiredIn` 含清单 `class` 为 `platform` 的测试项目：副本不运行小程序（清单模式不要求
- *    平台报告），绑定同样来自运行报告，必然缺失。
- * 问题文本与 scripts/lib/scenario-coverage.ts 的 `check()` 同款。
- */
-function expectedMissingBindings(copy: RepositoryCopy, inventory: InventoryOutput): string[] {
-  const platformProjects = testProjectsByClass(loadProjectManifest(copy.root), ['platform']);
-  const byId = new Map(inventory.scenarios.map((scenario) => [scenario.id, scenario]));
-  const expected = new Set<string>();
-  for (const scenario of inventory.scenarios) {
-    for (const item of scenario.verification.cases) {
-      for (const environment of item.requiredIn) {
-        if (platformProjects.includes(environment))
-          expected.add(`${scenario.id}/${item.key}: missing binding for ${environment}`);
-      }
-    }
-  }
-  // 协议义务与 FLOW 的 requiredIn 同样可能含平台项目：清单模式不要求平台报告，它们的缺失
-  // 绑定同属"副本中不可能产生绑定"（全部取自门禁输出，不手写）。
-  for (const [items, word] of [
-    [inventory.contracts ?? [], ''],
-    [inventory.flows, 'FLOW '],
-  ] as const)
-    for (const item of items)
-      for (const caseKey of item.cases)
-        for (const environment of item.requiredIn)
-          if (platformProjects.includes(environment))
-            expected.add(`${item.id}/${caseKey}: missing ${word}binding for ${environment}`);
-  for (const spec of copyCreatingSpecs) {
-    // 示例自身的 spec 随白名单删除、对应 Scenario 也已删除：没有可推导的缺失项。
-    if (!existsSync(join(copy.root, spec))) continue;
-    const source = readFileSync(join(copy.root, spec), 'utf8');
-    const environments = [
-      ...new Set([...source.matchAll(/environment: '([^']+)'/g)].map((match) => match[1]!)),
-    ];
-    const owners = [
-      ...new Set([...source.matchAll(/ownerId: '([^']+)'/g)].map((match) => match[1]!)),
-    ];
-    for (const ownerId of owners) {
-      const scenario = byId.get(ownerId);
-      if (!scenario) continue;
-      for (const item of scenario.verification.cases) {
-        for (const environment of item.requiredIn) {
-          if (environments.includes(environment))
-            expected.add(`${ownerId}/${item.key}: missing binding for ${environment}`);
-        }
-      }
-    }
-  }
-  return [...expected].sort();
 }
 
 /**
@@ -672,11 +597,22 @@ defineCase(
         [...new Set(value.inventory.issues)].sort(),
         `${value.inventoryLog}\n${value.inventory.issues.join('\n')}`,
       ).toEqual(expected);
-      // 反例：共享 Scenario 的非平台绑定被删掉后，问题集合多出恰好一条，门禁必须判失败。
-      expect(expected).not.toContain(value.probe.brokenIssue);
       expect(value.probe.status, `${value.probe.log}\n${value.probe.issues.join('\n')}`).not.toBe(
         0,
       );
+      const precheckBlocked = expected.some((issue) =>
+        issue.includes('is not registered in project.manifest.json'),
+      );
+      if (precheckBlocked) {
+        // 未登记项目会在预检阶段提前返回，报告中的绑定缺失反例此时不会进入覆盖评估。
+        expect(
+          [...new Set(value.probe.issues)].sort(),
+          `${value.probe.log}\n${value.probe.issues.join('\n')}`,
+        ).toEqual(expected);
+        return;
+      }
+      // 反例：共享 Scenario 的非平台绑定被删掉后，问题集合多出恰好一条，门禁必须判失败。
+      expect(expected).not.toContain(value.probe.brokenIssue);
       expect(
         [...new Set(value.probe.issues)].sort(),
         `${value.probe.log}\n${value.probe.issues.join('\n')}`,

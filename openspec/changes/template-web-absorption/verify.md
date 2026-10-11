@@ -206,3 +206,48 @@
 **Commit**
 
 - `feat(template): add fetch network adapter and browser runner to the IDL protocol package`
+
+### Task 5 OpenAPI 协议包与契约命令
+
+**规划与输入**
+
+- 起始 HEAD：`02c6eb9`。
+- 起始与结束 freshness：`PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 新增精确依赖 `@redocly/cli@2.62.1`、`openapi-typescript@7.13.0`；`pnpm install` 退出码 0。Redocly 正式版本按任务要求记录，关闭 OI-WA-02。
+
+**RED / GREEN**
+
+- RED 为 `api:validate`、`api:sync`、`api:status` 与 `@daqian/template-openapi` 尚不存在；`SCN-OPENAPI-CONTRACT-001～004、006、029` 不能解析命令或生成物而失败。
+- 边界反例在 lock 漏登 `src/generated/operations.ts` 时，`api:status` 明确报告未知生成物并非零退出。
+- GREEN 后，命令按清单中带 `contract` 的协议包工作：`validate` 运行 Redocly 与契约一致性检查，`sync` 原子写入 bundle、lock、三个生成物，`status` 逐项比较来源、lock 与生成物摘要。
+- 运行时代码不读取 `protocolKind` 分支；`protocolKind` 只参与清单 schema 约束，契约能力由 `contract` 登记派生。OpenAPI 生产入口只导出 `OperationCodes` 类型，完整契约 bundle 仅留在 `testing/`，不进入生产导入图。
+
+**Fixture 与摘要**
+
+- 新增 `SCN-OPENAPI-CONTRACT-001～004、006、029` 六个 Fixture 数据集并执行摘要刷新；owner 范围与 R5-M4 一致。
+- `pnpm check:fixtures` 随 `check:fast` 通过：37 个 manifest，`issues: []`。
+- 补齐旧受控根的 OpenAPI `contract` 与 `protocolInputs` 声明，包括协议适配器、Fixture 绑定、清单规则与工程组合夹具，避免 schema 有效但拓扑校验失败的跨任务回归。
+
+**Verification**
+
+- 定向 unit：`test-tools-unit` 的契约与清单 12/12 用例通过；`openapi-unit` 的生成物类型与业务码 1/1 用例通过。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 0。
+  - unit 86/86 文件、424/424 用例通过；statements/branches/functions/lines 均为 100%。
+  - integration 74/74 文件、145/145 用例通过；SCN-008 的两个 case 均通过。
+  - format、lint、build、typecheck、architecture、fixtures、package、bundle 与 component-tree 均退出 0。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 0，run id `affected-20261011T161506Z`；因清单、构建输入与协议来源变化全量触发 `check:fast`。
+- 独立 `pnpm check:scenarios --change template-web-absorption`：退出码 1，34 条问题均为已登记测试项目尚未到实现任务造成的中间态。
+  - `browser` 未登记：21 条，其中 20 条 Scenario 元数据与 1 条 `FLOW-WEB-EXAMPLE-001` 行；归属任务 10。
+  - `app-unit` 未登记：13 条；归属任务 8。
+  - `openapi-unit` 的 11 条问题已随本任务登记消失；没有缺失绑定、非本 Change Scenario 或其他问题，符合 R5-M1 的 A2 增量口径。
+- SCN-008 的期望集合按门禁真实阶段处理：预检存在尚未登记项目时门禁会在覆盖评估前返回，因此只比对精确预检问题；共享绑定缺失反例在预检清空后继续执行，任务 14 必须使用 A2 的精确 GREEN 口径。此调整只修正测试夹具的阶段判定，不改变规划语义。
+
+**Review / Acceptance**
+
+- 对照 xueshan 契约脚本完成三处修正：来源与输出路径参数化；lock 覆盖三个生成物并在 `status` 中反查未知条目；运行接口表只读取生成方法元数据，不复制契约全文。
+- 架构检查确认 `packages/openapi/src` 的生产图不含 `testing/`、示例契约或生成 bundle；跨包路径继续只允许公开入口。
+- `git diff --check` 退出码 0；未执行任务 14、15 的演练，也未修改对应 checkbox。
+
+**Commit**
+
+- `feat(template): add OpenAPI protocol package with contract commands and generators`

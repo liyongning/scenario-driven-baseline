@@ -42,7 +42,11 @@ const fixture = createControlledRoot({
         role: 'protocol',
         protocolKind: 'openapi',
         private: false,
-        allowedDirectories: ['src', 'testing'],
+        allowedDirectories: ['src', 'testing', 'contracts'],
+        contract: {
+          file: 'packages/protocol-b/contracts/openapi.yaml',
+          lock: 'packages/protocol-b/contracts/openapi.lock.json',
+        },
       },
       {
         directory: 'e2e',
@@ -68,7 +72,15 @@ const fixture = createControlledRoot({
       { name: 'p1', class: 'platform', config: 'packages/e2e/vitest.config.p1.ts' },
       { name: 'p2', class: 'platform', config: 'packages/e2e/vitest.config.p2.ts' },
     ],
-    fingerprints: { sourceRoots: ['scripts'], buildInputs: [], protocolInputs: ['proto-gen.lock'] },
+    fingerprints: {
+      sourceRoots: ['scripts'],
+      buildInputs: [],
+      protocolInputs: [
+        'proto-gen.lock',
+        'packages/protocol-b/contracts/openapi.yaml',
+        'packages/protocol-b/contracts/openapi.lock.json',
+      ],
+    },
     quality: { coverageExclusions: [], maxLinesExemptions: [] },
   },
   prefix: 'define-case-binding-',

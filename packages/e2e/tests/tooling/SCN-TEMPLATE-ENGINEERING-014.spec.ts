@@ -129,8 +129,12 @@ const multiManifest = {
       protocolKind: 'openapi',
       checks: ['api:validate', 'api:status'],
       private: false,
-      allowedDirectories: ['src', 'testing'],
+      allowedDirectories: ['src', 'testing', 'contracts'],
       moduleRoots: ['src', 'testing'],
+      contract: {
+        file: 'packages/openapi-protocol/contracts/openapi.yaml',
+        lock: 'packages/openapi-protocol/contracts/openapi.lock.json',
+      },
     },
     {
       directory: 'e2e',
@@ -150,7 +154,15 @@ const multiManifest = {
     { name: 'integration', class: 'integration', config: 'packages/e2e/vitest.config.ts' },
     { name: 'unit', class: 'unit', config: 'packages/e2e/vitest.config.unit.ts' },
   ],
-  fingerprints: { sourceRoots: ['scripts'], buildInputs: [], protocolInputs: ['proto-gen.lock'] },
+  fingerprints: {
+    sourceRoots: ['scripts'],
+    buildInputs: [],
+    protocolInputs: [
+      'proto-gen.lock',
+      'packages/openapi-protocol/contracts/openapi.yaml',
+      'packages/openapi-protocol/contracts/openapi.lock.json',
+    ],
+  },
   quality: { coverageExclusions: [], maxLinesExemptions: [] },
 };
 

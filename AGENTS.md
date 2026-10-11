@@ -17,6 +17,7 @@
 
 - `packages/sdk`（产品包）：SDK 公共入口与业务分层，规则见 [packages/sdk/AGENTS.md](packages/sdk/AGENTS.md)。
 - `packages/protocol`（协议包）：协议引擎、平台适配与测试用 Shadow，规则见 [packages/protocol/AGENTS.md](packages/protocol/AGENTS.md)。
+- `packages/openapi`（协议包）：OpenAPI 契约、生成物与 OpenAPI 证据适配，规则见 [packages/openapi/AGENTS.md](packages/openapi/AGENTS.md)。
 - `packages/e2e`（测试包）：行为与工程用例、驱动与报告，规则见 [packages/e2e/AGENTS.md](packages/e2e/AGENTS.md)。
 
 ### 项目清单

@@ -67,13 +67,16 @@ const templateEnvironmentNames = new Set([
   'WECHAT_DEVTOOLS_CLI',
 ]);
 /** 指南「移除模板示例」必须逐项写明的删除白名单；包路径按清单角色派生，与 ENG-06 的清单一致。 */
-function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
+function exampleWhitelistEntries(root: string, manifest: ProjectManifest): string[] {
   const products = packagesByRole(manifest, 'product');
   const protocols = packagesByRole(manifest, 'protocol');
   const test = testPackage(manifest).directory;
+  const existing = (path: string) => existsSync(join(root, path));
   return [
-    ...products.map((item) => `packages/${item.directory}/src/example/`),
-    ...protocols.map((item) => `packages/${item.directory}/testing/shadow/example/`),
+    ...products.map((item) => `packages/${item.directory}/src/example/`).filter(existing),
+    ...protocols
+      .map((item) => `packages/${item.directory}/testing/shadow/example/`)
+      .filter(existing),
     `packages/${test}/tests/example/`,
     `packages/${test}/tests/weapp/example/`,
     `packages/${test}/host/weapp/example-runner.ts`,
@@ -157,7 +160,7 @@ async function checkTemplateGuide(
     if (!headings.has(`2:${section}`)) errors.push(`missing guide section ## ${section}`);
   for (const section of guideSections.level3)
     if (!headings.has(`3:${section}`)) errors.push(`missing guide section ### ${section}`);
-  for (const entry of exampleWhitelistEntries(manifest))
+  for (const entry of exampleWhitelistEntries(root, manifest))
     if (!content.includes(entry)) errors.push(`missing removal whitelist entry ${entry}`);
   for (const url of relativeLinks(content)) {
     if (!existsSync(linkTarget(guideFile, url)))

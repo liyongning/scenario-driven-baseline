@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-003",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "57e9287911dc366dee8fc81a251b9d1cceb9fa259802ea9cddef952b08e24651"
+    }
+  },
+  "cases": {
+    "api-status-cli": "api-status-cli.json"
+  },
+  "sha256": {
+    "api-status-cli.json": "24fb982afa357be6c394a11b1881dfb6931084a640ea283dbaaeb146fc7f47c8"
+  }
+}

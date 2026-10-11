@@ -21,6 +21,20 @@
       "moduleRoots": ["src", "testing"]
     },
     {
+      "directory": "openapi",
+      "name": "@daqian/template-openapi",
+      "role": "protocol",
+      "protocolKind": "openapi",
+      "checks": ["api:validate", "api:status"],
+      "private": false,
+      "allowedDirectories": ["src", "testing", "contracts", "dist", "node_modules"],
+      "moduleRoots": ["src", "testing"],
+      "contract": {
+        "file": "packages/openapi/contracts/trade-v1.yaml",
+        "lock": "packages/openapi/contracts/trade-v1.lock.json"
+      }
+    },
+    {
       "directory": "e2e",
       "name": "@daqian/template-e2e",
       "role": "test",
@@ -42,6 +56,9 @@
     "proto:validate",
     "proto:status",
     "proto:sync",
+    "api:validate",
+    "api:sync",
+    "api:status",
     "lint",
     "typecheck",
     "build",
@@ -77,6 +94,11 @@
       "config": "packages/protocol/vitest.config.ts"
     },
     {
+      "name": "openapi-unit",
+      "class": "unit",
+      "config": "packages/openapi/vitest.config.ts"
+    },
+    {
       "name": "test-tools-unit",
       "class": "unit",
       "config": "packages/e2e/vitest.config.unit.ts"
@@ -99,6 +121,8 @@
       "packages/sdk/src",
       "packages/protocol/src",
       "packages/protocol/testing",
+      "packages/openapi/src",
+      "packages/openapi/testing",
       "packages/e2e/src",
       "packages/e2e/host",
       "packages/e2e/tests",
@@ -119,7 +143,11 @@
       "packages/*/vite.config.ts",
       "packages/*/vitest.config*.ts"
     ],
-    "protocolInputs": ["proto-gen.lock"]
+    "protocolInputs": [
+      "proto-gen.lock",
+      "packages/openapi/contracts/trade-v1.yaml",
+      "packages/openapi/contracts/trade-v1.lock.json"
+    ]
   },
   "quality": {
     "coverageExclusions": [

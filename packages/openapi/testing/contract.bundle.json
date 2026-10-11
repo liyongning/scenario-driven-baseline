@@ -1,0 +1,1025 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "trade.v1",
+    "version": "1.0.0",
+    "description": "Neutral trade example used by the template OpenAPI workflow.",
+    "license": {
+      "name": "UNLICENSED",
+      "url": "https://example.invalid/license"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.example.invalid"
+    }
+  ],
+  "tags": [
+    {
+      "name": "trades",
+      "description": "Trade lifecycle operations."
+    }
+  ],
+  "paths": {
+    "/api/v1/trades": {
+      "post": {
+        "operationId": "createTrade",
+        "summary": "Create a trade",
+        "description": "Creates one trade and returns its initial state.",
+        "tags": ["trades"],
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": true,
+            "description": "Standard request correlation identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["merchant_id", "amount", "channel"],
+                "properties": {
+                  "merchant_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 1
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": ["WEB", "APP"]
+                  }
+                }
+              },
+              "examples": {
+                "normal": {
+                  "summary": "Create a virtual trade",
+                  "value": {
+                    "merchant_id": 1001,
+                    "amount": 190,
+                    "channel": "WEB"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-business-codes": ["TRADE_CONFLICT"],
+        "responses": {
+          "200": {
+            "description": "Create result envelope.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Echoed request correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["code", "message"],
+                      "properties": {
+                        "code": {
+                          "type": "integer",
+                          "enum": [0, 40001, 40401, 40901]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["data"],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true,
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "status", "amount", "merchant_id"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CREATED",
+                                    "PROCESSING",
+                                    "SUCCEEDED",
+                                    "FAILED",
+                                    "CANCELLED"
+                                  ]
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                },
+                                "merchant_id": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                },
+                                "failure_reason": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "conflict_code"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "conflict_code": {
+                                  "type": "string",
+                                  "enum": ["DUPLICATE_REQUEST", "STATE_CHANGED"]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["items"],
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["trade_no", "status", "amount", "merchant_id"],
+                                    "properties": {
+                                      "trade_no": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "CREATED",
+                                          "PROCESSING",
+                                          "SUCCEEDED",
+                                          "FAILED",
+                                          "CANCELLED"
+                                        ]
+                                      },
+                                      "amount": {
+                                        "type": "integer"
+                                      },
+                                      "merchant_id": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "failure_reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trades/{trade_no}": {
+      "get": {
+        "operationId": "getTrade",
+        "summary": "Get a trade",
+        "description": "Returns a trade for polling until a terminal state is reached.",
+        "tags": ["trades"],
+        "security": [
+          {
+            "accessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trade_no",
+            "in": "path",
+            "required": true,
+            "description": "Stable trade number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": true,
+            "description": "Standard request correlation identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "x-business-codes": ["TRADE_NOT_FOUND"],
+        "responses": {
+          "200": {
+            "description": "Trade result envelope.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Echoed request correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["code", "message"],
+                      "properties": {
+                        "code": {
+                          "type": "integer",
+                          "enum": [0, 40001, 40401, 40901]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["data"],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true,
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "status", "amount", "merchant_id"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CREATED",
+                                    "PROCESSING",
+                                    "SUCCEEDED",
+                                    "FAILED",
+                                    "CANCELLED"
+                                  ]
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                },
+                                "merchant_id": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                },
+                                "failure_reason": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "conflict_code"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "conflict_code": {
+                                  "type": "string",
+                                  "enum": ["DUPLICATE_REQUEST", "STATE_CHANGED"]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["items"],
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["trade_no", "status", "amount", "merchant_id"],
+                                    "properties": {
+                                      "trade_no": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "CREATED",
+                                          "PROCESSING",
+                                          "SUCCEEDED",
+                                          "FAILED",
+                                          "CANCELLED"
+                                        ]
+                                      },
+                                      "amount": {
+                                        "type": "integer"
+                                      },
+                                      "merchant_id": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "failure_reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/merchants/{merchant_id}/trades": {
+      "get": {
+        "operationId": "listTrades",
+        "summary": "List merchant trades",
+        "description": "Lists trades for one merchant without identity headers.",
+        "tags": ["trades"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "path",
+            "required": true,
+            "description": "Integer merchant identifier.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": true,
+            "description": "Standard request correlation identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of trades to return.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "x-business-codes": [],
+        "responses": {
+          "200": {
+            "description": "Trade list envelope.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Echoed request correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["code", "message"],
+                      "properties": {
+                        "code": {
+                          "type": "integer",
+                          "enum": [0, 40001, 40401, 40901]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["data"],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true,
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "status", "amount", "merchant_id"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CREATED",
+                                    "PROCESSING",
+                                    "SUCCEEDED",
+                                    "FAILED",
+                                    "CANCELLED"
+                                  ]
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                },
+                                "merchant_id": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                },
+                                "failure_reason": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "conflict_code"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "conflict_code": {
+                                  "type": "string",
+                                  "enum": ["DUPLICATE_REQUEST", "STATE_CHANGED"]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["items"],
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["trade_no", "status", "amount", "merchant_id"],
+                                    "properties": {
+                                      "trade_no": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "CREATED",
+                                          "PROCESSING",
+                                          "SUCCEEDED",
+                                          "FAILED",
+                                          "CANCELLED"
+                                        ]
+                                      },
+                                      "amount": {
+                                        "type": "integer"
+                                      },
+                                      "merchant_id": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "failure_reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trades/{trade_no}/cancel": {
+      "post": {
+        "operationId": "cancelTrade",
+        "summary": "Cancel a trade",
+        "description": "Cancels a trade with an operator identity; the template marks it unimplemented.",
+        "tags": ["trades"],
+        "security": [
+          {
+            "operatorToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trade_no",
+            "in": "path",
+            "required": true,
+            "description": "Stable trade number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "required": true,
+            "description": "Standard request correlation identifier.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "x-implemented": false,
+        "x-business-codes": ["TRADE_CONFLICT", "TRADE_NOT_FOUND"],
+        "responses": {
+          "200": {
+            "description": "Cancellation result envelope.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Echoed request correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": ["code", "message"],
+                      "properties": {
+                        "code": {
+                          "type": "integer",
+                          "enum": [0, 40001, 40401, 40901]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["data"],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "nullable": true,
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "status", "amount", "merchant_id"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "CREATED",
+                                    "PROCESSING",
+                                    "SUCCEEDED",
+                                    "FAILED",
+                                    "CANCELLED"
+                                  ]
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                },
+                                "merchant_id": {
+                                  "type": "integer",
+                                  "format": "int64"
+                                },
+                                "failure_reason": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["trade_no", "conflict_code"],
+                              "properties": {
+                                "trade_no": {
+                                  "type": "string"
+                                },
+                                "conflict_code": {
+                                  "type": "string",
+                                  "enum": ["DUPLICATE_REQUEST", "STATE_CHANGED"]
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["items"],
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["trade_no", "status", "amount", "merchant_id"],
+                                    "properties": {
+                                      "trade_no": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "CREATED",
+                                          "PROCESSING",
+                                          "SUCCEEDED",
+                                          "FAILED",
+                                          "CANCELLED"
+                                        ]
+                                      },
+                                      "amount": {
+                                        "type": "integer"
+                                      },
+                                      "merchant_id": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "failure_reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "TradeNo": {
+        "name": "trade_no",
+        "in": "path",
+        "required": true,
+        "description": "Stable trade number.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "MerchantId": {
+        "name": "merchant_id",
+        "in": "path",
+        "required": true,
+        "description": "Integer merchant identifier.",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        }
+      },
+      "XRequestId": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "required": true,
+        "description": "Standard request correlation identifier.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "headers": {
+      "XRequestId": {
+        "description": "Echoed request correlation identifier.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "securitySchemes": {
+      "accessToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Access-Token"
+      },
+      "operatorToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Operator-Token"
+      }
+    },
+    "schemas": {
+      "Envelope": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "integer",
+                "enum": [0, 40001, 40401, 40901]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["data"],
+            "properties": {
+              "data": {
+                "type": "object",
+                "nullable": true,
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["trade_no", "status", "amount", "merchant_id"],
+                    "properties": {
+                      "trade_no": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": ["CREATED", "PROCESSING", "SUCCEEDED", "FAILED", "CANCELLED"]
+                      },
+                      "amount": {
+                        "type": "integer"
+                      },
+                      "merchant_id": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "failure_reason": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["trade_no", "conflict_code"],
+                    "properties": {
+                      "trade_no": {
+                        "type": "string"
+                      },
+                      "conflict_code": {
+                        "type": "string",
+                        "enum": ["DUPLICATE_REQUEST", "STATE_CHANGED"]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["items"],
+                    "properties": {
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["trade_no", "status", "amount", "merchant_id"],
+                          "properties": {
+                            "trade_no": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": ["CREATED", "PROCESSING", "SUCCEEDED", "FAILED", "CANCELLED"]
+                            },
+                            "amount": {
+                              "type": "integer"
+                            },
+                            "merchant_id": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "failure_reason": {
+                              "type": "string",
+                              "nullable": true
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "CreateTradeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["merchant_id", "amount", "channel"],
+        "properties": {
+          "merchant_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "channel": {
+            "type": "string",
+            "enum": ["WEB", "APP"]
+          }
+        }
+      },
+      "Trade": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trade_no", "status", "amount", "merchant_id"],
+        "properties": {
+          "trade_no": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["CREATED", "PROCESSING", "SUCCEEDED", "FAILED", "CANCELLED"]
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "merchant_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failure_reason": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "TradeConflictData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trade_no", "conflict_code"],
+        "properties": {
+          "trade_no": {
+            "type": "string"
+          },
+          "conflict_code": {
+            "type": "string",
+            "enum": ["DUPLICATE_REQUEST", "STATE_CHANGED"]
+          }
+        }
+      },
+      "TradeList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trade_no", "status", "amount", "merchant_id"],
+              "properties": {
+                "trade_no": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["CREATED", "PROCESSING", "SUCCEEDED", "FAILED", "CANCELLED"]
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "merchant_id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "failure_reason": {
+                  "type": "string",
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "EmptyData": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  },
+  "x-common-business-codes": ["INVALID_REQUEST"],
+  "x-business-code-table": {
+    "OK": 0,
+    "INVALID_REQUEST": 40001,
+    "TRADE_NOT_FOUND": 40401,
+    "TRADE_CONFLICT": 40901
+  }
+}

@@ -70,7 +70,11 @@ function createRoot(): ControlledRoot {
           role: 'protocol',
           protocolKind: 'openapi',
           private: false,
-          allowedDirectories: ['src', 'testing'],
+          allowedDirectories: ['src', 'testing', 'contracts'],
+          contract: {
+            file: 'packages/protocol-b/contracts/openapi.yaml',
+            lock: 'packages/protocol-b/contracts/openapi.lock.json',
+          },
         },
         {
           directory: 'e2e',
@@ -94,7 +98,11 @@ function createRoot(): ControlledRoot {
       fingerprints: {
         sourceRoots: ['scripts'],
         buildInputs: [],
-        protocolInputs: ['proto-gen.lock'],
+        protocolInputs: [
+          'proto-gen.lock',
+          'packages/protocol-b/contracts/openapi.yaml',
+          'packages/protocol-b/contracts/openapi.lock.json',
+        ],
       },
       quality: { coverageExclusions: [], maxLinesExemptions: [] },
     },

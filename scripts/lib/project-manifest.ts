@@ -7,6 +7,9 @@ export type TestProjectClass = 'unit' | 'integration' | 'platform';
 export type ProductForm = 'sdk' | 'web-app';
 export type ProtocolKind = 'idl' | 'openapi';
 
+/** OpenAPI 协议包登记的一份契约及其来源与生成物 lock。 */
+export type ManifestContract = Readonly<{ file: string; lock: string }>;
+
 /** 清单登记的一个包：目录、包名、角色、私有标记与允许的一级子目录。 */
 export type ManifestPackage = Readonly<{
   directory: string;
@@ -26,6 +29,8 @@ export type ManifestPackage = Readonly<{
   globalStore?: string;
   /** 协议包在 check:fast 中执行的前置检查命令。 */
   checks?: ReadonlyArray<string>;
+  /** OpenAPI 协议包登记的契约与 lock 路径。 */
+  contract?: ManifestContract;
 }>;
 
 /** 产品、协议与平台测试项目的一条组合绑定。 */
@@ -142,6 +147,16 @@ export function validateManifest(manifest: ProjectManifest, root?: string): stri
       issues.push(`globalStore is only allowed for web-app, found on ${item.name}`);
     if (item.role !== 'protocol' && item.checks && item.checks.length > 0)
       issues.push(`checks is only allowed for protocol packages, found on ${item.name}`);
+    if (item.contract) {
+      if (!manifest.fingerprints.protocolInputs.includes(item.contract.file))
+        issues.push(
+          `contract file ${item.contract.file} must be listed in fingerprints.protocolInputs`,
+        );
+      if (!manifest.fingerprints.protocolInputs.includes(item.contract.lock))
+        issues.push(
+          `contract lock ${item.contract.lock} must be listed in fingerprints.protocolInputs`,
+        );
+    }
   }
   const knownDirectories = new Set(manifest.packages.map((item) => item.directory));
   const productDirectories = new Set(

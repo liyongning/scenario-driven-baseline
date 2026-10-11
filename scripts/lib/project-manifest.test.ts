@@ -211,7 +211,7 @@ evidence(
   async (context, check) => {
     await check('manifest-schema', () => {
       // 仓库清单通过 schema 校验，且 schema 的每个属性都有中文说明。
-      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(3);
+      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(4);
       context
         .expect(
           checkSchemaDocumentation(repositoryRoot).filter((issue) =>
@@ -238,6 +238,45 @@ evidence(
         ),
       });
       context.expect(() => loadProjectManifest(wrongRole)).toThrow(/does not match/);
+
+      const missingContract = baseManifest();
+      missingContract.packages[1] = {
+        ...missingContract.packages[1]!,
+        protocolKind: 'openapi',
+      };
+      const missingContractRoot = temporaryRoot();
+      writeManifest(missingContractRoot, missingContract);
+      context.expect(() => loadProjectManifest(missingContractRoot)).toThrow(/contract/);
+
+      const contractOnIdl = baseManifest();
+      contractOnIdl.packages[1] = {
+        ...contractOnIdl.packages[1]!,
+        contract: { file: 'packages/sample-protocol/contracts/api.yaml', lock: 'contracts.lock' },
+      };
+      contractOnIdl.fingerprints.protocolInputs.push(
+        'packages/sample-protocol/contracts/api.yaml',
+        'contracts.lock',
+      );
+      const contractOnIdlRoot = temporaryRoot();
+      writeManifest(contractOnIdlRoot, contractOnIdl);
+      context.expect(() => loadProjectManifest(contractOnIdlRoot)).toThrow(/does not match/);
+
+      const openapiContract = baseManifest();
+      openapiContract.packages[1] = {
+        ...openapiContract.packages[1]!,
+        protocolKind: 'openapi',
+        contract: { file: 'packages/sample-protocol/contracts/api.yaml', lock: 'contracts.lock' },
+      };
+      openapiContract.fingerprints.protocolInputs = ['contracts.lock'];
+      context
+        .expect(validateManifest(openapiContract as unknown as ProjectManifest).join('\n'))
+        .toContain('contract file packages/sample-protocol/contracts/api.yaml');
+
+      openapiContract.fingerprints.protocolInputs = ['packages/sample-protocol/contracts/api.yaml'];
+      context
+        .expect(validateManifest(openapiContract as unknown as ProjectManifest).join('\n'))
+        .toContain('contract lock contracts.lock');
+
       const missingReason = temporaryRoot();
       writeManifest(missingReason, {
         ...baseManifest(),

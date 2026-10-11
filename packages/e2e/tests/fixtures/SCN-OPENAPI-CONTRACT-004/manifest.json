@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-004",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "57e9287911dc366dee8fc81a251b9d1cceb9fa259802ea9cddef952b08e24651"
+    }
+  },
+  "cases": {
+    "redocly-config-and-lint": "redocly-config-and-lint.json"
+  },
+  "sha256": {
+    "redocly-config-and-lint.json": "bd9c3cf6438538d7b1e2de4f8433aee02e2153962551bba6f7e9e804e42078e5"
+  }
+}

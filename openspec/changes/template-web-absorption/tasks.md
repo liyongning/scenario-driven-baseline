@@ -190,7 +190,7 @@
   **Commit**
   - `feat(template): add fetch network adapter and browser runner to the IDL protocol package`
 
-- [ ] 5. OpenAPI 协议包：契约命令、生成器与示例契约
+- [x] 5. OpenAPI 协议包：契约命令、生成器与示例契约
 
   **Files**
   - Create：`packages/openapi/`（`package.json`、tsconfig、构建配置，双格式产物）；`packages/openapi/contracts/trade-v1.yaml`（Design"Web 示例与示例契约"中的四个接口与顶层结构，身份方案按 OAS-08 分配：createTrade、getTrade 用方案一，cancelTrade 用方案二，listTrades 匿名；lint 零告警）与 lock；`redocly.yaml`（只保留有理由的调整）。

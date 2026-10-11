@@ -23,7 +23,7 @@ function fixture() {
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md) [external](https://example.invalid)');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
   writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  for (const name of ['sdk', 'protocol', 'e2e']) {
+  for (const name of ['sdk', 'protocol', 'openapi', 'e2e']) {
     const dir = join(root, 'packages', name);
     mkdirSync(dir);
     writeFileSync(join(dir, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
@@ -37,7 +37,7 @@ function fixture() {
   return root;
 }
 
-test('完整三包和可解析规则链接通过；依赖工具失败传递', async () => {
+test('完整多包和可解析规则链接通过；依赖工具失败传递', async () => {
   const root = fixture();
   expect(await checkArchitecture(root, 0)).toEqual([]);
   expect(await checkArchitecture(root, 1)).toContain('dependency-cruiser failed');
@@ -53,6 +53,8 @@ test('完整三包和可解析规则链接通过；依赖工具失败传递', as
     'packages/sdk/src',
     'packages/protocol/src',
     'packages/protocol/testing',
+    'packages/openapi/src',
+    'packages/openapi/testing',
     'packages/e2e/src/shadow',
   ]);
   await expect(
