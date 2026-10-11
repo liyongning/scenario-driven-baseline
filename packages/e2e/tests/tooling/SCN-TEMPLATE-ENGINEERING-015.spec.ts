@@ -11,6 +11,7 @@ import {
 } from './engineering-form-fixture.ts';
 import { repositoryRoot } from './helpers.ts';
 import { planCommand } from '../../../../scripts/run-by-manifest.ts';
+import { validBundle, writeBundle, writeBundleBuild } from './bundle-cli-fixture.ts';
 
 function plan(root: ReturnType<typeof createEngineeringFormRoot>) {
   return runCli(root, 'scripts/run-by-manifest.ts', ['typecheck']);
@@ -57,6 +58,8 @@ cliEvidence(
     const root = createEngineeringFormRoot();
     try {
       await check('artifact-check-by-form', () => {
+        writeBundleBuild(root.root);
+        writeBundle(root.root, validBundle(root.root));
         const bundle = runCli(root, 'scripts/check-bundle.ts');
         const tree = runCli(root, 'scripts/check-component-tree.ts');
         context.expect(bundle.status, bundle.output).toBe(0);

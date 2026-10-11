@@ -92,8 +92,16 @@ function fixtureRoot(): string {
 test('assembles build with the protocol package before the product package', () => {
   const root = fixtureRoot();
   expect(planCommand(root, 'build')).toEqual([
-    { command: 'pnpm', args: ['--filter', '@sample/protocol', 'build'] },
-    { command: 'pnpm', args: ['--filter', '@sample/product', 'build'] },
+    {
+      command: 'pnpm',
+      args: ['--filter', '@sample/protocol', 'build'],
+      env: { NODE_ENV: 'production' },
+    },
+    {
+      command: 'pnpm',
+      args: ['--filter', '@sample/product', 'build'],
+      env: { NODE_ENV: 'production' },
+    },
   ]);
 });
 

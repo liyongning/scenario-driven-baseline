@@ -330,7 +330,7 @@
   **Commit**
   - `feat(template): add web app package skeleton with frontend architecture rules`
 
-- [ ] 9. Web 产物边界检查
+- [x] 9. Web 产物边界检查
 
   **Files**
   - Create：`scripts/lib/vite-plugins/bundle-manifest.ts`（模块清单写到 `artifacts/build/<产品目录>/bundle-manifest.json`）；`scripts/check-bundle.ts`、`scripts/lib/bundle.ts` 及单测（测试设施按模块来源判定、协议 bundle 不进产物、模块与摘要对账、入口与相对资源、CSS 伪选择器残留、产品摘要新鲜度）；`buildInputs` 通配排除被忽略文件。

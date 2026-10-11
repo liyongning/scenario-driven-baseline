@@ -95,10 +95,9 @@ test(
         sdk: { name: '@sample/sdk-product' },
         protocol: { name: '@sample/sdk-protocol' },
       });
-      context.expect(checkBundle(root.root)).toEqual({
-        checked: ['packages/web-product'],
-        issues: [],
-      });
+      const webBundle = checkBundle(root.root);
+      context.expect(webBundle.checked).toEqual(['packages/web-product']);
+      context.expect(webBundle.issues.join('\n')).toContain('bundle-manifest.json is missing');
       context.expect(checkComponentTree(root.root)).toEqual({
         checked: ['packages/web-product'],
         issues: [],
@@ -123,10 +122,9 @@ test(
         sdk: { name: '@sample/web-product' },
         protocol: { name: '@sample/web-protocol' },
       });
-      context.expect(checkBundle(root.root)).toEqual({
-        checked: ['packages/sdk-product'],
-        issues: [],
-      });
+      const swappedBundle = checkBundle(root.root);
+      context.expect(swappedBundle.checked).toEqual(['packages/sdk-product']);
+      context.expect(swappedBundle.issues.join('\n')).toContain('bundle-manifest.json is missing');
       context.expect(checkComponentTree(root.root)).toEqual({
         checked: ['packages/sdk-product'],
         issues: [],

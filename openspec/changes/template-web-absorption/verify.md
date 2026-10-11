@@ -365,3 +365,39 @@
 **Commit**
 
 - `feat(template): add web app package skeleton with frontend architecture rules`
+
+### Task 9 Web 产物边界检查
+
+**规划与输入**
+
+- 起始 HEAD：`fd6b8bb`。
+- 起始 freshness：`PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 交付范围为 WEB-09 / `SCN-WEB-APP-012～014`：Vite 构建写出模块清单，`check:bundle` 对账模块来源、产物摘要、入口与相对资源、CSS 伪选择器残留及产品摘要新鲜度。
+
+**RED / GREEN**
+
+- RED 时插件与完整 `check:bundle` 尚未实现，012～014 均失败；受控反例分别把协议契约、测试设施来源、`:deep(` / `:global(` 编译残留、绝对资源路径与过期产品摘要放进输入，均观察到非零退出和对应问题文本，恢复合法输入后退出码回到 0。
+- GREEN 后，模块清单写入 `artifacts/build/<产品目录>/bundle-manifest.json`；模块来源按清单中的 test 包、协议包 `testing/` 与实际契约文件判定，入口必须来自产品手写源码，所有 dist 输出必须登记且 sha256 一致，`base: './'` 对应资源必须为相对路径。
+- 产品摘要只覆盖产品包手写源码、绑定协议包非 testing 源码和清单 `buildInputs`；测试、门禁脚本、`packages/web/index.html` 与 `.gitignore` 排除的本地文件不会误触发过期，但源码、协议源码和构建输入变化均会使摘要过期。
+- 定向用例：`SCN-WEB-APP-012` 1/1 通过、20 个断言；`SCN-WEB-APP-013` 1/1 通过、21 个断言；`SCN-WEB-APP-014` 1/1 通过、12 个断言；相关 bundle unit 4 个文件、25 个用例通过；`SCN-TEMPLATE-ENGINEERING-008` 在正确 Change 作用域下 2/2 通过（126.64s）。
+
+**Verification**
+
+- `SCENARIO_GATE_CHANGES=template-web-absorption VITEST_MAX_WORKERS=1 pnpm test:affected`：退出码 0，run id `affected-20261011T203159Z`。
+  - unit 111/111 文件、507/507 用例通过；statements 5190/5190、branches 3429/3429、functions 1016/1016、lines 4560/4560 均为 100%。
+  - integration 99/99 文件、172/172 用例通过；其中 012～014 与 `SCN-TEMPLATE-ENGINEERING-008` 均通过。
+  - `check:fixtures` 45 个 manifest、`issues: []`；`check:bundle` 检查 `packages/web`、`issues: []`；`check:package`、`check:component-tree` 均退出 0。
+- 独立复核：`pnpm typecheck`、`pnpm lint`、`pnpm format:check`、`pnpm check:fixtures`、`pnpm check:bundle` 均退出 0。
+- 独立 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:scenarios --change template-web-absorption`：退出码 1，剩余 21 条问题全部是尚未登记 `browser` 测试项目的预期中间态（`SCN-BROWSER-PLATFORM` 6 条、`SCN-OPENAPI-CONTRACT` 8 条、`SCN-WEB-EXAMPLE` 6 条及 `FLOW-WEB-EXAMPLE-001` 1 条），统一归属任务 10；Task 9 无相关问题。
+- `git diff --check`：退出码 0。
+
+**Review / Acceptance**
+
+- 对照 Design 中 xueshan `check-bundle` 的泛化点落实：产品目录来自清单，测试设施与协议契约按精确来源判定而非子串匹配；模块清单移出 dist；摘要范围排除测试和门禁并遵守 `.gitignore`；入口、相对资源、CSS 残留与输出哈希均有可失败反例。
+- 实施偏离与兼容修复：统一构建入口现在为所有 `build` 步骤强制 `NODE_ENV=production`，避免外层 Vitest 的 `NODE_ENV=test` 泄漏到副本构建并让 Vue 把绝对源码路径写进产物；`SCN-WEB-APP-012` 加入副本排除清单以避免递归复制；受控构建副本测试补复制 `packages/web/index.html` 并接入统一构建计划，均是测试/构建环境接线，不改变规划语义。
+- OI：并发聚合运行共出现 7 次“单用例失败、隔离或后续单 worker 复跑通过”，分别为首轮 `check:fast` 的 `SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026`；默认并发 affected 的 `SCN-SCENARIO-GATE-018`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026`；低并发 affected 的 `SCN-OPENAPI-CONTRACT-014` 及其在 `SCN-TEMPLATE-ENGINEERING-008` 中传播出的副本快门禁失败。全部已关闭，不计业务失败；全局 OI 累计 15 次。
+- Task 4 的 weapp 段仍为环境阻塞待补跑，run id `template-web-absorption-apply-20261011T141758Z`；Task 9 未运行 weapp，也不改变该阻塞证据。未执行任务 14、15 的演练，未修改对应 checkbox。
+
+**Commit**
+
+- `feat(template): add web bundle boundary check`

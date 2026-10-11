@@ -280,8 +280,16 @@ cliEvidence(
     await check('scripts-by-manifest', () => {
       const renamedRoot = architectureFixture(manifestFixture({ product: renamed }));
       context.expect(planCommand(renamedRoot, 'build')).toEqual([
-        { command: 'pnpm', args: ['--filter', '@sample/protocol', 'build'] },
-        { command: 'pnpm', args: ['--filter', '@sample/renamed-sdk', 'build'] },
+        {
+          command: 'pnpm',
+          args: ['--filter', '@sample/protocol', 'build'],
+          env: { NODE_ENV: 'production' },
+        },
+        {
+          command: 'pnpm',
+          args: ['--filter', '@sample/renamed-sdk', 'build'],
+          env: { NODE_ENV: 'production' },
+        },
       ]);
       context.expect(planCommand(renamedRoot, 'test:unit')).toEqual([
         {

@@ -6,6 +6,7 @@ export const copyCreatingSpecs = [
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts',
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-007.spec.ts',
   'packages/e2e/tests/tooling/SCN-WEB-APP-001.spec.ts',
+  'packages/e2e/tests/tooling/SCN-WEB-APP-012.spec.ts',
   'packages/e2e/tests/tooling/SCN-WEB-APP-010.spec.ts',
   // template-example:begin
   'packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts',

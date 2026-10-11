@@ -59,6 +59,7 @@ export function planCommand(root: string, commandName: string): PlannedCommand[]
       (pkg) => ({
         command: 'pnpm',
         args: ['--filter', pkg.name, 'build'],
+        env: { NODE_ENV: 'production' },
       }),
     );
   if (commandName === 'typecheck') {
