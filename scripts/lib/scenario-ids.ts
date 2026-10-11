@@ -17,9 +17,9 @@ export function extractScenarioIds(text: string, patterns: ReadonlyArray<string>
   const ids: string[] = [];
   for (const match of text.matchAll(/[A-Za-z0-9_-]+/g)) {
     const token = match[0];
-    const index = match.index ?? 0;
-    const before = text[index - 1] ?? '';
-    const after = text.slice(index + token.length);
+    const start = match.index;
+    const before = text[start - 1] ?? '';
+    const after = text.slice(start + token.length);
     if (before === '/' && (pathExtensions.test(after) || directorySegment.test(after))) continue;
     if (matchesAny(token, patterns)) ids.push(token);
   }
