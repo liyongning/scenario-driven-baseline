@@ -1,13 +1,274 @@
 # Verification
 
-> 草稿：Apply 执行方（Codex）维护的「逐任务记录」。完整的 Verification 判定（Metadata / Apply Gate / Summary / Completeness / Correctness / Coherence / Archive Readiness）由验收方在 Verify 阶段填写与判定，本文件当前的其余章节不构成验收结论。
->
-> 运行约定（ENG-06）：本 Change active 期间，单独运行 `check:fast` 用 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast`；任务 8 交付 `verify` 后用 `pnpm verify --change template-core-hardening`。
-> weapp 用例按 `packages/e2e/AGENTS.md` 逐个文件运行：每个文件前 `cli quit`（残留时 `pkill -f wechatwebdevtools.app`）并 `cli open --project packages/e2e/host/weapp` 预热约 30 秒；失败整文件重跑，不用 `-t`。
+## Metadata
 
-## 逐任务记录
+- Change: template-core-hardening
+- Schema: openspec-workflow
+- Verified Git revision: `7917bd726245b5048619295af2c35069be9d6119`（worktree 分支 `template-core-hardening-apply`）
+- Verification input manifest digest: `d7963b0bf82fc6417feb8ae92a32367d721085f73c9a8d9a81dbcca4e4c5e37e`（506 个路径）
+- Manifest includes: `git ls-files -co --exclude-standard` 的全部路径（代码、测试、配置、文档、proposal/specs/design/tasks/plan-review），按路径排序，逐个计入路径、类型、可执行位、内容或符号链接目标；排除 Verification Artifact 自身。算法：会话临时目录 `scratchpad/final/manifest-digest.py`
+- Plan Review verdict: PASS
+- Reviewed digest: `dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9`
+- Current digest: `dad69146a1e75d14cc9e009ea56fb21b1d19b5322ea994ef04279f2a2b21eac9`
+- Plan Review digest match: yes
+- Unresolved Plan Review findings: Critical 0 / Important 0（R1~R4 与 Apply 期间用户裁决 A1~A7 均为 resolved）
+- Untracked inputs included: None
+- Excluded lifecycle paths: `openspec/changes/template-core-hardening/verify.md`（本文件）；Sync 将改写的 `openspec/specs/**` 与 Archive 移动的 Change 目录属于后续阶段输出
+- Verified at: 2026-10-11T02:25:23Z
+- Verification environment: macOS（Darwin 25.2.0）、Node v22.21.1、pnpm 10.20.0、Vitest 5.0.3、OpenSpec CLI 1.6.0（仓库固定）、微信开发者工具 2.01.2510290
 
-### Task 1 依赖小版本升级与忽略项修正
+## Apply Gate
+
+- Fresh Apply state: all_done
+- Apply progress: 18/18
+- Unchecked tasks: 0
+- Final Code Review: PASS（首轮评审于 `b176e3c`，14 条修复；增量评审覆盖 `12f7455..cc92f93`，4 条 Important 修复、1 条经用户裁决 A7 修订规划；第六轮修复由验收方逐条核对反例证据）
+- Unresolved Critical findings: 0
+- Unresolved Important findings: 0
+- Accepted Minor findings: 14（Plan Review 的 R3-M1~M10 与 R4-M1~M6 中登记为 advisory 的 13 条，见 plan-review.md；增量评审 M-1）
+
+## Verification Summary
+
+| Dimension | Status | Evidence |
+|---|---|---|
+| Completeness | PASS | 6 个 Artifact 均为 done，18/18 Task 完成；25 条 Requirement、44 个 Scenario 均有用例与门禁证据（见 Completeness） |
+| Correctness | PASS | V-1 全量 verify 退出码 0；V-2 独立场景门禁 complete、0 问题；V-3 validate --strict 通过；V-4 规划摘要 PASS（见 Correctness） |
+| Coherence | WARNING | 各层与已批准规划及 A1~A7 一致；保留的风险是小程序自动化挂起（V-1 中 PC-008 一次 120s 超时，自动整文件重跑通过）与 M-1（见 Coherence、Unverified Areas） |
+
+## Completeness
+
+### Artifact and Task Completion
+
+| Item | Authority | Expected | Observed | Status |
+|---|---|---|---|---|
+| proposal | `openspec status --change template-core-hardening --json` | done | done | PASS |
+| specs | `openspec status --change template-core-hardening --json` | done | done | PASS |
+| design | `openspec status --change template-core-hardening --json` | done | done | PASS |
+| tasks | `openspec status --change template-core-hardening --json` | done | done | PASS |
+| plan-review | `openspec status --change template-core-hardening --json` | done | done | PASS |
+| verification | `openspec status --change template-core-hardening --json` | done | done | PASS |
+| Tasks 1–18 | `openspec instructions apply --json` | all_done，18/18 | all_done，18/18 | PASS |
+| Plan Review | `plan-review-digest.py --check-review` | freshness=PASS | freshness=PASS | PASS |
+
+### Requirement Coverage
+
+| Requirement | Spec Source | Implementation Evidence | Verification IDs | Status |
+|---|---|---|---|---|
+| PC-04 Fixture 响应与协议同形 | `openspec/changes/template-core-hardening/specs/protocol-contract/spec.md:3`（ADDED Requirements） | `packages/protocol/testing/shadow/response-shape.test.ts`；Scenario SCN-PROTOCOL-CONTRACT-006, SCN-PROTOCOL-CONTRACT-007 | V-1, V-2 | PASS |
+| PC-05 X-Request-Id 按公司规范生成 | `openspec/changes/template-core-hardening/specs/protocol-contract/spec.md:56`（ADDED Requirements） | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-008.spec.ts`；`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts`；Scenario SCN-PROTOCOL-CONTRACT-008, SCN-PROTOCOL-CONTRACT-009, SCN-PROTOCOL-CONTRACT-010 | V-1, V-2 | PASS |
+| PC-06 Shadow 请求记录、路径转换与有界轮询 | `openspec/changes/template-core-hardening/specs/protocol-contract/spec.md:133`（ADDED Requirements） | `packages/protocol/testing/shadow/records-and-polling.test.ts`；Scenario SCN-PROTOCOL-CONTRACT-011, SCN-PROTOCOL-CONTRACT-012, SCN-PROTOCOL-CONTRACT-013 | V-1, V-2 | PASS |
+| PC-01 基于 IDL 的协议义务派生 | `openspec/changes/template-core-hardening/specs/protocol-contract/spec.md:202`（MODIFIED Requirements） | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`；`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`；Scenario SCN-PROTOCOL-CONTRACT-001, SCN-PROTOCOL-CONTRACT-002, SCN-PROTOCOL-CONTRACT-005 | V-1, V-2 | PASS |
+| PC-03 Shadow 路由使用中立描述 | `openspec/changes/template-core-hardening/specs/protocol-contract/spec.md:301`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts`；`packages/protocol/testing/shadow/idl-routes.test.ts`；Scenario SCN-PROTOCOL-CONTRACT-004 | V-1, V-2 | PASS |
+| GATE-10 Fixture 来源绑定以 owner ID 与 Requirement 块摘要为准 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:3`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-012.spec.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-013.spec.ts`；Scenario SCN-SCENARIO-GATE-012, SCN-SCENARIO-GATE-013, SCN-SCENARIO-GATE-014, SCN-SCENARIO-GATE-015 | V-1, V-2 | PASS |
+| GATE-11 checkpoint 双向对账 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:100`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-016.spec.ts`；`scripts/check-scenarios.checkpoint.test.ts`；Scenario SCN-SCENARIO-GATE-016 | V-1, V-2 | PASS |
+| GATE-12 场景门禁的 Change 作用域 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:139`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-017.spec.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-018.spec.ts`；Scenario SCN-SCENARIO-GATE-017, SCN-SCENARIO-GATE-018, SCN-SCENARIO-GATE-019 | V-1, V-2 | PASS |
+| GATE-13 按需测试入口与 partial 报告拒收 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:211`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-020.spec.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-021.spec.ts`；Scenario SCN-SCENARIO-GATE-020, SCN-SCENARIO-GATE-021, SCN-SCENARIO-GATE-022 | V-1, V-2 | PASS |
+| GATE-14 统一验收入口与过期说明 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:293`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-023.spec.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-024.spec.ts`；Scenario SCN-SCENARIO-GATE-023, SCN-SCENARIO-GATE-024, SCN-SCENARIO-GATE-025 | V-1, V-2 | PASS |
+| GATE-15 门禁自测隔离 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:381`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts`；`scripts/lib/contract-inventory.test.ts`；Scenario SCN-SCENARIO-GATE-026 | V-1, V-2 | PASS |
+| GATE-03 场景来源发现与生命周期合并 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:417`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-003.spec.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-004.spec.ts`；Scenario SCN-SCENARIO-GATE-003, SCN-SCENARIO-GATE-007, SCN-SCENARIO-GATE-004 | V-1, V-2 | PASS |
+| GATE-07 覆盖清单由事实源生成且缺绑定被阻断 | `openspec/changes/template-core-hardening/specs/scenario-gate/spec.md:484`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-009.spec.ts`；Scenario SCN-SCENARIO-GATE-009 | V-1, V-2 | PASS |
+| ENG-07 覆盖率完整性 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:3`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-009.spec.ts`；`scripts/check-coverage.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-009 | V-1, V-2 | PASS |
+| ENG-08 代码风格与规模基线 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:46`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-010.spec.ts`；`scripts/lib/dependency-rules.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-010 | V-1, V-2 | PASS |
+| ENG-09 渐进式项目地图与 CLAUDE.md 配对 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:80`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-011.spec.ts`；`scripts/check-project-map.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-011 | V-1, V-2 | PASS |
+| ENG-10 技术架构文档 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:118`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-012.spec.ts`；`scripts/check-architecture.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-012 | V-1, V-2 | PASS |
+| ENG-01 三包边界与产品交付 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:149`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts`；Scenario SCN-TEMPLATE-ENGINEERING-001 | V-1, V-2 | PASS |
+| ENG-02 架构与质量门禁 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:181`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-002.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-007.spec.ts`；Scenario SCN-TEMPLATE-ENGINEERING-002, SCN-TEMPLATE-ENGINEERING-007 | V-1, V-2 | PASS |
+| ENG-03 公共类型中文注释随双格式声明交付 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:242`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts`；`scripts/lib/public-doc.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-003 | V-1, V-2 | PASS |
+| ENG-05 项目清单驱动工程门禁 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:268`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts`；`scripts/lib/project-manifest.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-005 | V-1, V-2 | PASS |
+| ENG-06 使用指南与替换点地图 | `openspec/changes/template-core-hardening/specs/template-engineering/spec.md:330`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`scripts/check-architecture.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-006 | V-1, V-2 | PASS |
+| EX-09 示例的消费接口声明 | `openspec/changes/template-core-hardening/specs/template-example/spec.md:3`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts`；Scenario SCN-TEMPLATE-EXAMPLE-012 | V-1, V-2 | PASS |
+| EX-10 示例删除的自动化验收 | `openspec/changes/template-core-hardening/specs/template-example/spec.md:32`（ADDED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`；Scenario SCN-TEMPLATE-ENGINEERING-008 | V-1, V-2 | PASS |
+| EX-05 示例分层与隔离 | `openspec/changes/template-core-hardening/specs/template-example/spec.md:61`（MODIFIED Requirements） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`；Scenario SCN-TEMPLATE-EXAMPLE-008 | V-1, V-2 | PASS |
+
+### Scenario Coverage
+
+| Scenario ID | Scenario | Requirement | Test or Runtime Evidence | Verification IDs | Status |
+|---|---|---|---|---|---|
+| SCN-PROTOCOL-CONTRACT-006 | 同形响应被接受、不同形响应在构造时被拒绝 | PC-04 Fixture 响应与协议同形 | `packages/protocol/testing/shadow/response-shape.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-007 | 非法响应必须显式认领，动态类型报待定 | PC-04 Fixture 响应与协议同形 | `packages/protocol/testing/shadow/response-shape.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-008 | 每次请求携带规范格式的 X-Request-Id | PC-05 X-Request-Id 按公司规范生成 | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-008.spec.ts`；`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-009 | 标准生成器按北京时间生成且不依赖宿主时区 | PC-05 X-Request-Id 按公司规范生成 | `packages/protocol/src/transport/request-id.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-010 | Shadow 与协议义务按头名和格式校验请求 ID | PC-05 X-Request-Id 按公司规范生成 | `packages/protocol/testing/shadow/header-patterns.test.ts`；`scripts/lib/contract-inventory.scan.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-011 | 未编排与未注册的请求被记录并报出 | PC-06 Shadow 请求记录、路径转换与有界轮询 | `packages/protocol/testing/shadow/records-and-polling.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-012 | 路径参数模板转换为路由参数 | PC-06 Shadow 请求记录、路径转换与有界轮询 | `packages/protocol/testing/shadow/records-and-polling.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-013 | 有界轮询只在平台环境可用且次数有界 | PC-06 Shadow 请求记录、路径转换与有界轮询 | `packages/protocol/testing/shadow/records-and-polling.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-001 | 义务清单只针对产品声明的消费接口 | PC-01 基于 IDL 的协议义务派生 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts`；`scripts/lib/contract-inventory.scan.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-002 | 声明接口的协议义务都有运行证据 | PC-01 基于 IDL 的协议义务派生 | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`；`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-005 | 消费接口声明与实际调用双向对账 | PC-01 基于 IDL 的协议义务派生 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-005.spec.ts`；`scripts/lib/contract-inventory.scan.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-004 | Shadow 引擎与协议来源解耦 | PC-03 Shadow 路由使用中立描述 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts`；`packages/protocol/testing/shadow/idl-routes.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-012 | 按 owner ID 解析当前生效 Requirement 并校验摘要 | GATE-10 Fixture 来源绑定以 owner ID 与 Requirement 块摘要为准 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-012.spec.ts`；`scripts/check-fixtures.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-013 | fixtures:refresh 重算来源摘要 | GATE-10 Fixture 来源绑定以 owner ID 与 Requirement 块摘要为准 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-013.spec.ts`；`scripts/check-fixtures.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-014 | 多个 active Change 修改同一 Requirement 时报歧义 | GATE-10 Fixture 来源绑定以 owner ID 与 Requirement 块摘要为准 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-014.spec.ts`；`scripts/check-fixtures.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-015 | 归档 Change 不需要改动 Fixture | GATE-10 Fixture 来源绑定以 owner ID 与 Requirement 块摘要为准 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-015.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-016 | 执行了未登记的 checkpoint | GATE-11 checkpoint 双向对账 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-016.spec.ts`；`scripts/check-scenarios.checkpoint.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-017 | --change 限定合并范围 | GATE-12 场景门禁的 Change 作用域 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-017.spec.ts`；`scripts/lib/spec-sources.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-018 | --change 参数非法 | GATE-12 场景门禁的 Change 作用域 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-018.spec.ts`；`scripts/lib/spec-sources.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-019 | 格式前置检查不受作用域影响 | GATE-12 场景门禁的 Change 作用域 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-019.spec.ts`；`scripts/check-scenarios.checkpoint.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-020 | 全量触发条件退化为全量运行 | GATE-13 按需测试入口与 partial 报告拒收 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-020.spec.ts`；`scripts/test-affected.arguments.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-021 | 按 Spec、Fixture、代码与指定 ID 选择受影响场景 | GATE-13 按需测试入口与 partial 报告拒收 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-021.spec.ts`；`scripts/test-affected.evidence.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-022 | partial 报告被场景门禁拒收 | GATE-13 按需测试入口与 partial 报告拒收 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-022.spec.ts`；`scripts/test-affected.evidence.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-023 | verify 以同一 run id 依序执行全部验收步骤 | GATE-14 统一验收入口与过期说明 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-023.spec.ts`；`scripts/verify.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-024 | 步骤失败后停止并可续跑 | GATE-14 统一验收入口与过期说明 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-024.spec.ts`；`scripts/verify.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-025 | 过期报告给出原因 | GATE-14 统一验收入口与过期说明 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-025.spec.ts`；`scripts/check-scenarios.checkpoint.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-026 | 门禁自测不依赖仓库实时状态 | GATE-15 门禁自测隔离 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts`；`scripts/lib/contract-inventory.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-003 | active change 的增、改、删生效 | GATE-03 场景来源发现与生命周期合并 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-003.spec.ts`；`scripts/lib/scenario-gate.evidence.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-007 | FLOW 表写在 Requirement 之外 | GATE-03 场景来源发现与生命周期合并 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-007.spec.ts`；`scripts/lib/scenario-gate.evidence.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-004 | FLOW 登记丢失能被发现 | GATE-03 场景来源发现与生命周期合并 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-004.spec.ts`；`scripts/lib/scenario-gate.evidence.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-009 | 新增场景或协议义务未绑定测试 | GATE-07 覆盖清单由事实源生成且缺绑定被阻断 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-009.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-009 | 覆盖率报告缺席手写文件被拒绝 | ENG-07 覆盖率完整性 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-009.spec.ts`；`scripts/check-coverage.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-010 | 格式与行数基线被门禁执行 | ENG-08 代码风格与规模基线 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-010.spec.ts`；`scripts/lib/dependency-rules.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-011 | 项目地图结构缺失或不一致 | ENG-09 渐进式项目地图与 CLAUDE.md 配对 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-011.spec.ts`；`scripts/check-project-map.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-012 | 技术架构文档缺失或与能力地图不一致 | ENG-10 技术架构文档 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-012.spec.ts`；`scripts/check-architecture.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-001 | 产品包与协议包的产物边界与消费 | ENG-01 三包边界与产品交付 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-002 | 架构与质量门禁缺失或违规 | ENG-02 架构与质量门禁 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-002.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-007 | 合成模块逐条证明依赖与平台规则 | ENG-02 架构与质量门禁 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-007.spec.ts`；`scripts/lib/dependency-rules.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-003 | 公共类型注释随源码与声明交付 | ENG-03 公共类型中文注释随双格式声明交付 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts`；`scripts/lib/public-doc.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-005 | 门禁按项目清单工作 | ENG-05 项目清单驱动工程门禁 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts`；`scripts/lib/project-manifest.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-006 | 使用指南缺失或不完整 | ENG-06 使用指南与替换点地图 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`scripts/check-architecture.test.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-EXAMPLE-012 | 示例接口由消费接口声明派生义务 | EX-09 示例的消费接口声明 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-008 | 按白名单删除模板示例后门禁仍全绿 | EX-10 示例删除的自动化验收 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+| SCN-TEMPLATE-EXAMPLE-008 | 示例依赖越界被阻断 | EX-05 示例分层与隔离 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-008.spec.ts`；场景门禁绑定与 checkpoint 对账 | V-1, V-2 | PASS |
+
+## Correctness
+
+### Fresh Command Evidence
+
+#### V-1: 全量验收（三步：check:fast、逐文件 weapp、check:scenarios）
+
+- Command: `pnpm verify --change template-core-hardening --run-id core-verify-phase`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T02:14:20Z
+- Exit code: 0
+- Failure count: 0（weapp `SCN-PROTOCOL-CONTRACT-008` 首跑 120s 超时，按 e2e AGENTS 自动 prepare 后整文件重跑通过，不计为失败）
+- Result: PASS
+- Output reference: 会话临时目录 `scratchpad/final/v1-verify.log`；报告 `artifacts/core-verify-phase/`
+- Key observations: check:fast 158.3s（lint、类型、架构、注释、unit 与覆盖率四项 100%、integration、fixtures）；test:e2e:weapp 492.7s，5 个文件逐个 prepare 后全部通过；check:scenarios 1.4s
+
+#### V-2: 独立场景门禁（对账 V-1 的报告）
+
+- Command: `VERIFY_RUN_ID=core-verify-phase pnpm check:scenarios`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T02:25:23Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: `scratchpad/final/v2-scen.log`
+- Key observations: `mode: complete`，`issues: []`；报告的来源摘要与当前输入一致
+
+#### V-3: 规划结构校验
+
+- Command: `openspec validate template-core-hardening --strict --json`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T02:25:30Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: `scratchpad/final/v3-validate.json`
+- Key observations: Change 合法
+
+#### V-4: Plan Review freshness
+
+- Command: `plan-review-digest.py openspec/changes/template-core-hardening --check-review openspec/changes/template-core-hardening/plan-review.md`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T02:25:31Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: `scratchpad/final/v4-digest.json`
+- Key observations: reviewed = current = `dad69146…`，freshness=PASS
+
+#### V-5: Apply 状态
+
+- Command: `openspec instructions apply --change template-core-hardening --json`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T02:25:32Z
+- Exit code: 0
+- Failure count: N/A（状态查询）
+- Result: PASS
+- Output reference: 命令输出
+- Key observations: state=all_done，progress 18/18
+
+#### V-6: 验证输入清单摘要
+
+- Command: `python3 scratchpad/final/manifest-digest.py .`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-core-hardening-apply`
+- Executed at: 2026-10-11T02:25:33Z
+- Exit code: 0
+- Failure count: N/A（摘要计算）
+- Result: PASS
+- Output reference: 命令输出
+- Key observations: `d7963b0b…`，506 个路径，无未跟踪输入；工作区干净
+
+### Behavioral Results
+
+| Behavior / Claim | Evidence | Result |
+|---|---|---|
+| 门禁"通过"意味着该检查的都检查到了：指纹覆盖全部构建输入、覆盖率覆盖全部手写代码、Fixture 与协议同形、checkpoint 双向一致 | template-engineering、scenario-gate 各 Scenario；V-1、V-2 | PASS |
+| 协议义务以产品实际消费为准，新增消费接口（含 oneof 响应、逐字段省略）只需登记声明与补矩阵 Fixture 键 | PC-01 / SCN-PROTOCOL-CONTRACT-001、002 与 extension 用例；V-1；Task 18 第 3 轮演练（附录） | PASS |
+| X-Request-Id 头名与格式符合公司规范，默认随机源为 Math.random（A1） | SCN-PROTOCOL-CONTRACT-008、009；V-1（含 weapp） | PASS |
+| 按白名单删除示例后确定性门禁仍通过；共用接口按 A7 保留 | SCN-TEMPLATE-ENGINEERING-008；V-1；Task 17 演练与 Task 18 第 3 轮真实删除（附录） | PASS |
+| 多 active Change 时按作用域运行，互不污染 | scenario-gate 作用域 Scenario；V-1、V-2 | PASS |
+| 第三方首次使用可按指南完成支付 SDK 复刻（SDK + IDL + 小程序），验收全绿 | 附录 Task 18 第 3 轮演练记录 | PASS |
+
+## Coherence
+
+| Proposal / Design Decision | Source | Implementation Evidence | Status / Notes |
+|---|---|---|---|
+| 范围只含与产品形态、协议、平台无关的核心，Web 能力留给 template-web-absorption | proposal.md、design.md Context | 本 Change 未引入 Web/OpenAPI/浏览器代码 | PASS |
+| 清单驱动，门禁不写死包、命令、测试项目 | design 去写死；AGENTS 项目清单 | `project.manifest.json`、`scripts/run-by-manifest.ts`；Task 18 演练中新增模块、驱动、宿主 runner 均经清单生效 | PASS |
+| A1：请求 ID 默认随机源 Math.random，全平台同一实现 | plan-review A1；PC-05 | SCN-PROTOCOL-CONTRACT-009 | PASS |
+| A2/A3：SCN-008 精确扣除排除项、随示例删除 | plan-review A2、A3；EX-10 | `SCN-TEMPLATE-ENGINEERING-008.spec.ts` 位于白名单，排除列表以标记包裹 | PASS |
+| A4：SDK 根入口不导出 consumedOperations | plan-review A4 | `packages/sdk/src/index.ts` 无该导出 | PASS |
+| A5：EX-09 只约束标记内示例条目 | plan-review A5；EX-09 | `consumed-operations.test.ts` 标记内断言 | PASS |
+| A6：extension 用例随示例删除、只基于标记内条目 | plan-review A6；ENG-06 | 白名单三处同步；增量评审核实 | PASS |
+| A7：共用接口删除例外 | plan-review A7；ENG-06 | `SCN-TEMPLATE-ENGINEERING-008.spec.ts` 删除口径、指南"移除模板示例" | PASS |
+| OI-CH-02 结论（用户确认）写入指南并关闭 | design 开放问题表；tasks 任务 18 | `docs/template-guide.md`"从方案到验收"第 4、6 条 | PASS |
+| 小程序自动化复用开发者工具，失败整文件重跑 | AGENTS 执行规则 11；packages/e2e/AGENTS.md | V-1 中 PC-008 挂起后自动重跑通过 | WARNING：开发者工具挂起仍会出现，已在指南"已知限制"登记 |
+
+## Review Findings and Resolutions
+
+| Finding ID | Severity | Finding | Resolution | Re-verification IDs | Status |
+|---|---|---|---|---|---|
+| FCR-1~14 | Important/Minor | 首轮 Final Code Review（`b176e3c`）与示例删除演练第 1 轮合并的 14 条 | 逐条修复，见附录"Final Code Review 与演练修复" | V-1 | resolved |
+| F1~F6 | Important | 复审与示例删除演练第 2 轮发现（含 SCN-008 自依赖） | A3 与第二轮修复，见附录 | V-1 | resolved |
+| I-1 | Important | weapp 矩阵 decoded-default 比较 toJSON 投影，恒真 | 60f7836、a2f7deb：恢复真实解码投影，探针证明旧口径假绿 | V-1 | resolved |
+| I-2 | Important | 请求侧 request-optional-absence 被当成存在类，encodingMatches 默认 true | aa831dc：只接受字段确实缺失的请求作证据，未知 case 报错；请求侧 optional-absence 改由声明策略 omitted 派生 | V-1, V-2 | resolved |
+| I-3 | Important | EXAMPLE-005 观察等待 30ms 小于轮询间隔，反例失效 | 20a549a：等待 intervalMs+200ms，变异体证明新等待能拦住 | V-1 | resolved |
+| I-4 | Important | Scenario ID 检查跳过句末 "." 与 "ID/编号" 简写 | f7309de、e95e4f8：只跳过路径中的 ID，补反例 | V-1 | resolved |
+| I-5 | Important | 共用接口删除口径与 ENG-06 原文不一致 | 用户裁决 A7 修订 ENG-06，代码不变 | V-3, V-4 | resolved |
+| M-1 | Minor | shadow-engine-no-generated 只约束 shadow/ 一级文件 | 接受：当前引擎没有子目录；今后拆分子目录时需同步规则 | — | accepted |
+
+## Unverified Areas and Remaining Risks
+
+- 小程序自动化不稳定：开发者工具在同一主进程上重复 launch 可能挂起（V-1 中 PC-008 一次），依靠整文件重跑恢复；已在指南"已知限制"登记。
+- M-1：引擎今后拆分子目录时，依赖规则需同步收紧。
+- 真实归档的前置步骤：Archive 前需先单独提交主 Spec 中 SCN-PROTOCOL-CONTRACT-001/002 的标题对齐（指南"归档已知限制"第 2 条），演练副本已验证该步骤可行。
+- Task 18 第 3 轮演练登记的 7 条非阻塞发现（共用接口删除时机、testing 入口导出名单测、联合类型注释、平台替身代码样例、删除后文字残留等）按用户确认的准入口径只登记，未在本 Change 修复。
+- 替换点地图只经过模拟演练，尚未在真实使用方验证。
+
+## Archive Readiness
+
+- Decision: READY WITH WARNINGS
+- Plan Review verdict: PASS
+- Plan Review freshness: reviewed = current = `dad69146…`
+- Fresh Apply state: all_done
+- Completed tasks: 18/18
+- Failed required commands: 0
+- Unresolved Critical findings: 0
+- Unresolved Important findings: 0
+- Accepted Minor findings: 14（Plan Review advisory 13 条；M-1）
+- Verification input manifest matches current inputs: yes（`d7963b0b…`）
+- Requirements without evidence: 0
+- Warnings and rationale: 小程序自动化挂起（影响是偶发需要重跑，不影响结论，已登记）；M-1（当前无子目录，不影响现有约束）；7 条演练非阻塞发现（使用方可自行发现、摩擦低，按用户口径只登记）
+- Blockers: None
+
+## 附录：逐任务记录与修复记录
+
+> 以下为 Apply 期间的原始记录（执行方逐任务记录、Final Code Review 与各轮修复、两次演练），标题已下调一级。
+
+### 逐任务记录
+
+#### Task 1 依赖小版本升级与忽略项修正
 
 **Commit message**：`chore(template): bump tooling patch versions and fix ignore rules`
 
@@ -68,7 +329,7 @@
 **外部环境观察（不影响本任务）**
 - 协议 IDL 远端分支 `feat/esm-v1.4` 已从锁文件记录的 `80707134` 前进到 `5a786721`；`proto:status` 不比较该提交（实测工具 0.1.2 下同一分支头仍为 `up_to_date`），故与本任务无关，且按 Global Constraints 未修改 IDL / Consumer 登记。
 
-### Task 2 Prettier 基线与全量格式化
+#### Task 2 Prettier 基线与全量格式化
 
 **Commit message**：`style(template): adopt prettier baseline and format the repository`
 
@@ -103,7 +364,7 @@
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`）。
 
-### Task 3 清单扩展、手写源码清单、指纹与覆盖率完整性
+#### Task 3 清单扩展、手写源码清单、指纹与覆盖率完整性
 
 **Commit message**：`feat(template): derive fingerprints and coverage scope from one source inventory`
 
@@ -150,7 +411,7 @@
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`）。
 
-### Task 4 去除写死拓扑与通用规则反例
+#### Task 4 去除写死拓扑与通用规则反例
 
 **Commit message**：`refactor(template): remove hard-coded topology from gates, configs and tooling tests`
 
@@ -206,7 +467,7 @@
 
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务 `test:integration` 全量运行）。
 
-### Task 5 门禁自测隔离
+#### Task 5 门禁自测隔离
 
 **Commit message**：`test(template): isolate gate self-tests from live repository state`
 
@@ -273,7 +534,7 @@
 **按需选择结果**：N/A（任务 9 才交付 `test:affected`；本任务 `test:integration` 全量运行）。
 
 
-### Task 6 Fixture 来源模型改为 ID + Requirement 块摘要
+#### Task 6 Fixture 来源模型改为 ID + Requirement 块摘要
 
 **Commit message**：`feat(template): bind fixtures to requirement digests instead of spec paths`
 
@@ -345,7 +606,7 @@
 - Requirement 块定位/规范化复用既有 `remark-parse`/`remark-gfm`/`unified`（FLOW 表）与 `node:crypto` sha256；归档用固定版本官方 OpenSpec CLI（`openspec archive -y`），未自研归档；CLI 运行用仓库既有 `tsx`；无新增依赖、无自研通用基建。
 - 摘要来源与作用域解析直接在 `spec-sources.ts` 内实现（唯一自研点），因为任务契约要求 `check:fixtures` 与 Task 7 的 `check:scenarios` 共用同一套“有效来源合并 + 作用域”语义；已用受控根与真实归档双向验证。
 
-### Task 7 checkpoint 双向对账与 Change 作用域
+#### Task 7 checkpoint 双向对账与 Change 作用域
 
 **Commit message**：`feat(template): reconcile checkpoints both ways and scope the gate by change`
 
@@ -405,7 +666,7 @@
 - 作用域解析与帮助文本复用 Task 6 的 `spec-sources.ts`（`parseChangeArguments`/`resolveChangeScope`/`changeScopeHelp`），`check:scenarios` 只做接入，未自研第二套参数解析。
 - 集成用例的受控根、OpenSpec 替身、清单复制、`enableInventory` 全部复用 Task 3–6 的 helper（`createControlledRoot`/`scenario-gate-helpers`/`controlled-root`），未新增框架。
 
-### Task 8 统一验收入口与过期说明
+#### Task 8 统一验收入口与过期说明
 
 **Commit message**：`feat(template): add a single verify entry and explain stale reports`
 
@@ -485,7 +746,7 @@
 - 平台步骤替身沿用 Task 3–6 的受控根与清单复制 helper（`createControlledRoot`/`scenario-gate-helpers`/`enableInventory`），未新增框架或自研进程控制器。
 - 微信开发者工具的退出与预热复用本机 `cli` 与仓库既有约定，未自研工具控制器。
 
-### Task 9 按需测试入口
+#### Task 9 按需测试入口
 
 **Commit message**：`feat(template): add affected-scenario test selection with partial reports`
 
@@ -583,7 +844,7 @@
 - 受控根、报告替身与 gate helper 沿用 Task 3–8 的既有 helper（`createRepositoryCopy`、`scenario-gate-helpers`），未新增进程控制器或测试框架。
 - 门禁拒收 partial 复用既有 `loadReporterOutputs` 装载点，未新增报告解析路径。
 
-### Task 10 协议义务以消费接口声明派生与注释门禁按入口发现
+#### Task 10 协议义务以消费接口声明派生与注释门禁按入口发现
 
 **Commit message**：`feat(template): derive protocol obligations from declared consumed operations`
 
@@ -678,7 +939,7 @@
 - Fixture 摘要沿用既有 `pnpm fixtures:refresh`；受控根沿用 `scenario-gate-helpers`／`repository-copy`。
 - 已评估 `tsconfig` `paths` 子路径映射方案（现成的模块解析机制）并在验证其副作用（无 DOM lib 程序报 TS7017）后放弃，理由记在上面第 1 条。
 
-### Task 11 Shadow 请求记录、路径转换与有界轮询
+#### Task 11 Shadow 请求记录、路径转换与有界轮询
 
 **Commit message**：`feat(template): record every shadow request and support bounded polling`
 
@@ -753,7 +1014,7 @@
 - `environmentClass` 复用 Task 4 的 `defineCase` 上下文（`environmentClassOf` 按清单测试项目 `class` 解析），未新增第二套环境判定。
 - AGENTS"轮询用例写法"直接采用 Design 已确认的两类划分，未自行改写职责边界。
 
-### Task 12 Shadow 响应与协议同形校验
+#### Task 12 Shadow 响应与协议同形校验
 
 **Commit message**：`feat(template): validate shadow responses against the protocol shape`
 
@@ -828,7 +1089,7 @@
 - Shadow 构造期校验沿用既有 `steps[]` 编排模型（只在构造循环内插入一次校验调用与 `malformed` 认领分支），未新建校验框架或独立校验阶段。
 - 错误信息与字段路径沿用既有的 snake_case 路径与 `snakeCase()` 工具，未引入第二套命名规则。
 
-### Task 13 X-Request-Id 按公司规范内化
+#### Task 13 X-Request-Id 按公司规范内化
 
 **规划修订（Apply 期间用户裁决，先于本任务提交）**
 - 单独提交 `17e94e8 docs(openspec): amend request-id random source by user decision`，只含 `specs/protocol-contract/spec.md`、`design.md`、`plan-review.md`；digest 由 `f42e312797a3460a7e0399ff430c959e77f0505ee57838855836f15747682dd8` 变为 `14514624116f04e0780771215b4ab6166504df3c9afd402dbacb44706d2a8fa1`，`freshness=PASS`（`--check-review` 退出码 0）。
@@ -912,7 +1173,7 @@
 - 单测的断言上报复用 Vitest 原生 `context.annotate` 与 `context.expect.getState()`（仓库既有 `records-and-polling.test.ts` 使用同一模式），未自研上报机制。
 - 时区证据复用 Node 内置 `execFileSync` 子进程 + `TZ` 环境变量，未引入时区库。
 
-### Task 14 行数上限与超限文件拆分
+#### Task 14 行数上限与超限文件拆分
 
 **Commit message**：`refactor(template): enforce max-lines and split oversized modules`
 
@@ -996,7 +1257,7 @@
 - 用例断言上报复用既有 `cliEvidence` / `evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `createControlledRoot`，未新建夹具框架。
 - 未新增任何运行时或开发依赖；本任务**无自研通用能力**。
 
-### Task 9 交付物缺陷修复（fix commits `29e322a`、`f89546d`）
+#### Task 9 交付物缺陷修复（fix commits `29e322a`、`f89546d`）
 
 Task 16 实施期间按 ENG-06 运行约定执行 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm test:affected`，发现 Task 9 交付的按需入口存在两处缺陷。经用户裁决授权，在 Task 16 提交前单独修复并提交，**不改规划语义**（未改 proposal/specs/design/tasks，未改任何 Scenario 的 checkpoints）。
 
@@ -1054,7 +1315,7 @@ Task 16 实施期间按 ENG-06 运行约定执行 `SCENARIO_GATE_CHANGES=templat
 - **补跑 Task 16 提交点**（修复提交 `f89546d` 为基线，日志 `/tmp/t16-affected-final.log`）：退出码 **0**，未升级为全量，unit 步骤**真实执行** 7 文件/63 用例（含 `scripts/check-architecture.test.ts`），与该任务全量 `verify` 的结论一致。
 - **重新统计**：补跑点「按需通过、全量失败」**0** 次；Task 9–15 轮次因基线无效不计入。修复后未再出现「按需与全量结论不一致」的情况。
 
-### Task 16 技术架构文档与指南修订
+#### Task 16 技术架构文档与指南修订
 
 **Commit**：`docs(template): add architecture document and revise the template guide`
 
@@ -1125,7 +1386,7 @@ Task 16 实施期间按 ENG-06 运行约定执行 `SCENARIO_GATE_CHANGES=templat
 - 用例复用既有 `cliEvidence`/`evidence` 包装与受控根 helper，未新建夹具框架；未新增任何依赖（`remark-gfm` 已在 Task 6/15 使用）。
 
 
-### Task 15 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
+#### Task 15 渐进式项目地图、CLAUDE.md 配对与 AGENTS 约定
 
 **Commit message**：`docs(template): add progressive project map with paired CLAUDE.md`
 
@@ -1194,7 +1455,7 @@ Task 16 实施期间按 ENG-06 运行约定执行 `SCENARIO_GATE_CHANGES=templat
 - 用例断言上报复用既有 `cliEvidence`/`evidence` 包装（Vitest 原生 `context.annotate`），受控根复用既有 `minimalManifest`/`createControlledRoot` 与 `writeTemplateGuideFixture`，未新建夹具框架。
 - 未新增任何运行时或开发依赖；本任务**无自研通用能力**。
 
-### T10/T12/T13 交付物缺陷修复（示例绑定证据迁出补完 · fix commits `8b5e08f`、`eb5df99`）
+#### T10/T12/T13 交付物缺陷修复（示例绑定证据迁出补完 · fix commits `8b5e08f`、`eb5df99`）
 
 Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运行"。按用户裁决补完 Task 10/12/13 遗留的示例绑定证据迁出，**不改规划语义**：证明共享能力 Scenario（protocol-contract / scenario-gate / template-engineering）的证据必须自供输入；只有证明 `template-example` 自身 Scenario 的证据才允许用 `template-example` 标记包装。
 
@@ -1228,7 +1489,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - 修复：断言改为"标记存在且成对"（`begins.length > 0`、`ends.length === begins.length`），不写死数量。GREEN：`pnpm exec vitest run --project sdk-unit packages/sdk/src/consumed-operations.test.ts` 退出码 **0**（2 用例）；`SCENARIO_GATE_CHANGES=template-core-hardening pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts` 退出码 **0**（1 用例）。
 - 修复对副本无影响（断言位于标记内，副本仍整段剥离）；随后仓库内 scoped `check:fast`（含 008 副本流程）与全量 `verify` 均通过。
 
-### Task 17 自动化部分：示例删除验证（自动化层）
+#### Task 17 自动化部分：示例删除验证（自动化层）
 
 **范围**：本 Change 的 `SCN-TEMPLATE-ENGINEERING-008` 自动化用例及其依赖迁出。用户交接明确「示例删除演练」与 Task 18 由验收方派发**全新的无上下文 Agent** 在隔离副本中执行，本任务**不勾选 Task 17**、不提交演练记录。
 
@@ -1289,13 +1550,13 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 
 ---
 
-## Final Code Review 与演练修复
+### Final Code Review 与演练修复
 
 **范围**：验收方对 Task 17 自动化部分与示例删除演练日志的最终代码评审共 14 条。先取消勾选受影响的 Task（`39385c7 docs(openspec): uncheck tasks under final review`），再逐条修复、复验、自审，最后重新勾选；Task 17 / 18 仍不勾选。每条（或同一 Task 的几条）单独提交，提交信息见各条；本节逐条登记根因、改动、证据（命令、退出码、日志路径）与反例。
 
 **证据基线**：只读演练副本 `/private/tmp/claude-501/-Users-liyongning-Projects-workspace-sdk-template/f9f56b99-68ab-4be9-a947-7e43849bb047/scratchpad/drill-17/repo`，日志在同级 `drill-17-tools/`；本目录内不做任何改动。
 
-### 第 1 条 · Task 3/4 + Task 17：无 active Change 时副本构造必然失败
+#### 第 1 条 · Task 3/4 + Task 17：无 active Change 时副本构造必然失败
 
 - **根因**：两处把「本 Change 仍在 active」当成事实。
   1. `SCN-TEMPLATE-ENGINEERING-001.spec.ts` 的复制输入探针把 `openspec/changes/template-core-hardening/tasks.md` 追加进清单 `fingerprints.buildInputs`，归档后该路径不存在、`git ls-files` 匹配不到 → 断言失败（演练 `drill-17-tools/verify-2.log:422`：`expected [ '.dependency-cruiser.cjs', …(345) ] to include 'openspec/changes/template-core-harden…'`）。核心 Change 归档后主仓库会一直处于这个状态。
@@ -1311,7 +1572,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：修复前同一场景在演练副本里 008 两条 case 全失败、001 `package-boundaries` 失败（`drill-17-tools/verify-2.log:402-445`，`Test Files 2 failed | 41 passed`）。
 - **提交**：`fix(template): construct copy probes without an active change`。
 
-### 第 2 条 · Task 13：weapp 的 PC-008 证据改走 generated 方法
+#### 第 2 条 · Task 13：weapp 的 PC-008 证据改走 generated 方法
 
 - **根因**：`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts` 经宿主 `runProtocolSuite` 发请求，而该运行器按 SDK 的消费接口声明（`packages/sdk/src/consumed-operations.ts`）遍历接口。PC-008 是共享能力，示例删除后声明数组为空（`// template-example` 标记整段剥离），运行器按约定「声明为空时正常结束」，一个请求都不发；用例却固定期望 `records.length === steps.length`（8 次 CreateTrade），于是 Shadow 报告 `missing request 1 of 8`（演练 `drill-17-tools/weapp-008-rerun.log`）。同时该用例没有 `template-example` 标记，删示例后照常运行，属于缺绑定。
 - **改动**（`idl: 'generated'` 这一条只影响本用例，不改变声明语义）：
@@ -1326,7 +1587,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **同文件跨越**：`protocol-runner.ts` 里「消费接口声明不经 SDK 根入口导出，改按源码路径读取」这一行属第 3 条（同一条提交承载，见第 3 条）。
 - **提交**：`fix(template): source weapp request-id evidence from generated idl`。
 
-### 第 3 条 · Task 10（用户已裁决）：SDK 根入口不再导出消费接口声明
+#### 第 3 条 · Task 10（用户已裁决）：SDK 根入口不再导出消费接口声明
 
 - **根因**：`packages/sdk/src/index.ts` 把包内实现 `consumed-operations.ts` 的类型与常量当公共 API 导出（`consumedOperations`、`ConsumedMethod`、`ConsumedOperation`、`ConsumedRequestField`）。声明模块是门禁的分析输入，不应固化成产品公共接口；示例删除后它还留在 `dist` 声明里。
 - **改动**（不改规划语义）：
@@ -1341,7 +1602,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：`packages/sdk/dist/index.d.ts` 修复前导出 `export { consumedOperations } from './consumed-operations';`（原始内容见本 Change 提交前的 `packages/sdk/src/index.ts`）；若有人把声明再当公共 API 导出，`grep` 的退出码会变回 0。
 - **提交**：`fix(template): keep the consumed-operations declaration package-internal`。
 
-### 第 5 条 · Task 3：源码清单剔除工作区已删除但未暂存的路径
+#### 第 5 条 · Task 3：源码清单剔除工作区已删除但未暂存的路径
 
 - **根因**：`scripts/lib/source-inventory.ts:42` 的 `git ls-files -co` 会列出「工作区已删除、但索引里还在（未 `git rm`/未暂存删除）」的文件，下游 `readSourceInventory` 按清单 `readFileSync` 读内容 → `ENOENT` 崩溃。演练副本里出现过这条崩溃路径（先删文件再跑门禁）。
 - **改动**：`listGitFiles` 在 `git ls-files -co` 之后统一过滤掉磁盘上不存在的路径（`existsSync(join(root, path))`）。用 `existsSync` 而不是 `git ls-files --deleted` 做差集：`--deleted` 只覆盖索引态，`-co` 的另一个来源是未跟踪新文件，两套口径叠加反而更容易漏；单次 `existsSync` 判定与现有实现同一处收敛，无额外进程与状态。
@@ -1350,7 +1611,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 反例：`rmSync('scripts/removed.ts')` 后 `listGitFiles` 仍应返回该路径（旧行为）；对应 `codeFiles(readSourceInventory(root))` 从 `['scripts/kept.ts','scripts/removed.ts']` 变为 `['scripts/kept.ts']`，不再给下游留下 `ENOENT`。
 - **提交**：`fix(template): drop worktree-deleted paths from the source inventory`。
 
-### 第 7 条 · Task 6：Fixture 不写 `sources.spec` 即跳过 owner 与摘要检查
+#### 第 7 条 · Task 6：Fixture 不写 `sources.spec` 即跳过 owner 与摘要检查
 
 - **根因**：`scripts/check-fixtures.ts:85` 用 `const spec = manifest.sources.spec; if (spec?.requirementDigest) { … }` 包裹 owner 存在性与来源摘要检查，Fixture 来源里只要不写 `spec`（或写了 `spec` 但没有 `requirementDigest`）就整段跳过。演练复现：新建 `SCN-TEMPLATE-ENGINEERING-999/manifest.json`、`sources` 只写 `{"note":"x"}`，`check:fixtures` 的 `issues` 为空。
 - **改动**：
@@ -1364,7 +1625,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例口径**：断言的是 `issues` 里出现 `manifest schema`（schema 层拦截），不是"恰好一条问题"——owner/摘要检查现在无条件执行，schema 判断先失败时不再进入摘要比对。
 - **提交**：`fix(template): require fixture spec sources and always resolve owners`。
 
-### 第 6 条 · Task 12（I-1）：rawBody 不声明 malformed 就能跳过同形校验
+#### 第 6 条 · Task 12（I-1）：rawBody 不声明 malformed 就能跳过同形校验
 
 - **根因**：`packages/protocol/testing/shadow/server.ts:122` 的构造期结构校验只对 `body` 生效——`malformed` 分支之后直接 `if (!hasOwnProperty(step,'body')) return;`，于是只给 `rawBody`（原样发送、不做 JSON 序列化）的 step 既不做结构校验、也不认领 `malformed`，留下 PC-04 禁止的「不声明即不校验」路径。
 - **改动**：
@@ -1376,7 +1637,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **记录修正**：Task 12 段原有「补 `malformed` 声明的步骤 0 处」已在该段就地改注，指向本条。
 - **提交**：`fix(template): require malformed claims for rawBody shadow steps`。
 
-### 第 8 条 · Task 10（I-3）：协议矩阵的"空声明"断言恒真
+#### 第 8 条 · Task 10（I-3）：协议矩阵的"空声明"断言恒真
 
 - **根因**：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts:541-545` 在 `declaredNames.length === 0` 时断言 `expect(declaredObligationKeys()).toEqual([])`，而 `declaredObligationKeys()` 本身就是"把空声明按义务展开"的结果：无论门禁派生是否出错，它都必然是空数组，属于恒真断言（断言审查清单里的第 1 类）。
 - **改动**：改成核验**真实派生结果** `inventory.obligations`——除 `idl.error-contract#`（由 IDL 错误契约派生、不属于消费接口派生的矩阵范围）之外的义务必须为空；同时要求 `idl.error-contract#` 义务数量大于 0，作为"这是同一份真实 inventory、不是空集合"的存在性证据。非空声明分支的断言保持原样。
@@ -1384,7 +1645,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：把 `declaredObligationKeys()` 换成恒真的空数组断言时，即使门禁多派生出一条义务也不会失败；新断言取 `inventory.obligations`，多派生一条即 F`toBeGreaterThan(0)`/`toEqual([])` 失败。
 - **提交**：`fix(template): assert the real derived obligations when the declaration is empty`。
 
-### 第 4 条 · Task 3：开发者工具改写的项目配置让验收报告一跑完就过期
+#### 第 4 条 · Task 3：开发者工具改写的项目配置让验收报告一跑完就过期
 
 - **根因**：`packages/e2e/host/weapp/project.config.json` 受 git 跟踪，而微信开发者工具打开项目时会改写它（实测删掉末尾换行）。该文件在清单 `fingerprints.sourceRoots` 的 `packages/e2e/host` 覆盖范围内，所以一次完整 `pnpm verify`（内含 weapp 用例）跑完，源码摘要就与报告不一致——演练 `scenarios.log:2899` 记录到 181 条 stale，变化文件正是它（`integration/all-errors is stale … 变化文件（共 1 个）：packages/e2e/host/weapp/project.config.json`）。
 - **改动**：
@@ -1401,7 +1662,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **偏差**：模板重命名（`git mv`）被并入第 5 条提交 `d893185`（该提交里它是 0 行内容变化的纯重命名）；本条提交只含 `.gitignore`、`scripts/weapp-prepare.ts`、`packages/e2e/host/weapp/setup.ts` 与新增的 `scripts/lib/weapp-project-config.{ts,test.ts}`。
 - **提交**：`fix(template): generate the weapp devtools config from a tracked template`。
 
-### 第 12 条 · Task 13 / 验收流程：小程序冷启动改为就绪探测
+#### 第 12 条 · Task 13 / 验收流程：小程序冷启动改为就绪探测
 
 - **根因**：`prepareWeapp` 原实现只按固定流程退出、清理、`cli open` 后返回，是否可跑由后续 spec 自己撞运气。演练 `verify-3.log:20`、`:66` 记录同一文件连续两次失败：自动 prepare 之后 `SCN-PROTOCOL-CONTRACT-002` 在 `MiniProgram.checkVersion` 处 `Cannot read properties of undefined (reading 'split')`（`Tool.getInfo` 还没返回 `SDKVersion`，`licia/cmpVersion` 拿到 `undefined`），手工多等 25 秒后同一用例 11085ms 通过（`weapp-manual.log:21`）。
 - **改动**（`scripts/weapp-prepare.ts`，不依赖固定 sleep）：
@@ -1411,7 +1672,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：固定 sleep 不构成判定依据——`verify-3.log` 两次运行之间已有间隔仍然失败；新实现只有在 `checkVersion()` 真正读到版本号时才返回，否则以非零退出码失败，`verify` 据此判失败而不是让用例随机红。
 - **提交**：`fix(template): probe devtools readiness before running weapp specs`。
 
-### 第 9 条 · Task 15/16：指南补齐三处 SHALL 内容
+#### 第 9 条 · Task 15/16：指南补齐三处 SHALL 内容
 
 - **根因**：Final Code Review 指出指南缺 ENG-09、PC-01、PC-05 三处 SHALL 要求的陈述：ENG-09 要求在指南写明 Claude Code 版本下限与 `CLAUDE.local.md` 的开头约定；PC-01 要求能力地图写明"新增消费接口"的操作；PC-05 要求在能力地图注明删除 `runtime.nextRequestId` 是破坏性变更。
 - **改动**（只改 `docs/template-guide.md`，不动规划语义）：
@@ -1422,7 +1683,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：三处 SHALL 缺一时，指南与 Spec 的表述不一致——能力地图不再说明"新增消费接口只改声明与矩阵 Fixture"，读者会去改门禁脚本；删除 `runtime.nextRequestId` 的破坏性也没有任何指南线索。事实检查覆盖不到的文本缺口靠本条的逐句比对发现。
 - **提交**：`fix(template): document the guide SHALLs for ENG-09, PC-01 and PC-05`（`20d89b1`，该提交只改 `docs/template-guide.md`；本条验收记录随第 10 条提交落地）。
 
-### 第 10 条 · Task 15/16：指南笔误、清单派生措辞与示例绑定文档
+#### 第 10 条 · Task 15/16：指南笔误、清单派生措辞与示例绑定文档
 
 - **根因**（逐条）：
   - 指南第 101 行把作用域变量写成 `SCN-SCENARIO_GATE_CHANGES=...`（笔误），照抄执行得到的是未知变量；同时没写"删除示例后至少 `git add -A` 或提交"这一步。
@@ -1445,7 +1706,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - ENG-001 Fixture：保留 `sdkExports` 会在示例删除后指向不存在的导出名，属于"门禁依赖示例"；删除后 `check:fixtures` 摘要与内容一致（`fixtures:refresh` 的 `updated` 列表只有 `SCN-TEMPLATE-ENGINEERING-001`）。
 - **提交**：`fix(template): correct the example-removal guide wording and example-bound docs`。
 
-### 第 11 条 · Task 9：按需入口的两处缺陷（M-3 分析路径映射、M-4 报告与准备）
+#### 第 11 条 · Task 9：按需入口的两处缺陷（M-3 分析路径映射、M-4 报告与准备）
 
 - **根因**：
   - M-3：`analysisTsconfig` 只把清单里的包名映射到 `packages/<dir>/src/index.ts`，没有仓库自己的 TS 路径别名。用例经 `@template-test/protocol`（→ `packages/protocol/testing/index.ts` → `shadow/server.ts`）导入协议测试包，依赖图在这个别名处断开，`depcruise --reaches` 找不到任何 e2e 用例——实测改 `packages/protocol/testing/shadow/server.ts` 后选中的用例数为 0。
@@ -1467,14 +1728,14 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - M-4(c)：prepare 步骤完全由清单 `testProjects[].prepare` 派生（测试用真实清单的 `weapp` 项目断言命令为 `pnpm run weapp:prepare` 且排在平台文件步骤之前），清单不登记时不会凭空出现该步骤。
 - **提交**：`fix(template): map test aliases and keep per-project affected reports`
 
-### 第 13 条 · Task 5/17（M-5）：`harmonizeScenarioTitles` 偏离登记
+#### 第 13 条 · Task 5/17（M-5）：`harmonizeScenarioTitles` 偏离登记
 
 - **事实**：`packages/e2e/tests/tooling/repository-copy.ts` 的 `applyChangeScope` 在调用真实 OpenSpec CLI 归档前，会把主 Spec 里同 ID Scenario 的标题按 delta 机械对齐（`harmonizeScenarioTitles`）。原因：归档校验比 OpenSpec 自己的合并语义更严——MODIFIED 块里被改写的标题会被判成「主 Spec 有、修改块没有」而拒绝归档。
 - **当前状态**：主 Spec 仍是旧标题（`openspec/specs/protocol-contract/spec.md`：`SCN-PROTOCOL-CONTRACT-001 义务清单只针对示例消费的接口`、`002 示例接口的协议义务都有运行证据`），delta 的最终标题是 `001 义务清单只针对产品声明的消费接口`、`002 声明接口的协议义务都有运行证据`。
 - **归档阶段前置动作（由验收方在 Archive 阶段执行，本次不做）**：真实归档前必须先把主 Spec 的这两个标题改成最终标题并单独提交，否则真实归档会被 CLI 拒绝。副本里的机械对齐只服务演练，不是归档的替代品。
 - **边界**：本项只登记，未改主 Spec、未改规划语义。
 
-### 第 13 条 · Task 17（M-6）：删除归档后多余的 `fixtures:refresh`
+#### 第 13 条 · Task 17（M-6）：删除归档后多余的 `fixtures:refresh`
 
 - **根因**：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 在副本基线提交前对整个 Fixture 目录跑了一次 `pnpm fixtures:refresh <全部 owner>`。副本 helper 已经按作用域归档，归档前后 Requirement 块摘要不变，这次全量 refresh 不产生任何变化；它还掩盖了「归档是否真的改变摘要」这一事实。
 - **实证**：探针 `/tmp/m6-probe.mts`（构造受控副本 → 归档本 Change → 对磁盘上 19 个 owner 各跑一次 refresh）→ `/tmp/fcr-m6-probe.log`：`owners 19 changed-after-archive-refresh 0 []`，退出码 0。
@@ -1482,37 +1743,37 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例（证明保留的那次不可省）**：同一探针把 `packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 置空后不 refresh 直接 `pnpm check:fixtures` → 退出码 **1**、`SCN-PROTOCOL-CONTRACT-002: sha256 mismatch for protocol-matrix.json`；只 refresh 该 owner 后 `manifests: 19, issues: []`、退出码 **0**（同一日志）。
 - **证据**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` → 2 用例通过、78.55s、退出码 **0**（`/tmp/s008-r3.log`）；同一探针在副本内跑完整 `check:fast` → 退出码 **0**，副本内 `test:integration` 39 文件 / 91 用例全绿（`/tmp/s008-probe-3.log`）。
 
-### 第 13 条 · Task 17（M-8）：`SCN-026` 的 concrete-assertions 扫描范围扩大
+#### 第 13 条 · Task 17（M-8）：`SCN-026` 的 concrete-assertions 扫描范围扩大
 
 - **根因**：GATE-026 的 `concrete-assertions` 只扫 `scripts/check-scenarios.test.ts`、`scripts/lib/scenario-gate.evidence.test.ts` 与 Fixture 登记的 GATE-001~011 用例。GATE-012~025 与门禁自身的 checkpoint / gate 单测不在范围内，「只用具体断言证明结论」的退化写法可以绕过。
 - **改动**：Fixture `SCN-SCENARIO-GATE-026/self-test-isolation-cli.json` 的 `gateSelfTestSpecs` 补齐 GATE-012~025（`fixtures:refresh SCN-SCENARIO-GATE-026` 重算摘要）；被扫文件列表增加 `scripts/check-scenarios.checkpoint.test.ts` 与 `scripts/check-scenarios.gate.test.ts`。
 - **证据**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm fixtures:refresh SCN-SCENARIO-GATE-026` 退出码 **0**；`SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fixtures` → `manifests: 19, issues: []`、退出码 **0**；`SCENARIO_GATE_CHANGES=template-core-hardening pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts` → 1 用例通过、54.22s、退出码 **0**（`/tmp/fcr-026.log`）。
 - **反例**：扫描范围内的 22 个文件若出现 `expect.any(` 或 `process.cwd()`，`concrete-assertions` checkpoint 立即失败（已有的 `not.toContain` 断言）；本轮先按目录清点确认这 22 个文件当前都不含这两个写法。
 
-### 第 14 条（M-7）：`response-shape` 对没有可达字段的类型直接放行（已知限制，不修复）
+#### 第 14 条（M-7）：`response-shape` 对没有可达字段的类型直接放行（已知限制，不修复）
 
 - **现状**：`scripts/lib/response-shape.ts` 的同形校验按响应类型声明的「可达字段」遍历；类型没有可达字段（空对象类型或全部字段不可达）时校验直接放行，不产生 issue。
 - **影响**：这类声明的同形证据弱于有字段的声明。当前协议来源与模板示例没有该形态的响应类型，实际不触发。
 - **处置**：按验收方要求只登记为已知限制，本 Change 不修复（改判定会改变校验语义，超出本次评审范围）。
 
-## 连带修复（修复清单条目落地时暴露的回归）
+### 连带修复（修复清单条目落地时暴露的回归）
 
 修复清单第 3、7、11 条按原样落地后，仓库自身的门禁与示例删除演练仍有非绿项；以下三处是这三条的直接连带回归，已一并修复并复验。
 
-### 第 3 条 连带 · SDK 根入口在示例删除后必须仍是模块
+#### 第 3 条 连带 · SDK 根入口在示例删除后必须仍是模块
 
 - **根因**：第 3 条删掉根入口的消费接口声明导出后，`packages/sdk/src/index.ts` 在示例删除后只剩注释（示例导出整段被 `template-example` 标记剥离）→ 副本内 `pnpm typecheck` 报 `packages/sdk/src/runtime/default.test.ts(47,30): error TS2306: File '<copy>/packages/sdk/src/index.ts' is not a module`，PC-05「SDK 根入口不导出请求 ID 生成器」的根入口检查失去可导入对象，示例删除演练无法全绿。
 - **改动**：入口在标记之外保留空导出块 `export {};`，并在注释里说明「删除模板示例后入口没有公共导出，仍保持模块身份」。不恢复任何被裁决删除的导出。
 - **证据**：副本内 `check:fast` 从 `typecheck` 失败（`/tmp/s008-probe-2.log`）变为退出码 **0**（`/tmp/s008-probe-3.log`）；SCN-008 用例 2/2 通过、退出码 **0**（`/tmp/s008-r3.log`）。
 - **反例**：去掉 `export {};` 后同一副本可复现 TS2306（`/tmp/s008-probe-2.log`）。
 
-### 第 7 条 连带 · `scripts/check-fixtures.ts` 未按 Prettier 格式化
+#### 第 7 条 连带 · `scripts/check-fixtures.ts` 未按 Prettier 格式化
 
 - **根因**：第 7 条把一处 `issues.push(...)` 写成多行后没有执行格式化，`format:check` 在仓库与副本里都会失败。
 - **改动**：`pnpm exec prettier --write scripts/check-fixtures.ts`；diff 只涉及那一行的折行（对照 `/tmp/check-fixtures.before.ts`），无语义变化。
 - **证据**：修复前 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm check:fast` → `[warn] scripts/check-fixtures.ts`、退出码 **1**（`/tmp/repo-check-fast-1.log`）；修复后 `format:check` 通过（完整 `check:fast` 的日志见「完成标准复验」，`/tmp/fcr-verify-1.log` 第 20 行起）。
 
-### 第 11 条 连带 · 按需入口的文件超限与单测覆盖率缺口
+#### 第 11 条 连带 · 按需入口的文件超限与单测覆盖率缺口
 
 - **根因**：第 11 条给 `scripts/test-affected.ts`（+60 有效行）与 `scripts/test-affected.test.ts`（+85 有效行）加代码与用例，越过仓库的行数上限（源文件 300、测试文件 600，空行与注释不计，ENG-08）——`pnpm lint` 退出码 1；同时新增的几条分支（平台项目没登记 `prepare`、报告缺 `tests` 字段、related 命中但 0 用例、缺少仓库 tsconfig、清单里没有协议包）没有 unit 证据，`pnpm test:unit` 的 100% 阈值失败。这两项在副本里被 SCN-026 / SCN-008 放大成「副本 check:fast 红」。
 - **改动**（不改规划语义、不改断言语义）：
@@ -1525,11 +1786,11 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - `pnpm exec vitest run --project test-tools-unit scripts/test-affected.test.ts scripts/test-affected.evidence.test.ts` → 2 文件 / 17 用例通过、退出码 **0**（`/tmp/fcr-affected-unit.log`）。
 - **反例（修复前）**：`pnpm lint` 退出码 1（副本日志 `/tmp/s008-probe-2.log`：`scripts/test-affected.test.ts 719 > 600`、`scripts/test-affected.ts 334 > 300`、`'_prepare' is assigned a value but never used`）；`pnpm test:unit` 退出码 1（`ERROR: Coverage for statements (99.97%)` / `branches (99.81%)`，未覆盖 `scripts/test-affected.ts:166,230,367` 与 `scripts/lib/affected-analysis.ts:39`，日志 `/tmp/fcr-coverage-before.log`）。
 
-## 第二轮修复（示例删除演练第二轮 + 修复复核）
+### 第二轮修复（示例删除演练第二轮 + 修复复核）
 
 > 背景：第二轮示例删除演练（证据目录 `scratchpad/drill-17b-tools/`、副本 `drill-17b/repo`，本轮只读引用）确认第一轮暴露的 4 个缺陷都没有再出现、weapp 两个文件首跑即通过；同时复核提出 F1–F6 与演练猜测 1/2/4。用户裁决规划修订 A3，并追加「A3 白名单与 Scenario ID 检查」口径。本节按复核清单第 0–8 条逐条登记根因、改动、证据（命令 / 退出码 / 日志路径）与反例。
 
-### 第 0 条 · A3 规划修订与实施（T17 自动化 + 指南 / 门禁）
+#### 第 0 条 · A3 规划修订与实施（T17 自动化 + 指南 / 门禁）
 
 - **根因**：`SCN-TEMPLATE-ENGINEERING-008` 证明的是"删除模板示例后门禁仍全绿"，但它在示例被真正删除后**必然失败**——`assertWhitelistOnly` 要求副本里还有可删目录、`matrixKeys.length > 0`；对使用方又是长期开销。用户裁决把它移入 `template-example` 的 EX-10，随示例一起删除；ENG-06 保留删除保证与副本构造规定，SCN-026 改为引用 ENG-06 的副本规定。
 - **规划修订（单独提交）**：`51516cd docs(openspec): move example-removal proof into template-example by user decision`，含 `design.md`、`plan-review.md`、`specs/scenario-gate/spec.md`、`specs/template-engineering/spec.md`、`specs/template-example/spec.md`、`tasks.md` 共 6 个文件；`freshness=PASS`（digest `39e9fbf6…`）。
@@ -1554,7 +1815,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **提交**：`51516cd`（规划）、`97e8d73`（实现）、`c4d456f`（补救）。
 - **提交过程的偏离**：第 0 条与第 2 条落在同一个文件上，拆提交时 `29c1fe1` 误把"仅含第 2 条 hunk"的版本写回该文件，覆盖掉第 0 条 d) 的新增断言；随后用 `c4d456f fix(template): restore the example-removal proof dropped by the previous commit` 把文件复原到第 0 条版本。为遵守"不改写已有提交历史"，选择向前补提交而不是 amend；最终文件与拆分前逐字节一致（`diff -q` 通过）。
 
-### 第 1 条 · T9：被选中的 unit 文件与 `vitest related` 共用报告名（复核 F1）
+#### 第 1 条 · T9：被选中的 unit 文件与 `vitest related` 共用报告名（复核 F1）
 
 - **根因**：`scripts/lib/affected-commands.ts` 里 `vitest related` 与被选中的 unit 类文件都写 `artifacts/<run-id>/reports/unit.json`，后写的覆盖先写的；related 选中了改动文件却一个用例都没跑时，被覆盖的报告让 `affectedReportIssues` 读到非 0，漏报（靠 `passWithNoTests` 兜底）。实测路径：改 `packages/protocol/testing/shadow/server.ts` 后 related 无命中，unit 报告被逐文件运行覆盖。
 - **改动**：被选中的 unit 文件改写到独立报告 `unit-files`；`related` 仍写 `unit`，核对只读 `unit` 这一步的真实结果；`scripts/test-affected.test.ts` 把"unit 类项目的报告名合并为 unit"换成"related 与被选中的 unit 文件各写一份报告，不互相覆盖"的组合单测。
@@ -1562,7 +1823,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：新单测同时构造 `related` 与非空 unit 文件列表，断言两者 `VERIFY_REPORT_FILE` 分别是 `unit.json` 与 `unit-files.json`；改动前两者都是 `unit.json`，断言不成立（单测在改动前为红）。
 - **提交**：`a1f0d8a fix(template): give selected unit files their own report name`。
 
-### 第 2 条 · T17：SCN-008 内层 `check:fast` 失败被 ENOENT 掩盖（复核 F4）
+#### 第 2 条 · T17：SCN-008 内层 `check:fast` 失败被 ENOENT 掩盖（复核 F4）
 
 - **根因**：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 的 `runRemoval` 里，`fast`（`pnpm check:fast`）的状态从未被检查，紧接着无条件跑 `probeSharedBindingBreak(copy)`；探针读 `artifacts/<run-id>/reports/integration.json`——内层 `check:fast` 失败时这份报告根本不存在，于是抛出 `ENOENT`，把真正的失败原因（`fast.status`）盖掉，且证据里的 `fastStatus` 与 `fastOutput` 也没落盘。
 - **改动**：`fast.status !== 0` 时先把整段输出写进日志（`t17-copy-check-fast.log`）再抛错，探针移到这之后；清单模式输出解析失败时也带上日志路径与 `cause`。内层失败现在一定以"退出码 + 日志路径"呈现。
@@ -1570,7 +1831,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例（构造性）**：修复前的代码顺序可由 `git show 0b64cdb~1:packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 复现——`const fast = run(...)` 之后直接 `const probe = probeSharedBindingBreak(copy)`，中间没有状态判断与落盘；把副本内任意门禁改成失败即可看到抛出的错误是 `ENOENT ... reports/integration.json` 而不是 `check:fast` 的真实输出。第一轮演练未触发这一路径（那一轮 `git commit` 在更早处就抛错了，见 `drill-17-tools/verify-2.log`）。
 - **提交**：`29c1fe1 fix(template): log the copy fast-gate output before probing reports`。
 
-### 第 3 条 · weapp 就绪探测加超时（复核 F6）
+#### 第 3 条 · weapp 就绪探测加超时（复核 F6）
 
 - **根因**：`scripts/weapp-prepare.ts` 的就绪探测只有单次尝试超时与次数上限，没有总预算；`automator.launch`（`miniprogram-automator`）与 `checkVersion`（内部 `Tool.getInfo`）都可能**一直不返回**，只有次数上限时整体会挂死。
 - **改动**：新增 `withTimeout` 与总预算 `totalTimeoutMs: 180_000`；每次尝试的超时取 `min(attemptTimeoutMs, 剩余预算)`，预算耗尽即明确失败（错误信息含预算与最后一次错误），`launch` 后无论成败都 `disconnect`。
@@ -1578,7 +1839,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：`planWeappPrepare` 的预算由单测固定断言（`attemptTimeoutMs` / `intervalMs` / `attemptCount` / 新增 `totalTimeoutMs`），超出预算时的失败文案为 `微信开发者工具在 180000ms 预算内未就绪`，与"只依赖固定 sleep"的行为区分开。
 - **提交**：`5aa842d fix(template): bound the weapp prepare readiness probe`。
 
-### 第 4 条 · T5：`test-affected.evidence.test.ts` 读真实仓库清单（复核 F2）
+#### 第 4 条 · T5：`test-affected.evidence.test.ts` 读真实仓库清单（复核 F2）
 
 - **根因**：`scripts/test-affected.evidence.test.ts` 的 `full-run-triggers` 用 `loadProjectManifest(process.cwd())` 读**真实仓库**的清单与路径（`packages/protocol/src/adapters/network/wechat.ts`、`packages/e2e/host/weapp/app.js`、`packages/sdk/src/runtime/default.ts`），删除示例或改仓库布局就会失效；而且它没有列进 SCN-026 的 concrete-assertions 扫描范围，断了也没人拦。
 - **改动**：改用受控根 `createAffectedFixture()` 自带的清单与示例路径（`packages/sample-product/src/core.ts`）；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts` 的 `sources` 清单加入 `scripts/test-affected.evidence.test.ts`。
@@ -1586,7 +1847,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：把该用例的 `loadProjectManifest` 换回 `process.cwd()` 或从 `sources` 清单里去掉它，SCN-026 的 concrete-assertions 检查会失败（该用例正是"不许依赖仓库根真实文件、必须出现在扫描清单里"的守卫）。
 - **提交**：`97099a4 fix(template): read the affected evidence manifest from a controlled root`。
 
-### 第 5 条 · `GATE-024` 副本超时 30s → 60s
+#### 第 5 条 · `GATE-024` 副本超时 30s → 60s
 
 - **根因**：`SCN-SCENARIO-GATE-024`（verify-resume-cli）在演练的全量并发下实测 28.66s，逼近 `cliEvidence` 的默认 30s 超时，演练中有一次超时失败——与用例语义无关的计时抖动。
 - **改动**：`packages/e2e/tests/tooling/scenario-gate-helpers.ts` 的 `cliEvidence` 支持 `{ timeoutMs }`（默认仍是 30s）；GATE-024 显式传 `60_000`。按已授权规则（副本 / 重负载用例可补显式超时）执行。
@@ -1594,7 +1855,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：其余 `cliEvidence` 用例不传 `timeoutMs`，超时仍为 30s；只有 GATE-024 放宽，未整体放宽。
 - **提交**：`0b64cdb fix(template): raise the verify-resume evidence timeout to 60s`。
 
-### 第 6 条 · 指南五处修订
+#### 第 6 条 · 指南五处修订
 
 - **根因 / 改动**（`docs/template-guide.md`）：
   1. 原文把"未跟踪 / 已删除未暂存的文件不会进入报告"当成不 add 就不更新的理由，与实际行为不符：源码清单取自 `git ls-files -co --exclude-standard`，未跟踪的新文件**会**进入清单，而工作区里已删除但尚未暂存删除的文件会在读取前被剔除。照实改写。
@@ -1606,7 +1867,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：改动前第 1 条的理由与源码清单实现相矛盾（`scripts/lib/source-inventory.ts` 的 `git ls-files -co` 与"剔除已删除路径"两步）；第 3 条的 `--from` 续跑在第 1 轮演练里是"指南已覆盖但未读到"的猜测项（第二轮复核 F5 直接判为错误）。
 - **提交**：`f2828b0 fix(template): correct the guide's example-removal instructions`。
 
-### 第 7 条 · 第 1 条无作用域证据照实改写 + 新证据（复核 F3）
+#### 第 7 条 · 第 1 条无作用域证据照实改写 + 新证据（复核 F3）
 
 - **根因**：上一轮 verify.md 把"无作用域证据"写成"副本已归档本 Change"，实际是作用域为空、本 Change 被 helper **直接移出**（不是归档），并且设了 `TEMPLATE_COPY=1`、ENG-001 与 ENG-008 都被排除；两处日志路径也不一致。
 - **改动**：照实改写「Final Code Review 与演练修复」与「无作用域证据」两处描述（作用域为空 = 直接移出、`TEMPLATE_COPY=1`、5 个排除项都没执行），并明确这一步**不**证明"真实归档后的副本仍全绿"。
@@ -1618,7 +1879,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：修复前同一条命令退出码 1（见第 0 条反例：SCN-008 在 `assertWhitelistOnly` 失败，`Test Files 1 failed | 54 passed`）。
 - **提交**：并入「第二轮修复」的 verify.md 提交（`docs(openspec): record the second-round fixes in verify.md`）。
 
-### 第 8 条 · 只登记：主 Spec 里描述示例的句子删除后过时（不修）
+#### 第 8 条 · 只登记：主 Spec 里描述示例的句子删除后过时（不修）
 
 - **登记为已知限制，交给后续 Change**：删除示例后，以下主 Spec 文字会变成对不存在的实现的描述——
   - `template-engineering` 的覆盖率排除说明里"四项含 `example-runner.ts`"；
@@ -1628,7 +1889,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **证据**：`rg -n 'example-runner|discoverExampleRoutes|SCN-TEMPLATE-EXAMPLE-012' openspec/specs/`（本轮只读取，未改动 `openspec/specs/**`；`git status` 中该目录无改动）。
 - **提交**：并入「第二轮修复」的 verify.md 提交。
 
-### 第二轮完成标准复验（复核清单第三节）
+#### 第二轮完成标准复验（复核清单第三节）
 
 - **全量验收入口**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id feat-template-core-hardening-20261010T060456Z`
   - **退出码 0**（日志 `/tmp/tch2/verify-round2.log`；文件末尾三行即三步结论）。
@@ -1639,11 +1900,11 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **第 7 条要求的无作用域证据**：见本节第 7 条（真实归档、不带作用域、不设 `TEMPLATE_COPY` 的副本 `check:fast` 退出码 0，ENG-001 等 5 个用例真实执行）。
 - **任务勾选**：本轮受影响的 Task 先取消勾选（`dd27f4b`），修复与复验通过后重新勾选（`docs(openspec): recheck tasks after the second-round fixes`）；Task 17、18 按交接要求保持未勾选。
 
-## 第三轮修复（示例删除演练第三轮）
+### 第三轮修复（示例删除演练第三轮）
 
 > 背景：第三轮示例删除演练（证据目录 `scratchpad/drill-17c/logs/`、副本 `drill-17c/repo`，本轮只读引用）按白名单删除示例后，不带作用域的 `pnpm verify` 退出码为 0、场景门禁 0 问题、没有阻塞；演练另指出 6 处低成本残留。本节按清单第 1–6 条逐条登记根因、改动、证据与反例。**不涉及规划语义**：只改实现、注释、文档与门禁的检查范围。
 
-### 第 1 条 · T16：技术架构文档里的 SCN-008 引用未加标记 + 事实检查是否覆盖架构文档
+#### 第 1 条 · T16：技术架构文档里的 SCN-008 引用未加标记 + 事实检查是否覆盖架构文档
 
 - **根因**：`docs/architecture.md` 的「模板示例解耦与删除白名单」一节写着"删除后的全绿证据由 `SCN-TEMPLATE-ENGINEERING-008` 在隔离副本中承担"，这句话没有 `template-example` 标记；删除示例后该 Scenario 不再登记，这句话就成了悬空引用。而事实检查只扫 `docs/template-guide.md`，架构文档里的 Scenario ID 一直没人核对。
 - **改动**：
@@ -1654,7 +1915,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：见上（未登记 ID 报错、路径形式不报、恢复后不报）。另：本仓库 `docs/architecture.md` 里出现的 21 个 Scenario ID 全部已在有效 Spec 登记，加检查后 `check:architecture` 仍是 0 问题——没有把既有引用误判成悬空。
 - **提交**：`62e6c9d`。
 
-### 第 2 条 · T15：根 AGENTS.md 的协议义务派生写了示例接口
+#### 第 2 条 · T15：根 AGENTS.md 的协议义务派生写了示例接口
 
 - **根因**：根 `AGENTS.md`「IDL 协议义务派生」一节写"协议义务派生针对示例协议的 `CreateTrade`、`QueryTrade` 两个 HTTP 方法"，把派生说成了针对示例接口；示例删除后这句话与实际实现（按消费接口声明派生）不符。
 - **改动**：改写为与示例无关的表述——"协议义务派生按产品包登记的消费接口声明（`manifest.packages[].consumedOperations`）派生：派生出哪些方法、每个方法的请求字段策略与义务 ID 都来自声明，不在门禁里写死接口名"；PC-01 与"待定字段为 0"等其余规定不动，未加标记（整节与示例无关）。
@@ -1662,7 +1923,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：改写前后这条规范都不含 Scenario ID 与示例文件名；区别只在"针对示例接口"这一与实际实现不符的表述。
 - **提交**：`d776c13`。
 
-### 第 3 条 · T10：`consumed-operations.test.ts` 删除示例后只剩循环空转
+#### 第 3 条 · T10：`consumed-operations.test.ts` 删除示例后只剩循环空转
 
 - **根因**：标记外的用例写成 `for (const operation of consumedOperations) { expect(...) }`。删除示例后声明为空数组，循环零次执行，一条断言都不会跑——正是 `packages/e2e/AGENTS.md` 点名的"循环空转"反模式；它证明不了任何东西，却让用例显示为通过。
 - **改动**（`packages/sdk/src/consumed-operations.test.ts`，标记外区域）：
@@ -1673,7 +1934,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：改动前的写法在声明为空时 `assertionCalls` 为 0——循环体一次都不进；改动后用受控输入驱动同一份校验逻辑，四条负例各自让断言失败。
 - **提交**：`2629cd3`。
 
-### 第 4 条 · T10/T12：其余残留的示例字样
+#### 第 4 条 · T10/T12：其余残留的示例字样
 
 - **根因**：三处标记外的写法仍绑着示例名。
 - **改动**：
@@ -1684,7 +1945,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：删除示例后 `exampleExports` 变成空数组，`expect(names).toEqual([...generic].sort())` 仍然拦截"多出未登记的出口"；若把示例出口直接从数组里删掉（不放在标记内），示例存在时该断言会失败。
 - **提交**：`2ad8a78`。
 
-### 第 5 条 · T15：共用一台机器时 `weapp:prepare` 会打断别人
+#### 第 5 条 · T15：共用一台机器时 `weapp:prepare` 会打断别人
 
 - **根因**：`pnpm weapp:prepare` 无条件退出并杀掉开发者工具主进程（`cli quit`，残留时 `pkill`），但 `packages/e2e/AGENTS.md` 只描述了它"退出主进程并预热"，没有提示多工作区/多会话共用一台机器时的相互影响。
 - **改动**：在「微信开发者工具自动化的注意事项」的执行约定里新增第 4 条：明确 `weapp:prepare` **无条件**退出并杀掉主进程，不是"只在需要时才重启"；同一台机器上多个工作区或会话并行使用开发者工具时这一步会打断别人的运行，多工作区共用时请错开使用，不要在别人跑 weapp 用例时执行预热或整次 `pnpm verify`。
@@ -1692,7 +1953,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例**：本轮全量 `pnpm verify` 期间只有一个会话在跑（见「第三轮完成标准复验」），未出现相互打断；这条约定是给多会话并存场景的。
 - **提交**：`01c0029`。
 
-### 第 6 条 · 只登记、不实施的两项后续工作
+#### 第 6 条 · 只登记、不实施的两项后续工作
 
 1. **指南没有提供裁剪片段的现成工具**：三轮演练都各自写了自己的 strip 脚本（`drill-17c/logs/strip-markers.mjs` 等），指南只描述"用成对标记包裹、删除标记之间的内容"，没有提供仓库内的裁剪命令。后续可以加一个受控的 `pnpm` 脚本（例如 `scripts/strip-example-markers.ts`）并纳入门禁自测；本轮不改。
 2. **主 Spec 中描述示例的句子删除后会过时**（上一轮已登记，这里补充证据）：
@@ -1702,7 +1963,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
    这些是主 Spec 正文，改它属于规划语义变更；应随"示例正式移除"的那个 Change 一起做。本轮只读取，未改动 `openspec/specs/**`。
 - **变更 vs 规划语义**：以上两条都不改本轮代码，只登记为后续工作。
 
-### 第三轮完成标准复验
+#### 第三轮完成标准复验
 
 - **全量验收入口**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id feat-template-core-hardening-20261010T063533Z`
   - **退出码 0**（日志 `/tmp/tch3/verify-round3.log`；文件末尾三行即三步结论）。
@@ -1712,11 +1973,11 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **独立 `check:scenarios`**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=feat-template-core-hardening-20261010T063533Z pnpm check:scenarios` → **退出码 0**、`mode: complete`、`issues: 0`；覆盖汇总 `allSpec required 61 / executed 61 / passed 61`、`protocol 639/639/639`（日志 `/tmp/tch3/check-scenarios-round3.log`）。在完整 verify 之后单独跑仍为 0 问题，说明报告没有过期。
 - **任务勾选**：本轮不改任务状态（第 4/5/6/8/9/15/16 已在第二轮重新勾选）；Task 17、18 保持未勾选，Task 17 的演练记录由验收方写入本文件。本轮未改动 `tasks.md`。
 
-## 完成标准复验
+### 完成标准复验
 
 修复清单第三节要求三份收尾证据：全部修复后的全量 `pnpm verify --change template-core-hardening`（新 run id、各步退出码为 0）、之后再单独跑一次 `check:scenarios`（问题数为 0），以及清单第 1 条要求的无作用域证据。以下按顺序登记。
 
-### 全量 `pnpm verify --change template-core-hardening`
+#### 全量 `pnpm verify --change template-core-hardening`
 
 - **命令**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id feat-template-core-hardening-20261010T044824Z`
 - **退出码**：**0**（日志 `/tmp/fcr-verify-1.log`，末三行即三步结论）。
@@ -1727,13 +1988,13 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **报告目录**：`artifacts/feat-template-core-hardening-20261010T044824Z/`（`reports/integration.json`、`reports/unit.json`、`reports/weapp/` 下 5 份 perFile 报告与 `coverage/`）。
 - **与修复前对照**：修复前该步集合在副本里由第 3/7/11 条连带回归放大成红（`/tmp/s008-probe-2.log`）；本轮全量三步全绿。
 
-### 独立 `check:scenarios`（清单第 4 条要求）
+#### 独立 `check:scenarios`（清单第 4 条要求）
 
 - **命令**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=feat-template-core-hardening-20261010T044824Z pnpm check:scenarios`
 - **退出码**：**0**；输出 `mode: complete`、`"issues": []`；覆盖汇总 `allSpec required 61 / executed 61 / passed 61`（日志 `/tmp/fcr-check-scenarios.log`）。
 - **说明**：`check:scenarios` 由 `VERIFY_RUN_ID` 定位 `artifacts/<run-id>/reports/` 下的报告（`scripts/check-scenarios.ts:182`），因此显式传同一 run id，读到的就是上一步全量 verify 产出的报告；本次独立复跑问题数为 0，说明完整 verify 跑完后报告没有过期（第 4 条目标达成，`packages/e2e/host/weapp/project.config.json` 不再受开发者工具改写影响）。
 
-### 无作用域证据（清单第 1 条要求）
+#### 无作用域证据（清单第 1 条要求）
 
 - **脚本**：`/tmp/tcfix-item1-evidence.mts`（复用 `packages/e2e/tests/tooling/repository-copy.ts` 的 `createRepositoryCopy`；宿主未设 `SCENARIO_GATE_CHANGES`，所以 `scopedChangeNames()` 为空，副本里本 Change **没有归档、而是被直接移出**，主 Spec 不含本 Change 的 delta；`copyEnvironment()` 设 `TEMPLATE_COPY=1` 并清空副本内作用域）。
 - **命令**：`pnpm exec tsx /tmp/tcfix-item1-evidence.mts`（`scope from env: []`）。
@@ -1741,7 +2002,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **排除项核对**：`SCN-TEMPLATE-ENGINEERING-001`、`SCN-TEMPLATE-ENGINEERING-007`、`SCN-SCENARIO-GATE-026`、`SCN-TEMPLATE-ENGINEERING-008`、`SCN-TEMPLATE-EXAMPLE-008` 均**未出现**在输出中——它们被 `TEMPLATE_COPY` 规则排除，**没有执行**；其余用例全绿。
 - **这一步证明什么、不证明什么**：证明作用域为空时副本不再出现「无内容可提交的归档」失败（第 1 条修复）。不证明「真实归档后的副本仍全绿」，也不覆盖被排除的用例（ENG-001、ENG-008 等）：这两点由「第二轮修复」第 7 条的证据补上（真实归档、不带作用域、不设 `TEMPLATE_COPY`，ENG-001 等确实执行）。
 
-## Task 17 示例删除演练（验收方执行）
+### Task 17 示例删除演练（验收方执行）
 
 **执行者与方式**：由验收方（规划会话）每轮派发一个全新的、不带上下文的 general-purpose Agent（Claude），共 3 轮。三轮提示词相同，只有副本路径不同。
 
@@ -1786,11 +2047,11 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 
 **结论**：示例删除演练通过；Task 17 验收完成。
 
-## 第四轮修复（支付 SDK 复刻演练）
+### 第四轮修复（支付 SDK 复刻演练）
 
 > 背景：Task 18 支付 SDK 复刻演练的 Agent 在写规划后、实施前做试验，确认两处阻塞（使用方在模板上无法新增协议接口）。证据目录 `scratchpad/drill-18/`（`blocker-repro.patch`、`verify1.log`、`inventory1.txt`，副本 `drill-18/repo` 只读）。用户裁决 A5 并给出第 0–4 条修复清单。受影响的 Task 10、12、16 先取消勾选（`6d7bfdf`），修完并复验后重新勾选。
 
-### 第 0 条 · A5 规划修订与"恰好"断言改为标记内口径
+#### 第 0 条 · A5 规划修订与"恰好"断言改为标记内口径
 
 - **规划提交**：`65089db docs(openspec): scope EX-09 exactness to the marked example entries by user decision`（spec template-example、design.md、plan-review.md，digest `6ef30dcf…`，freshness=PASS，提交前后各查一次）。
 - **实现提交**：`65209ea fix(template): scope the declaration exactness assertions to the marked example entries`——`scripts/lib/example-markers.ts` 新增 `markedLineRanges`/`lineInRanges`（复用既有"只有注释行才算标记"的判定，不在用例里另写一份标记语法）；`packages/sdk/src/consumed-operations.test.ts` 与 `packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-012.spec.ts` 改为"只对标记内的示例条目断言恰好是 `CreateTrade`、`QueryTrade`"，标记外条目只进派生与双向检查；Fixture 来源摘要已按新口径刷新。
@@ -1798,7 +2059,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **证据**：`pnpm test:unit` → 66 文件 / 383 用例通过，Statements 100%（3375/3375）、Branches 100%（2222/2222）、Functions 100%、Lines 100%。
 - **反例**：`scripts/lib/example-markers.test.ts` 中的 `// template-example:end`（无 begin）必须被 `scanExampleMarkers` 报出；字符串字面量中的同名文字必须不参与裁剪。
 
-### 第 1 条 · T10/T12：协议矩阵支持 oneof 响应（integration、weapp、宿主运行器）
+#### 第 1 条 · T10/T12：协议矩阵支持 oneof 响应（integration、weapp、宿主运行器）
 
 - **根因**：`CreateTradePayResponse.pay_params` 是 oneof，派生器按 `wechat_jsapi`、`wechat_native`、`wechat_virtual` 三个分支分别产生 `decoded-branch`、`wire-present`、`wire-absent` 等义务；而矩阵 Fixture 每个接口只允许**一条**响应，用例只取 `responses[0]` 取证（`SCN-PROTOCOL-CONTRACT-002.spec.ts:500` 报 `expected undefined to be defined`）。weapp 侧的 `decodedAt` 也不认识 generated 的 `payParams.params.$case` 结构，分支子字段取不到值。
 - **Spec 原文核对（先核对再实施）**：`protocol-contract` 的 PC-01 只规定"矩阵数据放在 Fixture、以接口名为键""每条义务在 integration 与 weapp 都有通过证据"，**没有**"每个接口一条响应"的约束；主 Spec 的 PC-02 是错误码事实与来源校验，与响应条数无关。因此本条不需要改 Spec，A5 之外没有新的规划修订。
@@ -1816,14 +2077,14 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **weapp 首两次失败与改法（整文件重跑记录）**：`weapp002.log`、`weapp002b.log` 显示 `x-product-id-omitted` 断言失败——头证据用 `methodRecords.at(-1)` 取到的是**整份套件**的最后一条请求（后续故障/超时请求用的是默认上下文），不是矩阵段最后一条"不配置上下文"的请求。改为按 `matrixRecords = methodRecords.slice(0, responses + omitted + 1)` 切出矩阵段后再取首/末记录；第三次整文件重跑通过。失败信息同时改为打印 `headers` 与请求体，便于以后定位（`weapp002b.log` 里能看到 `x-product-id: matrix-product` 与 `baseReq.productId`）。
 - **反例**：见第 3 条（少一条分支响应 → 报出该分支的 3 条义务；声明 omitted 却没样例 → 报字段）。
 
-### 第 2 条 · T10：omitted 逐字段取证
+#### 第 2 条 · T10：omitted 逐字段取证
 
 - **根因**：稀疏请求只删掉了 `productId`，逐字段省略的证据只覆盖 `base_req.product_id` 一个字段；`requestFields` 里声明 `omitted` 的其它字段（`CreateTrade.items.sku_snapshot*`、`QueryTrade.biz_type/biz_trade_no/sync_channel`）没有样例，等于"声明了不校验"。
 - **改动**：Fixture 为每个接口补 `omitted` 列表（`CreateTrade` 4 项、`QueryTrade` 4 项），用例按列表逐字段生成省略样例并各发一次请求；共享实现用 `missingOmissionSamples` 对照声明，缺样例就按 `${接口}#request-mapping#${字段}` 报出，不再写死某个字段。weapp 与 integration 用同一份口径（`matrix-support.ts`）。
 - **证据**：两条用例的 `obligations-covered` 都断言 `missingSamples` 为空（integration 见 `r4-regression-evidence.log`；weapp 见 `weapp002c.log`）。
 - **反例**：回归证据用例里构造 `omitted: ['base_req.product_id']` 的 Fixture（少了 `open_id`），断言 `missingSamples` 含 `CreateTradePay#request-mapping#open_id` 且只报这一个字段——断言实际执行并命中（`r4-regression-evidence.log`）。
 
-### 第 3 条 · 关键回归证据：示例保留时标记外新增 oneof 消费接口
+#### 第 3 条 · 关键回归证据：示例保留时标记外新增 oneof 消费接口
 
 - **改动**：新增 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`。它在受控根里读**仓库当前**的 `consumed-operations.ts`，把使用方条目追加在示例片段结束标记之后（示例已删除的副本里没有标记，则直接追加到声明数组末尾），并自己声明 `extensionAuthority`（不引用示例片段里会一起删除的 `requestAuthority`）；调用方源码、声明方法集合、矩阵 Fixture 都由当前内容派生，因此示例保留与删除两种状态下都成立。
 - **断言的"两步"**：只改声明（登记 `CreateTradePay` 与请求字段策略，含 `omitted`）与矩阵 Fixture（oneof 三个分支各一条响应）后——① 标记内的示例条目仍恰好是 `CreateTrade`、`QueryTrade`（示例删除后为 0 条）；② `buildContractInventory(root).issues` 为 0（双向对账：未使用的声明、未声明的调用都是 0）；③ 该接口派生的每条义务都有取证，三条分支义务都在 `covered` 里。
@@ -1832,13 +2093,13 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **反例 2（声明 omitted 却没有样例）**：见第 2 条。
 - **证据**：`r4-regression-evidence.log`（退出码 0，1 用例，5.0s）；两条反例的断言都在同一次运行中执行通过。
 
-### 第 4 条 · T16：指南补充
+#### 第 4 条 · T16：指南补充
 
 - **改动**（`docs/template-guide.md`）：① 能力地图"IDL 协议义务派生与消费接口双向对账"一行补三点——新条目写在示例标记之外、oneof 响应按分支各一条（一条只带一个分支）、声明 `omitted` 的字段要有逐字段省略样例；② "从方案到验收"新增第 10 条"用例落位与覆盖率排除"——integration 用例放 `packages/e2e/tests/{protocol,tooling,flows,sdk}/**/*.spec.ts`（示例用例另在 `tests/example/`）、weapp 用例放 `packages/e2e/tests/weapp/**/*.spec.ts`，两组目录来自各 vitest 配置的 `include`；新增 weapp 宿主 runner 要在 `manifest.quality.coverageExclusions` 登记文件与理由，由 `pnpm check:coverage` 按清单核对；③ "已知限制"里补平台能力替身**怎样经用例注入**：替身按产品包定义的端口实现、放在 `packages/e2e/src/drivers/`，由用例在调用宿主 runner 前注入，宿主 runner 只按声明发真实 `wx.request` 并回传原始结果（替身仍没有代码样例，保持已知限制）。
 - **证据**：`pnpm format:check`、`pnpm check:architecture`、`pnpm check:fixtures` 退出码 0（`r4-final-2` 的 check:fast 日志 `artifacts/r4-final-2/logs/verify2.log`）。
 - **反例**：指南新增文字里不含未登记的 Scenario ID、不引用被删除的示例文件（事实检查与架构检查均 0 问题）。
 
-### 连带修复 · sdk-release 快照查找与并行临时目录
+#### 连带修复 · sdk-release 快照查找与并行临时目录
 
 - **根因**：`releaseSnapshot(before)` 用"系统临时目录里新增的 `template-sdk-release-*` 目录"定位本次 release 的暂存目录。`scripts/sdk-release.plan.test.ts` 与 `scripts/sdk-release.test.ts` 会被 vitest 并行执行，两者都会在同一个 `tmpdir()` 下创建并清理同类目录；后者的 `statSync` 可能读到前者**正在清理**的目录，抛 `ENOENT: ... stat '.../template-sdk-release-i90OZN'`，把真正的结论（`record snapshot … integrity/content` 拒绝）盖掉。这不是本轮引入的并发，而是本轮新增的用例文件改变了 vitest 的文件并行时序后稳定复现。
 - **改动**：① `scripts/sdk-release.test.ts` 每个用例独占一份 `TMPDIR`（`beforeEach` 里 `mkdtempSync` + `vi.stubEnv('TMPDIR', …)`，随既有 `afterEach` 一起清理/还原），快照查找只看本次用例自己的目录；② `packages/e2e/tests/tooling/sdk-release-fixture.ts` 的 `releaseSnapshot` 跳过已经消失的候选、并要求候选确实含有 `release-record.json`，不再让 ENOENT 成为断言失败原因。
@@ -1846,13 +2107,13 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **提交**：`e6426ff fix(template): isolate release snapshot lookup from parallel temp directories`。
 - **已知限制（只登记，不改）**：`SCN-TEMPLATE-EXAMPLE-005`（示例的窗口/超时用例，断言"窗口内至少重试 2 次"）对 CPU 争用敏感：本轮 `int4.log`、`int5.log`、`fast3.log` 各失败一次，隔离单跑 3 次全部通过、与另一文件并行也通过；同一失败在此前 `artifacts/core-hardening-t14b` 的集成报告里出现过。它是随示例一起删除的示例用例，本轮不改断言；只记录为负载敏感的已知抖动。
 
-### 提交与完成标准复验
+#### 提交与完成标准复验
 
 - **提交**：`65089db`（A5 规划）、`6d7bfdf`（取消勾选 T10/T12/T16）、`65209ea`（标记内口径）、`b3acbaf`（标记辅助函数单测）、`5ab0244`（oneof + 逐字段 omitted）、`f9cc578`（回归证据）、`dd3a2ff`（指南）、`e6426ff`（sdk-release 竞态）。
 - **全量**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r4-final-2` → 退出码 **0**；`check:fast` 通过（163807ms）、`test:e2e:weapp` 通过（477736ms）、`check:scenarios` 通过（1464ms）（日志 `artifacts/r4-final-2/logs/verify2.log`）。
 - **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r4-final-2 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r4-final-2/logs/scenarios2.log`）；说明全量 verify 跑完后报告没有过期。
 - **报告目录**：`artifacts/r4-final-2/`（`reports/unit.json`、`reports/integration.json`、`reports/weapp/`、`reports/scenarios.json`、`coverage/`）。
-### 终态复验（记录本节的提交本身）
+#### 终态复验（记录本节的提交本身）
 
 - **命令**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r4-final-3`（HEAD `6f30136`）。
 - **退出码**：**0**；`check:fast` 通过（161934ms）、`test:e2e:weapp` 通过（278271ms）、`check:scenarios` 通过（1481ms）（日志 `artifacts/r4-final-3/logs/verify3.log`）。
@@ -1860,18 +2121,18 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **说明**：`r4-final-3` 之后只提交了本节与 `tasks.md` 的勾选（`docs(openspec): record the fourth-round fixes and recheck tasks`），没有触碰源码、测试或 Fixture；`r4-final-2` 是同一次修复状态下的前一轮全量证据。
 - **本轮不做**：Task 17、18 仍不勾选；示例删除演练与支付 SDK 复刻演练由验收方另派全新 Agent 执行。
 
-## 第五轮修复（支付 SDK 复刻演练第 2 轮）
+### 第五轮修复（支付 SDK 复刻演练第 2 轮）
 
 > 背景：Task 18 复刻演练第 2 轮里支付 SDK 自身（SCN-PAYMENT-SDK-001~008 与 FLOW）在 integration、weapp 全过、支付相关门禁问题 0，但 verify 停在 `check:fast`，被模板自身两个用例挡住。验收方在演练副本复现（`scratchpad/drill-18b/logs/eng008.log`，副本 `drill-18b/repo` 只读）：`AssertionError: expected [ 'CreateTradePay', 'CreateTradePay' ] to deeply equal [ 'CreateTradePay' ]`（extension 用例把整份仓库声明与追加条目合成，同名接口登记两次）与副本 `check:fast` 报「协议矩阵 Fixture 缺少接口 CreateTradePay 的数据」（删除示例时把使用方的 `CreateTradePay` 键一起删了）。用户裁决 A6 并给出第 0–5 条修复清单。受影响的 Task 10、17 先取消勾选（`af2e4fd`），修完复验后重新勾选 Task 10；Task 17、18 仍由验收方勾选。
 
-### 第 0 条 · A6 规划修订与受影响 Task 取消勾选
+#### 第 0 条 · A6 规划修订与受影响 Task 取消勾选
 
 - **规划提交**：`adae650 docs(openspec): remove the consumer-extension regression case with the example by user decision`（`design.md`、`plan-review.md`、`specs/template-engineering/spec.md`）。
 - **A6 口径**：extension 用例加入示例删除白名单，且 MUST 只基于标记内示例条目与示例键构造声明和矩阵数据，不读取使用方标记外的条目。
 - **新鲜度**：提交前后各查一次 `python3 ~/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-core-hardening --check-review openspec/changes/template-core-hardening/plan-review.md` → `current_sha256 = reviewed_sha256 = 2c0181c8a3f61f8250ba0b45cf64f2daf4f8a4c2165d0d0ddd7fb01cc9cfe026`，`freshness = PASS`。
 - **取消勾选**：`af2e4fd docs(openspec): uncheck tasks under the fifth-round drill review`（Task 10、Task 17）。
 
-### 第 1 条 · extension 用例只基于标记内示例条目与示例键（T10）
+#### 第 1 条 · extension 用例只基于标记内示例条目与示例键（T10）
 
 - **根因**：演练场景是"使用方保留示例、在标记外声明 `CreateTradePay`、`QueryTrade` 与示例共用"。旧实现的 `extendedDeclaration` 用**整份仓库声明**（含标记外条目）加追加条目合成声明，同名 `CreateTradePay` 因此登记两次；`buildContractInventory` 的 `declarations.map` 保留两条，`inventory.methods` 与路由、字段义务全部重复，断言 `expected [ 'CreateTradePay', 'CreateTradePay' ] to deeply equal [ 'CreateTradePay' ]` 失败。
 - **改动（`899b54e fix(template): build the consumer-extension case from marked example entries only`）**：
@@ -1884,7 +2145,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 演练消费者形态（使用方保留示例、标记外新增 `CreateTradePay`、`QueryTrade` 共用）：`artifacts/r5c-ext/`（同轮早期运行）、`artifacts/r5c-ext2/reports/integration.json`（本次复验：4648ms 通过）。
 - **反例**：消费者形态下旧实现必然重复登记 `CreateTradePay`；新实现下同一形态通过，说明"只用标记内条目 + 示例键"的口径把使用方条目排除在合成之外。
 
-### 第 2 条 · ENG-008 只删示例键、条件断言与共用接口（T10）
+#### 第 2 条 · ENG-008 只删示例键、条件断言与共用接口（T10）
 
 - **根因**：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 的删除 helper 把矩阵 Fixture 整体重写为空对象（`JSON.stringify({}, null, 2)`），删除副本里使用方仍在用的 `CreateTradePay` 键随之消失，副本 `check:fast` 的协议矩阵用例报「协议矩阵 Fixture 缺少接口 CreateTradePay 的数据」（`drill-18b/logs/eng008.log` 第 105–118 行）。
 - **改动（`7c9c91c fix(template): remove only example matrix keys that no outside entry declares`）**：
@@ -1900,21 +2161,21 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 模板仓库自身"删后为空"仍成立：标记外为空 → 声明体为空、义务为空、矩阵键为空（`empty-declaration-matrix` 的 `declarationBody === ''` 断言在 `r5t-008` 那一轮执行并通过）。
 - **反例**：消费者形态的删除副本若沿用旧 helper（清空矩阵），副本 `check:fast` 会因缺 `CreateTradePay` 键失败（演练原始现象）；模板仓库态若把共用键规则反过来（删掉所有"标记外已声明"的键），`QueryTrade` 的键会消失而声明仍引用它，矩阵用例同样失败。
 
-### 第 3 条 · 依赖规则只约束 Shadow 引擎文件
+#### 第 3 条 · 依赖规则只约束 Shadow 引擎文件
 
 - **根因**：`packages/protocol/AGENTS.md` 让业务路由写在 `testing/shadow/<业务>/routes.ts`，但 `shadow-engine-no-generated` 只豁免 `idl-routes.ts` 与 `example/`，实测使用方的 `testing/shadow/payment/routes.ts` 依赖 generated 时被判违规（`scratchpad/verify1.log`）。按 PC-03"Shadow 引擎不依赖 generated"的本意，规则只应约束引擎文件。
 - **改动（`14f55be fix(template): constrain shadow-engine-no-generated to engine files`）**：`scripts/lib/dependency-rules.cjs` 把该规则限定到引擎文件；`packages/protocol/AGENTS.md`、`testing/shadow/AGENTS.md` 同步表述；`scripts/lib/dependency-rules.test.ts` 与 `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts` 各补反例。
 - **证据**：`pnpm exec vitest run --project test-tools-unit scripts/lib/dependency-rules.test.ts` → 6 用例通过（日志 `artifacts/r5-fixes/logs/dependency-rules-unit.log`）；`SCN-PROTOCOL-CONTRACT-004 engine-no-generated-cli` 通过（日志 `artifacts/r5-fixes/logs/pc004-ex005.log`）。
 - **反例**：引擎文件依赖 generated 仍被拦；业务路由目录依赖 generated 放行（两处用例覆盖）。
 
-### 第 4 条 · EXAMPLE-005 去掉 CPU 时序依赖
+#### 第 4 条 · EXAMPLE-005 去掉 CPU 时序依赖
 
 - **根因**：`SCN-TEMPLATE-EXAMPLE-005` 用 140ms 的窗口与 30ms/50ms 的间隔断言"窗口内至少重试 2 次"，全量并行时对 CPU 争用敏感（演练中 3 次失败 2 次）。
 - **改动（`211e58a fix(template): make the example window-and-timeout case independent of CPU timing`）**：把 `requestTimeoutMs`/`intervalMs`/`windowMs` 放宽到 200ms/150ms/1500ms，并同步放大 Fixture 的步骤与 `expectedRequests` 上限（窗口内最多约 11 次请求，留到 24 条），断言仍是"单次超时只结束该次请求、窗口内继续查询"，行为语义不变。
 - **证据**：单跑 5 次全部通过（`artifacts/r5-ex005-1..5`，各 1.8s 左右）；全量 `verify`（`r5-final`）通过。
 - **反例**：若窗口内请求数超过 Fixture 的 `expectedRequests`，Shadow 会按 unexpected request 返回 409，因此上限必须按最坏情况留足。
 
-### 第 5 条 · 指南与 AGENTS 补充
+#### 第 5 条 · 指南与 AGENTS 补充
 
 - **改动（`253cde4 docs(template): document weapp substitute limits and platform runbook gaps`）**：
   - weapp 平台替身：`miniprogram-automator` 的 `mockWxMethod` 不会把调用方的回调传给实现函数，只能编排 `success`；失败路径由 integration 用例承担或经宿主 runner 注入（`docs/template-guide.md` 已知限制、`packages/e2e/AGENTS.md`）。
@@ -1923,7 +2184,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
   - 初始化时改包名：不是跑通门禁的前提（门禁只按清单读包名），但发布 SDK 必须改成自己的组织与包名，建议初始化时一次改完。
 - **证据**：`verify`（`r5-final`）的 `format:check`、`lint`、`check:architecture` 全绿；指南新增文字不含未登记的 Scenario ID、不引用已删除文件。
 
-### 完成标准复验
+#### 完成标准复验
 
 - **全量**：`SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r5-final` → 退出码 **0**；`check:fast` 通过（175327ms）、`test:e2e:weapp` 通过（309019ms）、`check:scenarios` 通过（1619ms）（日志 `artifacts/r5-final/logs/verify1.log`）。
 - **独立复跑门禁**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r5-final pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r5-final/logs/scenarios1.log`）；说明全量 verify 跑完后报告没有过期，`git status` 干净。
@@ -1933,7 +2194,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 - **独立复跑门禁（终态）**：`SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r5-final-2 pnpm check:scenarios` → 退出码 **0**，`mode: complete`，`"issues": []`（日志 `artifacts/r5-final/logs/scenarios2.log`）；`git status` 干净，报告没有过期。文档改动另经 `pnpm format:check`、`pnpm lint`、`pnpm check:architecture` 复验（`artifacts/r5-final/logs/docfmt.log`、`doclint.log`、`docarch.log`，退出码均为 0）。
 - **说明**：`r5-final-2` 之后只提交本节这条记录（仅 `verify.md`），没有触碰源码、测试、Fixture 或规划文件。
 
-## Task 18 支付 SDK 复刻演练（验收方执行）
+### Task 18 支付 SDK 复刻演练（验收方执行）
 
 **执行者与方式**：由验收方（规划会话）每轮派发一个全新的、不带上下文的 general-purpose Agent（Claude），共 3 轮。三轮提示词相同，只有副本路径不同。副本构造与 Task 17 演练相同（`git archive` → 离线安装 → 对齐 PC-001/002 标题 → 归档本 Change → 删除归档目录与 `artifacts/` → `git init` 单一提交）。
 
@@ -1985,7 +2246,7 @@ Task 17 自动化层要求"示例删除后共享能力的证据仍能独立运�
 
 **证据位置**：会话临时目录 `scratchpad/drill-18c/`（副本内 `artifacts/pay-verify-1/reports/`、`docs/template-feedback.md`、演练 Change 的 `verify.md`；验收方复跑日志 `logs/scenarios-check.log`）；第 1、2 轮在 `drill-18/`、`drill-18b/`。副本不提交。
 
-## Task 17 复核（A6 之后）
+### Task 17 复核（A6 之后）
 
 A6 把 extension 回归用例加入删除白名单，删除逻辑在第五轮改为只删示例键。Task 17 不再重做演练，依据以下证据复核：
 - 第五轮自动化证据：使用方形态（标记外 CreateTradePay 与共用 QueryTrade）下删除副本 `check:fast` 退出码 0（`artifacts/r5c-008b`）；模板仓库形态下删除后声明为空、义务为空的断言通过（`artifacts/r5t-008`）。
@@ -1993,7 +2254,7 @@ A6 把 extension 回归用例加入删除白名单，删除逻辑在第五轮改
 
 **结论**：Task 17 复核通过，重新勾选。
 
-## 最终验收
+### 最终验收
 
 在 `e3032b3` 加本节修订（指南 OI-CH-02 结论与无作用域约定、design 关闭 OI-CH-02、plan-review 摘要更新）的工作区上，验收方执行：
 - `pnpm verify --change template-core-hardening --run-id core-final-acceptance`：退出码 **0**；check:fast 176.4s、test:e2e:weapp 287.9s（5 个文件逐个 prepare，全部首跑通过，无重跑）、check:scenarios 1.5s。
@@ -2003,20 +2264,20 @@ A6 把 extension 回归用例加入删除白名单，删除逻辑在第五轮改
 
 **结论**：Task 17 复核通过、Task 18 完成；Apply 阶段的全部任务完成。
 
-## 第六轮修复（Verify 阶段增量代码审查）
+### 第六轮修复（Verify 阶段增量代码审查）
 
 审查范围 `12f7455..cc92f93`，4 条阻塞问题（门禁假绿或反例失效）。流程：先提交用户裁决 A7 的规划修订，再取消勾选受影响 Task（10、16、17、18），逐条修复、复验后重新勾选。本 Change 仍处 active，运行一律带 `SCENARIO_GATE_CHANGES=template-core-hardening`。
 
 **A7 规划修订（提交 5cabeed）**：`docs(openspec): allow shared example interfaces to stay on example removal by user decision`。ENG-06 白名单补"共用接口例外"（示例与使用方共用的接口在删除示例时移到标记外并保留对应 Fixture 键），与第五轮实现一致，代码不改。digest `dad69146…`，freshness PASS。
 
-### I-1 weapp 矩阵 decoded-default 恒真（提交 60f7836，连带 a2f7deb）
+#### I-1 weapp 矩阵 decoded-default 恒真（提交 60f7836，连带 a2f7deb）
 
 - **根因**：weapp 宿主把解码结果经 `codec.toJSON(...)` 交回用例；ts_proto 的 `toJSON` 省略默认值，`decodedAt(toJSON(data), path)` 与 `decodedAt(emptyDecoded, path)` 在缺省路径上两侧都是 `undefined`，比较恒真。weapp 下 44 条 `decoded-default` 义务即使把 `trade_no` 解成 `undefined` 也全部通过。
 - **改动**：`packages/e2e/host/weapp/protocol-runner.ts` 新增导出 `decodedProjection(message)`，直接投影真实解码值（保留默认值；`bigint` 转字符串；`undefined` 键在 JSON 序列化时省略），`runProtocolCase`／`runProtocolSuite` 与 weapp 用例的期望侧（`emptyDecoded`、decoded-value/branch）改用同一投影。连带提交 a2f7deb 删除改造后不再使用的 `codec` 变量（lint 报未使用）。
 - **证据**：`artifacts/r6-logs/i1-probe.log`。旧口径 `CreateTradeResponse toJSON: {}`；新投影 `{"tradeNo":"","orderNos":[],"status":"TRADE_STATUS_UNSPECIFIED"}`，`trade_no` 旧 = `undefined`、新 = `""`。
 - **反例**：`packages/e2e/src/drivers/weapp-host.test.ts` 新增 `keeps proto defaults in the decoded projection used by matrix evidence`；先写测试得到 `decodedProjection is not a function` 的 RED，再实现。
 
-### I-2 请求侧 request-optional-absence 假绿（提交 aa831dc）
+#### I-2 请求侧 request-optional-absence 假绿（提交 aa831dc）
 
 - **根因**：`requestEvidence` 用 `caseKey.endsWith('absent')` 判断"应缺失"，而派生出的 case 名是 `request-optional-absence`（不是 `-absent` 结尾），判定落到 `encodingMatches` 的默认 `return true`。一个 optional 请求字段恒被发送时对应义务仍判通过；模板原有的 `CreateTrade`/`QueryTrade` 的 `request.base_req`、`request.base_req.product_id` 4 条同类义务就是这样假绿。
 - **改动**：判定抽到共享模块 `packages/e2e/tests/protocol/matrix-support.ts`（`requestAbsenceCase`／`requestEvidenceIndex`／`encodingMatches`），未知 case 抛错、删除默认 `return true`；integration 与 weapp 用例删掉各自重复实现并改用共享函数。派生侧收窄：`scripts/lib/contract-fields.ts` 的请求侧 optional-absence 只在字段声明了 `omitted` 时派生（响应侧仍按 `field.optional`）。`base_req`／`base_req.request_id` 由公共请求上下文填充、每个请求都存在，按类型 optional 派生只会得到永远取不到证的义务；PC-01 写明请求字段如何映射是产品的事实。
@@ -2024,20 +2285,20 @@ A6 把 extension 回归用例加入删除白名单，删除逻辑在第五轮改
 - **反例**：`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` 的 `obligations-covered` 新增断言：恒发请求时 `requestEvidenceIndex('request-optional-absence','base_req.product_id',[alwaysSent],Map)` 为 -1、含缺失请求时为 1、`encodingMatches('request-unknown-case',…)` 抛错。
 - **影响**：派生义务集合变化（`base_req`、`base_req.request_id` 不再派生 optional-absence），`pnpm test:unit`（385）与 integration 全绿，`scripts/lib/contract-inventory.test.ts` 未断死这两条。
 
-### I-3 EXAMPLE-005 的 no-request-after-end 反例失效（提交 20a549a）
+#### I-3 EXAMPLE-005 的 no-request-after-end 反例失效（提交 20a549a）
 
 - **根因**：`intervalMs` 已改为 150ms，观察等待仍是 30ms，短于一个轮询间隔，拦不住"窗口结束后又排了一次轮询"。
 - **改动**：`packages/e2e/tests/example/SCN-TEMPLATE-EXAMPLE-005.spec.ts` 提取 `requestTimeoutMs=200`／`intervalMs=150` 常量，观察等待改为 `intervalMs + 200`（大于一个间隔）。
 - **证据（变异体实验）**：`artifacts/r6-logs/i3-probe.log`。临时给 `packages/sdk/src/example/core/client.ts` 三处 `window_elapsed` 返回点加一次 `latePoll()`：旧等待 30ms → 用例通过（假绿）；新等待 350ms → 失败 `AssertionError: expected [...] to have a length of 9 but got 10`。变异体已还原（仓库内无 `latePoll`），还原后 `vitest run --project integration packages/e2e/tests/example` 9 文件 / 11 用例通过。
 
-### I-4 Scenario ID 检查口径过宽（提交 f7309de，连带 e95e4f8）
+#### I-4 Scenario ID 检查口径过宽（提交 f7309de，连带 e95e4f8）
 
 - **根因**：`scripts/lib/scenario-ids.ts` 里 "ID 后面紧跟 `.` 或 `/` 一律跳过" 过宽：句末英文句号的 ID、`SCN-X-001/002` 简写里的 ID 都不再检查，架构文档约 6 处简写引用失去检查。
 - **改动**：只跳过路径里的 ID——ID 前面紧挨 `/`，且后面紧跟已知扩展名（`.spec`/`.test`/`.ts`/`.tsx`/`.json`/`.md`/`.mjs`/`.cjs`/`.yml`/`.yaml`）或 `/` 再接非数字（目录名）。句末 `.`、`ID/编号` 简写、路径末尾（后面没有分隔符）都继续检查。e95e4f8 把 `match.index ?? 0` 换成 `match.index`，避免引入未覆盖分支（`check:fast` 含 100% 分支覆盖率硬门禁）。口径实现说明：`/` 前缀是"处于路径中"的必要条件，因此"路径末尾的 ID 仍算引用"（既有 ENG-06 检查点）与本次"简写 ID 继续检查"两条同时成立。
 - **证据**：`artifacts/r6-logs/i4-probe.log`（旧口径对 `参见 SCN-FOO-999.` 与 `SCN-FOO-999/010` 都返回 `[]`；新口径分别报 `SCN-FOO-999`）；`pnpm check:architecture` 退出码 0——架构文档 6 处简写 ID（`SCN-PROTOCOL-CONTRACT-001/002/005` 等）全部已登记，指南路径内的 ID 不受影响，无需改文档。
 - **反例**：新增 `scripts/lib/scenario-ids.test.ts`：`SCN-X-001.spec.ts`、`fixtures/SCN-X-001/`、`fixtures/SCN-X-001/evidence.json` 不报；`参见 SCN-FOO-999.`、`SCN-FOO-999/010`、路径末尾 `fixtures/SCN-FOO-999`、以及中文句号/反引号/空格/行尾等情形继续报。
 
-### 完成标准复验
+#### 完成标准复验
 
 - 全量 `SCENARIO_GATE_CHANGES=template-core-hardening pnpm verify --change template-core-hardening --run-id r6-final-2`：退出码 **0**；check:fast 161.2s、test:e2e:weapp 492.4s、check:scenarios 1.4s。日志 `artifacts/r6-logs/verify-r6-final-2.log`。
 - 独立 `SCENARIO_GATE_CHANGES=template-core-hardening VERIFY_RUN_ID=r6-final-2 pnpm check:scenarios`：退出码 0，`mode: complete`，`issues: []`（61 个 Scenario）。日志 `artifacts/r6-logs/scenarios-r6-final-2.log`。
