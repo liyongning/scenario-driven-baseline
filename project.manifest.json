@@ -35,6 +35,17 @@
       }
     },
     {
+      "directory": "web",
+      "name": "@daqian/template-web",
+      "role": "product",
+      "form": "web-app",
+      "private": true,
+      "allowedDirectories": ["src", "dist", "node_modules"],
+      "moduleRoots": ["src"],
+      "globalStore": "src/store/index.ts",
+      "consumedOperations": ["packages/web/src/app/consumed-operations.ts"]
+    },
+    {
       "directory": "e2e",
       "name": "@daqian/template-e2e",
       "role": "test",
@@ -49,6 +60,12 @@
       "product": "sdk",
       "protocol": "protocol",
       "platforms": ["weapp"]
+    },
+    {
+      "name": "web-openapi-browser",
+      "product": "web",
+      "protocol": "openapi",
+      "platforms": []
     }
   ],
   "requiredCommands": [
@@ -99,6 +116,11 @@
       "config": "packages/openapi/vitest.config.ts"
     },
     {
+      "name": "app-unit",
+      "class": "unit",
+      "config": "packages/web/vitest.config.ts"
+    },
+    {
       "name": "test-tools-unit",
       "class": "unit",
       "config": "packages/e2e/vitest.config.unit.ts"
@@ -123,6 +145,7 @@
       "packages/protocol/testing",
       "packages/openapi/src",
       "packages/openapi/testing",
+      "packages/web/src",
       "packages/e2e/src",
       "packages/e2e/host",
       "packages/e2e/tests",

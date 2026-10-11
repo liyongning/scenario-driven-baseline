@@ -13,11 +13,12 @@
 
 ### 项目地图
 
-仓库是清单驱动的三包模板，规则按层级渐进展开：本文件写全局规则，包级文件写包级规则，模块文件只写本模块的边界。包、模块与 AGENTS 配对由 `pnpm check:project-map` 机械核对。
+仓库是清单驱动的多包模板，规则按层级渐进展开：本文件写全局规则，包级文件写包级规则，模块文件只写本模块的边界。包、模块与 AGENTS 配对由 `pnpm check:project-map` 机械核对。
 
 - `packages/sdk`（产品包）：SDK 公共入口与业务分层，规则见 [packages/sdk/AGENTS.md](packages/sdk/AGENTS.md)。
 - `packages/protocol`（协议包）：协议引擎、平台适配与测试用 Shadow，规则见 [packages/protocol/AGENTS.md](packages/protocol/AGENTS.md)。
 - `packages/openapi`（协议包）：OpenAPI 契约、生成物与 OpenAPI 证据适配，规则见 [packages/openapi/AGENTS.md](packages/openapi/AGENTS.md)。
+- `packages/web`（产品包）：Vue Web 应用、前端分层与浏览器组合，规则见 [packages/web/AGENTS.md](packages/web/AGENTS.md)。
 - `packages/e2e`（测试包）：行为与工程用例、驱动与报告，规则见 [packages/e2e/AGENTS.md](packages/e2e/AGENTS.md)。
 
 ### 项目清单

@@ -293,7 +293,7 @@
   **Commit**
   - `feat(template): add shadow preview mode and partial-then-disconnect fault`
 
-- [ ] 8. Web 应用包骨架、前端架构规则与绑定 `web-openapi-browser`
+- [x] 8. Web 应用包骨架、前端架构规则与绑定 `web-openapi-browser`
 
   **Files**
   - Create：`packages/web/`（按 Design"Web 应用产品包"用 create-vue 3.24.0 初始化后对齐：删除 oxlint、包内 ESLint/Prettier、`.vscode`、脚手架残留；依赖按 Design 版本表；workspace 依赖 `@daqian/template-openapi`；tsconfig 三件套与 `tsconfig.core.json`；目录骨架 `main.ts`、`app/`、`app/platform/`、`app/consumed-operations.ts`（空声明）、`runtime/ports/`、`shared/{components,composables,utils}`、`store/`；`store/` 含全局 store 骨架：唯一的 setup store，对外只暴露 `readonly()` 状态与 action，示例切片在任务 11 加入，删除示例后骨架仍满足 WEB-04）。

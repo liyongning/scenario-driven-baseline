@@ -157,15 +157,23 @@ async function evidence(
 /** 把仓库清单改名成另一个包目录，用来证明规则随清单变化而不是写死。 */
 function renamedManifest(): ProjectManifest {
   const manifest = loadProjectManifest(repositoryRoot);
+  const names = new Map([
+    ['sdk', 'renamed-sdk'],
+    ['web', 'renamed-web'],
+  ]);
   return {
     ...manifest,
     packages: manifest.packages.map((pkg) =>
-      pkg.role === 'product'
-        ? { ...pkg, directory: 'renamed-sdk', name: '@sample/renamed-sdk' }
+      pkg.role === 'product' && names.has(pkg.directory)
+        ? {
+            ...pkg,
+            directory: names.get(pkg.directory)!,
+            name: `@sample/${names.get(pkg.directory)}`,
+          }
         : pkg,
     ),
     bindings: manifest.bindings.map((binding) =>
-      binding.product === 'sdk' ? { ...binding, product: 'renamed-sdk' } : binding,
+      names.has(binding.product) ? { ...binding, product: names.get(binding.product)! } : binding,
     ),
   };
 }
@@ -189,7 +197,7 @@ evidence(
         .toBe('^packages/sdk/src/[^/]+/(core|ports)/');
       context
         .expect(ruleByName(repositoryRules, 'cross-workspace-no-direct-files').from.path)
-        .toBe('^packages/((?:sdk)|(?:protocol|openapi))/(?:src)/');
+        .toBe('^packages/((?:sdk|web)|(?:protocol|openapi))/(?:src)/');
       context
         .expect(rules.cruiseTargets(repository))
         .toEqual([
@@ -198,11 +206,12 @@ evidence(
           'packages/protocol/testing',
           'packages/openapi/src',
           'packages/openapi/testing',
+          'packages/web/src',
           'packages/e2e/src/shadow',
         ]);
       context
         .expect(rules.runtimeFile(repository))
-        .toEqual(['packages/sdk/src/runtime/default.ts']);
+        .toEqual(['packages/sdk/src/runtime/default.ts', 'packages/web/src/runtime/default.ts']);
 
       const renamed = renamedManifest();
       const renamedRules = rules.dependencyRules(renamed);
@@ -218,6 +227,7 @@ evidence(
           'packages/protocol/testing',
           'packages/openapi/src',
           'packages/openapi/testing',
+          'packages/renamed-web/src',
           'packages/e2e/src/shadow',
         ]);
       context
@@ -225,10 +235,15 @@ evidence(
         .toEqual([
           'packages/renamed-sdk/src/*/core/**/*.ts',
           'packages/renamed-sdk/src/*/ports/**/*.ts',
+          'packages/renamed-web/src/*/core/**/*.ts',
+          'packages/renamed-web/src/*/ports/**/*.ts',
         ]);
       context
         .expect(rules.runtimeFile(renamed))
-        .toEqual(['packages/renamed-sdk/src/runtime/default.ts']);
+        .toEqual([
+          'packages/renamed-sdk/src/runtime/default.ts',
+          'packages/renamed-web/src/runtime/default.ts',
+        ]);
     });
   },
 );
@@ -273,6 +288,7 @@ test('package readers use manifest roles without assuming a unique package', () 
   const manifest = loadProjectManifest(repositoryRoot);
   expect(rules.packagesByRole(manifest, 'product').map((item) => item.name)).toEqual([
     '@daqian/template-sdk',
+    '@daqian/template-web',
   ]);
   expect(rules.packagesByRole(manifest, 'unknown')).toEqual([]);
   expect(rules.packagesByRole({ packages: [] } as unknown as ProjectManifest, 'product')).toEqual(

@@ -329,3 +329,39 @@
 **Commit**
 
 - `feat(template): add shadow preview mode and partial-then-disconnect fault`
+
+### Task 8 Web 应用包骨架、前端架构规则与绑定 `web-openapi-browser`
+
+**规划与输入**
+
+- 起始 HEAD：`27c25e6`。
+- 起始与结束 freshness：`PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 按清单新增 `packages/web` 产品包（`form: web-app`、私有、`globalStore: src/store/index.ts`）、`app-unit` 测试项目与 `web-openapi-browser` 绑定；该绑定的 `platforms` 保持为空，浏览器测试项目按任务 10 再登记。
+
+**RED / GREEN**
+
+- RED 阶段在规则未生效时，核心层 DOM 使用、store 直接写入、别名或 `Object.assign`、组件树越层、未测试 Vue 文件与环境配置越界均未被拒绝；受控临时根中的反例用例因此失败。未登记绑定时，SCN-OPENAPI-CONTRACT-021 的 `openapi-matrix-empty` 也没有派生对象。
+- GREEN 后，Vue flat ESLint 配置、按清单生成的 dependency-cruiser 规则、组件树检查、覆盖率完整性检查与 Vitest root 修正均已生效；违规反例被拒绝，恢复后通过。`packages/web` 骨架本身通过架构、类型、格式、lint、build、package、bundle 与组件树检查。
+- 定向用例覆盖 `SCN-WEB-APP-001、004～011`：构造临时仓库验证环境变量越界、核心层 DOM、store 写入、别名、组件树、未测试 Vue、覆盖率恢复以及入口约束；不是只检查脚本退出码。
+- 完整门禁暴露并修复了三个实现问题：无 Web 包时 ESLint 为空 `files` 数组、临时根未按清单生成 `tsconfig.core.json`、空 `consumedOperations` 无法被契约派生器识别；另将 ENG-015 的 Vue 类型错误断言对齐到 `AppRoot.vue`。
+
+**Verification**
+
+- `pnpm lint`、`pnpm format:check`、`pnpm typecheck`、`pnpm check:architecture`、`pnpm check:fixtures`：退出码均为 0。
+- unit：108/108 文件、490/490 用例通过；statements、branches、functions、lines 均为 100%。
+- 定向复跑：`SCN-TEMPLATE-ENGINEERING-008` 2/2、`SCN-SCENARIO-GATE-026` 1/1、`SCN-OPENAPI-CONTRACT-014` 1/1、`SCN-WEB-APP-010` 1/1 均通过；最后一项隔离复跑用时 77265ms。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：integration 92/96 文件、165/169 用例通过；`SCN-TEMPLATE-ENGINEERING-001`、`SCN-OPENAPI-CONTRACT-014`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026` 在并发负载下失败，四项隔离复跑均通过，登记 Task 8 OI 4 次。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：计划 run id `affected-20261011T192233Z`。unit 108/108 文件、490/490 用例通过；integration 94/96 文件、167/169 用例通过，仅 `SCN-WEB-APP-010` 与 `SCN-SCENARIO-GATE-026` 在并发负载下失败。`SCN-WEB-APP-010` 隔离复跑 1/1 通过，`SCN-SCENARIO-GATE-026` 此前隔离复跑 1/1 通过，登记 Task 8 OI 2 次。
+- Task 8 共新增 6 次 OI，全部为“聚合运行失败、隔离复跑通过”，已关闭；全局 OI 累计为 8 次、均已关闭。OI 不计业务失败。
+- 独立 `pnpm check:scenarios --change template-web-absorption`：退出码 1，剩余 21 条问题全部是尚未登记 `browser` 测试项目的预期中间态，归属任务 10；Task 8 的 `app-unit` 问题已关闭。
+- Task 4 的 weapp 段仍为环境阻塞待补跑，run id `template-web-absorption-apply-20261011T141758Z`；Task 8 未运行 weapp，也不改变该阻塞证据。
+
+**Review / Acceptance**
+
+- 对照 create-vue 生成物，保留明确依赖的 `@vue/devtools-api`、精确版本、根级 lint/format 配置和 Vue 工具链；去除包级配置与脚手架残留，并按模板清单接入 `globalStore`、绑定、测试项目、模块根和核心 tsconfig。
+- 新增检查均通过反例或真实仓库运行观察到失败后再恢复，未用恒真断言替代行为证据。Task 8 未执行任务 14、15 的演练，也未勾选对应 Task。
+- `git diff --check` 退出码 0。
+
+**Commit**
+
+- `feat(template): add web app package skeleton with frontend architecture rules`

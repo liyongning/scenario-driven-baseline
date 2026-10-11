@@ -211,7 +211,7 @@ evidence(
   async (context, check) => {
     await check('manifest-schema', () => {
       // 仓库清单通过 schema 校验，且 schema 的每个属性都有中文说明。
-      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(4);
+      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(5);
       context
         .expect(
           checkSchemaDocumentation(repositoryRoot).filter((issue) =>

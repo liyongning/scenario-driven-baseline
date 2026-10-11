@@ -17,9 +17,30 @@ function isOperation(value: unknown): value is RestOperation {
 
 test(
   'OpenAPI matrix executes declarations from a controlled web product',
-  { timeout: 30_000 },
+  {
+    timeout: 30_000,
+    meta: {
+      scenarioCase: {
+        ownerId: 'SCN-OPENAPI-CONTRACT-021',
+        caseId: 'openapi-matrix-empty',
+        fixtureCase: 'openapi-matrix-empty',
+        environment: 'integration',
+        binding: 'web-openapi-browser',
+        covers: [
+          {
+            id: 'SCN-OPENAPI-CONTRACT-021',
+            caseKey: 'openapi-matrix-empty',
+            checks: ['empty-declaration-matrix'],
+          },
+        ],
+      },
+    },
+  },
   async () => {
-    const fixture = openApiFixtureRoot({ prefix: 'openapi-matrix-temporary-' });
+    const fixture = openApiFixtureRoot({
+      declaration: 'export const consumedOperations = [] as const;\n',
+      prefix: 'openapi-matrix-temporary-',
+    });
     try {
       const inventory = await buildContractInventory(fixture.root);
       const methods = inventory.methods.filter((method) =>
@@ -28,21 +49,7 @@ test(
         ),
       );
       const plans = Object.fromEntries(
-        methods.map((method) => [
-          method.name,
-          {
-            input: {
-              body: { merchant_id: 1001, amount: 1, channel: 'WEB' },
-            },
-            responses: [
-              {
-                code: 0,
-                message: 'ok',
-                data: { trade_no: 'T-1', status: 'CREATED', amount: 1, merchant_id: 1001 },
-              },
-            ],
-          } satisfies OpenApiMatrixPlan,
-        ]),
+        methods.map((method) => [method.name, { responses: [] } satisfies OpenApiMatrixPlan]),
       );
       const result = await runOpenApiMatrix({
         methods,
@@ -53,19 +60,13 @@ test(
       });
       const resolved = import.meta.resolve('@daqian/template-openapi');
 
-      expect(methods.map((method) => method.name)).toEqual(['createTrade']);
-      expect(result.methods).toEqual(methods.map((method) => method.name));
-      expect(result.results).toEqual([
-        { kind: 'success', data: expect.objectContaining({ trade_no: 'T-1' }) },
-      ]);
-      expect(result.records).toHaveLength(1);
+      expect(methods).toEqual([]);
+      expect(result.methods).toEqual([]);
+      expect(result.results).toEqual([]);
+      expect(result.records).toEqual([]);
       expect(result.verify).toEqual([]);
       expect(resolved).toContain('/packages/openapi/dist/index.js');
-      expect(
-        inventory.obligations
-          .filter((obligation) => obligation.id.startsWith('trade.v1.createTrade#'))
-          .every((obligation) => obligation.requiredIn.includes('integration')),
-      ).toBe(true);
+      expect(inventory.obligations).toEqual([]);
     } finally {
       fixture.cleanup();
     }

@@ -117,6 +117,26 @@ const project = (include: ReadonlyArray<string>, composite = false) =>
     2,
   );
 
+const coreProject = (include: ReadonlyArray<string>) =>
+  JSON.stringify(
+    {
+      compilerOptions: {
+        composite: true,
+        noEmit: true,
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        strict: true,
+        skipLibCheck: true,
+        lib: ['ES2022'],
+        types: [],
+      },
+      include,
+    },
+    null,
+    2,
+  );
+
 const baseFiles = (): Record<string, string> => ({
   'packages/sdk-product/tsconfig.build.json': project(['src/**/*.ts']),
   'packages/sdk-protocol/tsconfig.build.json': project(['src/**/*.ts']),
@@ -133,18 +153,53 @@ const baseFiles = (): Record<string, string> => ({
     '',
   ].join('\n'),
   'packages/web-product/tsconfig.app.json': project(['src/**/*.ts', 'src/**/*.vue'], true),
-  'packages/web-product/tsconfig.core.json': project(['src/core/**/*.ts'], true),
+  'packages/web-product/tsconfig.core.json': coreProject([
+    'src/runtime/**/*.ts',
+    'src/*/core/**/*.ts',
+    'src/*/ports/**/*.ts',
+    'src/stores/global.ts',
+  ]),
   'packages/web-product/tsconfig.vitest.json': project(['tests/**/*.ts'], true),
-  'packages/web-product/src/App.vue': [
+  'packages/web-product/package.json': JSON.stringify(
+    {
+      name: '@sample/web-product',
+      version: '0.0.0',
+      private: true,
+      dependencies: {
+        '@sample/web-protocol': 'workspace:*',
+        '@vue/devtools-api': '8.2.1',
+        pinia: '4.0.3',
+        vue: '3.5.43',
+      },
+    },
+    null,
+    2,
+  ),
+  'packages/web-product/src/main.ts': "import './AppRoot/AppRoot.vue';\n",
+  'packages/web-product/src/AppRoot/AppRoot.vue': [
     '<script setup lang="ts">',
+    "import Child from './components/Child/Child.vue';",
     'const count: number = 1;',
     '</script>',
     '',
     '<template>',
     '  <p>{{ count }}</p>',
+    '  <Child />',
     '</template>',
     '',
+    '<style scoped src="./AppRoot.css"></style>',
   ].join('\n'),
+  'packages/web-product/src/AppRoot/AppRoot.css': '.root { display: block; }\n',
+  'packages/web-product/src/AppRoot/components/Child/Child.vue': [
+    '<script setup lang="ts">',
+    'const label = "child";',
+    '</script>',
+    '',
+    '<template><span>{{ label }}</span></template>',
+    '',
+    '<style scoped src="./Child.css"></style>',
+  ].join('\n'),
+  'packages/web-product/src/AppRoot/components/Child/Child.css': '.child { display: block; }\n',
   'packages/web-product/src/core/state.ts': [
     '/** 核心状态。 */',
     'export interface State {',

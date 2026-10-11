@@ -17,14 +17,20 @@ export type CoverageCheckResult = Readonly<{
   issues: ReadonlyArray<string>;
 }>;
 
-/** 覆盖率报告（istanbul json，键为绝对路径）中出现的文件，归一化为仓库相对路径。 */
-function reportedFiles(root: string, coveragePath: string): Set<string> {
+/** 覆盖率报告（istanbul json，键为绝对路径）按仓库相对路径读取。 */
+function coverageEntries(root: string, coveragePath: string): Map<string, unknown> {
   const report = JSON.parse(readFileSync(coveragePath, 'utf8')) as Record<string, unknown>;
-  const files = new Set<string>();
+  const entries = new Map<string, unknown>();
   for (const key of Object.keys(report)) {
-    files.add(isAbsolute(key) ? relative(root, key) : key);
+    entries.set(isAbsolute(key) ? relative(root, key) : key, report[key]);
   }
-  return files;
+  return entries;
+}
+
+/** Istanbul 条目是否有已执行语句；未被导入的 Vue 组件虽有条目，但声明计数全为零。 */
+function hasExecutedStatement(entry: unknown): boolean {
+  const statements = (entry as { s?: Readonly<Record<string, number>> } | undefined)?.s;
+  return !statements || Object.values(statements).some((count) => count > 0);
 }
 
 /**
@@ -54,9 +60,13 @@ export function checkCoverage(
       issues: [...issues, `coverage report ${coveragePath} is missing`],
     };
   }
-  const reported = reportedFiles(root, coveragePath);
-  const missing = expected.filter((path) => !reported.has(path));
+  const report = coverageEntries(root, coveragePath);
+  const missing = expected.filter((path) => !report.has(path));
   for (const path of missing) issues.push(`missing from coverage report: ${path}`);
+  for (const path of expected) {
+    if (path.endsWith('.vue') && report.has(path) && !hasExecutedStatement(report.get(path)))
+      issues.push(`untested Vue component in coverage report: ${path}`);
+  }
   return { expected, excluded, missing, issues };
 }
 

@@ -273,9 +273,24 @@ function relativeFiles(directory: string, prefix = ''): string[] {
 export function declarationRoot(options: DeclarationFixtureOptions = {}): ControlledRoot {
   const manifest = JSON.parse(
     readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
-  ) as { packages: Array<Record<string, unknown>> };
-  const product = manifest.packages.find((item) => item.role === 'product')!;
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
+  ) as {
+    packages: Array<Record<string, unknown>>;
+    bindings: Array<Record<string, unknown>>;
+  };
+  const product = manifest.packages.find((item) => item.role === 'product' && item.form === 'sdk')!;
+  const protocol = manifest.packages.find(
+    (item) => item.role === 'protocol' && item.protocolKind === 'idl',
+  )!;
+  const test = manifest.packages.find((item) => item.role === 'test')!;
+  manifest.packages = [product, protocol, test];
+  manifest.bindings = [
+    {
+      name: 'sdk-idl-weapp',
+      product: product.directory,
+      protocol: protocol.directory,
+      platforms: ['weapp'],
+    },
+  ];
   if (options.consumedOperations === null) delete product.consumedOperations;
   else
     product.consumedOperations = [

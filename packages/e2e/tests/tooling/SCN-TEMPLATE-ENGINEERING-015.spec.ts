@@ -29,11 +29,11 @@ cliEvidence(
       });
 
       await check('vue-type-error-caught', () => {
-        const app = join(root.root, 'packages/web-product/src/App.vue');
+        const app = join(root.root, 'packages/web-product/src/AppRoot/AppRoot.vue');
         writeFileSync(app, readFileSync(app, 'utf8').replace('number = 1', "number = 'bad'"));
         const vueResult = plan(root);
         context.expect(vueResult.status).not.toBe(0);
-        context.expect(vueResult.output).toContain('App.vue');
+        context.expect(vueResult.output).toContain('AppRoot.vue');
 
         writeFileSync(app, readFileSync(app, 'utf8').replace("number = 'bad'", 'number = 1'));
         const testFile = join(root.root, 'packages/web-product/tests/type-check.test.ts');

@@ -25,6 +25,7 @@ import {
   type ProjectManifest,
 } from './lib/project-manifest.ts';
 import { readEffectiveSpecs } from './lib/spec-sources.ts';
+import { checkCoreTsconfig, checkWebAppAlignment } from './lib/web-app-checks.ts';
 
 /** 依赖与平台规则的路径按清单角色生成；实现与 dependency-cruiser 配置共用同一份 CJS 模块。 */
 type DependencyRules = Readonly<{ cruiseTargets(manifest: ProjectManifest): string[] }>;
@@ -90,7 +91,7 @@ function exampleWhitelistEntries(root: string, manifest: ProjectManifest): strin
     `packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`,
     'template-example:begin',
     'template-example:end',
-    ...products.map((item) => `packages/${item.directory}/src/index.ts`),
+    ...products.map((item) => `packages/${item.directory}/src/index.ts`).filter(existing),
     'consumed-operations.ts',
     `packages/${test}/host/weapp/app.js`,
     `packages/${test}/src/drivers/weapp-host.test.ts`,
@@ -269,6 +270,8 @@ export async function checkArchitecture(
       errors.push(`${protocol.directory} cannot depend on products or E2E`);
   }
   errors.push(...checkTestBindingDeclarations(root, manifest));
+  errors.push(...checkWebAppAlignment(root, manifest));
+  errors.push(...checkCoreTsconfig(root, manifest));
   errors.push(...checkSchemaDocumentation(root));
   errors.push(...checkExampleMarkers(root, manifest));
   errors.push(...checkProjectMap(root, manifest));

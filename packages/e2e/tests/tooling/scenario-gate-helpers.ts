@@ -8,11 +8,13 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
 import { createControlledRoot } from './controlled-root.ts';
 import { writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
+import { coreTsconfigInclude } from '../../../../scripts/lib/web-app-checks.ts';
+import type { ManifestPackage } from '../../../../scripts/lib/project-manifest.ts';
 
 /** 仓库根由模块位置推导，门禁自测不依赖调用方的工作目录。 */
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -73,7 +75,7 @@ export function writeSpec(
 export function writeRepositoryPackages(root: string) {
   const manifest = JSON.parse(
     readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
-  ) as { packages: Array<{ directory: string }> };
+  ) as { packages: ManifestPackage[] };
   for (const pkg of manifest.packages) {
     const directory = join(root, 'packages', pkg.directory);
     mkdirSync(directory, { recursive: true });
@@ -82,6 +84,19 @@ export function writeRepositoryPackages(root: string) {
       join(directory, 'package.json'),
       readFileSync(join(repositoryRoot, 'packages', pkg.directory, 'package.json')),
     );
+    if (pkg.form === 'web-app') {
+      writeFileSync(
+        join(directory, 'tsconfig.core.json'),
+        JSON.stringify(
+          {
+            compilerOptions: { composite: true, lib: ['ES2022'], types: [] },
+            include: coreTsconfigInclude(pkg),
+          },
+          null,
+          2,
+        ),
+      );
+    }
   }
   writeProjectMapFixture(root);
 }
@@ -110,11 +125,23 @@ function mirrorSources(source: string, target: string): void {
 
 export function enableInventory(root: string, options: InventoryOptions = {}) {
   const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as {
-    packages: ReadonlyArray<{ directory: string; role: string }>;
+    packages: ReadonlyArray<{ directory: string; role: string; protocolKind?: string }>;
   };
-  const protocol = manifest.packages.find((pkg) => pkg.role === 'protocol');
-  if (!protocol) throw new Error('fixture has no protocol package');
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
+  for (const protocol of manifest.packages.filter((pkg) => pkg.role === 'protocol')) {
+    const adapter = join(root, 'packages', protocol.directory, 'testing/adapter.ts');
+    if (!existsSync(adapter)) {
+      mkdirSync(dirname(adapter), { recursive: true });
+      writeFileSync(
+        adapter,
+        `export { default } from '${pathToFileURL(resolve(repositoryRoot, 'packages', protocol.directory, 'testing/adapter.ts')).href}';\n`,
+      );
+    }
+  }
+  const protocol = manifest.packages.find(
+    (pkg) => pkg.role === 'protocol' && pkg.protocolKind === 'idl',
+  );
+  if (!protocol) throw new Error('fixture has no IDL protocol package');
   if (options.realSources) {
     for (const pkg of manifest.packages) {
       const source = resolve(repositoryRoot, 'packages', pkg.directory, 'src');

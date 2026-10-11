@@ -30,20 +30,18 @@ function bindingForProduct(manifest, productDirectory) {
 }
 
 /** 包内承载模块的根目录；缺省为 src，与清单 schema 的默认语义一致。 */
-function moduleRoots(pkg) {
-  return pkg.moduleRoots && pkg.moduleRoots.length > 0 ? pkg.moduleRoots : ['src'];
-}
+const moduleRoots = (pkg) => (pkg.moduleRoots?.length ? pkg.moduleRoots : ['src']);
 
 /** 包的主源码根目录：宽泛规则（跨包导入、生产/测试隔离）只看第一个模块根。 */
-function sourceRoot(pkg) {
-  return moduleRoots(pkg)[0];
-}
+const sourceRoot = (pkg) => moduleRoots(pkg)[0];
+
+/** 生产源码规则统一排除单元测试与规格测试；后缀差异不再造成规则漏洞。 */
+const TEST_FILE_PATTERN = '[.](?:test|spec)[.]ts$';
 
 /** `packages/<dir>/<root>/` 形式的匹配片段。 */
 function modulePath(pkg, roots = moduleRoots(pkg)) {
   const directory = escapeRegExp(pkg.directory);
-  const list = roots.map((root) => escapeRegExp(root)).join('|');
-  return `^packages/${directory}/(?:${list})/`;
+  return `^packages/${directory}/(?:${roots.map((root) => escapeRegExp(root)).join('|')})/`;
 }
 
 /** 依赖图必须覆盖的目录：产品包与协议包的模块根；测试包不进依赖图。 */
@@ -66,7 +64,6 @@ function dependencyRules(manifest) {
   const productionRoots = [...new Set([...products, ...protocols].map(sourceRoot))]
     .map((root) => escapeRegExp(root))
     .join('|');
-  const allDirs = manifest.packages.map((pkg) => escapeRegExp(pkg.directory)).join('|');
   const productPattern = `(?:${productDirs.join('|')})`;
   const protocolPattern = `(?:${protocolDirs.join('|')})`;
   const protocolModulePattern = `(?:${[...new Set(protocols.flatMap((pkg) => moduleRoots(pkg)))]
@@ -86,7 +83,7 @@ function dependencyRules(manifest) {
       severity: 'error',
       from: {
         path: `^packages/(?:${productPattern}|${protocolPattern})/(?:${productionRoots})/`,
-        pathNot: '[.]test[.]ts$',
+        pathNot: TEST_FILE_PATTERN,
       },
       to: { path: `(^packages/${testDir}/|/testing/|[.]test[.]ts$|^@template-test/)` },
     },
@@ -99,7 +96,7 @@ function dependencyRules(manifest) {
         path: `^packages/(${productPattern}|${protocolPattern})/(?:${productionRoots})/`,
       },
       to: {
-        path: `^packages/(?!$1/)(?:${allDirs})/`,
+        path: `^packages/(?!$1/)(?:${manifest.packages.map((pkg) => escapeRegExp(pkg.directory)).join('|')})/`,
         dependencyTypes: ['local'],
         dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'],
       },
@@ -121,22 +118,106 @@ function dependencyRules(manifest) {
         to: { path: `^packages/(?:${unboundProtocols.join('|')})/` },
       });
     }
-    rules.push(
-      {
-        name: `product-bound-protocol-exports-only:${product.directory}`,
-        severity: 'error',
-        from: { path: `^packages/${productDir}/${productRoot}/` },
-        to: {
-          path: `^packages/${boundDir}/`,
-          pathNot: `^packages/${boundDir}/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))`,
-        },
+    rules.push({
+      name: `product-bound-protocol-exports-only:${product.directory}`,
+      severity: 'error',
+      from: { path: `^packages/${productDir}/${productRoot}/` },
+      to: {
+        path: `^packages/${boundDir}/`,
+        pathNot: `^packages/${boundDir}/(src/(index[.]ts|generated/)|dist/(index[.]|generated/))`,
       },
+    });
+    if (product.form === 'web-app') {
+      const globalStore = product.globalStore
+        ? escapeRegExp(product.globalStore.replace(/\/[^/]+$/, ''))
+        : undefined;
+      const domainSources = [
+        `^packages/${productDir}/${productRoot}/(?:app|runtime|shared)/`,
+        ...(globalStore ? [`^packages/${productDir}/${globalStore}/`] : []),
+        TEST_FILE_PATTERN,
+      ];
+      const domainTargets = [
+        `^packages/${productDir}/${productRoot}/(?:runtime|shared)/`,
+        ...(globalStore ? [`^packages/${productDir}/${globalStore}/`] : []),
+        `^packages/${productDir}/${productRoot}/app/consumed-operations[.]ts$`,
+        `^packages/${productDir}/${productRoot}/$1/`,
+      ];
+      rules.push(
+        {
+          name: `ui-no-adapters-no-protocol:${product.directory}`,
+          severity: 'error',
+          from: {
+            path: `^packages/${productDir}/${productRoot}/[^/]+/ui/`,
+            pathNot: TEST_FILE_PATTERN,
+          },
+          to: {
+            path: [
+              `^packages/${productDir}/${productRoot}/[^/]+/adapters/`,
+              `^packages/${boundDir}/`,
+            ],
+          },
+        },
+        {
+          name: `core-no-ui-no-framework:${product.directory}`,
+          severity: 'error',
+          from: {
+            path: `^packages/${productDir}/${productRoot}/(runtime|[^/]+/(core|ports))/`,
+            pathNot: TEST_FILE_PATTERN,
+          },
+          to: {
+            path: [
+              `^packages/${productDir}/${productRoot}/[^/]+/ui/`,
+              `^packages/${productDir}/${productRoot}/.*[.]vue$`,
+              `(?:^|/)node_modules/(?:vue|pinia)/`,
+              `^(?:vue|pinia)$`,
+            ],
+          },
+        },
+        {
+          name: `domain-control-no-generated:${product.directory}`,
+          severity: 'error',
+          from: {
+            path: `^packages/${productDir}/${productRoot}/[^/]+/(core|ports)/`,
+            pathNot: TEST_FILE_PATTERN,
+          },
+          to: { path: `^packages/${boundDir}/(src/|dist/)?generated/` },
+        },
+        {
+          name: `domain-isolation:${product.directory}`,
+          severity: 'error',
+          from: {
+            path: `^packages/${productDir}/${productRoot}/([^/]+)/`,
+            pathNot: domainSources,
+          },
+          to: {
+            path: `^packages/${productDir}/${productRoot}/([^/]+)/`,
+            pathNot: domainTargets,
+          },
+        },
+        {
+          name: `shared-no-store-no-adapters:${product.directory}`,
+          severity: 'error',
+          from: {
+            path: `^packages/${productDir}/${productRoot}/shared/`,
+            pathNot: TEST_FILE_PATTERN,
+          },
+          to: {
+            path: [
+              ...(globalStore ? [`^packages/${productDir}/${globalStore}/`] : []),
+              `^packages/${productDir}/${productRoot}/[^/]+/adapters/`,
+            ],
+          },
+        },
+      );
+      continue;
+    }
+    rules.push(
       {
         name: `core-no-platform-or-node:${product.directory}`,
         severity: 'error',
         from: {
           path: `^packages/${productDir}/${productRoot}/(runtime|[^/]+/(core|ports))/`,
-          pathNot: '[.]test[.]ts$',
+          pathNot: TEST_FILE_PATTERN,
         },
         to: { dependencyTypes: ['core'] },
       },
@@ -170,7 +251,7 @@ function dependencyRules(manifest) {
       '测试包中的 Shadow 引擎必须与协议来源解耦：只能消费中立路由与步骤，不得导入任一协议包的 generated 或 testing 模块。',
     from: {
       path: `^packages/${testDir}/src/shadow/.*[.]ts$`,
-      pathNot: '[.]test[.]ts$',
+      pathNot: TEST_FILE_PATTERN,
     },
     to: { path: `^packages/${protocolPattern}/(?:src/generated|testing)/` },
   });
@@ -206,24 +287,21 @@ function runtimeFile(manifest) {
 }
 
 /** 行数上限：源文件 300、测试文件 600；空行与注释都不计入。 */
-const SOURCE_MAX_LINES = 300;
-const TEST_MAX_LINES = 600;
+const SOURCE_MAX_LINES = 300,
+  TEST_MAX_LINES = 600;
 
 /** 测试文件集合：任意 `*.test.*` / `*.spec.*`，以及测试角色包 `tests/` 目录下的全部文件。 */
 function testFilePatterns(manifest) {
   const test = testPackage(manifest);
-  const code = '{js,mjs,cjs,ts,mts,cts}';
   return [
-    `**/*.test.${code}`,
-    `**/*.spec.${code}`,
-    `packages/${escapeRegExp(test.directory)}/tests/**/*.${code}`,
+    '**/*.test.{js,mjs,cjs,ts,mts,cts}',
+    '**/*.spec.{js,mjs,cjs,ts,mts,cts}',
+    `packages/${escapeRegExp(test.directory)}/tests/**/*.{js,mjs,cjs,ts,mts,cts}`,
   ];
 }
 
 /** 行数豁免只来自清单登记；schema 已强制每项带非空理由。 */
-function maxLinesExemptions(manifest) {
-  return manifest.quality?.maxLinesExemptions ?? [];
-}
+const maxLinesExemptions = (manifest) => manifest.quality?.maxLinesExemptions ?? [];
 
 /** ESLint 的 max-lines 配置块：源文件、测试文件两档，外加清单登记的整文件豁免。 */
 function maxLinesConfig(manifest) {
@@ -249,6 +327,7 @@ module.exports = {
   moduleRoots,
   sourceRoot,
   modulePath,
+  TEST_FILE_PATTERN,
   cruiseTargets,
   dependencyRules,
   restrictedGlobalFiles,
