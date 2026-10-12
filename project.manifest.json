@@ -131,6 +131,13 @@
       "config": "packages/e2e/vitest.config.integration.ts"
     },
     {
+      "name": "integration-heavy",
+      "class": "integration",
+      "config": "packages/e2e/vitest.config.integration-heavy.ts",
+      "environment": "integration",
+      "passWithNoTests": true
+    },
+    {
       "name": "weapp",
       "class": "platform",
       "config": "packages/e2e/vitest.config.weapp.ts",

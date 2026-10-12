@@ -13,15 +13,15 @@ import {
   loadProjectManifest,
   packageByDirectory,
   packagesByRole,
-  testProjectsByClass,
 } from '../../../../scripts/lib/project-manifest.ts';
+import { testEnvironmentsByClass } from '../../../../scripts/lib/test-environments.ts';
 
 /** 模板自身事实核验：只读真实仓库已提交的协议产物与清单，不依赖调用方工作目录。 */
 export const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 export const generated = join(repositoryRoot, 'packages/protocol/src/generated');
 export const tradeFile = 'generated/idl/infra/trade/v1/trade.ts';
 /** 义务运行环境由清单派生：路由、字段与共享方法要求全部 integration 与 platform 项目。 */
-export const requiredIn = testProjectsByClass(loadProjectManifest(repositoryRoot), [
+export const requiredIn = testEnvironmentsByClass(loadProjectManifest(repositoryRoot), [
   'integration',
   'platform',
 ]);

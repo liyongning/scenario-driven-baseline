@@ -343,6 +343,11 @@
             "type": "string",
             "minLength": 1
           },
+          "environment": {
+            "description": "场景与协议义务使用的逻辑测试环境；物理拆分项目可复用同类项目环境。",
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
           "perFile": {
             "description": "为 true 时验收入口逐文件运行该项目，每个文件一份报告。",
             "type": "boolean"
@@ -351,6 +356,10 @@
             "description": "逐文件运行前执行的准备命令名，例如退出并预热微信开发者工具。",
             "type": "string",
             "minLength": 1
+          },
+          "passWithNoTests": {
+            "description": "为 true 时允许该项目在按类型排除全部文件后没有用例；只用于副本中无文件的重型项目。",
+            "type": "boolean"
           }
         }
       }

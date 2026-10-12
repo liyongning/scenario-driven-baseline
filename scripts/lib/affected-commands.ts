@@ -69,9 +69,14 @@ export function affectedCommands(
       });
       continue;
     }
+    const selectedProjects =
+      project?.class === 'integration'
+        ? testProjectsByClass(manifest, ['integration'])
+        : [file.project];
     const name = reportFor(file);
     const run = runs.get(name) ?? { projects: [], files: [] };
-    if (!run.projects.includes(file.project)) run.projects.push(file.project);
+    for (const selectedProject of selectedProjects)
+      if (!run.projects.includes(selectedProject)) run.projects.push(selectedProject);
     run.files.push(file.file);
     runs.set(name, run);
   }

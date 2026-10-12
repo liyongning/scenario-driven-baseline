@@ -13,7 +13,7 @@ import { buildContractInventory } from './contract-inventory.ts';
 describe('buildContractInventory', () => {
   it(
     'reports each invalid declaration instead of deriving silently',
-    { timeout: 120_000 },
+    { timeout: 60_000 },
     async () => {
       const root = declarationRoot({ caller: null, prefix: 'template-contract-invalid-' });
       const paths = controlled(root.root);

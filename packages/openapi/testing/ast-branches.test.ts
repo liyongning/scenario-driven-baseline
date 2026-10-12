@@ -60,7 +60,7 @@ function resolve(declaration: string, modulePath?: string, generatedRoot?: strin
 
 test(
   'OpenAPI AST rejects non-object declarations and malformed request fields',
-  { timeout: 120_000 },
+  { timeout: 60_000 },
   () => {
     const generatedImport = JSON.stringify(generatedOperations);
     expect(

@@ -5,11 +5,11 @@ import {
   loadProjectManifest,
   packageByDirectory,
   packagesByRole,
-  testProjectsByClass,
   type ManifestBinding,
   type ManifestPackage,
   type ProjectManifest,
 } from './project-manifest.ts';
+import { testEnvironmentsByClass } from './test-environments.ts';
 import type { FieldDiscovery, Obligation } from './protocol-adapters.ts';
 import { analysisProgram } from './analysis-program.ts';
 import { collectFiles } from './fingerprints.ts';
@@ -147,7 +147,7 @@ async function buildBindingInventory(input: BindingInventoryInput) {
 
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
   const manifest = loadProjectManifest(root);
-  const integration = testProjectsByClass(manifest, ['integration']);
+  const integration = testEnvironmentsByClass(manifest, ['integration']);
   const results = await Promise.all(
     packagesByRole(manifest, 'product').map(async (product) => {
       const binding = bindingForProduct(manifest, product.directory);

@@ -46,7 +46,7 @@ export class ScenarioReporter implements Reporter {
         : (testCase.options as unknown as { meta?: { scenarioCase?: unknown } }).meta
     ) as { scenarioCase?: unknown } | undefined;
     const binding = metadata?.scenarioCase as
-      { caseId?: string; fixtureCase?: string | null } | undefined;
+      { caseId?: string; environment?: Project; fixtureCase?: string | null } | undefined;
     if (!binding?.caseId) return;
     const annotations = testCase.annotations();
     const annotation = annotations.find((item) => item.type === 'scenario-evidence');
@@ -76,7 +76,7 @@ export class ScenarioReporter implements Reporter {
       file: testCase.module.moduleId,
       fullName: testCase.fullName,
       caseId: binding.caseId,
-      project: this.options.project ?? (testCase.project.name as Project),
+      project: this.options.project ?? binding.environment ?? (testCase.project.name as Project),
       sourceDigest: this.options.fingerprints.sourceDigest,
       specDigest: this.options.fingerprints.specDigest,
       protocolDigest: this.options.fingerprints.protocolDigest,

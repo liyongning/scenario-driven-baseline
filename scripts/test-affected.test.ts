@@ -153,6 +153,8 @@ describe('test:affected 依赖分析与执行路径', () => {
       'run',
       '--project',
       'integration',
+      '--project',
+      'integration-heavy',
       'packages/e2e/tests/protocol/b.spec.ts',
       'packages/e2e/tests/protocol/c.spec.ts',
     ]);

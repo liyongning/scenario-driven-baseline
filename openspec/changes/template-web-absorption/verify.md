@@ -414,3 +414,35 @@
 **Commit**
 
 - `feat(template): add web bundle boundary check`
+
+### Task 9 后置修复：默认并发稳定性
+
+**问题与根因**
+
+- `SCN-OPENAPI-CONTRACT-014` 的取消路径依赖 1ms 轮询与事件循环顺序，高负载时可能在第三次请求写入前先停止，形成时序竞态。
+- `SCN-TEMPLATE-ENGINEERING-001`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026` 都在副本内执行构建、安装、`tsc` 或完整 unit 子进程；与普通 integration 文件一起默认并发时争用 CPU、进程与文件系统，原先只能通过单 worker 或整体串行稳定通过。
+
+**修复**
+
+- 取消轮询改为显式事件推进：`SCN-OPENAPI-CONTRACT-014` 等待 Shadow 第 3 条请求记录后停止，`RunningTestShadowServer.waitForRecords` 仅用于测试 Shadow，不污染生产预览接口；等待成功与关闭拒绝均有单测。
+- 新增 Vitest `integration-heavy` 物理项目，仅让上述三个构建/安装/`tsc`/完整 unit 用例 `fileParallelism: false`；普通 integration 保持默认并行。`integration-heavy` 的逻辑环境复用 `integration`，因此协议义务、场景证据和报告仍归属原环境，不改变规划语义。
+- 单例预算复核后将 `packages/openapi/testing/ast-branches.test.ts` 与 `scripts/lib/contract-inventory.derivation.test.ts` 从 120s 收回 60s；默认并发下实测分别约 20～30s、约 30～33s。
+- `test:affected` 选择 integration 文件时同时覆盖普通与重型项目；副本中重型文件全部被排除时允许重型项目零文件，但独立报告仍会拦截选中文件却零用例的情况。
+
+**连续默认并发验证**
+
+- 第一次：run id `template-web-absorption-apply-20261012T105442Z`，整体退出码 1 仅因 Task 10 预期 browser 中间态。
+  - `check:fast`：退出码 0（395813ms）。unit 111/111 文件、510/510 用例通过，四项覆盖率 100%；普通 integration 96/96 文件、164/164 用例通过；integration-heavy 3/3 文件、8/8 用例通过。
+  - `test:e2e:weapp`：退出码 0（308327ms），5/5 文件、5/5 用例通过。
+  - `check:scenarios`：退出码 1（1245ms），恰好 21 条未登记 `browser` 环境问题（20 条 Scenario 与 1 条 FLOW），全部归属 Task 10。
+- 第二次：run id `template-web-absorption-apply-20261012T110637Z`，整体退出码 1 仅因 Task 10 预期 browser 中间态。
+  - `check:fast`：退出码 0（395224ms）。unit 111/111 文件、510/510 用例通过，四项覆盖率 100%；普通 integration 96/96 文件、164/164 用例通过；integration-heavy 3/3 文件、8/8 用例通过。
+  - `test:e2e:weapp`：退出码 0（307738ms），5/5 文件、5/5 用例通过。
+  - `check:scenarios`：退出码 1（1253ms），问题集合与第一次完全相同，仍为 21 条 Task 10 预期项。
+- 耗时对照：旧整体串行方案 `check:fast` 为 873390ms，当前重型拆分约 395.5s，缩短约 55%；单 worker 对照为 728200ms。
+
+**验收统计**
+
+- 两次默认并发全量均未出现 `SCN-OPENAPI-CONTRACT-014` 或三个重型用例失败；本轮“按需通过但全量失败”的新增 OI 为 0。
+- 拆分首次落位曾把 `integration-heavy` 当作独立义务环境，导致 IDL 归一化摘要从 `46417e0f...` 变为 `fc5dbeb9...`；改为逻辑环境复用后摘要恢复原值，协议义务数量与内容未变。
+- 新增逻辑环境、回退与校验分支均有单测覆盖；完整 unit 恢复到 statements 5223/5223、branches 3448/3448、functions 1025/1025、lines 4587/4587。

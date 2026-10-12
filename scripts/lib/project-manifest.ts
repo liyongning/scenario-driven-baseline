@@ -47,10 +47,14 @@ export type TestProject = Readonly<{
   class: TestProjectClass;
   /** 该项目的 Vitest 项目配置文件路径，根 vitest 配置按它组装 projects。 */
   config: string;
+  /** 场景与协议义务使用的逻辑环境；物理拆分项目可复用同一环境。 */
+  environment?: string;
   /** 为 true 时验收入口逐文件运行该项目，每个文件一份报告。 */
   perFile?: boolean;
   /** 逐文件运行前执行的准备命令名，例如退出并预热微信开发者工具。 */
   prepare?: string;
+  /** 为 true 时允许按副本排除规则清空该项目；只用于没有可执行文件的重型项目。 */
+  passWithNoTests?: boolean;
 }>;
 
 /** 参与验证摘要的源码目录、构建输入与协议来源输入。 */
@@ -126,6 +130,14 @@ export function validateManifest(manifest: ProjectManifest, root?: string): stri
   const projectNames = manifest.testProjects.map((item) => item.name);
   if (new Set(projectNames).size !== projectNames.length)
     issues.push('test project names must be unique');
+  for (const project of manifest.testProjects) {
+    if (!project.environment) continue;
+    const environment = manifest.testProjects.find((item) => item.name === project.environment);
+    if (!environment || environment.class !== project.class)
+      issues.push(
+        `test project ${project.name} environment ${project.environment} must reference a project of the same class`,
+      );
+  }
   for (const requiredClass of ['unit', 'integration'] as const) {
     if (!manifest.testProjects.some((item) => item.class === requiredClass)) {
       issues.push(`at least one ${requiredClass} test project is required`);

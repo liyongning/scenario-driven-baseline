@@ -72,14 +72,23 @@ describe('shadow server', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
+    await first.waitForRecords(0);
     expect(await (await post(first, { tradeNo: 't-1' })).json()).toEqual({ turn: 1 });
+    await first.waitForRecords(1);
     expect(await (await post(second, { tradeNo: 't-2' })).json()).toEqual({ turn: 8 });
     expect(first.verify()).toEqual(['first/NeutralQuery: missing request 2 of 2']);
-    expect(await (await post(first, { tradeNo: 't-1' })).json()).toEqual({ turn: 2 });
+    const secondRecorded = first.waitForRecords(2);
+    const secondResponse = post(first, { tradeNo: 't-1' });
+    await secondRecorded;
+    expect(await (await secondResponse).json()).toEqual({ turn: 2 });
+    const belowTarget = first.waitForRecords(4);
     expect((await post(first, { tradeNo: 't-1' })).status).toBe(409);
     expect(first.verify()).toEqual(['first/NeutralQuery: unexpected request 3']);
     expect(first.records()).toHaveLength(3);
     expect(second.records()).toHaveLength(1);
+
+    await first.close();
+    await expect(belowTarget).rejects.toThrow(/closed before expected requests/);
   });
 
   it('rejects an unmatched raw JSON request and preserves key presence in the record', async () => {

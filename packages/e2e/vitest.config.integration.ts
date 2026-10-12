@@ -17,6 +17,12 @@ export const copyCreatingSpecs = [
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts',
   // template-example:end
 ];
+/** 派生构建、安装或完整 unit 的副本用例；由同类 integration-heavy 项目逐文件运行。 */
+export const heavyIntegrationSpecs = [
+  'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts',
+  'packages/e2e/tests/tooling/SCN-WEB-APP-010.spec.ts',
+  'packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts',
+];
 // 集成测试解析产品 package exports 的构建产物；源码 alias 仅属于单测。
 export default defineProject({
   root: fileURLToPath(new URL('../..', import.meta.url)),
@@ -29,9 +35,12 @@ export default defineProject({
       'packages/e2e/tests/example/**/*.spec.ts',
       // template-example:end
     ],
-    exclude: process.env.TEMPLATE_COPY
-      ? ['**/node_modules/**', '**/.git/**', ...copyCreatingSpecs.map((path) => `**/${path}`)]
-      : ['**/node_modules/**', '**/.git/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/.git/**',
+      ...heavyIntegrationSpecs.map((path) => `**/${path}`),
+      ...(process.env.TEMPLATE_COPY ? copyCreatingSpecs.map((path) => `**/${path}`) : []),
+    ],
     environment: 'node',
     clearMocks: true,
     restoreMocks: true,

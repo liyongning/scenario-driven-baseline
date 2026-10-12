@@ -177,6 +177,71 @@ describe('ScenarioReporter', () => {
     ]);
   });
 
+  it('records the logical integration environment for a physically split heavy project', () => {
+    const reporter = new ScenarioReporter({
+      outputFile: '/dev/null',
+      runId: 'r',
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
+    });
+    reporter.onTestCaseResult!({
+      name: 'heavy',
+      fullName: 'SCN-SAMPLE-CONTRACT-023 heavy',
+      module: { moduleId: 'heavy.spec.ts' },
+      project: { name: 'integration-heavy' },
+      options: {},
+      meta: () => ({
+        scenarioCase: {
+          ownerId: 'SCN-SAMPLE-CONTRACT-023',
+          caseId: 'heavy',
+          environment: 'integration',
+          fixtureCase: 'heavy',
+          covers: [],
+        },
+      }),
+      result: () => ({ state: 'passed' }),
+      annotations: () => [],
+    } as never);
+    expect(reporter.records()).toEqual([expect.objectContaining({ project: 'integration' })]);
+  });
+
+  it('falls back to the physical project when binding metadata has no environment', () => {
+    const reporter = new ScenarioReporter({
+      outputFile: '/dev/null',
+      runId: 'r',
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
+    });
+    reporter.onTestCaseResult!({
+      name: 'legacy',
+      fullName: 'SCN-SAMPLE-CONTRACT-023 legacy',
+      module: { moduleId: 'legacy.spec.ts' },
+      project: { name: 'integration' },
+      options: {},
+      meta: () => ({
+        scenarioCase: {
+          ownerId: 'SCN-SAMPLE-CONTRACT-023',
+          caseId: 'legacy',
+          fixtureCase: 'legacy',
+          covers: [],
+        },
+      }),
+      result: () => ({ state: 'passed' }),
+      annotations: () => [],
+    } as never);
+    expect(reporter.records()).toEqual([expect.objectContaining({ project: 'integration' })]);
+  });
+
   it('ignores unbound tests and preserves invalid evidence as zero assertions', () => {
     const reporter = new ScenarioReporter({
       outputFile: '/dev/null',

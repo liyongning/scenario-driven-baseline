@@ -33,6 +33,7 @@ import {
   type ProjectManifest,
   type TestProject,
 } from './project-manifest.ts';
+import { testEnvironmentsByClass } from './test-environments.ts';
 
 const roots: string[] = [];
 
@@ -389,6 +390,28 @@ evidence(
           },
         ],
         [
+          'must reference a project of the same class',
+          (value) => {
+            value.testProjects.push({
+              name: 'integration-heavy',
+              class: 'integration',
+              config: 'packages/sample-test/vitest.config.integration-heavy.ts',
+              environment: 'missing',
+            });
+          },
+        ],
+        [
+          'must reference a project of the same class',
+          (value) => {
+            value.testProjects.push({
+              name: 'integration-heavy',
+              class: 'integration',
+              config: 'packages/sample-test/vitest.config.integration-heavy.ts',
+              environment: 'platform',
+            });
+          },
+        ],
+        [
           'consumedOperations is only allowed for the product package',
           (value) => {
             value.packages[1] = { ...value.packages[1]!, consumedOperations: ['src/ops.ts'] };
@@ -412,8 +435,8 @@ evidence(
 
     await check('obligation-environments', async () => {
       const manifest = loadProjectManifest(repositoryRoot);
-      const integrationAndPlatform = testProjectsByClass(manifest, ['integration', 'platform']);
-      const integrationOnly = testProjectsByClass(manifest, ['integration']);
+      const integrationAndPlatform = testEnvironmentsByClass(manifest, ['integration', 'platform']);
+      const integrationOnly = testEnvironmentsByClass(manifest, ['integration']);
       // 义务运行环境由清单派生；声明取自受控输入，示例删除后仍能复核同一事实（ENG-06）。
       const root = declarationRoot({
         generatedFromRepository: true,
@@ -510,7 +533,9 @@ evidence(
       context.expect(environmentClassOf('integration')).toBe('integration');
       context.expect(environmentClassOf('weapp')).toBe('platform');
       context.expect(environmentClassOf('not-registered')).toBeUndefined();
-      context.expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
+      context
+        .expect(defaultReportNames(manifest))
+        .toEqual(['unit', 'integration', 'integration-heavy', 'weapp']);
       // 默认报告由清单测试项目派生：unit 合并为一份，perFile 项目取目录下的全部报告文件。
       const root = temporaryRoot('project-manifest-reports-');
       const perFileManifest = baseManifest();
@@ -575,9 +600,15 @@ evidence(
 
 test('derives default report names from the registered test projects', () => {
   const manifest = loadProjectManifest(repositoryRoot);
-  expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
+  expect(defaultReportNames(manifest)).toEqual([
+    'unit',
+    'integration',
+    'integration-heavy',
+    'weapp',
+  ]);
   expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'weapp')!)).toBe('weapp');
   expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'sdk-unit')!)).toBe(
     'unit',
   );
+  expect(testEnvironmentsByClass(manifest, ['integration'])).toEqual(['integration']);
 });

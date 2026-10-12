@@ -44,6 +44,12 @@ export type RunningShadowServer = Readonly<{
   close(): Promise<void>;
 }>;
 
+export type RunningTestShadowServer = RunningShadowServer &
+  Readonly<{
+    /** 等待至少 count 条请求已写入记录；用于由客户端事件推进取消等确定性竞态。 */
+    waitForRecords(count: number): Promise<void>;
+  }>;
+
 type RouteState = { cursor: number; issues: string[] };
 
 /** 测试模式与预览模式共用的响应同形校验；位置信息由调用方提供。 */
@@ -92,6 +98,22 @@ export function createShadowServer(
   const states = new Map<string, RouteState>();
   const requestRecords: ShadowRequestRecord[] = [];
   const requestIssues: string[] = [];
+  const recordWaiters = new Set<{
+    count: number;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }>();
+  const notifyRecordWaiters = () => {
+    for (const waiter of [...recordWaiters]) {
+      if (requestRecords.length < waiter.count) continue;
+      recordWaiters.delete(waiter);
+      waiter.resolve();
+    }
+  };
+  const recordRequest = (record: ShadowRequestRecord) => {
+    requestRecords.push(record);
+    notifyRecordWaiters();
+  };
   for (const route of options.routes) {
     // 路径转换在构造期完成：残留花括号时立即抛错，不静默注册不可达路由。
     registeredPaths.set(route.methodName, toExpressRoutePath(route.path));
@@ -139,7 +161,7 @@ export function createShadowServer(
   }
 
   return {
-    async start(): Promise<RunningShadowServer> {
+    async start(): Promise<RunningTestShadowServer> {
       const app = express();
       app.use(express.json({ strict: true }));
       for (const route of options.routes) {
@@ -150,7 +172,7 @@ export function createShadowServer(
           // 已注册但当前场景未编排：仍写入记录并由 verify() 报出未编排的请求。
           if (!configured) {
             requestIssues.push(`${scenarioId}/${route.methodName}: 未编排的请求 ${request.path}`);
-            requestRecords.push({
+            recordRequest({
               scenarioId,
               methodName: route.methodName,
               path: request.path,
@@ -163,7 +185,7 @@ export function createShadowServer(
           const state = states.get(`${scenarioId}/${route.methodName}`)!;
           const index = state.cursor;
           state.cursor += 1;
-          requestRecords.push({
+          recordRequest({
             scenarioId,
             methodName: route.methodName,
             path: request.path,
@@ -216,7 +238,7 @@ export function createShadowServer(
       // 兜底处理器接住未注册路径：返回 404、写入记录，并由 verify() 报出未注册的请求。
       app.use((request, response) => {
         requestIssues.push(`${scenario.id}: 未注册的请求 ${request.method} ${request.path}`);
-        requestRecords.push({
+        recordRequest({
           scenarioId: scenario.id,
           methodName: null,
           path: request.path,
@@ -239,6 +261,12 @@ export function createShadowServer(
             (record) => scenarioId === undefined || record.scenarioId === scenarioId,
           );
         },
+        waitForRecords(count) {
+          if (requestRecords.length >= count) return Promise.resolve();
+          return new Promise<void>((resolve, reject) => {
+            recordWaiters.add({ count, resolve, reject });
+          });
+        },
         verify() {
           const issues: string[] = [];
           for (const route of options.routes) {
@@ -258,6 +286,10 @@ export function createShadowServer(
         async close() {
           if (closed) return;
           closed = true;
+          for (const waiter of recordWaiters) {
+            recordWaiters.delete(waiter);
+            waiter.reject(new Error('shadow server closed before expected requests were recorded'));
+          }
           await closeShadowListener(server);
         },
       };

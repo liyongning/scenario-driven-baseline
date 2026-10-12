@@ -51,11 +51,7 @@ defineCase(
           });
           if (cancelNext) {
             cancelNext = false;
-            const stopAfterArrival = () => {
-              if (server.records().length >= 3) cancellation.stop();
-              else setTimeout(stopAfterArrival, 1);
-            };
-            queueMicrotask(stopAfterArrival);
+            void server.waitForRecords(3).then(() => cancellation.stop());
           }
           return pending;
         },

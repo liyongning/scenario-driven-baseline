@@ -145,6 +145,23 @@ test('runs integration and platform projects with their own report names', () =>
   ]);
 });
 
+test('passes no-tests through only for an explicit integration project flag', () => {
+  const root = fixtureRoot();
+  const manifestPath = join(root, 'project.manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+    testProjects: Array<Record<string, unknown>>;
+  };
+  manifest.testProjects[1] = { ...manifest.testProjects[1], passWithNoTests: true };
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  expect(planCommand(root, 'test:integration')).toEqual([
+    {
+      command: 'vitest',
+      args: ['run', '--project', 'integration', '--passWithNoTests'],
+      env: { VERIFY_REPORT_FILE: join(root, 'artifacts/local/reports/integration.json') },
+    },
+  ]);
+});
+
 test('rejects unknown commands and unregistered platform projects', () => {
   const root = fixtureRoot();
   expect(() => planCommand(root, 'nope')).toThrow(/unknown command nope/);
