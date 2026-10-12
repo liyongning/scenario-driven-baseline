@@ -79,11 +79,11 @@
   - 日志：`/tmp/task2-check-fast.log`。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，计划 run id `affected-20261011T071950Z`。
   - 因工具配置变化按规则全量触发；unit 80/80 文件、409/409 用例通过。
-  - integration 除上述允许失败外，`SCN-TEMPLATE-ENGINEERING-002/gate-reduction-review-evidence` 在并行负载下命中 5 秒超时。单独复跑该文件：10/10 用例通过，目标用例 1392ms；登记为本轮 OI 1 次，不属于 Task 2 业务失败。
+  - integration 除上述允许失败外，`SCN-TEMPLATE-ENGINEERING-002/gate-reduction-review-evidence` 在并行负载下命中 5 秒超时。单独复跑该文件：10/10 用例通过，目标用例 1392ms；登记为本轮“时败时过”1 次，按验收方口径不计 OI，也不属于 Task 2 业务失败。
   - 日志：`/tmp/task2-test-affected.log`；单独复跑日志：`/tmp/task2-scn002-rerun.log`。
 - 最终复跑 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，计划 run id `affected-20261011T123629Z`；按规则全量触发 `pnpm check:fast`。
   - unit：80/80 文件、409/409 用例通过。
-  - integration：64 个文件通过、仅 SCN-TEMPLATE-ENGINEERING-008 的允许项失败；132/133 个用例通过。先前的 SCN-002 超时未复现，当前 OI 总数为 1、已关闭。
+  - integration：64 个文件通过、仅 SCN-TEMPLATE-ENGINEERING-008 的允许项失败；132/133 个用例通过。先前的 SCN-002 超时未复现，当前“时败时过”累计 1 次且已关闭；按验收方口径 OI 仍为 0。
   - 日志：`/tmp/task2-test-affected-final.log`。
 - `pnpm check:scenarios --change template-web-absorption`：退出码 1，共 45 条问题，涉及 33 个本 Change Scenario/FLOW。
   - `openapi-unit` 未登记：11 条，归属任务 5。
@@ -144,10 +144,10 @@
   - 因该允许失败会截断 `check:fast` 后续步骤，另行执行 `pnpm check:package`、`pnpm check:bundle`、`pnpm check:component-tree`：退出码均为 0，当前 SDK 仓库分别得到 package `issues: []` 与两个 web-app 检查的 `checked: []`。
 - `pnpm check:scenarios --change template-web-absorption`：退出码 1，共 45 条问题；全部属于 A2 期望集合之外的两类允许问题。
   - `openapi-unit` 未登记 11 条，归属任务 5；`app-unit` 未登记 13 条，归属任务 8；`browser` 未登记 21 条（含 `FLOW-WEB-EXAMPLE-001`），归属任务 10。
-- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：第一次 run id `affected-20261011T131556Z` 因工具配置变化全量触发 `check:fast`；SCN-SCENARIO-GATE-026 在并行负载下失败，单独以相同作用域复跑该文件通过。登记 OI 1 次，不属于 Task 3 业务失败。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：第一次 run id `affected-20261011T131556Z` 因工具配置变化全量触发 `check:fast`；SCN-SCENARIO-GATE-026 在并行负载下失败，单独以相同作用域复跑该文件通过。登记“时败时过”1 次，按验收方口径不计 OI，也不属于 Task 3 业务失败。
 - 最终复跑 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，run id `affected-20261011T132434Z`；按规则全量触发 `pnpm check:fast`。
   - unit 82/82 文件、411/411 用例通过；integration 66/67 文件、136/137 用例通过；SCN-SCENARIO-GATE-026 通过（130.6 秒）。
-  - 唯一失败仍为 SCN-TEMPLATE-ENGINEERING-008 的允许项，归属任务 14；先前 SCN-026 波动未复现，本轮 OI 总数累计为 2、均已关闭。
+  - 唯一失败仍为 SCN-TEMPLATE-ENGINEERING-008 的允许项，归属任务 14；先前 SCN-026 波动未复现，本轮“时败时过”累计为 2、均已关闭；按验收方口径 OI 仍为 0。
 - freshness：结束检查 `PASS`，digest 与起始值一致；`git diff --check` 退出码 0。
 
 **Review / Acceptance**
@@ -192,16 +192,16 @@
   - 单独以 protocol-unit 覆盖率参数运行新增文件时，全局阈值会因其他 unit 项目未纳入而退出 1；完整 `pnpm test:unit` 已证明全部手写代码四项覆盖率 100%，新增两个文件无未覆盖行，该命令作用域问题不记业务失败。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，run id `affected-20261011T141144Z`；因适配器与驱动目录变化全量触发 `check:fast`。
   - unit 83/83 文件、413/413 用例通过；integration 67/68 文件、138/139 用例通过；唯一失败仍为上述允许的 SCN-008，归属任务 14。
-- Task 4 的 weapp 段为环境阻塞待补跑：`pnpm verify --change template-web-absorption --from test:e2e:weapp`，run id `template-web-absorption-apply-20261011T141758Z`，退出码 1。
-  - `weapp:prepare` 在 180000ms 预算内未就绪，错误为“第 9 次微信开发者工具就绪探测 超过 5664ms 未返回”；未进入任何 weapp 用例。
-  - 运行前 `pgrep` 无残留正式版进程；随后正式版 PID 65752 已由 prepare 拉起但探测超时。验收方确认正式版 `islogin=false`，并由另一处 Nightly 实例（`--remote-debugging-port=39300`）登录导致会话被踢；按验收方口径记为环境阻塞待补跑，不计业务失败或 OI。
-  - 该次 verify 因从 weapp 步开始，`check:fast` 与后续 `check:scenarios` 按计划跳过。
+- weapp 段补跑：`pnpm verify --change template-web-absorption --from test:e2e:weapp`，run id `template-web-absorption-apply-20261012T023104Z`，整体退出码 1；`check:fast` 按计划跳过，`test:e2e:weapp` 退出码 0（306891ms），`check:scenarios` 退出码 1（1353ms）。
+  - 运行前确认正式版 `islogin=true`；未读取或复制本地凭据，也未触碰同时运行的 Nightly 实例。`weapp:prepare` 与 5 个 weapp 文件均通过，实际执行 5/5 文件、5/5 用例：SCN-PROTOCOL-CONTRACT-002、SCN-PROTOCOL-CONTRACT-008、FLOW-TEMPLATE-EXAMPLE-001、SCN-TEMPLATE-EXAMPLE-002、SCN-TEMPLATE-EXAMPLE-004。
+  - `check:scenarios` 剩余 21 条问题全部是尚未登记 `browser` 测试项目的预期中间态，归属任务 10，与 Task 4 无关。
+  - 先前环境阻塞 run id `template-web-absorption-apply-20261011T141758Z` 的状态已由本次补跑关闭，不计业务失败或 OI。
 
 **Review / Acceptance**
 
 - 已对照小程序适配器逐项核对网络行为义务；新增断言的超时等待均通过假计时器触发，响应体读取期间取消与超时分别有独立证据。
 - 执行器源码检查确认不写死业务接口名，只经协议包包名根入口导入公共客户端与网络工厂，不以相对路径导入 `src/`。
-- 未执行任务 14、15 的演练，未修改对应 checkbox；weapp 补跑等待验收方在环境恢复后通知。
+- 未执行任务 14、15 的演练，未修改对应 checkbox；Task 4 的 weapp 段已补跑通过。
 
 **Commit**
 
@@ -278,7 +278,7 @@
   - 没有缺失绑定、非本 Change Scenario 或其他问题，符合 R5-M1 的 A2 增量口径。
 - 本周期全量 `pnpm verify --change template-web-absorption`：run id `template-web-absorption-apply-20261011T174045Z`。
   - `check:fast`：通过（234550ms）。
-  - `test:e2e:weapp`：环境阻塞待补跑（190098ms）。`weapp:prepare` 在 180000ms 预算内未就绪，错误为“第 9 次微信开发者工具就绪探测 超过 11602ms 未返回”；未进入 weapp 用例。正式版此前已确认 `islogin=false`，外部 Nightly 实例仍在使用；按验收方口径未重试、不计业务失败或 OI。
+  - `test:e2e:weapp`：当时环境阻塞待补跑（190098ms）。`weapp:prepare` 在 180000ms 预算内未就绪，错误为“第 9 次微信开发者工具就绪探测 超过 11602ms 未返回”；未进入 weapp 用例。正式版此前已确认 `islogin=false`，外部 Nightly 实例仍在使用；按验收方口径未重试、不计业务失败或 OI；Task 4 后续补跑已通过。
   - 使用同一 run id 从 `check:scenarios` 续跑：`check:fast` 与 weapp 跳过，`check:scenarios` 退出码 1（1069ms）；问题集合与上述独立的 34 条完全一致，仍归属任务 8、10。
 
 **Review / Acceptance**
@@ -287,8 +287,8 @@
 - OpenAPI 生产入口只导出公共执行器、网络端口与生成物；完整契约 bundle 和测试适配器不进入生产导入图。OpenAPI 浏览器 runner 经根入口消费公共客户端，不硬编码业务接口。
 - 新增检查均以反例验证：非法声明、未知请求字段策略、未认领或悬空 Fixture、错误业务码、响应 schema 不符、传输失败与取消均有明确非零或判别结果。
 - 高并发下 AST 分支用例曾超过原 30 秒预算；将单例预算调整为 120 秒后连续三轮完整 unit 与两轮副本 `check:fast` 均通过。该调整只解决测试负载预算，不放宽断言。
-- 本轮 Task 6 自发现并修复的门禁回归均在提交前关闭，不新增 OI；OI 仍为 Tasks 2、3 累计 2 次且已关闭。`git diff --check` 退出码 0。
-- 未执行任务 14、15 的演练，未修改对应 checkbox；Task 4 与本次全量 verify 的 weapp 段继续等待验收方在环境恢复后补跑。
+- 本轮 Task 6 自发现并修复的门禁回归均在提交前关闭，不新增“时败时过”；按验收方口径 Tasks 2、3 的两次也不是 OI，当前新增 OI 为 0。`git diff --check` 退出码 0。
+- 未执行任务 14、15 的演练，未修改对应 checkbox；本次全量 verify 的 weapp 段当时等待环境恢复，Task 4 后续补跑已通过。
 
 **Commit**
 
@@ -350,11 +350,11 @@
 - `pnpm lint`、`pnpm format:check`、`pnpm typecheck`、`pnpm check:architecture`、`pnpm check:fixtures`：退出码均为 0。
 - unit：108/108 文件、490/490 用例通过；statements、branches、functions、lines 均为 100%。
 - 定向复跑：`SCN-TEMPLATE-ENGINEERING-008` 2/2、`SCN-SCENARIO-GATE-026` 1/1、`SCN-OPENAPI-CONTRACT-014` 1/1、`SCN-WEB-APP-010` 1/1 均通过；最后一项隔离复跑用时 77265ms。
-- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：integration 92/96 文件、165/169 用例通过；`SCN-TEMPLATE-ENGINEERING-001`、`SCN-OPENAPI-CONTRACT-014`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026` 在并发负载下失败，四项隔离复跑均通过，登记 Task 8 OI 4 次。
-- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：计划 run id `affected-20261011T192233Z`。unit 108/108 文件、490/490 用例通过；integration 94/96 文件、167/169 用例通过，仅 `SCN-WEB-APP-010` 与 `SCN-SCENARIO-GATE-026` 在并发负载下失败。`SCN-WEB-APP-010` 隔离复跑 1/1 通过，`SCN-SCENARIO-GATE-026` 此前隔离复跑 1/1 通过，登记 Task 8 OI 2 次。
-- Task 8 共新增 6 次 OI，全部为“聚合运行失败、隔离复跑通过”，已关闭；全局 OI 累计为 8 次、均已关闭。OI 不计业务失败。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：integration 92/96 文件、165/169 用例通过；`SCN-TEMPLATE-ENGINEERING-001`、`SCN-OPENAPI-CONTRACT-014`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026` 在并发负载下失败，四项隔离复跑均通过，登记 Task 8“时败时过”4 次。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：计划 run id `affected-20261011T192233Z`。unit 108/108 文件、490/490 用例通过；integration 94/96 文件、167/169 用例通过，仅 `SCN-WEB-APP-010` 与 `SCN-SCENARIO-GATE-026` 在并发负载下失败。`SCN-WEB-APP-010` 隔离复跑 1/1 通过，`SCN-SCENARIO-GATE-026` 此前隔离复跑 1/1 通过，登记 Task 8“时败时过”2 次。
+- Task 8 共新增 6 次“时败时过”，全部为“聚合运行失败、隔离复跑通过”，已关闭；全局“时败时过”累计为 8 次、均已关闭。按验收方口径“时败时过”不计 OI；当前新增 OI 为 0。时败时过与 OI 均不计业务失败。
 - 独立 `pnpm check:scenarios --change template-web-absorption`：退出码 1，剩余 21 条问题全部是尚未登记 `browser` 测试项目的预期中间态，归属任务 10；Task 8 的 `app-unit` 问题已关闭。
-- Task 4 的 weapp 段仍为环境阻塞待补跑，run id `template-web-absorption-apply-20261011T141758Z`；Task 8 未运行 weapp，也不改变该阻塞证据。
+- Task 4 的 weapp 段当时为环境阻塞待补跑，run id `template-web-absorption-apply-20261011T141758Z`；后续补跑已通过，见 Task 4，Task 8 本身未运行 weapp。
 
 **Review / Acceptance**
 
@@ -389,14 +389,27 @@
   - `check:fixtures` 45 个 manifest、`issues: []`；`check:bundle` 检查 `packages/web`、`issues: []`；`check:package`、`check:component-tree` 均退出 0。
 - 独立复核：`pnpm typecheck`、`pnpm lint`、`pnpm format:check`、`pnpm check:fixtures`、`pnpm check:bundle` 均退出 0。
 - 独立 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:scenarios --change template-web-absorption`：退出码 1，剩余 21 条问题全部是尚未登记 `browser` 测试项目的预期中间态（`SCN-BROWSER-PLATFORM` 6 条、`SCN-OPENAPI-CONTRACT` 8 条、`SCN-WEB-EXAMPLE` 6 条及 `FLOW-WEB-EXAMPLE-001` 1 条），统一归属任务 10；Task 9 无相关问题。
+- Task 9 标准并发全量：`pnpm verify --change template-web-absorption`，run id `template-web-absorption-apply-20261012T023622Z`，整体退出码 1。
+  - `check:fast`：退出码 1（323402ms）。unit 111/111 文件、507/507 用例通过，四项覆盖率均为 100%；integration 95/99 文件、168/172 用例通过。
+  - 失败用例为 `SCN-TEMPLATE-ENGINEERING-001/protocol-network-types-consumer`、`SCN-OPENAPI-CONTRACT-014/transport-failure-wire`、`SCN-WEB-APP-010/untested-vue-cli`（160031ms）与 `SCN-SCENARIO-GATE-026/self-test-isolation-cli`（205280ms）。四个文件隔离复跑分别通过（6/6、1/1、1/1、1/1；约 6.11s、4.45s、84.47s、79.19s）；四文件定向并发复跑 4/4 文件、9/9 用例通过（138.07s）。
+  - 因 `check:fast` 退出码 1，`test:e2e:weapp` 与 `check:scenarios` 跳过。
+- Task 9 单 worker 全量：`VITEST_MAX_WORKERS=1 pnpm verify --change template-web-absorption`，run id `template-web-absorption-apply-20261012T024936Z`，整体退出码 1。
+  - `check:fast`：退出码 0（728200ms）。unit 111/111 文件、507/507 用例通过，四项覆盖率均为 100%；integration 99/99 文件、172/172 用例通过；四类先前时败用例均通过。
+  - `test:e2e:weapp`：退出码 0（308641ms），5/5 文件、5/5 用例通过。
+  - `check:scenarios`：退出码 1（1291ms），仍为 21 条预期 browser 中间态问题并归属任务 10；因此全量命令整体退出码 1，不归因于 Task 9。
 - `git diff --check`：退出码 0。
 
 **Review / Acceptance**
 
 - 对照 Design 中 xueshan `check-bundle` 的泛化点落实：产品目录来自清单，测试设施与协议契约按精确来源判定而非子串匹配；模块清单移出 dist；摘要范围排除测试和门禁并遵守 `.gitignore`；入口、相对资源、CSS 残留与输出哈希均有可失败反例。
 - 实施偏离与兼容修复：统一构建入口现在为所有 `build` 步骤强制 `NODE_ENV=production`，避免外层 Vitest 的 `NODE_ENV=test` 泄漏到副本构建并让 Vue 把绝对源码路径写进产物；`SCN-WEB-APP-012` 加入副本排除清单以避免递归复制；受控构建副本测试补复制 `packages/web/index.html` 并接入统一构建计划，均是测试/构建环境接线，不改变规划语义。
-- OI：并发聚合运行共出现 7 次“单用例失败、隔离或后续单 worker 复跑通过”，分别为首轮 `check:fast` 的 `SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026`；默认并发 affected 的 `SCN-SCENARIO-GATE-018`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026`；低并发 affected 的 `SCN-OPENAPI-CONTRACT-014` 及其在 `SCN-TEMPLATE-ENGINEERING-008` 中传播出的副本快门禁失败。全部已关闭，不计业务失败；全局 OI 累计 15 次。
-- Task 4 的 weapp 段仍为环境阻塞待补跑，run id `template-web-absorption-apply-20261011T141758Z`；Task 9 未运行 weapp，也不改变该阻塞证据。未执行任务 14、15 的演练，未修改对应 checkbox。
+- “时败时过”：Task 9 原有 7 次，分别为首轮 `check:fast` 的 `SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026`；默认并发 affected 的 `SCN-SCENARIO-GATE-018`、`SCN-WEB-APP-010`、`SCN-SCENARIO-GATE-026`；低并发 affected 的 `SCN-OPENAPI-CONTRACT-014` 及其在 `SCN-TEMPLATE-ENGINEERING-008` 中传播出的副本快门禁失败。本次标准并发全量新增 4 次，Task 9 累计 11 次，全局累计 19 次。
+  - `SCN-TEMPLATE-ENGINEERING-001`：用例复制候选包并运行构建、安装与 `tsc` 子进程；99 个 integration 文件并发时受 CPU 和进程压力影响失败。未发现共享端口、固定临时目录或主仓库全局状态冲突，隔离及四文件并发均通过。
+  - `SCN-OPENAPI-CONTRACT-014`：取消路径依赖 1ms 轮询与事件循环顺序，高负载下请求可能先完成再触发取消，形成时序竞态；隔离复跑稳定通过。
+  - `SCN-WEB-APP-010`：副本内连续执行多次 build/test/coverage 子进程，全量负载下超过用例预算并失败；隔离 84.47s 通过，未命中共享端口、临时目录或全局状态。
+  - `SCN-SCENARIO-GATE-026`：副本内完整 unit 的两个 CPU 密集用例 `resolve-declaration-unit`（30s）与契约声明点派生（5s）在全量争用下超时；带 `SCENARIO_GATE_CHANGES` 隔离复跑 79.19s 通过，不是共享端口、临时目录或主仓库全局状态冲突。
+  - 上述时败时过均已通过隔离和单 worker 全量关闭；按验收方口径不计 OI，单列统计。本轮按“按需通过但全量失败”口径新增 OI 为 0。
+- Task 4 的 weapp 段补跑已通过，run id `template-web-absorption-apply-20261012T023104Z`；Task 9 本次全量也已运行 weapp 5/5。未执行任务 14、15 的演练，未修改对应 checkbox。
 
 **Commit**
 
