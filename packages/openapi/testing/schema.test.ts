@@ -55,9 +55,13 @@ function evidence(
   );
 }
 
-function operation(schema: unknown, codes: string[] = []): OpenApiOperationContract {
+function operation(
+  schema: unknown,
+  codes: string[] = [],
+  id = 'synthetic',
+): OpenApiOperationContract {
   return {
-    id: 'synthetic',
+    id,
     method: 'post',
     path: '/synthetic',
     security: [],
@@ -233,9 +237,54 @@ test('normalization covers OAS 3.0 schema shapes', () => {
   expect(normalizeSchema({ nullable: true, anyOf: [{ type: 'string' }] })).toEqual({
     anyOf: [{ type: 'string' }, { type: 'null' }],
   });
+  expect(
+    normalizeSchema({
+      nullable: true,
+      type: 'object',
+      oneOf: [{ type: 'object', required: ['value'], properties: { value: { type: 'string' } } }],
+    }),
+  ).toEqual({
+    type: ['object', 'null'],
+    oneOf: [
+      { type: 'object', required: ['value'], properties: { value: { type: 'string' } } },
+      { type: 'null' },
+    ],
+  });
   expect(normalizeSchema({ nullable: true, type: ['string', 'null'] })).toEqual({
     type: ['string', 'null'],
   });
+  expect(normalizeSchema({ nullable: true, type: ['string'] })).toEqual({
+    type: ['string', 'null'],
+  });
+  const nullableUnion = operation(
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['code', 'message', 'data'],
+      properties: {
+        code: { type: 'integer', enum: [0] },
+        message: { type: 'string' },
+        data: {
+          nullable: true,
+          type: 'object',
+          oneOf: [
+            {
+              type: 'object',
+              additionalProperties: false,
+              required: ['value'],
+              properties: { value: { type: 'string' } },
+            },
+          ],
+        },
+      },
+    },
+    [],
+    'nullableUnion',
+  );
+  expect(validateResponse(nullableUnion, { code: 0, message: 'ok', data: null }, 200)).toEqual([]);
+  expect(
+    validateResponse(nullableUnion, { code: 0, message: 'ok', data: {} }, 200).join('\n'),
+  ).toContain('required');
 });
 
 test('contract helpers resolve references and merge allOf without changing source', () => {

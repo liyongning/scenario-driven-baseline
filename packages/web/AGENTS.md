@@ -36,3 +36,12 @@
 - `packages/web/src/runtime`：不依赖 Vue/DOM 的运行辅助与端口。
 - `packages/web/src/shared`：跨模块共享组件、组合式函数与纯工具。
 - `packages/web/src/store`：唯一全局 setup store。
+
+<!-- web-example:begin -->
+
+- `packages/web/src/__tests__`：Web 包内测试支撑。
+- `packages/web/src/trade-create`：创建交易的示例模块。
+- `packages/web/src/trade-list`：交易列表的示例模块。
+- `packages/web/src/trade-status`：交易状态的示例模块。
+
+<!-- web-example:end -->

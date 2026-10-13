@@ -11,6 +11,7 @@ import {
 } from '@template-test/shadow';
 import { discoverDeclaredRoutes } from '@template-test/protocol';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
+import { loadProjectManifest, sdkProduct } from '../../../../scripts/lib/project-manifest.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../src/drivers/weapp.ts';
 // 宿主把解码结果按同一份投影交回用例；期望侧必须用同一个投影，比较的才是真实解码值（I-1）。
@@ -35,7 +36,10 @@ const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const projectPath = new URL('../../host/weapp', import.meta.url).pathname;
 const cliPath =
   process.env.WECHAT_DEVTOOLS_CLI_PATH ?? '/Applications/wechatwebdevtools.app/Contents/MacOS/cli';
-const inventory = await buildContractInventory(repositoryRoot);
+// 本 Scenario 只核对 SDK 包的消费接口声明（PC-05）；多包模板里其它产品包的义务不属于本矩阵。
+const inventory = await buildContractInventory(repositoryRoot, {
+  product: sdkProduct(loadProjectManifest(repositoryRoot)).directory,
+});
 
 /** 矩阵用例遍历产品包声明的消费接口，不写死任何接口名（PC-01）。 */
 const operations: ReadonlyArray<(typeof consumedOperations)[number]> = consumedOperations;

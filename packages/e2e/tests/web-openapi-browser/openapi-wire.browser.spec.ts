@@ -14,6 +14,13 @@ import {
 } from './browser-case-support.ts';
 import { accessIdentity, operatorIdentity, securitySchemes } from './openapi-wire.ts';
 import { withProtocolHost } from './openapi-wire-support.ts';
+import {
+  assertMatrixObligations,
+  matrixCaseCovers,
+  matrixObligationKeys,
+  matrixPlan,
+  matrixScenario,
+} from './openapi-obligation-matrix.ts';
 
 const root = process.cwd();
 const driver = useBrowserDriver();
@@ -22,6 +29,12 @@ const operations = Object.fromEntries(
   Object.values(generatedOperations).map((operation) => [operation.meta.id, operation]),
 ) as Readonly<Record<string, RestOperation>>;
 const { cancelTrade, createTrade, getTrade, listTrades } = generatedOperations;
+const inventory = await buildContractInventory(root);
+const matrixOperations = Object.fromEntries(
+  inventory.methods
+    .filter((method) => method.name in operations)
+    .map((method) => [method.name, operations[method.name]!]),
+) as Readonly<Record<string, RestOperation>>;
 
 defineCase(
   {
@@ -444,63 +457,62 @@ defineCase(
         caseKey: 'openapi-matrix',
         checks: ['obligations-covered', 'real-client-path', 'matrix-iterates-declaration'],
       },
+      ...matrixCaseCovers(inventory, matrixOperations),
     ],
   },
-  async ({ fixture, checkpoint, expect }) => {
-    const inventory = await buildContractInventory(root);
-    const plans = (fixture as MatrixFixture).plans;
-    const available = operations;
-    const declared = inventory.methods.filter((method) => method.name in available);
-    const selected = declared.map((method) => {
-      const operation = available[method.name]!;
-      if (!plans[method.name]) throw new Error(`矩阵 Fixture 缺少接口 ${method.name}`);
-      return operation;
-    });
-    const obligations = inventory.obligations.filter((item) => item.id.startsWith('trade.v1.'));
+  async ({ checkpoint, expect }) => {
+    const selected = Object.values(matrixOperations);
+    const expectedKeys = matrixObligationKeys(inventory, matrixOperations);
     await withProtocolHost(
-      routesFromOpenApiOperations(selected, Object.values(available)),
-      Object.fromEntries(
-        declared.map((method) => [
-          method.name,
-          {
-            expectedRequests: [{ recordOnly: true }],
-            steps: plans[method.name]!.responses.map((body) => ({ body })),
-          },
-        ]),
-      ),
+      routesFromOpenApiOperations(selected, Object.values(operations)),
+      matrixScenario(matrixOperations),
       async (host, server) => {
-        const results = await run(
-          host,
-          declared.map((method) => ({
-            method: method.name,
-            input: plans[method.name]!.input,
-          })),
-        );
+        const results = await run(host, matrixPlan(matrixOperations), { timeoutMs: 5_000 });
+        const covered = await assertMatrixObligations({
+          inventory,
+          operations: matrixOperations,
+          results,
+          records: server.records(),
+          expect,
+          checkpoint,
+        });
         await checkpoint('obligations-covered', () => {
-          expect(results).toHaveLength(selected.length);
-          for (const method of declared)
-            expect(obligations.some((item) => item.id.startsWith(`trade.v1.${method.name}#`))).toBe(
-              true,
-            );
-          expect(
-            obligations.every((item) =>
-              declared.some((method) => item.id.startsWith(`trade.v1.${method.name}#`)),
-            ),
-          ).toBe(true);
+          expect(expectedKeys.length).toBeGreaterThan(0);
+          expect(covered).toEqual(expectedKeys);
         });
         await checkpoint('real-client-path', () => {
-          expect(server.records()).toHaveLength(selected.length);
+          expect(server.records()).toHaveLength(
+            Object.values(matrixOperations).reduce(
+              (count, operation) => count + (operation.meta.codes?.length ?? 0) + 4,
+              0,
+            ),
+          );
+          expect(
+            server
+              .records()
+              .every(
+                (record) => record.methodName !== null && record.methodName in matrixOperations,
+              ),
+          ).toBe(true);
           expect(server.verify()).toEqual([]);
         });
         await checkpoint('matrix-iterates-declaration', () => {
           expect(selected.map((operation) => operation.meta.id)).toEqual(
-            declared.map((method) => method.name),
+            inventory.methods
+              .map((method) => method.name)
+              .filter((name) => name in matrixOperations),
+          );
+          expect(Object.keys(matrixOperations).sort()).toEqual(
+            inventory.methods
+              .map((method) => method.name)
+              .filter((name) => name in operations)
+              .sort(),
           );
         });
       },
     );
   },
-  { timeoutMs: 30_000 },
+  { timeoutMs: 60_000 },
 );
 
 defineCase(
@@ -584,12 +596,3 @@ function createTradeStep() {
 function trade() {
   return { trade_no: 'T-1', status: 'CREATED', amount: 1, merchant_id: 1001 };
 }
-
-type MatrixFixture = Readonly<{
-  plans: Readonly<
-    Record<
-      string,
-      Readonly<{ input: Readonly<Record<string, unknown>>; responses: ReadonlyArray<unknown> }>
-    >
-  >;
-}>;

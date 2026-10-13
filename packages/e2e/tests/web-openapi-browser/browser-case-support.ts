@@ -1,5 +1,6 @@
 import { afterAll, beforeAll } from 'vitest';
 import { createBrowserDriver } from '../../src/drivers/browser.ts';
+import type { BrowserStepResult } from '../../../openapi/testing/browser-runner.ts';
 
 export function useBrowserDriver() {
   const driver = createBrowserDriver();
@@ -21,7 +22,7 @@ type BrowserHost = Readonly<{
   run(
     plan: BrowserPlan,
     options?: Readonly<Record<string, unknown>>,
-  ): Promise<ReadonlyArray<Readonly<Record<string, unknown>>>>;
+  ): Promise<ReadonlyArray<BrowserStepResult>>;
 }>;
 
 /** 打开协议宿主页面并把计划交给页面内协议执行器。 */
@@ -60,7 +61,7 @@ export async function runBrowserPlanWithCancel(
               run(
                 planValue: BrowserPlan,
                 runnerOptions: Readonly<Record<string, unknown>>,
-              ): Promise<ReadonlyArray<Readonly<Record<string, unknown>>>>;
+              ): Promise<ReadonlyArray<BrowserStepResult>>;
             };
           }
         ).__browserHost.run(value, runnerOptions),

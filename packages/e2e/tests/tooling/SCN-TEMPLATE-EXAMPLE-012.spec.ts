@@ -105,7 +105,8 @@ test(
     context.expect(ends.length).toBe(begins.length);
 
     // declaration-matches-calls：声明与实际调用的双向检查为 0 问题。
-    const inventory = await buildContractInventory(repositoryRoot);
+    // 本 Scenario 只派生 SDK 包的声明义务；多包模板里其它产品包的消费接口不属于此处。
+    const inventory = await buildContractInventory(repositoryRoot, { product: product.directory });
     context.expect(inventory.issues).toEqual([]);
     context
       .expect(inventory.methods.map((method) => method.name).sort())

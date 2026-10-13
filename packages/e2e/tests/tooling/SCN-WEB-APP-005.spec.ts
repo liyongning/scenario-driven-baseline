@@ -65,9 +65,12 @@ cliEvidence(
       const source = readFileSync(join(repositoryRoot, storePath), 'utf8');
       context.expect(source.match(/\bdefineStore\s*\(/g)).toHaveLength(1);
       context.expect(source).toContain('readonly(computed(');
-      context.expect(source).toMatch(/return\s*\{\s*configured,\s*configure\s*\}/);
-      context.expect(source).not.toMatch(/return\s*\{[^}]*apiBaseUrl/);
+      context.expect(source).toMatch(/return\s*\{[\s\S]*\bconfigured\b[\s\S]*\bconfigure\b/);
+      context.expect(source).not.toMatch(/return\s*\{[^}]*\bapiBaseUrl\s*,/);
       context.expect(source).toMatch(/defineStore\(\s*'application'/);
+      // 反例：在真实 return 中插入裸 ref 后，必须被"裸 ref 不得直接返回"的判定捕获。
+      const bare = source.replace('configured,', 'configured, apiBaseUrl,');
+      context.expect(bare).toMatch(/return\s*\{[^}]*\bapiBaseUrl\s*,/);
     });
   },
 );

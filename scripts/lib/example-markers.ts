@@ -10,7 +10,8 @@ const dependencyRules = createRequire(import.meta.url)('./dependency-rules.cjs')
 };
 
 /** 示例片段标记的词干：代码写 `// <stem>:begin`，Markdown 写 `<!-- <stem>:begin -->`。 */
-const markerStem = 'template-example';
+const markerStems = ['template-example', 'web-example'] as const;
+type MarkerStem = (typeof markerStems)[number];
 
 /** 参与标记校验的手写代码扩展名；生成物、构建产物与依赖目录不在范围内。 */
 function isCodeFile(path: string): boolean {
@@ -43,31 +44,45 @@ function markerFiles(root: string, manifest: ProjectManifest): string[] {
  * 读取一行里的示例标记；只有注释行才算标记，
  * 避免字符串字面量与文档正文中的同名文字被误判。
  */
-function markerAt(path: string, line: string): 'begin' | 'end' | undefined {
+function markerAt(
+  path: string,
+  line: string,
+  stems: ReadonlyArray<MarkerStem> = markerStems,
+): Readonly<{ kind: 'begin' | 'end'; stem: MarkerStem }> | undefined {
   const trimmed = line.trim();
   const comment = path.endsWith('.md') ? /^<!--/.test(trimmed) : /^\/\//.test(trimmed);
   if (!comment) return undefined;
-  if (trimmed.includes(`${markerStem}:begin`)) return 'begin';
-  if (trimmed.includes(`${markerStem}:end`)) return 'end';
+  for (const stem of stems) {
+    if (trimmed.includes(`${stem}:begin`)) return { kind: 'begin', stem };
+    if (trimmed.includes(`${stem}:end`)) return { kind: 'end', stem };
+  }
   return undefined;
 }
 
 /** 校验一个文件里的示例标记成对出现、不嵌套；违规时指出文件与行号（ENG-06）。 */
 export function scanExampleMarkers(path: string, content: string): string[] {
   const issues: string[] = [];
-  const open: number[] = [];
+  const open: Array<Readonly<{ line: number; stem: MarkerStem }>> = [];
   for (const [index, line] of content.split('\n').entries()) {
     const marker = markerAt(path, line);
-    if (marker === 'begin') {
-      if (open.length > 0) issues.push(`${path}:${index + 1}: ${markerStem} 标记不允许嵌套`);
-      open.push(index + 1);
-    } else if (marker === 'end') {
-      if (open.length === 0)
-        issues.push(`${path}:${index + 1}: ${markerStem}:end 没有对应的 begin`);
-      else open.pop();
+    if (!marker) continue;
+    if (marker.kind === 'begin') {
+      if (open.length > 0) issues.push(`${path}:${index + 1}: ${marker.stem} 标记不允许嵌套`);
+      open.push({ line: index + 1, stem: marker.stem });
+      continue;
     }
+    const current = open.at(-1);
+    if (!current) {
+      issues.push(`${path}:${index + 1}: ${marker.stem}:end 没有对应的 begin`);
+      continue;
+    }
+    if (current.stem !== marker.stem) {
+      issues.push(`${path}:${index + 1}: ${marker.stem}:end 与 ${current.stem}:begin 交叉嵌套`);
+      continue;
+    }
+    open.pop();
   }
-  for (const line of open) issues.push(`${path}:${line}: ${markerStem}:begin 没有对应的 end`);
+  for (const item of open) issues.push(`${path}:${item.line}: ${item.stem}:begin 没有对应的 end`);
   return issues;
 }
 
@@ -78,13 +93,14 @@ export function scanExampleMarkers(path: string, content: string): string[] {
 export function markedLineRanges(
   path: string,
   content: string,
+  stem: MarkerStem = 'template-example',
 ): Array<Readonly<{ begin: number; end: number }>> {
   const ranges: Array<Readonly<{ begin: number; end: number }>> = [];
   let start: number | null = null;
   for (const [index, line] of content.split('\n').entries()) {
-    const marker = markerAt(path, line);
-    if (marker === 'begin' && start === null) start = index + 1;
-    else if (marker === 'end' && start !== null) {
+    const marker = markerAt(path, line, [stem]);
+    if (marker?.kind === 'begin' && start === null) start = index + 1;
+    else if (marker?.kind === 'end' && start !== null) {
       ranges.push({ begin: start, end: index + 1 });
       start = null;
     }

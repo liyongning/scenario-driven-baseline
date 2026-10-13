@@ -1,0 +1,67 @@
+{
+  "formatVersion": 1,
+  "protocol": "openapi",
+  "description": "Web 示例预览：交易直接处于终态。",
+  "entries": [
+    {
+      "operationId": "createTrade",
+      "responses": [
+        {
+          "body": {
+            "code": 0,
+            "message": "ok",
+            "data": {
+              "trade_no": "T-DEMO-2",
+              "status": "SUCCEEDED",
+              "amount": 190,
+              "merchant_id": 1001,
+              "failure_reason": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "operationId": "getTrade",
+      "pathParams": { "trade_no": "T-DEMO-2" },
+      "responses": [
+        {
+          "body": {
+            "code": 0,
+            "message": "ok",
+            "data": {
+              "trade_no": "T-DEMO-2",
+              "status": "SUCCEEDED",
+              "amount": 190,
+              "merchant_id": 1001,
+              "failure_reason": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "operationId": "listTrades",
+      "pathParams": { "merchant_id": 1001 },
+      "responses": [
+        {
+          "body": {
+            "code": 0,
+            "message": "ok",
+            "data": {
+              "items": [
+                {
+                  "trade_no": "T-DEMO-2",
+                  "status": "SUCCEEDED",
+                  "amount": 190,
+                  "merchant_id": 1001,
+                  "failure_reason": null
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,22 +1,32 @@
 // @SCN-TEMPLATE-ENGINEERING-008: 按白名单删除模板示例后门禁仍全绿。
-import { spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, vi, type TestContext } from 'vitest';
-import { loadProjectManifest, sdkProduct } from '../../../../scripts/lib/project-manifest.ts';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { copyCreatingSpecs } from '../../vitest.config.integration.ts';
 import { expectedMissingBindings, type InventoryOutput } from './example-removal-expected.ts';
+import {
+  declarationBody,
+  fixtureKeys,
+  git,
+  markerFiles,
+  methodsInBody,
+  parseInventory,
+  probeSharedBindingBreak,
+  removeDeclaredMatrixKeys,
+  removeWhitelistedPaths,
+  run,
+  stripMarkedFragments,
+  syncCoverageExclusions,
+  writeLog,
+  type DeclarationEvidence,
+  type MatrixEvidence,
+  type Probe,
+  type Removal,
+  type RemovalFixture,
+} from './example-removal-support.ts';
 import { repositoryRoot } from './helpers.ts';
 import {
   createRepositoryCopy,
@@ -29,37 +39,21 @@ import {
 vi.setConfig({ testTimeout: 900_000 });
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
-const markerStem = 'template-example';
 const integrationConfig = 'packages/e2e/vitest.config.integration.ts';
 const specRelative = relative(repositoryRoot, fileURLToPath(import.meta.url));
 const specFile = specRelative.split('/').pop()!;
-const matrixSpecFile = 'packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts';
+const matrixSpecFiles = [
+  'packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts',
+  'packages/e2e/tests/tooling/openapi-matrix-temporary.spec.ts',
+] as const;
 
 type Expect = TestContext['expect'];
-type Removal = Readonly<{
-  directories: ReadonlyArray<string>;
-  files: ReadonlyArray<string>;
-  globs: ReadonlyArray<Readonly<{ directory: string; prefixes: ReadonlyArray<string> }>>;
-  matrixFixture: string;
-  matrixOwner: string;
-}>;
-type RemovalFixture = Readonly<{ removal: Removal }>;
-/** 反例探针：刻意破坏共享 Scenario 的非平台绑定后再跑一次清单模式门禁。 */
-type Probe = Readonly<{
-  status: number | null;
-  issues: ReadonlyArray<string>;
-  brokenIssue: string;
-  log: string;
-}>;
 type Evidence = Readonly<{
   copy: RepositoryCopy;
   removed: ReadonlyArray<string>;
   markerFiles: ReadonlyArray<string>;
-  declaredBefore: ReadonlyArray<string>;
-  outsideMethodsBefore: ReadonlyArray<string>;
-  matrixKeysBefore: ReadonlyArray<string>;
-  matrixKeys: ReadonlyArray<string>;
-  matrixKeysAfter: ReadonlyArray<string>;
+  declarations: ReadonlyArray<DeclarationEvidence>;
+  matrices: ReadonlyArray<MatrixEvidence>;
   coverageExcluded: ReadonlyArray<string>;
   manifestBefore: unknown;
   changed: ReadonlyArray<string>;
@@ -70,212 +64,7 @@ type Evidence = Readonly<{
   inventory: InventoryOutput;
   inventoryLog: string;
   probe: Probe;
-  declarationBody: string;
 }>;
-
-function writeLog(name: string, text: string): string {
-  const path = join(tmpdir(), name);
-  writeFileSync(path, text);
-  return path;
-}
-
-function git(root: string, args: ReadonlyArray<string>): string {
-  const result = spawnSync('git', [...args], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-    env: {
-      ...process.env,
-      GIT_AUTHOR_NAME: 'template-fixture',
-      GIT_AUTHOR_EMAIL: 'fixture@example.com',
-      GIT_COMMITTER_NAME: 'template-fixture',
-      GIT_COMMITTER_EMAIL: 'fixture@example.com',
-    },
-  });
-  if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr}`);
-  return result.stdout.trim();
-}
-
-/** 副本内运行命令：副本自带 node_modules 与固定版本工具链，不读调用方环境。 */
-function run(copy: RepositoryCopy, command: string, args: ReadonlyArray<string>) {
-  const result = spawnSync(command, [...args], {
-    cwd: copy.root,
-    env: copy.env,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
-}
-
-/** 注释行里的示例标记；判定与 scripts/lib/example-markers.ts 一致（代码 `//`、Markdown `<!--`）。 */
-function markerAt(path: string, line: string): 'begin' | 'end' | undefined {
-  const trimmed = line.trim();
-  const comment = path.endsWith('.md') ? /^<!--/.test(trimmed) : /^\/\//.test(trimmed);
-  if (!comment) return undefined;
-  if (trimmed.includes(`${markerStem}:begin`)) return 'begin';
-  if (trimmed.includes(`${markerStem}:end`)) return 'end';
-  return undefined;
-}
-
-/** 删除文件里全部成对标记之间的内容（连同标记本身），返回删除后的文本与被删片段。 */
-function stripMarkedFragments(path: string, content: string) {
-  const kept: string[] = [];
-  const removed: string[] = [];
-  let depth = 0;
-  for (const line of content.split('\n')) {
-    const marker = markerAt(path, line);
-    if (marker === 'begin') {
-      depth += 1;
-      removed.push(line);
-      continue;
-    }
-    if (marker === 'end') {
-      depth -= 1;
-      removed.push(line);
-      continue;
-    }
-    if (depth > 0) removed.push(line);
-    else kept.push(line);
-  }
-  if (depth !== 0) throw new Error(`${path}: ${markerStem} 标记未成对`);
-  return { text: kept.join('\n'), removed: removed.join('\n') };
-}
-
-/** 全仓库含标记的文件清单：删除片段前确定，作为「只删白名单」的允许改动面。 */
-function markerFiles(root: string): string[] {
-  const found: string[] = [];
-  for (const path of git(root, ['ls-files', '--cached', '--others', '--exclude-standard']).split(
-    '\n',
-  )) {
-    if (!path) continue;
-    if (!existsSync(join(root, path))) continue;
-    if (
-      readFileSync(join(root, path), 'utf8')
-        .split('\n')
-        .some((line) => markerAt(path, line) !== undefined)
-    )
-      found.push(path);
-  }
-  return found;
-}
-
-/** 按白名单删除整目录、整文件与按前缀取的文件；返回实际删除的相对路径。 */
-function removeWhitelistedPaths(root: string, removal: Removal): string[] {
-  const removed: string[] = [];
-  const drop = (relativePath: string) => {
-    rmSync(join(root, relativePath), { recursive: true, force: true });
-    removed.push(relativePath);
-  };
-  for (const directory of removal.directories)
-    if (existsSync(join(root, directory))) drop(directory);
-  for (const file of removal.files) if (existsSync(join(root, file))) drop(file);
-  for (const glob of removal.globs) {
-    const directory = join(root, glob.directory);
-    if (!existsSync(directory)) continue;
-    for (const entry of readdirSync(directory))
-      if (glob.prefixes.some((prefix) => entry.startsWith(prefix)))
-        drop(`${glob.directory}/${entry}`);
-  }
-  return removed;
-}
-
-/** 矩阵 Fixture 的接口键（对象键顺序即文件顺序）。 */
-function fixtureKeys(root: string, removal: Removal): string[] {
-  return Object.keys(JSON.parse(readFileSync(join(root, removal.matrixFixture), 'utf8')) as object);
-}
-
-/**
- * 只删示例删除后不再被标记外声明的矩阵键（A5/A6 口径），返回被删除的键。
- * 共用接口（示例与使用方都调用）由使用方在标记外保留同名条目，对应的 Fixture 键必须保留；
- * 模板仓库里标记外为空，所以移除全部示例键。
- */
-function removeDeclaredMatrixKeys(
-  root: string,
-  removal: Removal,
-  removable: ReadonlyArray<string>,
-): string[] {
-  const matrix = JSON.parse(readFileSync(join(root, removal.matrixFixture), 'utf8')) as Record<
-    string,
-    unknown
-  >;
-  const removed = Object.keys(matrix).filter((key) => removable.includes(key));
-  if (removed.length === 0) return [];
-  const kept = Object.fromEntries(
-    Object.entries(matrix).filter(([key]) => !removable.includes(key)),
-  );
-  writeFileSync(join(root, removal.matrixFixture), `${JSON.stringify(kept, null, 2)}\n`);
-  return removed;
-}
-
-/** 声明体里登记的方法名；删除后的声明体只由标记外的条目组成。 */
-function methodsInBody(body: string): string[] {
-  return [...body.matchAll(/method: (\w+)/g)].map((match) => match[1]!);
-}
-
-/** 同步清单中指向已删除文件的覆盖率排除项；返回被移除的路径。 */
-function syncCoverageExclusions(root: string): string[] {
-  const path = join(root, 'project.manifest.json');
-  const manifest = JSON.parse(readFileSync(path, 'utf8')) as {
-    quality?: { coverageExclusions?: ReadonlyArray<{ path: string; reason: string }> };
-  };
-  const exclusions = manifest.quality?.coverageExclusions ?? [];
-  const kept = exclusions.filter((item) => existsSync(join(root, item.path)));
-  const dropped = exclusions.filter((item) => !kept.includes(item)).map((item) => item.path);
-  if (manifest.quality) manifest.quality.coverageExclusions = [...kept];
-  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
-  return dropped;
-}
-
-/** 数组字面量里除声明元素外的内容；声明为空时应只剩空白。 */
-function declarationBody(source: string): string {
-  const start = source.indexOf('= [');
-  const end = source.lastIndexOf('];');
-  if (start < 0 || end < start) throw new Error('consumed operations declaration not found');
-  return source.slice(start + 3, end).trim();
-}
-
-/** 解析 check:scenarios 的 stdout JSON（pnpm 会在正文前后追加自己的行）。 */
-function parseInventory(output: string): InventoryOutput {
-  const start = output.indexOf('\n{\n');
-  const end = output.lastIndexOf('\n}');
-  if (start < 0 || end < start) throw new Error('场景门禁没有输出 JSON 正文');
-  return JSON.parse(output.slice(start + 1, end + 2)) as InventoryOutput;
-}
-
-/**
- * 反例：删掉共享 Scenario 的非平台绑定（集成报告里对应的一条执行记录）后，门禁必须判失败，
- * 且问题集合恰好多出该用例的缺失绑定——精确扣除的断言必须拦得住这类多余问题。
- */
-function probeSharedBindingBreak(copy: RepositoryCopy): Probe {
-  const reportPath = join(copy.root, 'artifacts/local/reports/integration.json');
-  const report = JSON.parse(readFileSync(reportPath, 'utf8')) as {
-    tests: Array<{
-      binding?: {
-        environment: string;
-        flowId?: string;
-        covers: ReadonlyArray<{ id: string; caseKey: string }>;
-      };
-    }>;
-  };
-  const index = report.tests.findIndex(
-    (test) =>
-      test.binding?.environment === 'integration' &&
-      test.binding.flowId === undefined &&
-      test.binding.covers.length === 1 &&
-      !test.binding.covers[0]!.id.startsWith('SCN-TEMPLATE-EXAMPLE-'),
-  );
-  if (index < 0) throw new Error('integration 报告里没有可用于反例的共享 Scenario 绑定');
-  const cover = report.tests[index]!.binding!.covers[0]!;
-  report.tests.splice(index, 1);
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-  const run2 = run(copy, 'pnpm', ['check:scenarios', '--inventory']);
-  return {
-    status: run2.status,
-    issues: parseInventory(run2.output).issues,
-    brokenIssue: `${cover.id}/${cover.caseKey}: missing binding for integration`,
-    log: writeLog('t17-copy-inventory-probe.log', run2.output),
-  };
-}
 
 async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
   const { removal } = fixture;
@@ -298,7 +87,7 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
         '-m',
         'copy: archive scoped change',
       ]);
-    const declarationPath = sdkProduct(loadProjectManifest(copy.root)).consumedOperations![0]!;
+    const declarationPaths = [...new Set(removal.matrices.map((matrix) => matrix.declaration))];
     const manifestPath = join(copy.root, 'project.manifest.json');
     const manifestBefore = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
     const marked = markerFiles(copy.root);
@@ -309,26 +98,45 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
       writeFileSync(absolute, stripped.text);
       fragments.set(path, stripped.removed);
     }
-    const declaredBefore = [
-      ...(fragments.get(declarationPath) ?? '').matchAll(/method: (\w+)/g),
-    ].map((match) => match[1]!);
-    // 标记外登记的方法：使用方条目，以及被移到标记外的共用接口（模板仓库为空）。
-    // 只读声明数组的正文，避免把类型定义里的 `method:` 成员当成条目。
-    const outsideMethodsBefore = [
-      ...new Set(
-        methodsInBody(declarationBody(readFileSync(join(copy.root, declarationPath), 'utf8'))),
-      ),
-    ];
     const removed = removeWhitelistedPaths(copy.root, removal);
-    const matrixKeysBefore = fixtureKeys(copy.root, removal);
-    const removable = [...new Set(declaredBefore)].filter(
-      (name) => !outsideMethodsBefore.includes(name),
-    );
-    const matrixKeys = removeDeclaredMatrixKeys(copy.root, removal, removable);
-    const matrixKeysAfter = fixtureKeys(copy.root, removal);
+    const declarations = declarationPaths.map((path): DeclarationEvidence => {
+      const methodsBefore = [...(fragments.get(path) ?? '').matchAll(/method: (\w+)/g)].map(
+        (match) => match[1]!,
+      );
+      // 标记外登记的方法：使用方条目，以及被移到标记外的共用接口（模板仓库为空）。
+      // 只读声明数组的正文，避免把类型定义里的 `method:` 成员当成条目。
+      const outsideMethodsBefore = [
+        ...new Set(methodsInBody(declarationBody(readFileSync(join(copy.root, path), 'utf8')))),
+      ];
+      return {
+        path,
+        methodsBefore,
+        outsideMethodsBefore,
+        bodyAfter: declarationBody(readFileSync(join(copy.root, path), 'utf8')),
+      };
+    });
+    const matrices = removal.matrices.map((matrix): MatrixEvidence => {
+      const declaration = declarations.find((item) => item.path === matrix.declaration);
+      if (!declaration) throw new Error(`矩阵声明不存在: ${matrix.declaration}`);
+      const keysBefore = fixtureKeys(copy.root, matrix);
+      const removable = [...new Set(declaration.methodsBefore)].filter(
+        (name) => !declaration.outsideMethodsBefore.includes(name),
+      );
+      const keysRemoved = removeDeclaredMatrixKeys(copy.root, matrix, removable);
+      return {
+        fixture: matrix.fixture,
+        owner: matrix.owner,
+        kind: matrix.kind,
+        keysBefore,
+        keysRemoved,
+        keysAfter: fixtureKeys(copy.root, matrix),
+      };
+    });
     const coverageExcluded = syncCoverageExclusions(copy.root);
-    const refresh = run(copy, 'pnpm', ['fixtures:refresh', removal.matrixOwner]);
-    if (refresh.status !== 0) throw new Error(`fixtures:refresh failed: ${refresh.output}`);
+    for (const matrix of removal.matrices) {
+      const refresh = run(copy, 'pnpm', ['fixtures:refresh', matrix.owner]);
+      if (refresh.status !== 0) throw new Error(`fixtures:refresh failed: ${refresh.output}`);
+    }
     // 片段删除会留下空行与折行差异，按仓库脚本格式化后再核对改动面。
     const formatted = run(copy, 'pnpm', ['format']);
     if (formatted.status !== 0) throw new Error(`format failed: ${formatted.output}`);
@@ -362,11 +170,8 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
       copy,
       removed,
       markerFiles: marked,
-      declaredBefore,
-      outsideMethodsBefore,
-      matrixKeysBefore,
-      matrixKeys,
-      matrixKeysAfter,
+      declarations,
+      matrices,
       coverageExcluded,
       manifestBefore,
       changed,
@@ -377,7 +182,6 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
       inventory,
       inventoryLog,
       probe,
-      declarationBody: declarationBody(readFileSync(join(copy.root, declarationPath), 'utf8')),
     };
   } catch (error) {
     copy.cleanup();
@@ -414,34 +218,47 @@ function assertCopyConstruction(value: Evidence, expect: Expect) {
   ).toEqual([]);
   expect(workspaceRealpath(value.copy.root).startsWith(realpathSync(value.copy.root))).toBe(true);
   expect(existsSync(join(value.copy.root, 'packages/sdk/src/example'))).toBe(false);
+  expect(existsSync(join(value.copy.root, 'packages/web/src/trade-create'))).toBe(false);
 }
 
 /** whitelist-only-removal：改动面只落在白名单、标记片段、矩阵 Fixture 与清单排除项。 */
 function assertWhitelistOnly(value: Evidence, removal: Removal, expect: Expect) {
   for (const directory of removal.directories) expect(value.removed).toContain(directory);
   for (const file of removal.files) expect(value.removed).toContain(file);
-  expect(value.matrixKeys.length).toBeGreaterThan(0);
-  // 只删"示例接口中不再被标记外声明"的键（A5/A6）：共用接口由使用方在标记外保留同名条目，
-  // 对应的 Fixture 键必须保留；模板仓库里标记外为空，示例键因此全部删除。
-  expect(
-    [...value.matrixKeys].sort(),
-    '示例删除应移除的矩阵键 = 示例接口中不再被标记外声明的那些',
-  ).toEqual(
-    [...new Set(value.declaredBefore)]
-      .filter((name) => !value.outsideMethodsBefore.includes(name))
-      .sort(),
-  );
-  expect(value.matrixKeysAfter).toEqual(
-    value.matrixKeysBefore.filter((key) => !value.matrixKeys.includes(key)),
-  );
+  for (const matrix of value.matrices) {
+    const declaration = value.declarations.find(
+      (item) =>
+        item.path === removal.matrices.find((item) => item.fixture === matrix.fixture)!.declaration,
+    )!;
+    expect(matrix.keysRemoved.length, `${matrix.fixture} 应移除示例矩阵键`).toBeGreaterThan(0);
+    // 只删"示例接口中不再被标记外声明"的键（A5/A6）：共用接口由使用方在标记外保留同名条目，
+    // 对应的 Fixture 键必须保留；模板仓库里标记外为空，示例键因此全部删除。
+    expect(
+      [...matrix.keysRemoved].sort(),
+      `示例删除应移除的矩阵键 = ${declaration.path} 中不再被标记外声明的那些`,
+    ).toEqual(
+      [...new Set(declaration.methodsBefore)]
+        .filter((name) => !declaration.outsideMethodsBefore.includes(name))
+        .sort(),
+    );
+    expect(matrix.keysAfter).toEqual(
+      matrix.keysBefore.filter((key) => !matrix.keysRemoved.includes(key)),
+    );
+  }
   const covered = (path: string) =>
     value.removed.some((item) => path === item || path.startsWith(`${item}/`)) ||
     value.markerFiles.includes(path) ||
-    path === removal.matrixFixture ||
-    path === join(dirname(removal.matrixFixture), 'manifest.json') ||
+    removal.matrices.some(
+      (matrix) =>
+        path === matrix.fixture || path === join(dirname(matrix.fixture), 'manifest.json'),
+    ) ||
     path === 'project.manifest.json';
   expect(value.changed.filter((path) => !covered(path))).toEqual([]);
-  expect(value.changed.filter((path) => path.startsWith('scripts/'))).toEqual([]);
+  expect(
+    value.changed.filter(
+      (path) => path.startsWith('scripts/') && !value.markerFiles.includes(path),
+    ),
+  ).toEqual([]);
   expect(
     value.changed.filter(
       (path) =>
@@ -453,10 +270,13 @@ function assertWhitelistOnly(value: Evidence, removal: Removal, expect: Expect) 
   expect(
     value.changed.filter(
       (path) =>
-        path.startsWith('openspec/specs/') && !path.startsWith('openspec/specs/template-example/'),
+        path.startsWith('openspec/specs/') &&
+        !path.startsWith('openspec/specs/template-example/') &&
+        !path.startsWith('openspec/specs/web-example/'),
     ),
   ).toEqual([]);
-  if (value.matrixKeys.length > 0) expect(value.changed).toContain(removal.matrixFixture);
+  for (const matrix of value.matrices)
+    if (matrix.keysRemoved.length > 0) expect(value.changed).toContain(matrix.fixture);
   expect(value.changed).toContain('project.manifest.json');
   // 覆盖率排除项只随指向的白名单对象一起消失：期望集合 = 清单原有排除项中位于删除面下者。
   // 白名单条目本身不要求都出现在排除项里——例如删除验收自身的用例与 Fixture 就没有覆盖项。
@@ -527,23 +347,39 @@ defineCase(
     await checkpoint('empty-declaration-matrix', async () => {
       // 删除后的声明体只由标记外的条目组成：模板仓库里标记外为空，此时才断言声明为空、
       // 按消费接口派生的义务为空并结束；使用方保留标记外条目时按这些条目继续取证。
-      expect(methodsInBody(value.declarationBody)).toEqual(value.outsideMethodsBefore);
-      expect(value.declarationBody.length === 0).toBe(value.outsideMethodsBefore.length === 0);
-      // 矩阵键只减不增：删掉示例中不再被标记外声明的键，其余键（含共用接口）原样保留。
-      expect(value.matrixKeysAfter).toEqual(
-        value.matrixKeysBefore.filter((key) => !value.matrixKeys.includes(key)),
-      );
-      if (value.outsideMethodsBefore.length === 0) {
-        expect(value.declarationBody).toBe('');
-        expect(value.matrixKeysAfter).toEqual([]);
+      for (const declaration of value.declarations) {
+        expect(methodsInBody(declaration.bodyAfter)).toEqual(declaration.outsideMethodsBefore);
+        expect(declaration.bodyAfter.length === 0).toBe(
+          declaration.outsideMethodsBefore.length === 0,
+        );
+      }
+      for (const matrix of value.matrices) {
+        // 矩阵键只减不增：删掉示例中不再被标记外声明的键，其余键（含共用接口）原样保留。
+        expect(matrix.keysAfter).toEqual(
+          matrix.keysBefore.filter((key) => !matrix.keysRemoved.includes(key)),
+        );
+        const declaration = value.declarations.find(
+          (item) =>
+            item.path ===
+            removal.matrices.find((candidate) => candidate.fixture === matrix.fixture)!.declaration,
+        )!;
+        if (declaration.outsideMethodsBefore.length === 0) {
+          expect(declaration.bodyAfter).toBe('');
+          expect(matrix.keysAfter).toEqual([]);
+        }
       }
       // 矩阵用例在两种状态下都执行完（声明为空时断言义务为空并结束，不因缺少示例路由失败）。
-      expect(value.fastOutput).toContain(matrixSpecFile);
+      for (const matrixSpecFile of matrixSpecFiles)
+        expect(value.fastOutput).toContain(matrixSpecFile);
       const errors = (await buildContractInventory(value.copy.root)).obligations.filter((item) =>
         item.id.startsWith('idl.error-contract#business-error#'),
       );
       expect(errors.length).toBe(1);
       expect(errors[0]!.requiredIn).toEqual(['integration']);
+      const openapiObligations = (await buildContractInventory(value.copy.root)).obligations.filter(
+        (item) => item.id.startsWith('trade.v1.'),
+      );
+      expect(openapiObligations).toEqual([]);
     });
     await checkpoint('no-recursive-copy', async () => {
       expect(value.copy.env.TEMPLATE_COPY).toBe('1');

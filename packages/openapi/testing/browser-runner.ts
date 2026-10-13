@@ -8,7 +8,10 @@ export type BrowserPlanStep = Readonly<{
   timeoutMs?: number;
   cancel?: BrowserRunnerCancel;
 }>;
-export type BrowserStepResult = Readonly<Record<string, unknown>>;
+export type BrowserStepResult =
+  | Readonly<{ kind: 'success'; data: unknown }>
+  | Readonly<{ kind: 'business-failure'; code: number | string; message: string; data: unknown }>
+  | Readonly<{ kind: 'transport-failure'; reason: string; method?: string }>;
 export type BrowserRunnerOptions = Readonly<{
   gatewayBaseUrl?: string;
   securitySchemes?: Readonly<Record<string, SecurityScheme>>;
@@ -51,7 +54,10 @@ export function browserSerializable(value: unknown): unknown {
   ) as unknown;
 }
 
-async function runStep(step: BrowserPlanStep, options: BrowserRunnerOptions) {
+async function runStep(
+  step: BrowserPlanStep,
+  options: BrowserRunnerOptions,
+): Promise<BrowserStepResult> {
   const operation = findOperation(step.method);
   if (!operation) return { kind: 'transport-failure', reason: 'CODEC_ERROR', method: step.method };
   const source = cancellationSource();

@@ -201,7 +201,7 @@ defineCase(
     const host = await createAppHost({ root, productDirectory: 'web' });
     try {
       const pageState = await driver.runCase({}, async ({ page }) => {
-        await page.goto(host.url);
+        await page.goto(`${host.url}?token=browser-token&merchant=1001`);
         return {
           title: await page.title(),
           hasRoot: (await page.locator('#app').count()) === 1,

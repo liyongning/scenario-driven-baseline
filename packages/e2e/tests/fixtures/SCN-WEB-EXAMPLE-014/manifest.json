@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-WEB-EXAMPLE-014",
+  "sources": {
+    "spec": {
+      "requirementDigest": "884810f564b35e8ca8fc86836d72ae3030f51e77b8494bc2af0179c77060a6ba"
+    }
+  },
+  "cases": {
+    "marker-cli": "marker-cli.json"
+  },
+  "sha256": {
+    "marker-cli.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

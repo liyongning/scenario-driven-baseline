@@ -4,6 +4,9 @@ import { beforeEach, describe, test, vi } from 'vitest';
 describe('main entry', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
+    // web-example:begin
+    window.history.replaceState({}, '', '/?token=main-token&merchant=1001');
+    // web-example:end
     vi.resetModules();
   });
 
@@ -30,7 +33,10 @@ describe('main entry', () => {
       await import('./main');
       await nextTick();
       contextExpect(document.querySelector('[data-testid="app-root"]')).not.toBeNull();
-      contextExpect(document.body.textContent).toContain('应用已配置');
+      // web-example:begin
+      contextExpect(document.body.textContent).toContain('main-token');
+      // web-example:end
+      contextExpect(document.body.textContent).toMatch(/main-token|应用已配置/);
       await annotate(
         JSON.stringify({ assertions: 2, checkpoints: ['entry-mounts', 'entry-covered'] }),
         'scenario-evidence',

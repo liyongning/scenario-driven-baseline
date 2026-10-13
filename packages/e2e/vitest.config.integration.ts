@@ -20,6 +20,9 @@ export const copyCreatingSpecs = [
 /** 派生构建、安装或完整 unit 的副本用例；由同类 integration-heavy 项目逐文件运行。 */
 export const heavyIntegrationSpecs = [
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts',
+  // template-example:begin
+  'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts',
+  // template-example:end
   'packages/e2e/tests/tooling/SCN-WEB-APP-010.spec.ts',
   'packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts',
   'packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-006.spec.ts',

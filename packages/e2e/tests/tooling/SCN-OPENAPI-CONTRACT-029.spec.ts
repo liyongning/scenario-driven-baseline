@@ -22,6 +22,11 @@ function allFiles(directory: string): string[] {
   });
 }
 
+/** 消费接口声明中是否登记了 cancelTrade（用于复核它不属于 Web 示例的消费面）。 */
+function declaresCancelTrade(source: string): boolean {
+  return /method:\s*cancelTrade\b/.test(source);
+}
+
 defineCase(
   {
     ownerId: 'SCN-OPENAPI-CONTRACT-029',
@@ -78,6 +83,13 @@ defineCase(
       expect(operation('/api/v1/trades/{trade_no}/cancel', 'post').security).toEqual([
         { operatorToken: [] },
       ]);
+      // 复核：cancelTrade 只承担契约命令与未实现提示，不在 Web 示例的消费接口声明中。
+      const declaration = readFileSync(
+        join(repositoryRoot, 'packages/web/src/app/consumed-operations.ts'),
+        'utf8',
+      );
+      expect(declaresCancelTrade(declaration)).toBe(false);
+      expect(declaresCancelTrade(`${declaration}\nmethod: cancelTrade,`)).toBe(true);
     });
     await checkpoint('top-level-extensions', () => {
       expect(document['x-common-business-codes']).toContain('INVALID_REQUEST');

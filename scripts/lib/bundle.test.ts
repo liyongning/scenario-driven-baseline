@@ -300,6 +300,12 @@ describe('web bundle boundary check', () => {
       ).toBe('dependency');
       expect(
         classifyBundleSource(root.root, manifest, {
+          source: `packages/${productDirectory}/dist/assets/index.js`,
+          dependency: true,
+        }),
+      ).toBe('dependency');
+      expect(
+        classifyBundleSource(root.root, manifest, {
           source: `packages/${productDirectory}/src/runtime/not-in-inventory.ts`,
           dependency: true,
         }),

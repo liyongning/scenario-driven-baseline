@@ -134,9 +134,9 @@ module.exports = {
         'from.pathNot re of the not-to-dev-dep rule in the dependency-cruiser configuration',
       from: {
         path: '^(packages)',
-        // `testing/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
+        // `testing/` 与 `__tests__/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
         // 因此允许它使用根 devDependency，如 express。
-        pathNot: `[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/|^packages/${escapeRegExp(testPackage(manifest).directory)}/`,
+        pathNot: `[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/|/__tests__/|^packages/${escapeRegExp(testPackage(manifest).directory)}/`,
       },
       to: {
         dependencyTypes: ['npm-dev'],

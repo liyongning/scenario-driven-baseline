@@ -32,9 +32,18 @@ function normalizeSchemaDefaults(value: unknown): unknown {
   if (value.exclusiveMaximum === true) delete next.maximum;
   if (value.nullable === true) {
     if (typeof next.type === 'string') next.type = [next.type, 'null'];
-    else if (Array.isArray(next.enum) && !next.enum.includes(null)) next.enum.push(null);
-    else if (Array.isArray(next.oneOf)) next.oneOf.push({ type: 'null' });
-    else if (Array.isArray(next.anyOf)) next.anyOf.push({ type: 'null' });
+    else if (Array.isArray(next.type) && !next.type.includes('null')) next.type.push('null');
+    if (Array.isArray(next.enum) && !next.enum.includes(null)) next.enum.push(null);
+    if (
+      Array.isArray(next.oneOf) &&
+      !next.oneOf.some((branch) => isObject(branch) && branch.type === 'null')
+    )
+      next.oneOf.push({ type: 'null' });
+    if (
+      Array.isArray(next.anyOf) &&
+      !next.anyOf.some((branch) => isObject(branch) && branch.type === 'null')
+    )
+      next.anyOf.push({ type: 'null' });
   }
   return next;
 }

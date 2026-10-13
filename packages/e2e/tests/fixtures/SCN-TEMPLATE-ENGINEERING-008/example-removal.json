@@ -6,12 +6,34 @@
       "packages/e2e/tests/example",
       "packages/e2e/tests/weapp/example",
       "openspec/specs/template-example",
-      "packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008"
+      "packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008",
+      "packages/web/src/__tests__",
+      "packages/web/src/trade-create",
+      "packages/web/src/trade-list",
+      "packages/web/src/trade-status",
+      "packages/web/src/runtime/__tests__",
+      "packages/web/src/shared/components/LoadingFailure",
+      "packages/web/src/shared/components/LoadingIndicator",
+      "packages/e2e/tests/fixtures/_datasets",
+      "openspec/specs/web-example"
     ],
     "files": [
       "packages/e2e/host/weapp/example-runner.ts",
       "packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts",
-      "packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts"
+      "packages/e2e/tests/tooling/example-removal-support.ts",
+      "packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts",
+      "packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts",
+      "packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts",
+      "packages/web/src/app/platform/openapi-ports.ts",
+      "packages/web/src/app/platform/runtime.test.ts",
+      "packages/web/src/app/platform/runtime.ts",
+      "packages/web/src/app/platform/url-context.test.ts",
+      "packages/web/src/app/platform/url-context.ts",
+      "packages/web/src/runtime/domain.ts",
+      "packages/web/src/runtime/generation.ts",
+      "packages/web/src/runtime/poller.ts",
+      "packages/web/src/shared/components/example.test.ts",
+      "packages/web/src/store/example.test.ts"
     ],
     "globs": [
       {
@@ -19,11 +41,31 @@
         "prefixes": ["SCN-TEMPLATE-EXAMPLE-", "FLOW-TEMPLATE-EXAMPLE-"]
       },
       {
+        "directory": "packages/e2e/tests/fixtures",
+        "prefixes": ["SCN-WEB-EXAMPLE-", "FLOW-WEB-EXAMPLE-"]
+      },
+      {
         "directory": "packages/e2e/tests/tooling",
         "prefixes": ["SCN-TEMPLATE-EXAMPLE-"]
+      },
+      {
+        "directory": "packages/e2e/tests/tooling",
+        "prefixes": ["SCN-WEB-EXAMPLE-"]
       }
     ],
-    "matrixFixture": "packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json",
-    "matrixOwner": "SCN-PROTOCOL-CONTRACT-002"
+    "matrices": [
+      {
+        "fixture": "packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json",
+        "owner": "SCN-PROTOCOL-CONTRACT-002",
+        "kind": "declaration-keys",
+        "declaration": "packages/sdk/src/consumed-operations.ts"
+      },
+      {
+        "fixture": "packages/e2e/tests/fixtures/SCN-OPENAPI-CONTRACT-021/openapi-matrix.json",
+        "owner": "SCN-OPENAPI-CONTRACT-021",
+        "kind": "openapi-plans",
+        "declaration": "packages/web/src/app/consumed-operations.ts"
+      }
+    ]
   }
 }

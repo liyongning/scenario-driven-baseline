@@ -1,0 +1,12 @@
+.trade-create {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+button {
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.625rem 1rem;
+}

@@ -1,6 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { createServer as createHttpServer } from 'node:http';
 import { join } from 'node:path';
+import express from 'express';
 import { assertProductBundleFresh } from './freshness.ts';
+import { createSharedProxy } from './proxy.ts';
 
 export type PreviewPlan = Readonly<{ command: string; args: ReadonlyArray<string>; cwd: string }>;
 
@@ -37,6 +40,8 @@ export async function createAppHost(
   options: Readonly<{
     root: string;
     productDirectory: string;
+    /** 当次 Shadow 地址；提供时应用宿主在 `/api` 上复用共用代理。 */
+    shadowUrl?: string;
     spawn?: (plan: PreviewPlan) => ChildProcessLike;
     verifyFreshness?: (root: string, productDirectory: string) => void;
   }>,
@@ -47,16 +52,38 @@ export async function createAppHost(
     options.spawn ?? ((value) => spawn(value.command, [...value.args], { cwd: value.cwd }))
   )(plan) as ChildProcess | ChildProcessLike;
   let output = '';
+  let applicationServer: ReturnType<typeof createHttpServer> | undefined;
   return new Promise<AppHost>((resolve, reject) => {
-    const append = (chunk: Buffer) => {
+    const append = async (chunk: Buffer) => {
       output += chunk.toString();
       const match = output.match(/http:\/\/127\.0\.0\.1:(\d+)\//);
       if (!match) return;
+      let url = match[0];
+      if (options.shadowUrl) {
+        const app = express();
+        // 应用把网关基地址配为 `/api`，请求路径本身也以 `/api` 开头；代理与前缀一致地剥离 `/api`，
+        // 与协议宿主剥离 `/__shadow` 的约定相同。
+        app.use('/api', createSharedProxy({ target: options.shadowUrl, stripPrefix: '/api' }));
+        app.use(createSharedProxy({ target: match[0] }));
+        applicationServer = createHttpServer(app);
+        await new Promise<void>((listenResolve, listenReject) => {
+          applicationServer!.once('error', listenReject);
+          applicationServer!.listen(0, '127.0.0.1', listenResolve);
+        });
+        const address = applicationServer.address();
+        if (!address || typeof address === 'string')
+          return reject(new Error('application host did not bind'));
+        url = `http://127.0.0.1:${address.port}/`;
+      }
       resolve({
-        url: match[0],
+        url,
         output: () => output,
         async close() {
           child.kill();
+          if (applicationServer)
+            await new Promise<void>((closeResolve, closeReject) =>
+              applicationServer!.close((error) => (error ? closeReject(error) : closeResolve())),
+            );
         },
       });
     };

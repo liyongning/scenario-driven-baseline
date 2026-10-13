@@ -481,3 +481,43 @@
 **Commit**
 
 - `feat(template): add browser platform with playwright driver and shared proxy`
+
+### Task 11 Web 示例
+
+**规划与输入**
+
+- 本任务起点 HEAD：`23a24d0`；freshness 为 `PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 本任务交付 Web 交易创建、状态轮询、交易列表与业务/传输失败呈现；OpenAPI 消费声明与义务矩阵；`app-unit`、integration、browser 三层证据；以及 `SCN-TEMPLATE-ENGINEERING-008` 的双示例删除适配。
+
+**实施偏离与修复**
+
+- `SCN-TEMPLATE-ENGINEERING-008.spec.ts` 超过文件行数上限且含未使用导入。将副本删除的辅助逻辑抽到 `packages/e2e/tests/tooling/example-removal-support.ts`，加入 `example-removal.json` 白名单，并同步 `docs/template-guide.md` 与 SCN-008 Fixture 摘要；断言、删除范围和场景语义未改变。
+- `packages/web/src/main.ts` 的 `||` 分支使定向入口覆盖率为 99.97%。改为显式 `resolveGatewayBaseUrl()` 结果赋回 `config.apiBaseUrl`，再读取局部值，消除不可覆盖分支；定向入口测试恢复 100%，行为不变。
+- `SCN-SCENARIO-GATE-026` 删除 FLOW 后改变了含 FLOW 表的 Requirement 摘要，导致 `SCN-WEB-EXAMPLE-006` 摘要过期。测试在删除 FLOW 后同步刷新现存 `SCN-*` Fixture 摘要，使副本内摘要按新输入自洽；不改 Spec 语义。
+- `SCN-TEMPLATE-ENGINEERING-008` 会再次创建副本并运行完整 `check:fast`，默认并发下与 `SCN-TEMPLATE-EXAMPLE-005` 竞争出现 5 秒超时。将该文件纳入 `integration-heavy` 的 `fileParallelism:false` 项目，不放宽单例超时；后续默认并发普通 integration 保持在约 87 秒。
+- `SCN-WEB-EXAMPLE-005` 的浏览器证据原以 `createTrade` 零字节断开代替 Spec 要求的 `listTrades` 传输失败，并把 checkpoint 写成 `no-automatic-retry`。改为创建并轮询到终态后，对 `listTrades` 使用 `partial-then-disconnect`，执行 `failure-component-shown` 与 `no-replay`，断言列表请求恰好一次且 Shadow 无问题。
+- `FLOW-WEB-EXAMPLE-001` 的阶段值必须与 Spec 表格经门禁解析后的完整字符串一致。浏览器用例现按 `打开页面`、`提交创建表单`、`createTrade`、`getTrade 轮询（非终态`、`终态）`、`停止轮询`、`listTrades`、`列表...调用顺序和次数一致` 原样上报；实现未改 FLOW 解析器或规划语义。
+
+**Task 11 定向绿**
+
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task11-check-fast-20261013T145204Z pnpm check:fast`：退出码 0（约 522 秒）。unit 138/138 文件、566/566 用例；普通 integration 94/94 文件、173/173 用例；integration-heavy 7/7 文件、13/13 用例；statements 5770/5770、branches 3777/3777、functions 1169/1169、lines 5065/5065 均 100%。
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task11-check-fast-20261013T151800Z pnpm test:e2e:browser`：退出码 0（36.12 秒），3/3 文件、19/19 用例通过；其中 `SCN-WEB-EXAMPLE` 6/6，包含修正后的 partial-then-disconnect 与 FLOW 用例。
+- 同一 run id 独立运行 `pnpm check:scenarios`：退出码 1。共 338 条问题，其中 320 条为本任务尚未运行的 weapp 证据缺失；非 weapp 仅 18 条：Task 12 四条、Task 13 两条、Task 14 的 SCN-008 重型副本因本轮外部负载失败十二条。Task 11 相关 `SCN-WEB-EXAMPLE`、`FLOW-WEB-EXAMPLE-001`、`SCN-OPENAPI-CONTRACT-017`、021 已无问题。
+- 最终 freshness 复核为 `PASS`，digest 仍为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**外部负载导致的时败时过**
+
+- 同机另一个 `fe_app/esm15-backfill-apply` 任务持续运行大量 Vitest 文件期间，系统负载约 8–16。run `task11-check-fast-20261013T150900Z` 出现单个 fork worker 握手超时，少执行 `scripts/check-fixtures.protocol.test.ts`，unit 137/137 文件、565/565 用例，覆盖率不足 100%；run `151000Z` unit 已通过，但普通 integration 在负载下出现 8 个 5–30 秒超时及 SCN-008 嵌套命令失败；run `151800Z` 普通 integration、unit 均通过，但 SCN-008 副本内 `SCN-PROTOCOL-CONTRACT-018` 在并发负载下出现 `records` 1→0，副本 `check:fast` 失败。
+- 上述均为外部高负载下的进程握手/超时竞争，非 Task 11 业务断言回归，也不计入 OI；`task11-check-fast-20261013T145204Z` 已在同一源码主体上默认并发全绿。当前最终源码相较该绿运行仅增加 FLOW 阶段字符串对齐和 SCN-005 partial-then-disconnect 修正，两者已由 `151800Z` browser 19/19 独立复验。
+
+**Task 11 收尾全量**
+
+- 最终源码默认并发全量：`pnpm verify --change template-web-absorption --run-id template-web-absorption-apply-task11-20261013T172500Z`，整体退出码 1，仅因 Task 12/13 尚未实现的场景绑定缺失。
+  - `check:fast`：退出码 0（475432ms）。unit 138/138 文件、566/566 用例通过；普通 integration 94/94 文件、173/173 用例通过；integration-heavy 7/7 文件、13/13 用例通过；statements 5770/5770、branches 3777/3777、functions 1169/1169、lines 5065/5065 均为 100%。
+  - `test:e2e:weapp`：退出码 0（283264ms），5/5 文件、5/5 用例通过。`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-002.spec.ts` 实跑 1/1，9.46 秒。
+  - `test:e2e:browser`：退出码 0（32545ms），3/3 文件、19/19 用例通过。
+  - `check:scenarios`：退出码 1（2072ms），恰好剩余 6 条 missing binding：`SCN-BROWSER-PLATFORM-012`（browser）、`SCN-BROWSER-PLATFORM-013`（test-tools-unit）、`SCN-BROWSER-PLATFORM-014`（test-tools-unit）、`SCN-BROWSER-PLATFORM-015`（integration）归 Task 12；`SCN-TEMPLATE-ENGINEERING-012/web-capability-sections-fact`（integration）与 `SCN-OPENAPI-CONTRACT-019/unimplemented-hint-gate`（integration）归 Task 13。
+- 独立场景门禁复核：`SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=template-web-absorption-apply-task11-20261013T172500Z pnpm check:scenarios` 退出码 1，问题集合与全量完全一致，仅上述 6 条缺失绑定；没有 `requiredIn` 引用未登记项目、非本 Change Scenario 或其他问题。
+- Task 11 核对的三项重点均为通过：`SCN-TEMPLATE-ENGINEERING-008` 两个 case 均通过且没有门禁问题；`SCN-PROTOCOL-CONTRACT-018` 在本轮低负载默认并发下 2/2 通过，`records` 1→0 未复现；weapp `SCN-PROTOCOL-CONTRACT-002` 已实跑并通过。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 0；计划因工具配置与构建输入变化触发完整 `check:fast`，未选择 weapp 步骤。
+- 最终 freshness 复核为 `PASS`，digest 仍为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。此前 run `template-web-absorption-apply-task11-20261013T170900Z` 及更早尝试中的 `weapp:prepare` 未就绪、正式版掉登录和副本内 `proto:status` SSH 瞬断均为环境问题，不计业务失败或 OI；本记录以 `172500Z` 的全量结果为准。

@@ -15,7 +15,11 @@ import { analysisProgram } from './analysis-program.ts';
 import { collectFiles } from './fingerprints.ts';
 import { loadProtocolAdapter, type ProtocolOperation } from './protocol-adapters.ts';
 
-type InventoryOptions = Readonly<{ generatedRoot?: string }>;
+type InventoryOptions = Readonly<{
+  generatedRoot?: string;
+  /** 只清点该目录下的产品包；缺省清点全部产品包（多包模板的默认口径）。 */
+  product?: string;
+}>;
 
 type BindingInventoryInput = Readonly<{
   root: string;
@@ -148,8 +152,15 @@ async function buildBindingInventory(input: BindingInventoryInput) {
 export async function buildContractInventory(root: string, options: InventoryOptions = {}) {
   const manifest = loadProjectManifest(root);
   const integration = testEnvironmentsByClass(manifest, ['integration']);
+  const products = packagesByRole(manifest, 'product').filter(
+    (product) => options.product === undefined || product.directory === options.product,
+  );
+  if (options.product !== undefined && products.length === 0)
+    throw new Error(
+      `contract inventory product ${options.product} is not a registered product package`,
+    );
   const results = await Promise.all(
-    packagesByRole(manifest, 'product').map(async (product) => {
+    products.map(async (product) => {
       const binding = bindingForProduct(manifest, product.directory);
       const protocol = packageByDirectory(manifest, binding.protocol);
       const generatedRoot =

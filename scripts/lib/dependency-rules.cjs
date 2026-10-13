@@ -85,7 +85,7 @@ function dependencyRules(manifest) {
         path: `^packages/(?:${productPattern}|${protocolPattern})/(?:${productionRoots})/`,
         pathNot: TEST_FILE_PATTERN,
       },
-      to: { path: `(^packages/${testDir}/|/testing/|[.]test[.]ts$|^@template-test/)` },
+      to: { path: `(^packages/${testDir}/|/testing/|/__tests__/|[.]test[.]ts$|^@template-test/)` },
     },
     // 本地路径即便指向公开入口，也必须通过 npm 名称消费；仅放行已配置的 npm 名称别名。
     {

@@ -398,7 +398,7 @@
   **Commit**
   - `feat(template): add browser platform with playwright driver and shared proxy`
 
-- [ ] 11. Web 示例
+- [x] 11. Web 示例
 
   **Files**
   - Create：`packages/web/src/` 中示例模块（交易创建、状态轮询、列表；`store/` 全局 store 用切片函数组合并 readonly 暴露；`runtime/` 轮询器与代际；`app/platform/` 中从 URL 读取 token 与 merchant 的适配器；`shared/components/` 加载中与加载失败组件；两级 `components/` 组件树；`app/consumed-operations.ts` 登记 createTrade、getTrade、listTrades）及全部单测（入口覆盖、store 写入审计、代际丢弃、假时钟轮询、业务码完备性对账、不可达分支改写正例）。

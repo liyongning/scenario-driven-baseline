@@ -82,6 +82,10 @@ function removeFlowRegistrations(copy: RepositoryCopy): void {
     removedFixtures.push(`${fixturesRelative}/${entry}`);
   }
   if (removedFixtures.length > 0) git(copy.root, ['rm', '-r', '-q', '--', ...removedFixtures]);
+  // Requirement 块含 FLOW 表；删表后必须同步摘要，否则 Fixture 会按旧输入被判过期。
+  const owners = readdirSync(fixtureDirectory).filter((entry) => entry.startsWith('SCN-'));
+  const refresh = run(copy, 'pnpm', ['fixtures:refresh', ...owners]);
+  if (refresh.status !== 0) throw new Error(`fixtures refresh failed: ${refresh.output}`);
 }
 
 /** 新增一个与任何事实核验无关、含缺陷 Scenario 的 active Change。 */

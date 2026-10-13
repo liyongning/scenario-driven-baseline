@@ -1,0 +1,13 @@
+{
+  "token": "fixture-token",
+  "merchantId": 1001,
+  "amount": 25,
+  "response": {
+    "code": 40901,
+    "message": "conflict",
+    "data": {
+      "trade_no": "T-CONFLICT-1",
+      "conflict_code": "STATE_CHANGED"
+    }
+  }
+}

@@ -151,6 +151,11 @@ function contractSources(manifest: ProjectManifest): Set<string> {
   return sources;
 }
 
+/** 工作区包构建产物前缀：产品经 workspace 依赖消费绑定协议包时，其 dist 属于依赖而不是手写源码。 */
+function workspaceDistPrefixes(manifest: ProjectManifest): string[] {
+  return manifest.packages.map((item) => `${packageRoot(item.directory)}dist/`);
+}
+
 function isDependencySource(source: string): boolean {
   return (
     source.startsWith('virtual:') ||
@@ -169,6 +174,8 @@ export function classifyBundleSource(
   if (contractSources(manifest).has(module.source)) return 'contract';
   if (testInfrastructurePrefixes(manifest).some((prefix) => module.source.startsWith(prefix)))
     return 'test-infrastructure';
+  if (workspaceDistPrefixes(manifest).some((prefix) => module.source.startsWith(prefix)))
+    return 'dependency';
   if (module.dependency) return isDependencySource(module.source) ? 'dependency' : 'unknown';
   const source = readSourceInventory(root, manifest).files.find(
     (item) => item.path === module.source && item.class !== 'test',

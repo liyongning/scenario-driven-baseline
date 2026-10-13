@@ -9,8 +9,35 @@ import {
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
+import { loadProjectManifest, packagesByRole } from './project-manifest.ts';
 
 describe('buildContractInventory', () => {
+  it(
+    'filters the inventory to a registered product and rejects an unknown product',
+    { timeout: 30_000 },
+    async () => {
+      const root = exampleInventoryRoot('contract-product-');
+      try {
+        const manifest = loadProjectManifest(root.root);
+        const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+        expect(product).toBeDefined();
+        const inventory = await buildContractInventory(root.root, {
+          product: product!.directory,
+        });
+        expect(inventory.methods.map((method) => method.name)).toEqual([
+          'CreateTrade',
+          'QueryTrade',
+        ]);
+        expect(inventory.issues).toEqual([]);
+        await expect(
+          buildContractInventory(root.root, { product: 'not-a-product' }),
+        ).rejects.toThrow('is not a registered product package');
+      } finally {
+        root.cleanup();
+      }
+    },
+  );
+
   // 副本内（SCN-SCENARIO-GATE-026）负载叠加时默认 5s 超时不够，显式放宽。
   it('derives obligations for the example protocol only', { timeout: 30_000 }, async () => {
     const root = exampleInventoryRoot();
