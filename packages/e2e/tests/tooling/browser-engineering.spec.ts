@@ -6,6 +6,7 @@ import { cliEvidence } from './scenario-gate-helpers.ts';
 import { repositoryRoot } from './helpers.ts';
 import {
   loadProjectManifest,
+  testPackage,
   type ProjectManifest,
 } from '../../../../scripts/lib/project-manifest.ts';
 import { planCommand } from '../../../../scripts/run-by-manifest.ts';
@@ -177,13 +178,17 @@ cliEvidence(
   'browser-case-layout',
   ['binding-directory', 'known-behaviors-documented'],
   async (context, check) => {
+    const manifest = loadProjectManifest(repositoryRoot);
     await check('binding-directory', () => {
-      context.expect(browserEnvironmentIssues(testSources())).toEqual([]);
+      context.expect(browserEnvironmentIssues(testSources(), manifest)).toEqual([]);
       context
         .expect(
-          browserEnvironmentIssues({
-            'packages/e2e/tests/sdk-idl-weapp/rogue.spec.ts': `defineCase({ environment: '${'bro'}${'wser'}' }, () => {});\n`,
-          }),
+          browserEnvironmentIssues(
+            {
+              'packages/e2e/tests/sdk-idl-weapp/rogue.spec.ts': `defineCase({ environment: '${'bro'}${'wser'}' }, () => {});\n`,
+            },
+            manifest,
+          ),
         )
         .toEqual(['packages/e2e/tests/sdk-idl-weapp/rogue.spec.ts']);
     });
@@ -493,11 +498,15 @@ function harnessImplementations(files: Record<string, string>) {
     .sort();
 }
 
-function browserEnvironmentIssues(files: Record<string, string>) {
+function browserEnvironmentIssues(files: Record<string, string>, manifest: ProjectManifest) {
+  const testDirectory = testPackage(manifest).directory;
+  const browserDirectories = manifest.bindings
+    .filter((binding) => binding.platforms.includes('browser'))
+    .map((binding) => `packages/${testDirectory}/tests/${binding.name}/`);
   return Object.entries(files)
     .filter(([, source]) => /environment\s*:\s*['"]browser['"]/.test(source))
     .map(([path]) => path)
-    .filter((path) => !path.startsWith('packages/e2e/tests/web-openapi-browser/'))
+    .filter((path) => !browserDirectories.some((directory) => path.startsWith(directory)))
     .sort();
 }
 
@@ -518,11 +527,11 @@ function browserRegistrationIssues(manifest: ProjectManifest) {
   }
   for (const command of ['test:e2e:browser', 'preview:local', 'dev:remote'] as const)
     if (!manifest.requiredCommands.includes(command)) issues.push(`missing ${command} command`);
-  if (
-    !manifest.bindings
-      .find((item) => item.name === 'web-openapi-browser')
-      ?.platforms.includes('browser')
-  )
+  const browserBindings = manifest.bindings.filter((item) => item.platforms.includes('browser'));
+  if (browserBindings.length === 0)
+    issues.push('at least one binding must include browser platform');
+  const templateBinding = manifest.bindings.find((item) => item.name === 'web-openapi-browser');
+  if (templateBinding && !templateBinding.platforms.includes('browser'))
     issues.push('web-openapi-browser must include browser platform');
   return issues;
 }

@@ -17,6 +17,8 @@ import { defineCase } from '../../src/cases/define-case.ts';
 import { createEngineeringFormRoot } from './engineering-form-fixture.ts';
 import { repositoryRoot, writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
 import { scopedChangeNames } from './repository-copy.ts';
+import { coreTsconfigInclude } from '../../../../scripts/lib/web-app-checks.ts';
+import type { ManifestPackage } from '../../../../scripts/lib/project-manifest.ts';
 
 const fixturesRoot = join(repositoryRoot, 'packages/e2e/tests/fixtures');
 const webSourceRoot = join(repositoryRoot, 'packages/web/src');
@@ -379,19 +381,32 @@ function createArchitectureRoot(): { root: string; cleanup: () => void } {
     join(root, 'project.manifest.json'),
     readFileSync(join(repositoryRoot, 'project.manifest.json')),
   );
-  for (const name of ['sdk', 'protocol', 'openapi', 'web', 'e2e']) {
-    const directory = join(root, 'packages', name);
+  const manifest = JSON.parse(
+    readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
+  ) as { packages: ReadonlyArray<ManifestPackage> };
+  for (const pkg of manifest.packages) {
+    const source = join(repositoryRoot, 'packages', pkg.directory);
+    const directory = join(root, 'packages', pkg.directory);
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md#rules)\n');
-    writeFileSync(
-      join(directory, 'package.json'),
-      readFileSync(join(repositoryRoot, 'packages', name, 'package.json')),
-    );
+    writeFileSync(join(directory, 'package.json'), readFileSync(join(source, 'package.json')));
+    if (pkg.form === 'web-app') {
+      const tsconfig = join(source, 'tsconfig.core.json');
+      writeFileSync(
+        join(directory, 'tsconfig.core.json'),
+        existsSync(tsconfig)
+          ? readFileSync(tsconfig)
+          : JSON.stringify(
+              {
+                compilerOptions: { composite: true, lib: ['ES2022'], types: [] },
+                include: coreTsconfigInclude(pkg),
+              },
+              null,
+              2,
+            ),
+      );
+    }
   }
-  writeFileSync(
-    join(root, 'packages/web/tsconfig.core.json'),
-    readFileSync(join(repositoryRoot, 'packages/web/tsconfig.core.json')),
-  );
   writeTemplateGuideFixture(root);
   writeProjectMapFixture(root);
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };

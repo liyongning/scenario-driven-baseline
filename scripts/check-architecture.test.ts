@@ -1,38 +1,120 @@
 import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../packages/e2e/src/vitest.d.ts';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import {
   writeProjectMapFixture,
   writeTemplateGuideFixture,
 } from '../packages/e2e/tests/tooling/helpers.ts';
 import { checkArchitecture, cruiseArguments, runArchitectureCli } from './check-architecture';
-import { loadProjectManifest } from './lib/project-manifest.ts';
+import {
+  testPackage,
+  type ManifestPackage,
+  type ProjectManifest,
+  loadProjectManifest,
+} from './lib/project-manifest.ts';
+import { coreTsconfigInclude } from './lib/web-app-checks.ts';
 
 const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
-function fixture() {
+type FixtureOptions = Readonly<{ additionalWebApp?: boolean }>;
+
+function expectedCruiseTargets(manifest: ProjectManifest): string[] {
+  return manifest.packages
+    .filter((pkg) => pkg.role !== 'test')
+    .flatMap((pkg) => {
+      const roots = pkg.moduleRoots?.length ? pkg.moduleRoots : ['src'];
+      return roots.map((root) => `packages/${pkg.directory}/${root}`);
+    })
+    .concat(`packages/${testPackage(manifest).directory}/src/shadow`);
+}
+
+function writePackageFixture(root: string, pkg: ManifestPackage, manifest: ProjectManifest): void {
+  const directory = join(root, 'packages', pkg.directory);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
+  const sourceManifest = join('packages', pkg.directory, 'package.json');
+  if (existsSync(sourceManifest)) {
+    writeFileSync(join(directory, 'package.json'), readFileSync(sourceManifest));
+  } else {
+    const binding = manifest.bindings.find((item) => item.product === pkg.directory);
+    const protocol = manifest.packages.find((item) => item.directory === binding?.protocol);
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({
+        name: pkg.name,
+        version: '0.0.0',
+        ...(pkg.private ? { private: true } : {}),
+        dependencies: {
+          ...(protocol ? { [protocol.name]: 'workspace:*' } : {}),
+          ...(pkg.form === 'web-app' ? { '@vue/devtools-api': '1.0.0' } : {}),
+        },
+      }),
+    );
+  }
+  if (pkg.form === 'web-app') {
+    writeFileSync(
+      join(directory, 'tsconfig.core.json'),
+      JSON.stringify(
+        {
+          compilerOptions: { composite: true, lib: ['ES2022'], types: [] },
+          include: coreTsconfigInclude(pkg),
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+function fixture(options: FixtureOptions = {}) {
   const root = mkdtempSync(join(tmpdir(), 'template-architecture-'));
   roots.push(root);
   mkdirSync(join(root, 'packages'));
   writeFileSync(join(root, 'README.md'), '# facts');
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md) [external](https://example.invalid)');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
-  writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  for (const name of ['sdk', 'protocol', 'openapi', 'web', 'e2e']) {
-    const dir = join(root, 'packages', name);
-    mkdirSync(dir);
-    writeFileSync(join(dir, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
-    writeFileSync(join(dir, 'package.json'), readFileSync(`packages/${name}/package.json`));
+  const manifest = JSON.parse(readFileSync('project.manifest.json', 'utf8')) as Omit<
+    ProjectManifest,
+    'packages' | 'bindings'
+  > & {
+    packages: ManifestPackage[];
+    bindings: Array<ProjectManifest['bindings'][number]>;
+  };
+  if (options.additionalWebApp) {
+    const protocol = manifest.packages.find((pkg) => pkg.protocolKind === 'idl')!;
+    manifest.packages = [
+      ...manifest.packages,
+      {
+        directory: 'web-idl',
+        name: '@sample/web-idl',
+        role: 'product',
+        form: 'web-app',
+        private: true,
+        allowedDirectories: ['src'],
+        moduleRoots: ['src'],
+        globalStore: 'src/store/index.ts',
+        consumedOperations: ['src/app/consumed-operations.ts'],
+      },
+    ];
+    manifest.bindings = [
+      ...manifest.bindings,
+      {
+        name: 'web-idl-browser',
+        product: 'web-idl',
+        protocol: protocol.directory,
+        platforms: ['browser'],
+      },
+    ];
+    for (const module of ['trade-create', 'trade-list', 'trade-status']) {
+      mkdirSync(join(root, 'packages/web-idl/src', module), { recursive: true });
+    }
   }
-  writeFileSync(
-    join(root, 'packages/web/tsconfig.core.json'),
-    readFileSync('packages/web/tsconfig.core.json'),
-  );
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+  for (const pkg of manifest.packages) writePackageFixture(root, pkg, manifest);
   writeTemplateGuideFixture(root);
   writeProjectMapFixture(root);
   // 默认 CLI 分支调用真实 depcruise：放一个可执行替身，验证参数组装与退出码传递，不依赖真实解析。
@@ -49,18 +131,13 @@ test('完整多包和可解析规则链接通过；依赖工具失败传递', as
     await runArchitectureCli(['node', 'script', '--root', root, '--dependency-exit-code', '0']),
   ).toMatchObject({ issues: [], exitCode: 0 });
   expect(await runArchitectureCli([], root)).toMatchObject({ issues: [], exitCode: 0 });
-  expect(cruiseArguments(root, loadProjectManifest(root))).toEqual([
+  const manifest = loadProjectManifest(root);
+  expect(cruiseArguments(root, manifest)).toEqual([
     '--config',
     resolve(root, '.dependency-cruiser.cjs'),
     '--output-type',
     'err-long',
-    'packages/sdk/src',
-    'packages/protocol/src',
-    'packages/protocol/testing',
-    'packages/openapi/src',
-    'packages/openapi/testing',
-    'packages/web/src',
-    'packages/e2e/src/shadow',
+    ...expectedCruiseTargets(manifest),
   ]);
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', '-1'], root),
@@ -68,6 +145,19 @@ test('完整多包和可解析规则链接通过；依赖工具失败传递', as
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', 'bad'], root),
   ).rejects.toThrow(/non-negative integer/);
+});
+
+test('新增 web-app 包与绑定后，架构检查和 cruise 参数继续按清单派生', async () => {
+  const root = fixture({ additionalWebApp: true });
+  const manifest = loadProjectManifest(root);
+  expect(await checkArchitecture(root, 0)).toEqual([]);
+  expect(cruiseArguments(root, manifest)).toEqual([
+    '--config',
+    resolve(root, '.dependency-cruiser.cjs'),
+    '--output-type',
+    'err-long',
+    ...expectedCruiseTargets(manifest),
+  ]);
 });
 
 test('依赖工具不可执行时按失败处理', async () => {
@@ -310,15 +400,37 @@ evidence(
         join(removalFixture, 'example-removal.json'),
         JSON.stringify({
           removal: {
-            directories: [],
+            directories: ['packages/sdk/src/fixture-directory'],
             files: ['packages/web/src/fixture-only.ts'],
-            globs: [],
+            globs: [
+              {
+                directory: 'packages/sdk/src',
+                prefixes: ['fixture-glob-'],
+              },
+            ],
+            matrices: [
+              {
+                fixture: 'packages/e2e/tests/fixtures/SCN-OPENAPI-CONTRACT-021/fixture-matrix.json',
+                owner: 'SCN-OPENAPI-CONTRACT-021',
+                kind: 'openapi-plans',
+                declaration: 'packages/web/src/app/consumed-operations.ts',
+              },
+            ],
           },
         }),
       );
       context
         .expect(await checkArchitecture(fixtureDriven, 0))
         .toContain('missing removal whitelist entry packages/web/src/fixture-only.ts');
+      context
+        .expect(await checkArchitecture(fixtureDriven, 0))
+        .toEqual(
+          expect.arrayContaining([
+            'missing removal whitelist entry packages/sdk/src/fixture-directory/',
+            'missing removal whitelist entry packages/sdk/src/fixture-glob-*',
+            'missing removal whitelist entry packages/e2e/tests/fixtures/SCN-OPENAPI-CONTRACT-021/fixture-matrix.json',
+          ]),
+        );
       rmSync(removalFixture, { recursive: true, force: true });
       context.expect(await checkArchitecture(fixtureDriven, 0)).toEqual([]);
     });
@@ -480,59 +592,3 @@ evidence(
     });
   },
 );
-
-// 运行真实 dependency-cruiser CLI；不以手造依赖图代替解析/退出码验证。
-function importFixture(source: string) {
-  const root = fixture();
-  writeFileSync(join(root, '.dependency-cruiser.cjs'), readFileSync('.dependency-cruiser.cjs'));
-  mkdirSync(join(root, 'scripts/lib'), { recursive: true });
-  writeFileSync(
-    join(root, 'scripts/lib/dependency-rules.cjs'),
-    readFileSync('scripts/lib/dependency-rules.cjs'),
-  );
-  writeFileSync(join(root, 'tsconfig.base.json'), readFileSync('tsconfig.base.json'));
-  for (const name of ['sdk', 'protocol'])
-    mkdirSync(join(root, 'packages', name, 'src'), { recursive: true });
-  const protocol = join(root, 'packages/protocol');
-  mkdirSync(join(protocol, 'src/generated'));
-  writeFileSync(join(protocol, 'src/index.ts'), 'export type PublicType = string;');
-  writeFileSync(join(protocol, 'src/generated/std.ts'), 'export const config = 1;');
-  // 保留真实 package exports，模拟构建后的公开文件，覆盖源码别名与 dist 两条解析路径。
-  mkdirSync(join(protocol, 'dist/generated'), { recursive: true });
-  writeFileSync(join(protocol, 'dist/index.d.ts'), 'export type PublicType = string;');
-  writeFileSync(join(protocol, 'dist/generated/std.d.ts'), 'export declare const config: number;');
-  const modules = join(root, 'packages/sdk/node_modules/@daqian');
-  mkdirSync(modules, { recursive: true });
-  symlinkSync(protocol, join(modules, 'template-protocol'), 'dir');
-  writeFileSync(join(root, 'packages/sdk/src/export-bypass.ts'), source);
-  return spawnSync(
-    resolve('node_modules/.bin/depcruise'),
-    [
-      '--config',
-      '.dependency-cruiser.cjs',
-      '--output-type',
-      'err-long',
-      'packages/sdk/src/export-bypass.ts',
-    ],
-    { cwd: root, encoding: 'utf8' },
-  );
-}
-
-test.each([
-  "export { config } from '../../protocol/src/generated/std';",
-  "export type { PublicType } from '../../protocol/src/index';",
-  "export const load = () => import('../../protocol/src/generated/std');",
-  "export { config } from '../../protocol/dist/generated/std.d.ts';",
-  "export { config } from 'packages/protocol/src/generated/std';",
-])('真实 CLI 拒绝绕过 exports 的跨包源文件导入：%s', (source) => {
-  const result = importFixture(source);
-  expect(result.status).toBe(1);
-  expect(result.stdout + result.stderr).toContain('cross-workspace-no-direct-files');
-});
-
-test('真实 CLI 接受完整 npm 名称的 root 和 generated 公开子入口', () => {
-  const result = importFixture(
-    "export type { PublicType } from '@daqian/template-protocol';\nexport { config } from '@daqian/template-protocol/generated/std';",
-  );
-  expect(result.status, result.stdout + result.stderr).toBe(0);
-});

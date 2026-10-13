@@ -182,28 +182,38 @@ defineCase(
 
     await checkpoint('template-case-bindings', () => {
       const manifest = loadProjectManifest(repositoryRoot);
-      const idlBinding = manifest.bindings.find((binding) => binding.name === 'sdk-idl-weapp');
-      expect(idlBinding).toBeDefined();
+      const idlProtocols = new Set(
+        manifest.packages
+          .filter((pkg) => pkg.role === 'protocol' && pkg.protocolKind === 'idl')
+          .map((pkg) => pkg.directory),
+      );
+      const idlBindings = manifest.bindings.filter((binding) => idlProtocols.has(binding.protocol));
+      expect(idlBindings.length).toBeGreaterThan(0);
       const cases = scanCaseBindings(repositoryRoot, manifest);
-      const idlCases = cases.filter((item) => {
+      const idlCases = cases.flatMap((item) => {
         const manifestPath = join(
           repositoryRoot,
           'packages/e2e/tests/fixtures',
           item.ownerId,
           'manifest.json',
         );
-        if (!existsSync(manifestPath)) return false;
+        if (!existsSync(manifestPath)) return [];
         const fixtureManifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
           protocol?: string;
         };
-        return fixtureManifest.protocol === idlBinding!.protocol;
+        return fixtureManifest.protocol && idlProtocols.has(fixtureManifest.protocol)
+          ? [{ ...item, protocol: fixtureManifest.protocol }]
+          : [];
       });
       expect(idlCases.length).toBeGreaterThan(0);
-      expect(idlCases.filter((item) => item.binding !== idlBinding!.name)).toEqual([]);
-      const webCases = cases.filter((item) => item.file.includes('/tests/web-openapi-browser/'));
-      if (manifest.bindings.some((binding) => binding.name === 'web-openapi-browser'))
-        expect(webCases.filter((item) => item.binding !== 'web-openapi-browser')).toEqual([]);
-      else expect(webCases.every((item) => item.binding === undefined)).toBe(true);
+      expect(
+        idlCases.filter(
+          (item) =>
+            !idlBindings.some(
+              (binding) => binding.protocol === item.protocol && binding.name === item.binding,
+            ),
+        ),
+      ).toEqual([]);
     });
   },
   { timeoutMs: 30_000 },

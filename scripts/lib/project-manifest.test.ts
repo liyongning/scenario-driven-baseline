@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, expect, test, type TestContext } from 'vitest';
+import { afterEach, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
 import {
@@ -26,14 +26,15 @@ import {
   maxLinesExemptions,
   packagesByRole,
   projectManifestFile,
-  reportNameFor,
   testProjectConfigs,
   testProjectsByClass,
   validateManifest,
-  type ManifestPackage,
   type ProjectManifest,
-  type TestProject,
 } from './project-manifest.ts';
+import {
+  baseManifest,
+  type MutableManifest,
+} from '../../packages/e2e/tests/tooling/project-manifest-fixture.ts';
 import { testEnvironmentsByClass } from './test-environments.ts';
 
 const roots: string[] = [];
@@ -43,73 +44,6 @@ const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-});
-
-type MutableManifest = {
-  packages: ManifestPackage[];
-  bindings: Array<{
-    name: string;
-    product: string;
-    protocol: string;
-    platforms: string[];
-  }>;
-  requiredCommands: string[];
-  testProjects: TestProject[];
-  fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
-  quality?: { coverageExclusions: Array<{ path: string; reason: string }>; maxLinesExemptions: [] };
-  release?: { registry: string; tagPrefix: string };
-};
-
-const baseManifest = (): MutableManifest => ({
-  packages: [
-    {
-      directory: 'sample-product',
-      name: '@sample/product',
-      role: 'product',
-      form: 'sdk',
-      private: false,
-      allowedDirectories: ['src'],
-      moduleRoots: ['src'],
-    },
-    {
-      directory: 'sample-protocol',
-      name: '@sample/protocol',
-      role: 'protocol',
-      protocolKind: 'idl',
-      private: false,
-      allowedDirectories: ['src', 'testing'],
-      moduleRoots: ['src', 'testing'],
-    },
-    {
-      directory: 'sample-test',
-      name: '@sample/test',
-      role: 'test',
-      private: true,
-      allowedDirectories: ['src', 'host', 'tests'],
-      moduleRoots: ['src', 'host', 'tests'],
-    },
-  ],
-  bindings: [
-    {
-      name: 'sample-product-protocol',
-      product: 'sample-product',
-      protocol: 'sample-protocol',
-      platforms: ['platform'],
-    },
-  ],
-  requiredCommands: ['check:fast'],
-  testProjects: [
-    { name: 'product-unit', class: 'unit', config: 'packages/sample-product/vitest.config.ts' },
-    { name: 'protocol-unit', class: 'unit', config: 'packages/sample-protocol/vitest.config.ts' },
-    { name: 'integration', class: 'integration', config: 'packages/sample-test/vitest.config.ts' },
-    { name: 'platform', class: 'platform', config: 'packages/sample-test/vitest.config.weapp.ts' },
-  ],
-  fingerprints: {
-    sourceRoots: ['sample-src'],
-    buildInputs: ['build.config.ts'],
-    protocolInputs: ['proto-gen.lock'],
-  },
-  quality: { coverageExclusions: [], maxLinesExemptions: [] },
 });
 
 function writeManifest(root: string, manifest: unknown) {
@@ -213,7 +147,17 @@ evidence(
   async (context, check) => {
     await check('manifest-schema', () => {
       // 仓库清单通过 schema 校验，且 schema 的每个属性都有中文说明。
-      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(5);
+      const repository = loadProjectManifest(repositoryRoot);
+      context
+        .expect(repository.packages.map((pkg) => pkg.directory))
+        .toEqual([...new Set(repository.packages.map((pkg) => pkg.directory))]);
+      context
+        .expect(
+          repository.packages.every((pkg) =>
+            existsSync(join(repositoryRoot, 'packages', pkg.directory)),
+          ),
+        )
+        .toBe(true);
       context
         .expect(
           checkSchemaDocumentation(repositoryRoot).filter((issue) =>
@@ -221,6 +165,32 @@ evidence(
           ),
         )
         .toEqual([]);
+      const expanded = structuredClone(repository) as MutableManifest;
+      expanded.packages.push({
+        directory: 'web-idl',
+        name: '@sample/web-idl',
+        role: 'product',
+        form: 'web-app',
+        private: true,
+        allowedDirectories: ['src'],
+        moduleRoots: ['src'],
+        globalStore: 'src/store/index.ts',
+        consumedOperations: ['src/app/consumed-operations.ts'],
+      });
+      expanded.bindings.push({
+        name: 'web-idl-browser',
+        product: 'web-idl',
+        protocol: repository.packages.find((pkg) => pkg.protocolKind === 'idl')!.directory,
+        platforms: ['browser'],
+      });
+      const expandedRoot = createControlledRoot({ manifest: expanded });
+      try {
+        context
+          .expect(loadProjectManifest(expandedRoot.root).packages)
+          .toHaveLength(repository.packages.length + 1);
+      } finally {
+        expandedRoot.cleanup();
+      }
       const root = temporaryRoot();
       writeManifest(root, baseManifest());
       context.expect(loadProjectManifest(root).packages).toHaveLength(3);
@@ -602,19 +572,3 @@ evidence(
     });
   },
 );
-
-test('derives default report names from the registered test projects', () => {
-  const manifest = loadProjectManifest(repositoryRoot);
-  expect(defaultReportNames(manifest)).toEqual([
-    'unit',
-    'integration',
-    'integration-heavy',
-    'weapp',
-    'browser',
-  ]);
-  expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'weapp')!)).toBe('weapp');
-  expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'sdk-unit')!)).toBe(
-    'unit',
-  );
-  expect(testEnvironmentsByClass(manifest, ['integration'])).toEqual(['integration']);
-});

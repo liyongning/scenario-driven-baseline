@@ -13,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 import type { CoverageInput } from '../../../../scripts/check-scenarios.ts';
+import { exampleWhitelistEntries } from '../../../../scripts/lib/example-whitelist.ts';
+import { loadProjectManifest } from '../../../../scripts/lib/project-manifest.ts';
 import { minimalManifest } from './controlled-root.ts';
 
 /** 仓库根由模块位置推导，helper 不依赖调用方的工作目录。 */
@@ -150,15 +152,8 @@ export function writeArchitectureFixture(root: string) {
  * 临时架构根的合法使用指南：规定章节齐全、删除白名单完整、能力地图与架构文档同名，
  * 且不含 Scenario ID、pnpm 命令与清单字段引用。
  */
-export function writeTemplateGuideFixture(
-  root: string,
-  directories: { product: string; protocol: string; test: string } = {
-    product: 'sdk',
-    protocol: 'protocol',
-    test: 'e2e',
-  },
-) {
-  const { product, protocol, test } = directories;
+export function writeTemplateGuideFixture(root: string) {
+  const entries = exampleWhitelistEntries(root, loadProjectManifest(root));
   const guide = [
     '# 模板使用指南',
     '',
@@ -193,27 +188,8 @@ export function writeTemplateGuideFixture(
     '',
     '## 移除模板示例',
     '',
-    `删除白名单：\`packages/${product}/src/example/\`、\`packages/${protocol}/testing/shadow/example/\`、`,
-    `\`packages/${test}/tests/example/\`、\`packages/${test}/tests/weapp/example/\`、`,
-    `\`packages/${test}/host/weapp/example-runner.ts\`、\`packages/${test}/tests/fixtures/\` 下的`,
-    '`SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`、',
-    `\`packages/${test}/tests/tooling/SCN-TEMPLATE-EXAMPLE-*\`、\`openspec/specs/template-example/\`、`,
-    `\`packages/${test}/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts\` 与`,
-    `\`packages/${test}/tests/tooling/example-removal-support.ts\`、`,
-    `Fixture \`packages/${test}/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/\`、`,
-    `\`packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts\`；`,
-    '片段从 `template-example:begin` 到 `template-example:end`；',
-    `\`packages/${product}/src/index.ts\` 的示例导出、\`consumed-operations.ts\` 的示例条目、`,
-    `\`packages/${test}/host/weapp/app.js\`、\`packages/${test}/src/drivers/weapp-host.test.ts\` 中的示例运行器片段；`,
-    '`protocol-matrix.json` 中的示例键删除后用 `fixtures:refresh` 重算摘要；',
-    '同步 `coverageExclusions`。',
-    'Web 示例白名单包含 `openspec/specs/web-example/`、`packages/web/src/trade-create/`、',
-    '`packages/web/src/trade-list/`、`packages/web/src/trade-status/`、',
-    '`packages/e2e/tests/fixtures/_datasets/trade-in-progress/`、',
-    '`packages/e2e/tests/fixtures/_datasets/trade-completed/`、',
-    '`SCN-WEB-EXAMPLE-*`、`FLOW-WEB-EXAMPLE-*`、`packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-*`、',
-    '`web-example:begin` 与 `web-example:end`；',
-    '`packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`。',
+    `删除白名单：${entries.templateExample.map((entry) => `\`${entry}\``).join('、')}。`,
+    `Web 示例白名单包含 ${entries.webExample.map((entry) => `\`${entry}\``).join('、')}。`,
     '',
     '## 归档已知限制',
     '',

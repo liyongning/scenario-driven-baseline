@@ -12,12 +12,15 @@ export function readRepositoryFile(path: string): string {
   return readFileSync(resolve(repositoryRoot, path), 'utf8');
 }
 
-/** 复制真实三包清单到临时根，保留清单校验需要的 workspace 依赖，只替换契约内容。 */
+/** 复制真实清单及全部 OpenAPI 契约到临时根，保留多协议包拓扑，只替换目标契约内容。 */
 export function writeOpenApiRoot(contract = readRepositoryFile(contractPath)) {
   const root = mkdtempSync(join(tmpdir(), 'template-openapi-contract-'));
   const manifestText = readRepositoryFile('project.manifest.json');
   const manifest = JSON.parse(manifestText) as {
-    packages: ReadonlyArray<{ directory: string }>;
+    packages: ReadonlyArray<{
+      directory: string;
+      contract?: { file: string; lock: string };
+    }>;
   };
   writeFileSync(join(root, 'project.manifest.json'), manifestText);
   for (const file of ['tsconfig.base.json', 'tsconfig.json']) {
@@ -33,6 +36,13 @@ export function writeOpenApiRoot(contract = readRepositoryFile(contractPath)) {
     const target = join(root, 'packages', pkg.directory, 'package.json');
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, readFileSync(source));
+    if (!pkg.contract) continue;
+    for (const file of [pkg.contract.file, pkg.contract.lock]) {
+      const sourceFile = resolve(repositoryRoot, file);
+      const targetFile = join(root, file);
+      mkdirSync(dirname(targetFile), { recursive: true });
+      writeFileSync(targetFile, readFileSync(sourceFile));
+    }
   }
   const contractTarget = join(root, contractPath);
   mkdirSync(dirname(contractTarget), { recursive: true });

@@ -477,8 +477,9 @@ defineCase(
           checkpoint,
         });
         await checkpoint('obligations-covered', () => {
-          expect(expectedKeys.length).toBeGreaterThan(0);
           expect(covered).toEqual(expectedKeys);
+          if (selected.length === 0) expect(expectedKeys).toEqual([]);
+          else expect(expectedKeys.length).toBeGreaterThan(0);
         });
         await checkpoint('real-client-path', () => {
           expect(server.records()).toHaveLength(

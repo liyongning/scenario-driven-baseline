@@ -139,20 +139,59 @@ function syncFixture() {
 }
 
 test('validate reports redocly failures with and without process output', async () => {
-  spawn.mockReturnValueOnce(spawnResult(0, JSON.stringify({ totals: { errors: 0, warnings: 0 } })));
+  spawn.mockReturnValue(spawnResult(0, JSON.stringify({ totals: { errors: 0, warnings: 0 } })));
   await expect(validateContract(repositoryRoot)).resolves.toEqual({ issues: [], exitCode: 0 });
 
-  spawn.mockReturnValueOnce(spawnResult(1));
+  spawn.mockReturnValue(spawnResult(1));
   const silent = await validateContract(repositoryRoot);
   expect(silent.issues.join('\n')).toContain('exit 1');
 
-  spawn.mockReturnValueOnce(spawnResult(1, '', 'lint stderr'));
+  spawn.mockReturnValue(spawnResult(1, '', 'lint stderr'));
   const noisy = await validateContract(repositoryRoot);
   expect(noisy.issues.join('\n')).toContain('lint stderr');
 
-  spawn.mockReturnValueOnce(spawnResult(0, JSON.stringify({ totals: { errors: 1, warnings: 2 } })));
+  spawn.mockReturnValue(spawnResult(0, JSON.stringify({ totals: { errors: 1, warnings: 2 } })));
   const reported = await validateContract(repositoryRoot);
   expect(reported.issues.join('\n')).toContain('redocly lint failed');
+});
+
+test('validate checks every registered OpenAPI contract through the mocked lint boundary', async () => {
+  const root = syncFixture();
+  const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as {
+    packages: Array<Record<string, unknown>>;
+    fingerprints: { protocolInputs: string[] };
+  };
+  manifest.packages.push({
+    directory: 'player-api',
+    name: '@sample/player-api',
+    role: 'protocol',
+    protocolKind: 'openapi',
+    private: false,
+    allowedDirectories: ['src', 'testing', 'contracts'],
+    contract: {
+      file: 'packages/player-api/contracts/player.yaml',
+      lock: 'packages/player-api/contracts/player.lock.json',
+    },
+  });
+  manifest.fingerprints.protocolInputs.push(
+    'packages/player-api/contracts/player.yaml',
+    'packages/player-api/contracts/player.lock.json',
+  );
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+  mkdirSync(join(root, 'packages/player-api/contracts'), { recursive: true });
+  writeFileSync(
+    join(root, 'packages/player-api/package.json'),
+    JSON.stringify({ name: '@sample/player-api', private: false }, null, 2),
+  );
+  writeFileSync(join(root, 'packages/player-api/contracts/player.yaml'), validContract);
+
+  const lintCalls: unknown[] = [];
+  spawn.mockImplementation((_command, args) => {
+    lintCalls.push(args);
+    return spawnResult(0, JSON.stringify({ totals: { errors: 0, warnings: 0 } }));
+  });
+  await expect(validateContract(root)).resolves.toEqual({ issues: [], exitCode: 0 });
+  expect(lintCalls).toHaveLength(2);
 });
 
 test('sync exposes bundle failures without writing generated output', async () => {

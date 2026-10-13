@@ -1,4 +1,4 @@
-import { cpSync, existsSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { collectFiles } from '../../../../scripts/lib/fingerprints.ts';
 import { bundleManifestPath } from '../../../../scripts/lib/bundle-manifest.ts';
@@ -29,18 +29,38 @@ cliEvidence(
     const copy = createBuildCopy({ prefix: 'bundle-manifest-cli-' });
     const root = createEngineeringFormRoot();
     try {
+      const copyManifest = loadProjectManifest(copy.root);
+      const templateProduct = copyManifest.packages.find(
+        (item) =>
+          item.form === 'web-app' &&
+          existsSync(join(repositoryRoot, 'packages', item.directory, 'index.html')),
+      )!;
+      const binding = copyManifest.bindings.find(
+        (item) => item.product === templateProduct.directory,
+      )!;
+      const protocol = copyManifest.packages.find((item) => item.directory === binding.protocol)!;
+      const test = copyManifest.packages.find((item) => item.role === 'test')!;
+      writeFileSync(
+        join(copy.root, 'project.manifest.json'),
+        JSON.stringify(
+          {
+            ...copyManifest,
+            packages: [templateProduct, protocol, test],
+            bindings: [binding],
+          },
+          null,
+          2,
+        ),
+      );
       await check('manifest-outside-dist', () => {
         cpSync(
-          join(repositoryRoot, 'packages/web/index.html'),
-          join(copy.root, 'packages/web/index.html'),
+          join(repositoryRoot, 'packages', templateProduct.directory, 'index.html'),
+          join(copy.root, 'packages', templateProduct.directory, 'index.html'),
         );
-        runBundleBuild(copy);
-        const product = loadProjectManifest(copy.root).packages.find(
-          (item) => item.form === 'web-app',
-        )!;
-        const manifestPath = bundleManifestPath(copy.root, product.directory);
+        runBundleBuild(copy, templateProduct.directory);
+        const manifestPath = bundleManifestPath(copy.root, templateProduct.directory);
         context.expect(existsSync(manifestPath)).toBe(true);
-        const dist = join(copy.root, 'packages', product.directory, 'dist');
+        const dist = join(copy.root, 'packages', templateProduct.directory, 'dist');
         context.expect(existsSync(join(dist, 'bundle-manifest.json'))).toBe(false);
         for (const file of collectFiles(dist, () => true))
           context

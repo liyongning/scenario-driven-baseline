@@ -151,11 +151,14 @@ test(
       const manifest = JSON.parse(
         readFileSync(join(process.cwd(), 'project.manifest.json'), 'utf8'),
       ) as {
-        packages: Array<{ directory: string }>;
+        packages: Array<{ directory: string; form?: string }>;
         bindings: Array<{ product: string }>;
       };
-      manifest.packages = manifest.packages.filter((item) => item.directory !== 'web');
-      manifest.bindings = manifest.bindings.filter((item) => item.product !== 'web');
+      const webDirectories = new Set(
+        manifest.packages.filter((item) => item.form === 'web-app').map((item) => item.directory),
+      );
+      manifest.packages = manifest.packages.filter((item) => !webDirectories.has(item.directory));
+      manifest.bindings = manifest.bindings.filter((item) => !webDirectories.has(item.product));
       writeFileSync(join(noWebRoot, 'project.manifest.json'), JSON.stringify(manifest));
       writeFileSync(
         join(noWebRoot, 'web.config.json'),
@@ -163,8 +166,12 @@ test(
       );
       const completeManifest = JSON.parse(
         readFileSync(join(process.cwd(), 'project.manifest.json'), 'utf8'),
-      ) as { packages: Array<{ directory: string; name: string; private: boolean }> };
-      for (const item of completeManifest.packages.filter((pkg) => pkg.directory !== 'web')) {
+      ) as {
+        packages: Array<{ directory: string; name: string; private: boolean; form?: string }>;
+      };
+      for (const item of completeManifest.packages.filter(
+        (pkg) => !webDirectories.has(pkg.directory),
+      )) {
         const directory = join(noWebRoot, 'packages', item.directory);
         mkdirSync(directory, { recursive: true });
         writeFileSync(

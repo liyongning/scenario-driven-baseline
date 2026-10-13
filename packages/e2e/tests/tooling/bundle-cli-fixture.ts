@@ -86,10 +86,31 @@ export function runBundleCli(root: Readonly<{ root: string; env: NodeJS.ProcessE
   return runCli({ ...root, cleanup: () => {} }, 'scripts/check-bundle.ts');
 }
 
-export function runBundleBuild(root: Readonly<{ root: string; env: NodeJS.ProcessEnv }>): void {
-  const result = spawnSync('pnpm', ['build'], {
+export function runBundleBuild(
+  root: Readonly<{ root: string; env: NodeJS.ProcessEnv }>,
+  productDirectory?: string,
+): void {
+  const product = loadProjectManifest(root.root).packages.find(
+    (item) => item.form === 'web-app' && (!productDirectory || item.directory === productDirectory),
+  );
+  if (!product) throw new Error(`bundle build has no web product ${productDirectory ?? ''}`.trim());
+  const manifest = loadProjectManifest(root.root);
+  const binding = manifest.bindings.find((item) => item.product === product.directory);
+  const protocol = manifest.packages.find((item) => item.directory === binding?.protocol);
+  if (protocol) {
+    const protocolBuild = spawnSync('pnpm', ['--filter', protocol.name, 'build'], {
+      cwd: root.root,
+      env: { ...process.env, ...root.env, NODE_ENV: 'production' },
+      encoding: 'utf8',
+    });
+    if (protocolBuild.status !== 0)
+      throw new Error(
+        `bundle protocol build failed: ${protocolBuild.stdout}${protocolBuild.stderr}`,
+      );
+  }
+  const result = spawnSync('pnpm', ['--filter', product.name, 'build'], {
     cwd: root.root,
-    env: { ...process.env, ...root.env },
+    env: { ...process.env, ...root.env, NODE_ENV: 'production' },
     encoding: 'utf8',
   });
   if (result.status !== 0) throw new Error(`bundle build failed: ${result.stdout}${result.stderr}`);

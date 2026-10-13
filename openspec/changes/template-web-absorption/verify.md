@@ -660,11 +660,70 @@
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：构建、typecheck、架构及 unit 570/571 通过后，`scripts/lib/contract-inventory.derivation.test.ts` 在 60s 预算超时，退出码 1。该文件与本次改动无关；当时 1 分钟负载约 11.29，单独复跑 1/1 用例 4.02s 通过。按外部负载下的“时败时过”登记，不计 OI，不归因本次修复。
 - freshness 在修复前后均为 `PASS`，digest 保持 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
 
+**第 2 轮阻塞与修复**
+
+- 覆盖率回归：上一版 `example-whitelist.ts` 只在真实 SCN-008 Fixture 存在时覆盖 `directories`、`globs` 与 `prefixes` 分支；副本删除示例后，测试自造的 Fixture 又为空，导致分支覆盖率降至 100% 以下。现改为单测在受控临时根中构造非空删除 Fixture，显式覆盖目录、文件、glob、矩阵和前缀分支，不依赖真实 Fixture 是否仍在。
+- browser 空声明：`SCN-OPENAPI-CONTRACT-021` 原来无论消费接口声明是否为空都要求 `expectedKeys.length > 0`。删除 Web 示例后声明合法为空，因此副本会失败。现与 integration 保持一致：声明为空时断言派生义务为空并结束，只有存在声明时才要求义务非空。
+- 指南矩阵遗漏：Web 白名单缺少 `example-removal.json` 中 `matrices` 指向的 `SCN-OPENAPI-CONTRACT-021/openapi-matrix.json` 示例键。现由 Fixture 的 `matrices` 派生并核对，指南模板段的 `protocol-matrix` 键也同步保持；指南“示例用例另在 `packages/e2e/tests/example/**`”说明已放入 template-example 标记。
+- 反例验证：在受控 Fixture 中加入非空目录、文件和 glob 后，指南缺少任一项都会报 `missing removal whitelist entry`；矩阵条目缺失同样使架构检查失败。browser 空声明分支以删除 Web 示例后的受控副本验证，原断言失败，修复后通过。
+
+**受控冒烟**
+
+- 从 `git ls-files` 复制工作区到 `/tmp/template-web-topology-smoke-vpv6x4`，按清单新增 `packages/player-api`、`packages/player-web` 和 `player-web-browser` 绑定；未修改门禁代码。
+- `pnpm test:unit`：退出码 0，173 个文件、649 个用例全部通过。
+- `pnpm exec vitest run --config packages/e2e/vitest.config.integration.ts` 下的目标 tooling 用例：退出码 0，8 个文件、21 个用例全部通过。
+- 构建新增 OpenAPI 协议包后 `pnpm check:architecture`：退出码 0，0 条违规。
+- 副本首次 `pnpm test:unit` 仅因合成新增包尚无覆盖率归属而使全局覆盖率未达 100%，没有拓扑或门禁断言失败；该结果不是业务或模板门禁失败。
+
 **Review / Acceptance**
 
 - 本轮未修改 proposal、specs、design 或 tasks 语义，也未执行任务 15 的任何演练。
 - Task 14 checkbox 暂不勾选；需由验收方使用新隔离副本重跑“移除模板示例”演练后决定。
 
+## Task 15 复刻演练阻塞修复（交回前）
+
+**规划与输入**
+
+- 交叉复刻演练在按清单新增 `packages/web-idl` 与 `web-idl-browser` 后被模板自测的写死拓扑阻断；xueshan 纵切片在新增 `packages/player-api`、`packages/player-web` 与 `player-web-browser` 后又被相同模式阻断。
+- 这些失败来自门禁测试读取真实仓库或临时复制真实清单时仍写死包名、绑定名、包数量、协议契约数量、目录布局或固定重定向调用次数，违反 AGENTS.md 的“门禁只从清单读取”和指南的“替换点地图”约定。Task 15 checkbox 保持未勾选。
+
+**交叉复刻修复**
+
+- `check-architecture`、`project-manifest`、`dependency-rules` 的期望值改为从 `project.manifest.json` 派生包、角色、模块根、绑定和巡航目标；受控临时根按清单复制全部包，不再只创建五个根包。
+- `SCN-SCENARIO-GATE-029`、`SCN-BROWSER-PLATFORM-010`、`SCN-WEB-EXAMPLE-014`、`SCN-TEMPLATE-ENGINEERING-006/011/012` 等模板自测改为只检查自己负责的绑定或包事实，清单中额外出现的使用方产品包、协议包和绑定不会导致失败。
+- `SCN-WEB-APP-012`、bundle Fixture 按清单选择需要构建或检查的 Web 产品与绑定协议；临时根构建不再假定唯一 Web 包或唯一 OpenAPI 包。
+- `example-whitelist` 的 Web 示例派生不再遍历每个 Web 产品包生成 `trade-*` 白名单，已改为由 SCN-008 Fixture 派生；新增 Web 产品包不再要求同步模板示例条目。
+- 新增受控清单反例：额外登记一个 Web 产品包和一条浏览器绑定后，修复前 `check-architecture`、`project-manifest`、`SCENARIO-GATE-029`、`BROWSER-PLATFORM-010` 均会失败，修复后通过。
+
+**xueshan 纵切片修复**
+
+- `scripts/api-contract.boundaries.test.ts` 的 redocly mock 从 `mockReturnValueOnce` 改为持续返回成功结果，并新增第二个 OpenAPI 协议包反例，确保所有登记的契约都经过 mock 边界，不再让第二次调用落到真实 redocly 而超时。
+- `scripts/lib/dependency-rules.test.ts` 不再把工作区正则写死为 `(?:sdk|web)`，而是按清单中的产品包、协议包和测试包模块根派生；额外 `player-api`、`player-web` 与绑定参与反例断言。
+- `SCN-OPENAPI-CONTRACT-001/002/003`、`SCN-WEB-EXAMPLE-014` 及 `SCN-TEMPLATE-ENGINEERING-006/011/012` 的临时根现在按真实清单复制包和契约，不再出现新增包缺失导致的 ENOENT 或“清单无效”。
+- `packages/e2e/src/preview/dev-remote.test.ts` 不再只删除 `web` 目录，而是从清单找出所有 `form: web-app` 产品；反例验证多 Web 产品时无 Web 绑定路径仍可按清单工作。
+- `SCN-SCENARIO-GATE-018` 与 `SCN-SCENARIO-GATE-008` 的失败随临时根清单/契约完整性修复后不再复现；没有通过放宽超时或跳过用例掩盖问题。
+
+**Verification**
+
+- 真实工作区最终运行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 0；默认并发下 unit、96 个普通 integration 文件、7 个 integration-heavy 文件与 13 个重型用例、构建、typecheck、架构和打包/产物检查全部通过。
+- 最终定向复核：本轮相关 unit 8 个文件、36 个用例通过；相关 tooling integration 13 个文件、28 个用例通过；`pnpm test:e2e:browser` 4 个文件、20 个用例通过，其中实际执行了 `SCN-OPENAPI-CONTRACT-021/openapi-matrix`。
+- 受控副本冒烟：新增一个 Web 产品包、一个 OpenAPI 协议包和一条绑定后，`pnpm test:unit` 173 个文件、649 个用例通过；目标 tooling integration 8 个文件、21 个用例通过；构建协议包后 `pnpm check:architecture` 为 0 违规。
+- 所有新增反例均在修复前实际失败、修复后通过；没有减少用例、断言或测试项目，也没有修改 proposal、specs、design、tasks 或 archive。
+- freshness 复核为 `PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**已知风险（只登记，不修）**
+
+- OpenAPI 测试适配器不读取路径级 `parameters`，只取 `security[0]`；`nullable + allOf` 不接受 `null`；契约声明的额外信封字段会被拒绝。
+- `preview-local.ts` 与 `dev:remote` 仍写死 `packages/web` 和第一个 Web 应用，复用或替换产品时需要同步调整，F7 继续保留。
+- `check:fast` 会按协议包数量重复执行 `api:validate` 与 `api:status`，多协议清单会增加重复校验时间。
+- 架构文档仍称可按 `tests/<绑定名>/` 推断绑定，但当前注册期必须显式填写 `binding`；文档与实现的这一差异继续登记。
+- 指南尚未说明重型 integration 用例会复制工作区，运行中编辑源文件可能污染其副本或结果。
+
+**Review / Acceptance**
+
+- 本轮未执行 Task 15 演练本身，也未勾选 Task 14、Task 15 的 checkbox。
+- 由验收方在修复提交后的新隔离副本中重跑 Task 14 示例删除、交叉复刻、xueshan 纵切片和移除绑定演练。
+
 **Commit**
 
-- `fix(template): align example removal whitelist`
+- `fix(template): unblock example removal and cross replication rehearsals`

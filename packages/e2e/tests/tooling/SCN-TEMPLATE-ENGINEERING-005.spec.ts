@@ -124,15 +124,6 @@ function manifestFixture(
   };
 }
 
-/** 按清单角色取出包目录名，供指南夹具与清单保持一致。 */
-function packageDirectories(manifest: FixtureManifest) {
-  return {
-    product: manifest.packages.find((item) => item.role === 'product')!.directory,
-    protocol: manifest.packages.find((item) => item.role === 'protocol')!.directory,
-    test: manifest.packages.find((item) => item.role === 'test')!.directory,
-  };
-}
-
 /** 最小架构门禁根：清单、根 package.json、AGENTS 链接与三个登记包。 */
 function architectureFixture(manifest: FixtureManifest) {
   const root = mkdtempSync(join(tmpdir(), 'template-architecture-cli-'));
@@ -163,7 +154,7 @@ function architectureFixture(manifest: FixtureManifest) {
       }),
     );
   }
-  writeTemplateGuideFixture(root, packageDirectories(manifest));
+  writeTemplateGuideFixture(root);
   writeProjectMapFixture(root);
   return root;
 }
@@ -264,7 +255,7 @@ cliEvidence(
       const renamedManifest = manifestFixture({ product: renamed });
       writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(renamedManifest, null, 2));
       writeProjectMapFixture(root);
-      writeTemplateGuideFixture(root, packageDirectories(renamedManifest));
+      writeTemplateGuideFixture(root);
       const result = runArchitecture(root);
       context.expect(result.output?.issues).toEqual([]);
       context.expect(result.status).toBe(0);

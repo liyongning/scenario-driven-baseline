@@ -12,8 +12,19 @@ type RemovalFixture = Readonly<{
     directories: ReadonlyArray<string>;
     files: ReadonlyArray<string>;
     globs: ReadonlyArray<Readonly<{ directory: string; prefixes: ReadonlyArray<string> }>>;
+    matrices?: ReadonlyArray<Readonly<{ fixture: string; declaration: string }>>;
   }>;
 }>;
+
+function isWebExamplePath(path: string): boolean {
+  return (
+    path.startsWith('packages/web/') ||
+    path.startsWith('openspec/specs/web-example') ||
+    path.includes('WEB-EXAMPLE') ||
+    path.includes('/trade-completed') ||
+    path.includes('/trade-in-progress')
+  );
+}
 
 function removalWhitelists(root: string, testDirectory: string): ExampleWhitelists {
   const fixturePath = join(
@@ -25,21 +36,22 @@ function removalWhitelists(root: string, testDirectory: string): ExampleWhitelis
   if (!existsSync(fixturePath)) return { templateExample: [], webExample: [] };
   const { removal } = JSON.parse(readFileSync(fixturePath, 'utf8')) as RemovalFixture;
   const entries = [
-    ...removal.directories.map((item) => `${item}/`),
-    ...removal.files,
+    ...removal.directories.map((item) => ({ entry: `${item}/`, web: isWebExamplePath(item) })),
+    ...removal.files.map((item) => ({ entry: item, web: isWebExamplePath(item) })),
     ...removal.globs.flatMap((item) =>
-      item.prefixes.map((prefix) => `${item.directory}/${prefix}*`),
+      item.prefixes.map((prefix) => {
+        const entry = `${item.directory}/${prefix}*`;
+        return { entry, web: isWebExamplePath(entry) };
+      }),
     ),
+    ...(removal.matrices ?? []).map((item) => ({
+      entry: item.fixture,
+      web: isWebExamplePath(item.fixture) || isWebExamplePath(item.declaration),
+    })),
   ];
   return entries.reduce<{ templateExample: string[]; webExample: string[] }>(
-    (groups, entry) => {
-      const web =
-        entry.startsWith('packages/web/') ||
-        entry.startsWith('openspec/specs/web-example') ||
-        entry.includes('WEB-EXAMPLE') ||
-        entry.includes('/trade-completed') ||
-        entry.includes('/trade-in-progress');
-      groups[web ? 'webExample' : 'templateExample'].push(entry);
+    (groups, item) => {
+      groups[item.web ? 'webExample' : 'templateExample'].push(item.entry);
       return groups;
     },
     { templateExample: [], webExample: [] },
@@ -47,7 +59,10 @@ function removalWhitelists(root: string, testDirectory: string): ExampleWhitelis
 }
 
 /** Fixture 存在时按删除清单派生；Fixture 随示例删除后不再要求这些条目。 */
-function exampleWhitelistEntries(root: string, manifest: ProjectManifest): ExampleWhitelists {
+export function exampleWhitelistEntries(
+  root: string,
+  manifest: ProjectManifest,
+): ExampleWhitelists {
   const products = packagesByRole(manifest, 'product');
   const protocols = packagesByRole(manifest, 'protocol');
   const test = testPackage(manifest).directory;
@@ -87,7 +102,8 @@ function exampleWhitelistEntries(root: string, manifest: ProjectManifest): Examp
           `packages/${item.directory}/src/trade-create/`,
           `packages/${item.directory}/src/trade-list/`,
           `packages/${item.directory}/src/trade-status/`,
-        ]),
+        ])
+        .filter(existing),
       `packages/${test}/tests/fixtures/_datasets/trade-in-progress/`,
       `packages/${test}/tests/fixtures/_datasets/trade-completed/`,
       `packages/${test}/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`,

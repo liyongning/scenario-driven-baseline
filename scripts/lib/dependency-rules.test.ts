@@ -184,6 +184,41 @@ const ruleByName = (list: ReadonlyArray<Rule>, name: string): Rule => {
   return found;
 };
 
+function expectedCruiseTargets(manifest: ProjectManifest): string[] {
+  const test = manifest.packages.find((item) => item.role === 'test')!;
+  return manifest.packages
+    .filter((item) => item.role !== 'test')
+    .flatMap((item) => {
+      const roots = item.moduleRoots?.length ? item.moduleRoots : ['src'];
+      return roots.map((root) => `packages/${item.directory}/${root}`);
+    })
+    .concat(`packages/${test.directory}/src/shadow`);
+}
+
+function expectedRestrictedGlobalFiles(manifest: ProjectManifest): string[] {
+  return manifest.packages
+    .filter((item) => item.role === 'product')
+    .flatMap((item) => {
+      const root = item.moduleRoots?.[0] ?? 'src';
+      return [
+        `packages/${item.directory}/${root}/*/core/**/*.ts`,
+        `packages/${item.directory}/${root}/*/ports/**/*.ts`,
+      ];
+    });
+}
+
+function expectedRuntimeFiles(manifest: ProjectManifest): string[] {
+  return manifest.packages
+    .filter((item) => item.role === 'product')
+    .map(
+      (item) => `packages/${item.directory}/${item.moduleRoots?.[0] ?? 'src'}/runtime/default.ts`,
+    );
+}
+
+function matchingPath(path: string | undefined, value: string): boolean {
+  return path !== undefined && new RegExp(path).test(value);
+}
+
 evidence(
   'SCN-TEMPLATE-ENGINEERING-007',
   'rule-generation-by-manifest',
@@ -192,26 +227,22 @@ evidence(
     await check('rules-by-role', () => {
       const repository = loadProjectManifest(repositoryRoot);
       const repositoryRules = rules.dependencyRules(repository);
+      const sdk = repository.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'sdk')!;
+      const sdkRoot = sdk.moduleRoots?.[0] ?? 'src';
       context
         .expect(ruleByName(repositoryRules, 'domain-core-no-generated').from.path)
-        .toBe('^packages/sdk/src/[^/]+/(core|ports)/');
-      context
-        .expect(ruleByName(repositoryRules, 'cross-workspace-no-direct-files').from.path)
-        .toBe('^packages/((?:sdk|web)|(?:protocol|openapi))/(?:src)/');
-      context
-        .expect(rules.cruiseTargets(repository))
-        .toEqual([
-          'packages/sdk/src',
-          'packages/protocol/src',
-          'packages/protocol/testing',
-          'packages/openapi/src',
-          'packages/openapi/testing',
-          'packages/web/src',
-          'packages/e2e/src/shadow',
-        ]);
-      context
-        .expect(rules.runtimeFile(repository))
-        .toEqual(['packages/sdk/src/runtime/default.ts', 'packages/web/src/runtime/default.ts']);
+        .toBe(`^packages/${sdk.directory}/${sdkRoot}/[^/]+/(core|ports)/`);
+      const crossWorkspace = ruleByName(repositoryRules, 'cross-workspace-no-direct-files');
+      for (const pkg of repository.packages.filter((item) => item.role !== 'test')) {
+        const root = pkg.moduleRoots?.[0] ?? 'src';
+        context
+          .expect(
+            matchingPath(crossWorkspace.from.path, `packages/${pkg.directory}/${root}/entry.ts`),
+          )
+          .toBe(true);
+      }
+      context.expect(rules.cruiseTargets(repository)).toEqual(expectedCruiseTargets(repository));
+      context.expect(rules.runtimeFile(repository)).toEqual(expectedRuntimeFiles(repository));
 
       const renamed = renamedManifest();
       const renamedRules = rules.dependencyRules(renamed);
@@ -219,31 +250,67 @@ evidence(
         .expect(ruleByName(renamedRules, 'domain-core-no-generated').from.path)
         .toBe('^packages/renamed-sdk/src/[^/]+/(core|ports)/');
       context.expect(JSON.stringify(renamedRules)).not.toContain(['packages', 'sdk'].join('/'));
-      context
-        .expect(rules.cruiseTargets(renamed))
-        .toEqual([
-          'packages/renamed-sdk/src',
-          'packages/protocol/src',
-          'packages/protocol/testing',
-          'packages/openapi/src',
-          'packages/openapi/testing',
-          'packages/renamed-web/src',
-          'packages/e2e/src/shadow',
-        ]);
+      context.expect(rules.cruiseTargets(renamed)).toEqual(expectedCruiseTargets(renamed));
       context
         .expect(rules.restrictedGlobalFiles(renamed))
-        .toEqual([
-          'packages/renamed-sdk/src/*/core/**/*.ts',
-          'packages/renamed-sdk/src/*/ports/**/*.ts',
-          'packages/renamed-web/src/*/core/**/*.ts',
-          'packages/renamed-web/src/*/ports/**/*.ts',
-        ]);
+        .toEqual(expectedRestrictedGlobalFiles(renamed));
+      context.expect(rules.runtimeFile(renamed)).toEqual(expectedRuntimeFiles(renamed));
+
+      const expanded = structuredClone(repository) as ProjectManifest & {
+        packages: Array<ProjectManifest['packages'][number]>;
+        bindings: Array<ProjectManifest['bindings'][number]>;
+      };
+      expanded.packages.push(
+        {
+          directory: 'player-api',
+          name: '@sample/player-api',
+          role: 'protocol',
+          protocolKind: 'openapi',
+          private: false,
+          allowedDirectories: ['src', 'testing', 'contracts'],
+          moduleRoots: ['src', 'testing'],
+          contract: {
+            file: 'packages/player-api/contracts/player.yaml',
+            lock: 'packages/player-api/contracts/player.lock.json',
+          },
+        },
+        {
+          directory: 'player-web',
+          name: '@sample/player-web',
+          role: 'product',
+          form: 'web-app',
+          private: true,
+          allowedDirectories: ['src'],
+          moduleRoots: ['src'],
+          globalStore: 'src/store/index.ts',
+          consumedOperations: ['src/app/consumed-operations.ts'],
+        },
+      );
+      expanded.bindings.push({
+        name: 'player-web-browser',
+        product: 'player-web',
+        protocol: 'player-api',
+        platforms: ['browser'],
+      });
+      context.expect(rules.cruiseTargets(expanded)).toEqual(expectedCruiseTargets(expanded));
       context
-        .expect(rules.runtimeFile(renamed))
-        .toEqual([
-          'packages/renamed-sdk/src/runtime/default.ts',
-          'packages/renamed-web/src/runtime/default.ts',
-        ]);
+        .expect(
+          matchingPath(
+            ruleByName(rules.dependencyRules(expanded), 'cross-workspace-no-direct-files').from
+              .path,
+            'packages/player-web/src/entry.ts',
+          ),
+        )
+        .toBe(true);
+      context
+        .expect(
+          matchingPath(
+            ruleByName(rules.dependencyRules(expanded), 'cross-workspace-no-direct-files').from
+              .path,
+            'packages/player-api/src/entry.ts',
+          ),
+        )
+        .toBe(true);
     });
   },
 );
@@ -286,10 +353,9 @@ test('escapeRegExp escapes regular expression metacharacters', () => {
 
 test('package readers use manifest roles without assuming a unique package', () => {
   const manifest = loadProjectManifest(repositoryRoot);
-  expect(rules.packagesByRole(manifest, 'product').map((item) => item.name)).toEqual([
-    '@daqian/template-sdk',
-    '@daqian/template-web',
-  ]);
+  expect(rules.packagesByRole(manifest, 'product').map((item) => item.name)).toEqual(
+    manifest.packages.filter((item) => item.role === 'product').map((item) => item.name),
+  );
   expect(rules.packagesByRole(manifest, 'unknown')).toEqual([]);
   expect(rules.packagesByRole({ packages: [] } as unknown as ProjectManifest, 'product')).toEqual(
     [],
