@@ -248,7 +248,7 @@ export function cliEvidence(
     context: TestContext,
     check: (name: string, assertion: () => void | Promise<void>) => Promise<void>,
   ) => void | Promise<void>,
-  options: Readonly<{ timeoutMs?: number }> = {},
+  options: Readonly<{ timeoutMs?: number; binding?: string }> = {},
 ) {
   test(
     `${id} ${caseId}`,
@@ -261,6 +261,7 @@ export function cliEvidence(
           caseId,
           fixtureCase: caseId,
           environment: 'integration',
+          ...(options.binding ? { binding: options.binding } : {}),
           covers: [{ id, caseKey: caseId, checks }],
         },
       },

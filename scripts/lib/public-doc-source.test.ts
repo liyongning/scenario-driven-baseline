@@ -97,7 +97,7 @@ test(
       },
     },
   },
-  (context) => {
+  async (context) => {
     const root = sourceFixture();
     const discover = () =>
       sourceModeIssues({
@@ -107,44 +107,78 @@ test(
         consumedOperations: ['src/consumed.ts'],
       });
     try {
-      context.expect(discover()).toEqual([]);
-      context.expect(commentModeForProduct('sdk')).toBe('entry');
-      context.expect(commentModeForProduct('web-app')).toBe('source');
+      const before = context.expect.getState().assertionCalls;
+      const executed: string[] = [];
+      const checkpoint = async (name: string, assertion: () => void | Promise<void>) => {
+        await assertion();
+        executed.push(name);
+      };
 
-      const core = join(root, 'src/core/model.ts');
-      writeFileSync(core, 'export interface CoreModel { value: string }\n');
-      context.expect(discover().join('\n')).toContain('src/core/model.ts');
+      await checkpoint('source-mode-scope', () => {
+        context.expect(discover()).toEqual([]);
+      });
 
-      writeFileSync(
-        join(root, 'src/stores/global.ts'),
-        '/** 全局状态。 */\nexport interface GlobalState { value: number }\n',
-      );
-      context.expect(discover().join('\n')).toContain('src/stores/global.ts');
+      await checkpoint('mode-by-form', () => {
+        context.expect(commentModeForProduct('sdk')).toBe('entry');
+        context.expect(commentModeForProduct('web-app')).toBe('source');
+      });
 
-      writeFileSync(
-        join(root, 'src/context.ts'),
-        'export interface ModuleContext { name: string }\n' +
-          '/** 模块上下文键。 */\n' +
-          'export const contextKey: InjectionKey<ModuleContext> = Symbol();\n',
-      );
-      context.expect(discover().join('\n')).toContain('src/context.ts');
+      await checkpoint('source-mode-structure', () => {
+        const core = join(root, 'src/core/model.ts');
+        writeFileSync(core, 'export interface CoreModel { value: string }\n');
+        context.expect(discover().join('\n')).toContain('src/core/model.ts');
 
-      writeFileSync(
-        join(root, 'src/consumed.ts'),
-        'export interface ConsumedOperation { name: string }\n',
-      );
-      context.expect(discover().join('\n')).toContain('src/consumed.ts');
+        writeFileSync(
+          join(root, 'src/context.ts'),
+          'export interface ModuleContext { name: string }\n' +
+            '/** 模块上下文键。 */\n' +
+            'export const contextKey: InjectionKey<ModuleContext> = Symbol();\n',
+        );
+        context.expect(discover().join('\n')).toContain('src/context.ts');
 
-      writeFileSync(
-        join(root, 'src/ui/Internal.vue'),
-        'export type Internal = { value: string };\n',
+        writeFileSync(
+          join(root, 'src/ui/Internal.vue'),
+          'export type Internal = { value: string };\n',
+        );
+        writeFileSync(
+          join(root, 'src/generated/model.ts'),
+          'export interface Generated { value: string }\n',
+        );
+        context.expect(discover().join('\n')).not.toContain('src/ui/');
+        context.expect(discover().join('\n')).not.toContain('src/generated/');
+      });
+
+      await checkpoint('no-declaration-required', () => {
+        writeFileSync(
+          join(root, 'src/stores/global.ts'),
+          '/** 全局状态。 */\nexport interface GlobalState { value: number }\n',
+        );
+        context.expect(discover().join('\n')).toContain('src/stores/global.ts');
+
+        writeFileSync(
+          join(root, 'src/consumed.ts'),
+          'export interface ConsumedOperation { name: string }\n',
+        );
+        context.expect(discover().join('\n')).toContain('src/consumed.ts');
+      });
+
+      context
+        .expect(executed.sort())
+        .toEqual(
+          [
+            'source-mode-scope',
+            'source-mode-structure',
+            'no-declaration-required',
+            'mode-by-form',
+          ].sort(),
+        );
+      await context.annotate(
+        JSON.stringify({
+          assertions: context.expect.getState().assertionCalls - before,
+          checkpoints: executed,
+        }),
+        'scenario-evidence',
       );
-      writeFileSync(
-        join(root, 'src/generated/model.ts'),
-        'export interface Generated { value: string }\n',
-      );
-      context.expect(discover().join('\n')).not.toContain('src/ui/');
-      context.expect(discover().join('\n')).not.toContain('src/generated/');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -25,7 +25,13 @@ function filesUnder(root: string): string[] {
 cliEvidence(
   'SCN-OPENAPI-CONTRACT-027',
   'openapi-package-shape',
-  ['dual-format', 'root-named-export', 'no-extra-entry', 'not-in-release-plan'],
+  [
+    'dual-format',
+    'root-named-export',
+    'no-extra-entry',
+    'consumers-use-dist',
+    'not-in-release-plan',
+  ],
   async (context, check) => {
     const built = spawnSync('pnpm', ['--filter', '@daqian/template-openapi', 'build'], {
       cwd: repositoryRoot,
@@ -67,6 +73,15 @@ cliEvidence(
       context
         .expect(files.filter((file) => /(?:^|\/)(?:testing|adapter)(?:\/|\.|$)/.test(file)))
         .toEqual([]);
+    });
+
+    await check('consumers-use-dist', () => {
+      context
+        .expect(import.meta.resolve('@daqian/template-openapi'))
+        .toContain('/packages/openapi/dist/index.js');
+      const runner = readFileSync(join(openapiRoot, 'testing/browser-runner.ts'), 'utf8');
+      context.expect(runner).toContain("from '@daqian/template-openapi'");
+      context.expect(runner).not.toMatch(/packages\/openapi\/src/);
     });
 
     await check('not-in-release-plan', () => {

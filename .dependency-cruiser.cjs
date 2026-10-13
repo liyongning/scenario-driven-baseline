@@ -303,7 +303,7 @@ module.exports = {
       // the webpack [resolve.alias](https://webpack.js.org/configuration/resolve/#resolvealiasfields)
       // documentation.
       // Defaults to an empty array (= don't use alias fields).
-      // aliasFields: ['browser'],
+      // aliasFields: [browser field selector],
     },
 
     // skipAnalysisNotInRules will make dependency-cruiser execute

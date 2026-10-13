@@ -167,6 +167,7 @@ evidence(
     'stale-with-refresh-hint',
     'missing-owner-rejected',
     'path-field-rejected',
+    'datasets-not-owners',
   ],
   async (context, check) => {
     await check('owner-from-directory', async () => {
@@ -262,6 +263,20 @@ evidence(
         repositoryRoot: noteOnly.root,
       });
       context.expect(bypass.issues.join('\n')).toContain('manifest schema');
+    });
+
+    await check('datasets-not-owners', async () => {
+      const root = createRoot();
+      writeFixture(root, 'SCN-SAMPLE-CONTRACT-001', { requirementDigest: sha(base01Block) });
+      mkdirSync(join(fixturesOf(root), '_datasets/preview'), { recursive: true });
+      const result = await checkFixtures({
+        fixtureRoot: fixturesOf(root),
+        repositoryRoot: root.root,
+      });
+      context.expect(result.manifests).toBe(1);
+      context.expect(result.issues).toEqual(['preview: dataset manifest.json missing']);
+      context.expect(result.issues.join('\n')).not.toContain('在有效 Spec 中不存在');
+      context.expect(result.issues.join('\n')).not.toContain('来源摘要');
     });
   },
 );

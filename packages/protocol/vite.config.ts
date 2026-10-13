@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import dts from 'unplugin-dts/vite';
 import { fileURLToPath } from 'node:url';
+import { protocolManifestPlugin } from '../../scripts/lib/vite-plugins/protocol-manifest.ts';
 
 // 直接以生成模块作为库入口，不在 ProtoGen 独占目录内维护手写 barrel。
 const entries = [
@@ -14,6 +15,7 @@ const entries = [
 
 export default defineConfig({
   plugins: [
+    protocolManifestPlugin(),
     dts({
       tsconfigPath: './tsconfig.build.json',
       entryRoot: 'src',

@@ -1,11 +1,17 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { afterEach } from 'vitest';
-import { loadProjectManifest } from '../../../../scripts/lib/project-manifest.ts';
+import {
+  bindingForProduct,
+  loadProjectManifest,
+  validateManifest,
+} from '../../../../scripts/lib/project-manifest.ts';
+import { checkSchemaDocumentation } from '../../../../scripts/lib/schema-docs.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 
 const roots: string[] = [];
+const repositoryRoot = resolve(import.meta.dirname, '../../../..');
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -272,4 +278,83 @@ defineCase(
       );
     });
   },
+);
+
+defineCase(
+  {
+    ownerId: 'SCN-TEMPLATE-ENGINEERING-013',
+    caseId: 'template-bindings-fact',
+    fixtureCase: 'template-bindings-fact',
+    environment: 'integration',
+    binding: 'sdk-idl-weapp',
+    covers: [
+      {
+        id: 'SCN-TEMPLATE-ENGINEERING-013',
+        caseKey: 'template-bindings-fact',
+        checks: ['template-bindings', 'schema-descriptions'],
+      },
+    ],
+  },
+  async ({ fixture, checkpoint, expect }) => {
+    await checkpoint('template-bindings', () => {
+      expect(fixture).toEqual({ fact: 'derived-from-manifest' });
+      const manifest = loadProjectManifest(repositoryRoot);
+      expect(validateManifest(manifest, repositoryRoot)).toEqual([]);
+
+      const products = manifest.packages.filter((item) => item.role === 'product');
+      expect(products.length).toBeGreaterThan(0);
+      for (const product of products) {
+        expect(manifest.bindings.filter((item) => item.product === product.directory)).toHaveLength(
+          1,
+        );
+        const binding = bindingForProduct(manifest, product.directory);
+        const protocol = manifest.packages.find((item) => item.directory === binding.protocol);
+        expect(protocol?.role).toBe('protocol');
+        for (const platform of binding.platforms) {
+          expect(manifest.testProjects.find((item) => item.name === platform)?.class).toBe(
+            'platform',
+          );
+        }
+      }
+
+      const web = manifest.packages.find((item) => item.form === 'web-app');
+      expect(web).toMatchObject({
+        directory: 'web',
+        name: '@daqian/template-web',
+        private: true,
+      });
+      expect(web && bindingForProduct(manifest, web.directory).platforms).toContain('browser');
+
+      const openapi = manifest.packages.find((item) => item.protocolKind === 'openapi');
+      expect(openapi).toMatchObject({
+        directory: 'openapi',
+        name: '@daqian/template-openapi',
+      });
+      expect(openapi?.allowedDirectories).toContain('contracts');
+
+      const invalid = structuredClone(manifest) as unknown as {
+        bindings: Array<{ product: string }>;
+      };
+      invalid.bindings[0]!.product = 'missing-product';
+      expect(validateManifest(invalid as never, repositoryRoot).join('\n')).toContain(
+        'product must reference a product package directory',
+      );
+    });
+
+    await checkpoint('schema-descriptions', () => {
+      expect(checkSchemaDocumentation(repositoryRoot)).toEqual([]);
+
+      const root = mkdtempSync(join(tmpdir(), 'manifest-schema-counterexample-'));
+      roots.push(root);
+      writeFileSync(
+        join(root, 'project.manifest.schema.json'),
+        JSON.stringify({ type: 'object', properties: { bindings: { type: 'array' } } }),
+      );
+      writeFileSync(join(root, 'AGENTS.md'), 'project.manifest.schema.json\n');
+      expect(checkSchemaDocumentation(root).join('\n')).toContain(
+        'project.manifest.schema.json: property bindings is missing a non-empty Chinese description',
+      );
+    });
+  },
+  { timeoutMs: 30_000 },
 );

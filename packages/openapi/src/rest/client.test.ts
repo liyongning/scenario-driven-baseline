@@ -87,72 +87,63 @@ async function request(
   return client.request(operation, input, context);
 }
 
-evidence(
-  'SCN-OPENAPI-CONTRACT-007 default-envelope-results',
-  'SCN-OPENAPI-CONTRACT-007',
-  'envelope-config',
-  [
-    'success-result',
-    'business-failure-result',
-    'http-status-result',
-    'invalid-envelope-result',
-    'no-throw',
-  ],
-  async (context, checkpoint) => {
-    const responses = [
-      { status: 200, headers: {}, body: '{"code":0,"message":"ok","data":{"trade_no":"T-1"}}' },
-      {
-        status: 200,
-        headers: {},
-        body: '{"code":40901,"message":"conflict","data":{"trade_no":"T-1"}}',
-      },
-      { status: 500, headers: {}, body: '{"code":0,"message":"ok","data":{}}' },
-      { status: 200, headers: {}, body: '{"not":"an envelope"}' },
-    ];
-    const client = createRestClient({
-      gatewayBaseUrl: 'https://api.example.invalid',
-      http: { send: async () => ({ ok: true as const, value: responses.shift()! }) },
-      securitySchemes,
-      identity: { scheme: 'accessToken', token: 'fixture-token' },
-    });
+test('SCN-OPENAPI-CONTRACT-007 default-envelope-results', async (context) => {
+  const checkpoint = async (_name: string, assertion: () => void | Promise<void>) => {
+    await assertion();
+  };
+  const responses = [
+    { status: 200, headers: {}, body: '{"code":0,"message":"ok","data":{"trade_no":"T-1"}}' },
+    {
+      status: 200,
+      headers: {},
+      body: '{"code":40901,"message":"conflict","data":{"trade_no":"T-1"}}',
+    },
+    { status: 500, headers: {}, body: '{"code":0,"message":"ok","data":{}}' },
+    { status: 200, headers: {}, body: '{"not":"an envelope"}' },
+  ];
+  const client = createRestClient({
+    gatewayBaseUrl: 'https://api.example.invalid',
+    http: { send: async () => ({ ok: true as const, value: responses.shift()! }) },
+    securitySchemes,
+    identity: { scheme: 'accessToken', token: 'fixture-token' },
+  });
 
-    await checkpoint('success-result', async () =>
-      context.expect(await request(client, createTrade, { body: {} })).toEqual({
-        kind: 'success',
-        data: { trade_no: 'T-1' },
-      }),
-    );
-    await checkpoint('business-failure-result', async () =>
-      context.expect(await request(client, createTrade, { body: {} })).toEqual({
-        kind: 'business-failure',
-        code: 40901,
-        message: 'conflict',
-        data: { trade_no: 'T-1' },
-      }),
-    );
-    await checkpoint('http-status-result', async () =>
-      context.expect(await request(client, createTrade, { body: {} })).toEqual({
-        kind: 'transport-failure',
-        reason: 'HTTP_STATUS',
-      }),
-    );
-    await checkpoint('invalid-envelope-result', async () =>
-      context.expect(await request(client, createTrade, { body: {} })).toEqual({
-        kind: 'transport-failure',
-        reason: 'INVALID_ENVELOPE',
-      }),
-    );
-    await checkpoint('no-throw', () =>
-      context.expect(defaultEnvelopeConvention).toEqual({
-        successStatus: 200,
-        successCode: 0,
-        codeField: 'code',
-        messageField: 'message',
-        dataField: 'data',
-      }),
-    );
-  },
-);
+  await checkpoint('success-result', async () =>
+    context.expect(await request(client, createTrade, { body: {} })).toEqual({
+      kind: 'success',
+      data: { trade_no: 'T-1' },
+    }),
+  );
+  await checkpoint('business-failure-result', async () =>
+    context.expect(await request(client, createTrade, { body: {} })).toEqual({
+      kind: 'business-failure',
+      code: 40901,
+      message: 'conflict',
+      data: { trade_no: 'T-1' },
+    }),
+  );
+  await checkpoint('http-status-result', async () =>
+    context.expect(await request(client, createTrade, { body: {} })).toEqual({
+      kind: 'transport-failure',
+      reason: 'HTTP_STATUS',
+    }),
+  );
+  await checkpoint('invalid-envelope-result', async () =>
+    context.expect(await request(client, createTrade, { body: {} })).toEqual({
+      kind: 'transport-failure',
+      reason: 'INVALID_ENVELOPE',
+    }),
+  );
+  await checkpoint('no-throw', () =>
+    context.expect(defaultEnvelopeConvention).toEqual({
+      successStatus: 200,
+      successCode: 0,
+      codeField: 'code',
+      messageField: 'message',
+      dataField: 'data',
+    }),
+  );
+});
 
 evidence(
   'SCN-OPENAPI-CONTRACT-008 envelope-configurable',

@@ -65,7 +65,7 @@
       "name": "web-openapi-browser",
       "product": "web",
       "protocol": "openapi",
-      "platforms": []
+      "platforms": ["browser"]
     }
   ],
   "requiredCommands": [
@@ -85,6 +85,7 @@
     "test:integration",
     "test:affected",
     "test:e2e:weapp",
+    "test:e2e:browser",
     "check:architecture",
     "check:coverage",
     "check:fixtures",
@@ -143,6 +144,11 @@
       "config": "packages/e2e/vitest.config.weapp.ts",
       "perFile": true,
       "prepare": "weapp:prepare"
+    },
+    {
+      "name": "browser",
+      "class": "platform",
+      "config": "packages/e2e/vitest.config.browser.ts"
     }
   ],
   "fingerprints": {
@@ -196,6 +202,10 @@
       {
         "path": "packages/e2e/host/weapp/example-runner.ts",
         "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
+      },
+      {
+        "path": "packages/e2e/host/browser/runner.ts",
+        "reason": "只在浏览器宿主页面中执行，行为证据由 browser 用例承担"
       }
     ],
     "maxLinesExemptions": [],

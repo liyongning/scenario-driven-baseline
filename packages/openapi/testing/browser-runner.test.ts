@@ -1,6 +1,6 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import * as openapi from '../src/index';
-import { browserSerializable, run } from './browser-runner';
+import { browserCancelEvent, browserSerializable, run } from './browser-runner';
 
 test('OpenAPI browser runner executes serializable plans without hardcoded operation names', async () => {
   const originalFetch = globalThis.fetch;
@@ -86,5 +86,40 @@ test('OpenAPI browser runner applies defaults when options are omitted', async (
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.URL = originalUrl;
+  }
+});
+
+test('OpenAPI browser runner installs and removes the browser cancellation listener', async () => {
+  const listeners = new Map<string, EventListener>();
+  const windowLike = {
+    addEventListener: vi.fn((event: string, listener: EventListener) => {
+      listeners.set(event, listener);
+    }),
+    removeEventListener: vi.fn((event: string) => listeners.delete(event)),
+  };
+  vi.stubGlobal('window', windowLike);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => new Promise(() => undefined);
+  try {
+    const pending = run(
+      [{ method: 'getTrade', input: { path: { trade_no: 'T' } }, cancel: 'in-flight' }],
+      {
+        gatewayBaseUrl: 'https://api.example.invalid',
+        securitySchemes: {
+          accessToken: { type: 'apiKey', in: 'header', name: 'X-Access-Token' },
+        },
+        identity: { scheme: 'accessToken', token: 'fixture-token' },
+      },
+    );
+    await vi.waitFor(() => expect(listeners.has(browserCancelEvent)).toBe(true));
+    listeners.get(browserCancelEvent)!(new Event('cancel'));
+    await expect(pending).resolves.toEqual([{ kind: 'transport-failure', reason: 'CANCELLED' }]);
+    expect(windowLike.removeEventListener).toHaveBeenCalledWith(
+      browserCancelEvent,
+      expect.any(Function),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    vi.unstubAllGlobals();
   }
 });

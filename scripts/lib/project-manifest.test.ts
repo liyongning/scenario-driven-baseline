@@ -19,6 +19,7 @@ import { checkSchemaDocumentation } from './schema-docs.ts';
 import {
   errorMessage,
   loadProjectManifest,
+  bindingForProduct,
   coverageExclusions,
   defaultReportPaths,
   defaultReportNames,
@@ -435,7 +436,11 @@ evidence(
 
     await check('obligation-environments', async () => {
       const manifest = loadProjectManifest(repositoryRoot);
-      const integrationAndPlatform = testEnvironmentsByClass(manifest, ['integration', 'platform']);
+      const sdkProduct = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk')!;
+      const integrationAndPlatform = [
+        ...testEnvironmentsByClass(manifest, ['integration']),
+        ...bindingForProduct(manifest, sdkProduct.directory).platforms,
+      ];
       const integrationOnly = testEnvironmentsByClass(manifest, ['integration']);
       // 义务运行环境由清单派生；声明取自受控输入，示例删除后仍能复核同一事实（ENG-06）。
       const root = declarationRoot({
@@ -535,7 +540,7 @@ evidence(
       context.expect(environmentClassOf('not-registered')).toBeUndefined();
       context
         .expect(defaultReportNames(manifest))
-        .toEqual(['unit', 'integration', 'integration-heavy', 'weapp']);
+        .toEqual(['unit', 'integration', 'integration-heavy', 'weapp', 'browser']);
       // 默认报告由清单测试项目派生：unit 合并为一份，perFile 项目取目录下的全部报告文件。
       const root = temporaryRoot('project-manifest-reports-');
       const perFileManifest = baseManifest();
@@ -605,6 +610,7 @@ test('derives default report names from the registered test projects', () => {
     'integration',
     'integration-heavy',
     'weapp',
+    'browser',
   ]);
   expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'weapp')!)).toBe('weapp');
   expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'sdk-unit')!)).toBe(

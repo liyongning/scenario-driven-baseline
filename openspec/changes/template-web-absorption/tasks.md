@@ -362,7 +362,7 @@
   **Commit**
   - `feat(template): add web bundle boundary check`
 
-- [ ] 10. 浏览器平台点位
+- [x] 10. 浏览器平台点位
 
   **Files**
   - Modify：根 `package.json`（`playwright` 1.63.0 精确版本）；清单（`browser` 测试项目、绑定 `web-openapi-browser` 的 `platforms` 改为 `["browser"]`、`requiredCommands` 加 `test:e2e:browser`）。

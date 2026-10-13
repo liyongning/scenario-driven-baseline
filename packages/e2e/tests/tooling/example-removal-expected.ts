@@ -1,11 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   loadProjectManifest,
   testProjectsByClass,
 } from '../../../../scripts/lib/project-manifest.ts';
 import { copyCreatingSpecs } from '../../vitest.config.integration.ts';
-import type { RepositoryCopy } from './repository-copy.ts';
+import { scopedChangeNames, type RepositoryCopy } from './repository-copy.ts';
 
 export type InventoryCase = Readonly<{ key: string; requiredIn: ReadonlyArray<string> }>;
 export type InventoryScenario = Readonly<{
@@ -24,6 +24,33 @@ export type InventoryOutput = Readonly<{
   scenarios: ReadonlyArray<InventoryScenario>;
   flows: ReadonlyArray<InventoryItem>;
 }>;
+
+/** 已归档 Change 中新增或修改的 Scenario ID；用于扣除非最终任务尚未交付的绑定。 */
+function changeScenarioIds(copy: RepositoryCopy): Set<string> {
+  const scoped = scopedChangeNames();
+  const ids = new Set<string>();
+  const archiveRoot = join(copy.root, 'openspec/changes/archive');
+  if (!existsSync(archiveRoot)) return ids;
+  for (const entry of readdirSync(archiveRoot, { withFileTypes: true })) {
+    if (
+      !entry.isDirectory() ||
+      !scoped.some((name) => entry.name === name || entry.name.endsWith(`-${name}`))
+    )
+      continue;
+    const specsRoot = join(archiveRoot, entry.name, 'specs');
+    if (!existsSync(specsRoot)) continue;
+    for (const capability of readdirSync(specsRoot, { withFileTypes: true })) {
+      if (!capability.isDirectory()) continue;
+      const specPath = join(specsRoot, capability.name, 'spec.md');
+      if (!existsSync(specPath)) continue;
+      for (const match of readFileSync(specPath, 'utf8').matchAll(
+        /^#### Scenario: (SCN-[A-Z0-9-]+)\b/gm,
+      ))
+        ids.add(match[1]!);
+    }
+  }
+  return ids;
+}
 
 /**
  * 副本中“不可能产生绑定”的用例所对应的缺失项（A2 用户裁决：多一条、少一条都算失败）：
@@ -66,11 +93,14 @@ export function expectedMissingBindings(
   if (precheckExpected.size > 0) return [...precheckExpected].sort();
 
   const expected = new Set<string>();
+  const changeIds = changeScenarioIds(copy);
   for (const scenario of inventory.scenarios)
     for (const item of scenario.verification.cases)
-      for (const environment of item.requiredIn)
-        if (platformProjects.includes(environment))
-          expected.add(`${scenario.id}/${item.key}: missing binding for ${environment}`);
+      for (const environment of item.requiredIn) {
+        const missing = `${scenario.id}/${item.key}: missing binding for ${environment}`;
+        if (changeIds.has(scenario.id) && inventory.issues.includes(missing)) expected.add(missing);
+        if (platformProjects.includes(environment)) expected.add(missing);
+      }
   for (const [items, word] of [
     [inventory.contracts ?? [], ''],
     [inventory.flows, 'FLOW '],

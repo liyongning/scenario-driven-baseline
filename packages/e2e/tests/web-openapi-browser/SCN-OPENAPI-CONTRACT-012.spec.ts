@@ -8,7 +8,7 @@ const requestIdPattern = '^\\d{8}_\\d{6}_\\d{3}_[a-z]{6}$';
 defineCase(
   {
     ownerId: 'SCN-OPENAPI-CONTRACT-012',
-    caseId: 'request-id-wire',
+    caseId: 'openapi-request-id-wire',
     fixtureCase: 'request-id-wire',
     environment: 'integration',
     covers: [

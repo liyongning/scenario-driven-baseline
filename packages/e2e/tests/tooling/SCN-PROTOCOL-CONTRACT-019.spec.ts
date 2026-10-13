@@ -60,7 +60,7 @@ test(
         ownerId: 'SCN-PROTOCOL-CONTRACT-019',
         caseId: 'preview-entry-boundary',
         environment: 'integration',
-        fixtureCase: null,
+        fixtureCase: 'preview-entry-boundary',
         covers: [
           {
             id: 'SCN-PROTOCOL-CONTRACT-019',

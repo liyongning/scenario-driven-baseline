@@ -446,3 +446,38 @@
 - 两次默认并发全量均未出现 `SCN-OPENAPI-CONTRACT-014` 或三个重型用例失败；本轮“按需通过但全量失败”的新增 OI 为 0。
 - 拆分首次落位曾把 `integration-heavy` 当作独立义务环境，导致 IDL 归一化摘要从 `46417e0f...` 变为 `fc5dbeb9...`；改为逻辑环境复用后摘要恢复原值，协议义务数量与内容未变。
 - 新增逻辑环境、回退与校验分支均有单测覆盖；完整 unit 恢复到 statements 5223/5223、branches 3448/3448、functions 1025/1025、lines 4587/4587。
+
+### Task 10 浏览器平台点位
+
+**规划与输入**
+
+- 收尾提交起点 HEAD：`db18dae`；freshness 为 `PASS`，digest `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 本任务交付浏览器平台、Playwright 驱动、共用代理、协议与应用宿主、OpenAPI 浏览器矩阵，并承接 `SCN-TEMPLATE-ENGINEERING-013/template-bindings-fact`。
+
+**Task 10 收尾补证据**
+
+- `SCN-TEMPLATE-ENGINEERING-013/template-bindings-fact`：integration case 实际执行 16 个断言，覆盖 `template-bindings`、`schema-descriptions`。合法输入从真实 `project.manifest.json` 派生产品与协议绑定事实，不写死绑定条数；反例把 binding 指向不存在的产品，`validateManifest` 必须报出 `product must reference a product package directory`。schema 反例使用缺少中文 `bindings` 描述的临时 schema，必须报出对应缺失说明。
+- `SCN-WEB-APP-010/vitest-project-config`：`test-tools-unit` case 实际执行 3 个断言，覆盖 `vitest-root-fixed`。合法输入直接加载真实 `packages/web/vitest.config.ts`，确认 `app-unit`、`jsdom` 与仓库根；反例把 root 改成 `packages/`，检查必须报出 `root must be the repository root`。
+- `SCN-PROTOCOL-CONTRACT-015/idl-adapter-validator`：`protocol-unit` case 实际执行 12 个断言，覆盖 `validator-unchanged`。合法响应通过，HTTP 200 与 503 得到同一结论；未知字段、字段类型错误与非法入参三个反例均得到非空错误，证明验证器断言并非恒真。
+- 上述三处均进入正式报告：`template-bindings-fact` 16 个断言且两个 checkpoint 均为 passed；`vitest-project-config` 3 个断言且 checkpoint passed；`idl-adapter-validator` 12 个断言且 checkpoint passed。两次 `responseValidator(CreateTrade.meta)` 调用保留，以继续覆盖缓存分支和完整覆盖率。
+
+**Verification**
+
+- Task 10 收尾默认并发全量：`pnpm verify --change template-web-absorption --run-id template-web-absorption-apply-20261013T032958Z`，整体退出码 1，仅因场景门禁保留后续任务问题。
+  - `check:fast`：退出码 0（410596ms）。unit 124/124 文件、535/535 用例通过；普通 integration 94/94 文件、168/168 用例通过；integration-heavy 6/6 文件、11/11 用例通过；statements 5436/5436、branches 3561/3561、functions 1083/1083、lines 4774/4774 均为 100%。
+  - `test:e2e:weapp`：退出码 0（307096ms），5/5 文件、5/5 用例通过，场景报告合计 650 个断言。
+  - `test:e2e:browser`：退出码 0（8665ms），2/2 文件、13/13 用例通过，场景报告合计 70 个断言。
+  - `check:scenarios`：退出码 1（1892ms），恰好剩余 33 条问题，全部归属 Task 11–13：27 条归 Task 11（25 条 `SCN-WEB-EXAMPLE`/`FLOW-WEB-EXAMPLE`，`SCN-OPENAPI-CONTRACT-017`、021），4 条归 Task 12（`SCN-BROWSER-PLATFORM-012`～015），2 条归 Task 13（`SCN-TEMPLATE-ENGINEERING-012`、`SCN-OPENAPI-CONTRACT-019/unimplemented-hint-gate`）。
+- 独立复核：`SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=template-web-absorption-apply-20261013T032958Z pnpm check:scenarios --change template-web-absorption` 退出码 1，问题清单与全量完全一致，仍为上述 33 条；收尾前 36 条中的 `SCN-TEMPLATE-ENGINEERING-013/template-bindings-fact`、`SCN-WEB-APP-010/vitest-project-config`、`SCN-PROTOCOL-CONTRACT-015/idl-adapter-validator` 均已消失。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast` 与 `pnpm test:affected` 均为退出码 0；因清单、构建输入和工具配置变化，`test:affected` 正确触发完整 `check:fast`。期间 `proto:status` 两次因 SSH `Connection closed` 失败，各等待约 60 秒后重试成功，不计业务失败或 OI。
+- 收尾后 freshness 仍为 `PASS`，digest 为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**遗漏归因（实施偏离）**
+
+- Task 2 提交时只登记了 `SCN-PROTOCOL-CONTRACT-015/idl-adapter-regression` 的 `test-tools-unit` 证据，未登记本 Spec 独立要求的 `protocol-unit/idl-adapter-validator`。验收时依赖 `check:fast` 的总体退出码，未逐项核对 case→环境覆盖矩阵，因此漏掉了这条独立 missing binding。
+- Task 8 提交时只在 integration 的 `SCN-WEB-APP-010/untested-vue-cli` 内覆盖了 `vitest-root-fixed`，未建立 `test-tools-unit/vitest-project-config` 独立证据。阶段总结把剩余问题概括为 browser 中间态，漏列了这条非 browser 的 missing binding；归因是环境覆盖矩阵核对不完整，不是被 browser 问题掩盖。
+- 两项漏交付均属验收证据接线缺失，不改 proposal/spec/design/tasks 语义；本次在 Task 10 收尾内修复并把“逐 case 与环境核对”补入本记录。任务 14、15 的演练与 checkbox 未执行、未修改。
+
+**Commit**
+
+- `feat(template): add browser platform with playwright driver and shared proxy`

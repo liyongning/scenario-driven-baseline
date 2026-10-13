@@ -14,12 +14,16 @@ const coverageScript = resolve(repositoryRoot, 'scripts/check-coverage.ts');
  * 允许排除的覆盖率例外由宿主目录派生，不写死名单：只有顶层 TS 文件可能只能在开发者工具
  * 内运行；宿主文件增删时期望值随之收敛，不需要手改名单（ENG-06）。
  */
-const allowedExclusions = readdirSync(join(repositoryRoot, 'packages/e2e/host/weapp'), {
-  withFileTypes: true,
-})
-  .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-  .map((entry) => `packages/e2e/host/weapp/${entry.name}`)
-  .sort();
+const allowedExclusions = [
+  ...coverageExclusionsInHost('weapp'),
+  ...coverageExclusionsInHost('browser'),
+].sort();
+
+function coverageExclusionsInHost(host: string): string[] {
+  return readdirSync(join(repositoryRoot, 'packages/e2e/host', host), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .map((entry) => `packages/e2e/host/${host}/${entry.name}`);
+}
 
 function manifestWith(quality: Record<string, unknown>) {
   return {

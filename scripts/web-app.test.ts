@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { test, type TestContext } from 'vitest';
 import type {} from '../packages/e2e/src/vitest.d.ts';
 import { createEngineeringFormRoot } from '../packages/e2e/tests/tooling/engineering-form-fixture.ts';
+import webVitestConfig from '../packages/web/vitest.config.ts';
 import {
   loadProjectManifest,
   type ManifestPackage,
@@ -28,6 +29,21 @@ const dependencyRules = require('./lib/dependency-rules.cjs') as {
   }>;
   TEST_FILE_PATTERN: string;
 };
+
+function appUnitConfigIssues(
+  config: { test?: { name?: unknown; environment?: unknown; root?: unknown } },
+  repositoryRoot: string,
+): string[] {
+  const issues: string[] = [];
+  if (config.test?.name !== 'app-unit') issues.push('name must be app-unit');
+  if (config.test?.environment !== 'jsdom') issues.push('environment must be jsdom');
+  if (
+    typeof config.test?.root !== 'string' ||
+    resolve(config.test.root) !== resolve(repositoryRoot)
+  )
+    issues.push('root must be the repository root');
+  return issues;
+}
 
 function evidence(
   id: string,
@@ -96,6 +112,24 @@ function writeAndRestore(path: string, value: string, assertion: () => void): vo
     else rmSync(path, { force: true });
   }
 }
+
+evidence(
+  'SCN-WEB-APP-010',
+  'vitest-project-config',
+  ['vitest-root-fixed'],
+  async (context, check) => {
+    await check('vitest-root-fixed', () => {
+      context.expect(appUnitConfigIssues(webVitestConfig, repositoryRoot)).toEqual([]);
+      const counterexample = {
+        ...webVitestConfig,
+        test: { ...webVitestConfig.test, root: resolve(repositoryRoot, 'packages') },
+      };
+      context
+        .expect(appUnitConfigIssues(counterexample, repositoryRoot).join('\n'))
+        .toContain('root must be the repository root');
+    });
+  },
+);
 
 evidence(
   'SCN-WEB-APP-001',
@@ -358,7 +392,7 @@ evidence(
 );
 
 evidence(
-  'SCN-WEB-APP-006',
+  'SCN-WEB-APP-007',
   'core-scope-generation',
   ['core-tsconfig-derived'],
   async (context, check) => {

@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-BROWSER-PLATFORM-006",
+  "protocol": "openapi",
+  "sources": {
+    "spec": {
+      "requirementDigest": "8674057e4bf2c4088291263650a43eaa5b8599b9c4c05d0f2fd3744ddd0d0b8a"
+    }
+  },
+  "cases": {
+    "browser-network-error-defenses": "browser-network-error-defenses.json"
+  },
+  "sha256": {
+    "browser-network-error-defenses.json": "f88d99daed66f26e14af7a8b97cbe08478822478d0de2fd9e333e0151144d7db"
+  }
+}

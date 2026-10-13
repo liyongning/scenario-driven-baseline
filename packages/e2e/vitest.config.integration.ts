@@ -22,6 +22,9 @@ export const heavyIntegrationSpecs = [
   'packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts',
   'packages/e2e/tests/tooling/SCN-WEB-APP-010.spec.ts',
   'packages/e2e/tests/tooling/SCN-SCENARIO-GATE-026.spec.ts',
+  'packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-006.spec.ts',
+  'packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-015.spec.ts',
+  'packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-027.spec.ts',
 ];
 // 集成测试解析产品 package exports 的构建产物；源码 alias 仅属于单测。
 export default defineProject({
@@ -38,6 +41,7 @@ export default defineProject({
     exclude: [
       '**/node_modules/**',
       '**/.git/**',
+      '**/*.browser.spec.ts',
       ...heavyIntegrationSpecs.map((path) => `**/${path}`),
       ...(process.env.TEMPLATE_COPY ? copyCreatingSpecs.map((path) => `**/${path}`) : []),
     ],
