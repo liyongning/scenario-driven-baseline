@@ -467,7 +467,7 @@
   **Commit**
   - `feat(template): add local preview and remote dev proxy modes`
 
-- [ ] 13. 文档与地图
+- [x] 13. 文档与地图
 
   **Files**
   - Modify：`docs/template-guide.md`（能力地图新增 8 项；替换点地图三点位两选项加本地预览点位，标注交叉组合验证状态，写明 Shadow 引擎属于测试基础设施、不随协议选项删除；"移除模板示例"加入 web-example 白名单；新增"移除一条绑定"一节（按 Design"绑定的独占内容与删除"与 ENG-06 的顺序：删除独占包、平台测试项目与宿主、声明该绑定的用例与 Fixture；同步清单；同步文档；事实核验用例按清单派生不需改动；按路径引用独占包的单测与 helper 改为受控临时根输入或声明所属绑定；Shadow 引擎不删除；Spec 清理属于使用方自己的 Change）；"跨源部署"一节；版本表；`x-implemented: false` 接口在开发代理下返回未实现错误、应改用本地预览；浏览器传输层重发说明；更正 xueshan 反馈 #6 描述）；`docs/architecture.md`（新能力各有同名章节，演进记录按核心 Change 规则只写 Change 名称）；根与各包 AGENTS.md、模块级 AGENTS/CLAUDE。

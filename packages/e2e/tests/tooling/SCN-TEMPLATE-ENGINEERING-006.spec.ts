@@ -68,6 +68,10 @@ cliEvidence(
       context.expect(issues).toContain('missing guide section ## 版本对齐');
       context.expect(issues).toContain('missing guide section ## 使用方约定');
       context.expect(issues).toContain('missing guide section ## 复刻验收');
+      context.expect(issues).toContain('missing guide section ## 移除一条绑定');
+      context.expect(issues).toContain('missing guide section ## 跨源部署');
+      context.expect(issues).toContain('missing guide section ### 产品形态');
+      context.expect(issues).toContain('missing guide section ### 本地预览');
       context.expect(issues).toContain('missing guide section ### 包发布');
 
       // 白名单缺项：章节齐全但少写一项也非零退出。
@@ -94,6 +98,15 @@ cliEvidence(
         .toContain(
           'missing removal whitelist entry packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts',
         );
+
+      const webExample = guideRoot();
+      writeFileSync(
+        guidePath(webExample),
+        readFileSync(guidePath(webExample), 'utf8').replace('openspec/specs/web-example/', ''),
+      );
+      context
+        .expect(issuesOf(webExample))
+        .toContain('missing removal whitelist entry openspec/specs/web-example/');
     });
 
     await check('guide-links-resolve', () => {

@@ -21,17 +21,20 @@ flowchart LR
   G --> S[check-scenarios]
   G --> F[check-fixtures / fixtures:refresh]
   G --> C[check-coverage / check-package / check-release]
-  P[产品包 sdk] --> A
-  T[协议包 protocol] --> A
+  P[产品形态: sdk / web-app] --> B[bindings 组合绑定]
+  T[协议: IDL+ProtoGen / OpenAPI] --> B
+  B --> A
+  B --> RPT[平台点位: 小程序 / 浏览器]
   E[测试包 e2e] --> A
-  E --> R[unit / integration / weapp 报告]
+  RPT --> E
+  E --> R[unit / integration / weapp / browser 报告]
   R --> S
   D[指南 + 架构文档] --> U((使用方 Agent))
   M --> U
   U -->|Change：删 / 换 / 增| M
 ```
 
-三包职责：产品包导出公共入口与领域分层，协议包承载契约、生成入口、通信执行器与测试专用 Shadow，测试包承载用例、驱动、报告器与平台宿主。门禁只从清单读取包、命令、测试项目与发布设置；使用方按指南改清单与对应文件，不改门禁代码。
+多包职责：`sdk` 产品包导出 Headless SDK 公共入口与领域分层，Web 产品包承载 Vue 应用装配、组件树与状态分层；IDL 与 OpenAPI 协议包分别承载契约、生成入口、通信执行器和路由构造器；`bindings` 把产品、协议与平台点位组合起来。测试包承载来源化 Fixture、驱动、宿主、报告器、协议无关 Shadow 与本地预览。门禁只从清单读取包、命令、测试项目、绑定与发布设置；使用方按指南改清单与对应文件，不改门禁代码。
 
 ### 质量体系主线
 
@@ -338,7 +341,7 @@ Scenario 与 FLOW 的 ID 格式由使用方决定，不能写死在门禁里。
 
 #### 实现机制与关键文件
 
-[packages/protocol/testing/shadow](../packages/protocol/testing/shadow) 提供路由、故障注入、请求记录与响应同形校验（`server.ts`、`routes.ts`、`faults.ts`、`requests.ts`、`response-shape.ts`）；路由来源是 `declared-routes.ts` 与 `idl-routes.ts`，不依赖示例；平台能力由产品包定义端口、[packages/e2e/src/drivers](../packages/e2e/src/drivers) 中的替身经用例注入。
+[packages/e2e/src/shadow](../packages/e2e/src/shadow) 提供协议无关的路由、故障注入、请求记录与响应同形校验（`server.ts`、`routes.ts`、`faults.ts`、`requests.ts`、`response-shape.ts`）；[packages/protocol/testing/shadow](../packages/protocol/testing/shadow) 与 [packages/openapi/testing](../packages/openapi/testing) 中的路由构造器从各自协议来源产出中立描述，不依赖示例；平台能力由产品包定义端口、[packages/e2e/src/drivers](../packages/e2e/src/drivers) 中的替身经用例注入。
 
 #### 关键设计决策与被否决的方案
 
@@ -347,6 +350,154 @@ Scenario 与 FLOW 的 ID 格式由使用方决定，不能写死在门禁里。
 #### 演进记录
 
 `2026-09-22-headless-payment-sdk`、`2026-10-02-generalize-template`（Shadow 路由中立化）、`template-core-hardening`（请求记录、路径转换、轮询与同形校验）。
+
+### 组合绑定
+
+#### 解决的问题
+
+模板同时包含两个产品包与两个协议包后，不能再用“每种角色恰好一个包”推断义务和平台证据；否则 IDL 义务会被错误要求提供浏览器证据，OpenAPI 义务也会被错误要求提供小程序证据。
+
+#### 实现机制与关键文件
+
+[project.manifest.json](../project.manifest.json) 与 [project.manifest.schema.json](../project.manifest.schema.json) 用 `packages[].form`、`packages[].protocolKind`、`packages[].globalStore`、`packages[].consumedOperations` 与 `bindings[]` 描述可用组合；[scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts) 负责校验，[scripts/check-scenarios.ts](../scripts/check-scenarios.ts) 与 [scripts/check-package.ts](../scripts/check-package.ts) 按绑定派生义务、测试环境和发布范围。当前绑定为 `sdk-idl-weapp` 与 `web-openapi-browser`。
+
+#### 关键设计决策与被否决的方案
+
+绑定是产品、协议与平台测试项目之间的唯一组合事实；协议可复用于多条绑定，但产品必须恰好属于一条绑定，平台只能引用 platform 类测试项目。用例可显式声明 `binding` 或放在 `tests/<绑定名>/`，导入绑定独占包时架构检查会强制声明归属。否决了在门禁中按协议种类写分支，也否决了让某个产品只通过目录名推断协议与平台。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+### 协议适配器
+
+#### 解决的问题
+
+IDL 与 OpenAPI 的路由、义务、Fixture 校验和响应规则不同；如果门禁直接导入某一个协议包，新增协议就必须修改通用门禁，删除原协议也会带走共享能力。
+
+#### 实现机制与关键文件
+
+每个协议包在 `testing/adapter.ts` 导出同一组适配器能力，门禁按清单的 `protocolKind` 经 [scripts/lib/protocol-adapters.ts](../scripts/lib/protocol-adapters.ts) 加载；IDL 实现见 [packages/protocol/testing/adapter.ts](../packages/protocol/testing/adapter.ts)，OpenAPI 实现见 [packages/openapi/testing/adapter.ts](../packages/openapi/testing/adapter.ts)。协议侧路由构造器只产出中立描述，协议无关 Shadow 在 [packages/e2e/src/shadow](../packages/e2e/src/shadow) 执行，验证由 `SCN-PROTOCOL-CONTRACT-015` 与 `SCN-OPENAPI-CONTRACT-006` 承担。
+
+#### 关键设计决策与被否决的方案
+
+适配器放在协议包 `testing/`，既能被门禁导入，又不会进入生产入口；`responseValidator` 接受响应体与状态码，IDL 忽略状态码，OpenAPI 按状态码选择 schema。否决了在门禁中枚举接口名或协议种类，也否决了让协议包反向依赖测试包。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+### Web 应用包（含前端架构规范）
+
+#### 解决的问题
+
+Web 应用的装配、组件归属、状态归属和业务依赖如果只靠约定，会随着页面增长出现跨模块写入全局状态、UI 直连适配器、父组件反向引用等问题。
+
+#### 实现机制与关键文件
+
+[packages/web](../packages/web) 以 `main.ts` 为唯一装配入口，按 `app/`、`runtime/`、`shared/`、`store/` 与业务模块分层；[packages/web/AGENTS.md](../packages/web/AGENTS.md) 规定树形组件与状态分层，[scripts/check-component-tree.ts](../scripts/check-component-tree.ts) 检查入口唯一、父组件反向引用、CSS 就近、子树私有和孤儿组件，[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 检查 UI/核心/模块边界，[scripts/lib/web-app-checks.ts](../scripts/lib/web-app-checks.ts) 检查 `vue-tsc` 与核心层 DOM 禁令。
+
+#### 关键设计决策与被否决的方案
+
+状态按“谁读、谁写”分层；跨模块响应快照整份进入清单指向的唯一 setup store，对外只暴露 `readonly()` 状态与 action。组件状态、模块状态和全局状态分别落在组件、模块根与包根，业务模块之间不得互相导入。否决了多个 store、组件直接写全局状态、共享区反向依赖 store/适配器以及用覆盖率忽略掩盖不可达分支。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+### 产物边界
+
+#### 解决的问题
+
+Web 应用构建产物容易混入测试夹具、完整契约、源码样式或旧的模块清单；仅检查“构建成功”无法证明浏览器执行的是本次源码。
+
+#### 实现机制与关键文件
+
+[scripts/check-bundle.ts](../scripts/check-bundle.ts) 与 [scripts/lib/bundle.ts](../scripts/lib/bundle.ts) 校验 [packages/web/vite.config.ts](../packages/web/vite.config.ts) 产出的模块清单、产品摘要和导入边界；浏览器应用宿主启动前由 [packages/e2e/src/hosts/freshness.ts](../packages/e2e/src/hosts/freshness.ts) 与 [packages/e2e/src/hosts/app-host.ts](../packages/e2e/src/hosts/app-host.ts) 比较摘要，陈旧产物拒绝启动。证据见 `SCN-WEB-APP-012`、`SCN-WEB-APP-013` 与 `SCN-WEB-APP-014`。
+
+#### 关键设计决策与被否决的方案
+
+产物边界只从 Web 包源码、绑定协议源码和构建输入派生，不把测试或门禁脚本的变化误判为产品变化；完整契约、Fixture、浏览器宿主与测试辅助只能留在测试设施中。否决了把完整契约打进生产包，也否决了允许宿主直接运行未校验的新旧混杂产物。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+### OpenAPI 协议包
+
+#### 解决的问题
+
+Web 应用需要从 OpenAPI 契约生成类型和精简运行描述，同时把身份头、信封、业务码、路径参数、取消和浏览器真实 `fetch` 统一到与 IDL 对等的协议边界。
+
+#### 实现机制与关键文件
+
+[packages/openapi](../packages/openapi) 保存契约、lock 与 `src/generated/`；[packages/openapi/src/rest/client.ts](../packages/openapi/src/rest/client.ts) 实现 REST 执行器，[packages/openapi/src/adapters/network/fetch.ts](../packages/openapi/src/adapters/network/fetch.ts) 提供真实浏览器网络工厂，[packages/openapi/testing/contract.ts](../packages/openapi/testing/contract.ts)、[shadow-routes.ts](../packages/openapi/testing/shadow-routes.ts) 与 [browser-runner.ts](../packages/openapi/testing/browser-runner.ts) 提供测试适配；命令与摘要由 [scripts/api-contract.ts](../scripts/api-contract.ts) 按清单驱动。
+
+#### 关键设计决策与被否决的方案
+
+生成物按契约派生，完整契约只放在 `testing/`；响应使用可配置信封，默认 HTTP 200 且业务码 0 为成功，未知字段可由执行器忽略，但 Fixture 与 Shadow 必须严格同形并显式认领。身份头从 `securitySchemes` 推导，`x-implemented: false` 只提示不阻断；与 IDL 一样使用不可覆盖的 `X-Request-Id`。否决了在 xueshan 项目里写死信封约定，也否决了“只放过多出字段”的宽松认领。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+### 浏览器平台点位
+
+#### 解决的问题
+
+Web 与协议证据必须来自真实 Chromium 网络栈，同时不能被测试框架自身的请求重放或代理透明转发掩盖传输行为。
+
+#### 实现机制与关键文件
+
+[packages/e2e/src/drivers/browser.ts](../packages/e2e/src/drivers/browser.ts) 提供 Playwright 驱动，[packages/e2e/host/browser](../packages/e2e/host/browser) 与 [packages/e2e/host/app](../packages/e2e/host/app) 分别托管协议宿主与应用宿主，[packages/e2e/src/hosts/proxy.ts](../packages/e2e/src/hosts/proxy.ts) 提供共用代理；[packages/e2e/vitest.config.browser.ts](../packages/e2e/vitest.config.browser.ts) 与清单的 `browser` 测试项目登记执行范围。平台证据见 `SCN-BROWSER-PLATFORM-001`、`SCN-BROWSER-PLATFORM-003` 与 `SCN-BROWSER-PLATFORM-012`。
+
+#### 关键设计决策与被否决的方案
+
+浏览器自动化复用 Playwright 与本机 Chromium，不引入第二套测试框架；每个测试文件启动浏览器、每个 case 使用独立 context，驱动只做桥接，不注入请求逻辑。宿主只加载协议包产物和清单登记的绑定，不写死接口。否决了让页面直接调用测试模块、用 Node 请求代替浏览器证据，也否决了把浏览器重发当成 SDK 自动重放。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+### 本地预览
+
+#### 解决的问题
+
+开发和验收需要在不改产品代码、不发真实请求的情况下查看指定 Fixture 状态；同时开发代理要能连接真实服务端，却不能形成“部分 Shadow、部分真实服务端”的隐式混合。
+
+#### 实现机制与关键文件
+
+[scripts/preview-local.ts](../scripts/preview-local.ts) 与 [packages/e2e/src/preview/preview-launcher.ts](../packages/e2e/src/preview/preview-launcher.ts) 校验数据集、启动预览 Shadow 并托管 Web 产物；[scripts/dev-remote.ts](../scripts/dev-remote.ts) 与 [packages/e2e/src/preview/dev-remote.ts](../packages/e2e/src/preview/dev-remote.ts) 通过 [packages/e2e/host/web.config.json](../packages/e2e/host/web.config.json) 的代理前缀连接真实服务端；[packages/e2e/src/shadow/preview-server.ts](../packages/e2e/src/shadow/preview-server.ts) 只按序列状态返回响应。证据见 `SCN-BROWSER-PLATFORM-011` 至 `015`。
+
+#### 关键设计决策与被否决的方案
+
+测试、本地预览与开发代理是三种完整模式，仅在宿主或代理层切换；产品代码只请求同源 `/api` 或配置的 `VITE_API_BASE`，不包含模式分支。预览构造器只能由 `packages/e2e/src/preview/` 导入，`x-implemented: false` 的接口在开发代理下会返回未实现错误，应改用本地预览查看。否决了在每个接口上混合 Shadow 与真实服务端，也否决了把预览 Mock 逻辑放进产品包。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+<!-- web-example:begin -->
+
+### Web 示例
+
+#### 解决的问题
+
+模板需要一套能实际运行、删除和复刻的 Web 应用证据，覆盖创建、轮询、列表、业务失败、传输失败、布局状态与本地预览，同时不能把示例业务写死成模板不可移除的一部分。
+
+#### 实现机制与关键文件
+
+[packages/web/src/trade-create](../packages/web/src/trade-create)、[packages/web/src/trade-list](../packages/web/src/trade-list) 与 [packages/web/src/trade-status](../packages/web/src/trade-status) 是示例模块，示例用例在 [packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts](../packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts) 与 [packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts](../packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts)，数据集在 [packages/e2e/tests/fixtures/_datasets](../packages/e2e/tests/fixtures/_datasets)。
+
+#### 关键设计决策与被否决的方案
+
+示例用标记和白名单与通用工程分离，删除后保留 Web 与 OpenAPI 包骨架、门禁规则和空的消费接口声明；OpenAPI 示例契约属于协议来源，不在 Web 示例白名单内。页面必须演示模块/组件/全局状态分层、轮询、失败态和业务码穷尽，但不重复协议矩阵的证据。否决了让示例目录成为门禁必需依赖，也否决了在示例里内置真实服务端或环境模式分支。
+
+#### 演进记录
+
+`template-web-absorption`。
+
+<!-- web-example:end -->
 
 ### 微信开发者工具自动化与执行约定
 

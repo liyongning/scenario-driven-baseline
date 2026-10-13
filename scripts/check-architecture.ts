@@ -11,6 +11,7 @@ import {
   guideRelativePath,
 } from './lib/architecture-doc.ts';
 import { checkExampleMarkers } from './lib/example-markers.ts';
+import { exampleWhitelistEntries } from './lib/example-whitelist.ts';
 import { headingsOf, linkTarget, linksTo, markdown, relativeLinks } from './lib/markdown-docs.ts';
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 import { unregisteredScenarioIds } from './lib/scenario-ids.ts';
@@ -52,9 +53,11 @@ const guideSections = {
     '版本对齐',
     '使用方约定',
     '复刻验收',
+    '移除一条绑定',
+    '跨源部署',
     '替换点地图',
   ],
-  level3: ['协议来源', '运行平台', '包发布'],
+  level3: ['产品形态', '协议来源', '运行平台', '本地预览', '包发布'],
 } as const;
 /** pnpm 内置命令不作为根 package.json 的脚本核对。 */
 const pnpmBuiltins = new Set(['install', 'add', 'remove', 'exec', 'dlx']);
@@ -67,40 +70,6 @@ const templateEnvironmentNames = new Set([
   'VERIFY_RUN_ID',
   'WECHAT_DEVTOOLS_CLI',
 ]);
-/** 指南「移除模板示例」必须逐项写明的删除白名单；包路径按清单角色派生，与 ENG-06 的清单一致。 */
-function exampleWhitelistEntries(root: string, manifest: ProjectManifest): string[] {
-  const products = packagesByRole(manifest, 'product');
-  const protocols = packagesByRole(manifest, 'protocol');
-  const test = testPackage(manifest).directory;
-  const existing = (path: string) => existsSync(join(root, path));
-  return [
-    ...products.map((item) => `packages/${item.directory}/src/example/`).filter(existing),
-    ...protocols
-      .map((item) => `packages/${item.directory}/testing/shadow/example/`)
-      .filter(existing),
-    `packages/${test}/tests/example/`,
-    `packages/${test}/tests/weapp/example/`,
-    `packages/${test}/host/weapp/example-runner.ts`,
-    `packages/${test}/tests/fixtures/`,
-    'SCN-TEMPLATE-EXAMPLE-*',
-    'FLOW-TEMPLATE-EXAMPLE-*',
-    `packages/${test}/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`,
-    'openspec/specs/template-example/',
-    `packages/${test}/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`,
-    `packages/${test}/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`,
-    `packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`,
-    'template-example:begin',
-    'template-example:end',
-    ...products.map((item) => `packages/${item.directory}/src/index.ts`).filter(existing),
-    'consumed-operations.ts',
-    `packages/${test}/host/weapp/app.js`,
-    `packages/${test}/src/drivers/weapp-host.test.ts`,
-    'protocol-matrix.json',
-    'fixtures:refresh',
-    'coverageExclusions',
-  ];
-}
-
 /** 取行内代码中紧跟在 `pnpm`/`pnpm run` 之后、不以 `-` 开头的命令词。 */
 function pnpmCommands(code: string): string[] {
   const commands: string[] = [];

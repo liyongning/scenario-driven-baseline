@@ -273,6 +273,10 @@ evidence(
       context.expect(errors).toContain('missing guide section ## 版本对齐');
       context.expect(errors).toContain('missing guide section ## 使用方约定');
       context.expect(errors).toContain('missing guide section ## 复刻验收');
+      context.expect(errors).toContain('missing guide section ## 移除一条绑定');
+      context.expect(errors).toContain('missing guide section ## 跨源部署');
+      context.expect(errors).toContain('missing guide section ### 产品形态');
+      context.expect(errors).toContain('missing guide section ### 本地预览');
       context.expect(errors).toContain('missing guide section ### 包发布');
       const partial = fixture();
       const guide = readFileSync(join(partial, 'docs/template-guide.md'), 'utf8');
@@ -283,6 +287,18 @@ evidence(
       context
         .expect(await checkArchitecture(partial, 0))
         .toContain('missing removal whitelist entry openspec/specs/template-example/');
+
+      const missingWebExample = fixture();
+      writeFileSync(
+        join(missingWebExample, 'docs/template-guide.md'),
+        readFileSync(join(missingWebExample, 'docs/template-guide.md'), 'utf8').replace(
+          'openspec/specs/web-example/',
+          '',
+        ),
+      );
+      context
+        .expect(await checkArchitecture(missingWebExample, 0))
+        .toContain('missing removal whitelist entry openspec/specs/web-example/');
     });
 
     await check('guide-links-resolve', async () => {
@@ -411,8 +427,8 @@ evidence(
       writeFileSync(
         join(root, 'docs/template-guide.md'),
         guide.replace(
-          '| 临时能力 | 临时根占位 | 无 |',
-          '| 临时能力 | 临时根占位 | 无 |\n| 未登记能力 | 临时根占位 | 无 |',
+          '| Web 示例 | 临时根占位 | 无 |',
+          '| Web 示例 | 临时根占位 | 无 |\n| 未登记能力 | 临时根占位 | 无 |',
         ),
       );
       context

@@ -15,23 +15,29 @@ type MarkdownNode = Readonly<{
   children?: ReadonlyArray<MarkdownNode>;
 }>;
 
-/** 指南「能力地图」表格第一列的每一项；找不到表格时返回 undefined。 */
+/** 指南「能力地图」章节内全部表格第一列的每一项；找不到表格时返回 undefined。 */
 export function capabilityMapNames(guideContent: string): string[] | undefined {
   const tree = markdownTables(guideContent) as unknown as {
     children: ReadonlyArray<MarkdownNode>;
   };
   let insideSection = false;
+  const names: string[] = [];
   for (const node of tree.children) {
     if (node.type === 'heading') {
-      insideSection = node.depth === 2 && nodeText(node) === capabilitySection;
+      if (node.depth === 2) insideSection = nodeText(node) === capabilitySection;
       continue;
     }
     if (insideSection && node.type === 'table') {
       const rows = node.children as ReadonlyArray<MarkdownNode>;
-      return rows.slice(1).map((row) => nodeText((row.children as ReadonlyArray<MarkdownNode>)[0]));
+      names.push(
+        ...rows
+          .slice(1)
+          .map((row) => nodeText((row.children as ReadonlyArray<MarkdownNode>)[0]))
+          .filter((name) => name.length > 0),
+      );
     }
   }
-  return undefined;
+  return names.length > 0 ? names : undefined;
 }
 
 /**

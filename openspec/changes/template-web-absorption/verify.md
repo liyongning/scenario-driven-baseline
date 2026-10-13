@@ -553,3 +553,35 @@
 **Commit**
 
 - `feat(template): add local preview and remote dev proxy modes`
+
+### Task 13 文档与地图
+
+**规划与输入**
+
+- 起点 HEAD 为 `d01c594`；本任务开始时 freshness 为 `PASS`，digest 为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 交付更新后的能力地图、技术架构章节、替换点地图、移除模板示例白名单、“移除一条绑定”和“跨源部署”指南，以及对应的 SCN-TEMPLATE-ENGINEERING-006、012 与 SCN-OPENAPI-CONTRACT-019 证据。
+
+**RED / GREEN**
+
+- RED 阶段沿用 Task 12 结束时场景门禁中的两条非 weapp 缺失绑定：`SCN-TEMPLATE-ENGINEERING-012/web-capability-sections-fact` 与 `SCN-OPENAPI-CONTRACT-019/unimplemented-hint-gate`。新增检查同时要求指南出现“移除一条绑定”“跨源部署”“产品形态”“本地预览”，并让 web-example 删除白名单成为必需项。
+- GREEN 阶段补齐指南与架构文档，并为三处新 checkpoint 增加非恒真反例：SCN-012 向临时指南加入未登记能力后必须报告缺少同名架构章节；SCN-006 删除章节或 web-example 白名单项后检查必须失败；SCN-019 改写“开发代理连接真实服务端时”的说明后 `guide-documented` 必须失败。
+- 实施偏离：为让 `scripts/check-architecture.ts` 保持清单登记的文件行数上限，把删除白名单派生逻辑抽到 `scripts/lib/example-whitelist.ts`，断言、白名单范围与检查语义未变。
+
+**Verification**
+
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task13-20261013T191100Z pnpm check:fast`：退出码 0。unit 140/140 文件、570/570 用例；普通 integration 95/95 文件、175/175 用例；integration-heavy 7/7 文件、13/13 用例；statements 5914/5914、branches 3849/3849、functions 1207/1207、lines 5199/5199 均为 100%。`SCN-TEMPLATE-ENGINEERING-008` 的 `example-removal-fast` 与 `example-removal-scenarios` 均通过。
+- 同一 run id 复核 `pnpm check:coverage`：退出码 0。`pnpm check:fixtures --change template-web-absorption`：71 个 manifest、0 条问题；`pnpm check:project-map`：0 条问题；`pnpm check:component-tree`：0 条问题。
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task13-final-browser-20261013T194500Z pnpm test:e2e:browser`：退出码 0，4/4 文件、20/20 用例、231 个断言通过。
+- 场景门禁复核：`SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task13-20261013T191100Z pnpm check:scenarios --inventory` 退出码 1，共 320 条问题，全部为 `missing binding for weapp`；非 weapp 问题为 0，Task 10～12 的推迟项与 Task 13 两条缺失绑定均已消失。按验收阶段约束，本任务禁止运行 weapp，因此该 320 条 evidence 缺失明确留给交回前全量关闭，不归前序任务。
+- 外部负载复跑不计 OI：run `task13-final-20261013T193500Z` 与上述绿运行使用相同的 source、Spec、协议和 Fixture 摘要，但同机另一个 `fe_app` 的完整 `pnpm test` 正在运行，load average 约 13；复跑中出现 `scripts/test-affected.test.ts` 30 秒预算超时，以及 SCN-008、SCN-WEB-APP-010 重型副本超时。该轮不用于 GREEN，作为外部负载导致的时败时过单独登记。
+- 无上下文 Agent 只读 `docs/architecture.md` 后，能够说明协议适配器把 IDL/OpenAPI 差异封装在协议包 `testing/`、组合绑定统一产品/协议/平台/证据关系，以及测试、本地预览、开发代理三种模式只在宿主或代理层整体切换；符合任务的文档可理解性要求。
+- 最终 freshness 复核为 `PASS`，digest 仍为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**Review / Acceptance**
+
+- 替换点地图逐点位核对文件、清单项、Scenario 与门禁；产品形态、协议来源、运行平台、本地预览和包发布均给出当前实现、涉及文件、清单修改点与验收入口。
+- “移除一条绑定”明确删除范围、保留 Shadow 测试基础设施，并说明事实核验用例按清单派生、Spec 清理由使用方 Change 承担；模板示例删除白名单同时覆盖 `template-example` 与 `web-example`。
+
+**Commit**
+
+- `docs(template): document web capabilities, bindings and replacement points`
