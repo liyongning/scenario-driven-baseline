@@ -23,3 +23,13 @@ export interface CancellationPort {
   /** 订阅一次或多次取消通知，并返回取消订阅函数。 */
   subscribe(listener: () => void): () => void;
 }
+
+/** 核心层使用的取消信号形状；浏览器实现由真实 AbortSignal 满足。 */
+export interface CancellationSignal {
+  /** 信号是否已经取消。 */
+  readonly aborted: boolean;
+  /** 注册取消监听器。 */
+  addEventListener(type: 'abort', listener: () => void): void;
+  /** 移除取消监听器。 */
+  removeEventListener(type: 'abort', listener: () => void): void;
+}

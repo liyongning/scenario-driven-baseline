@@ -585,3 +585,44 @@
 **Commit**
 
 - `docs(template): document web capabilities, bindings and replacement points`
+
+## Final Code Review 第 1 轮修复
+
+- 起点 HEAD 为 `6e4d0c2`；本轮只修代码与验收记录，未修改 proposal、specs、design、tasks 语义。开始时 freshness 为 `PASS`，digest 为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**FCR-1 报告环境可信性**
+
+- RED 反例：在物理 `integration` 项目中声明 `environment: 'weapp'` 时，旧 reporter 会把报告记为 weapp 并可能让 Node 证据冒充 weapp 证据。
+- GREEN：`scenario-reporter.ts` 改为始终从 `testCase.project.name` 取物理项目，再按清单 `testProjects[].environment` 映射逻辑环境；声明环境与映射不一致时记录 `status: failed` 和包含声明值、物理项目、映射值的错误。`vitest.config.ts` 注入清单映射。
+- 定向验证：`pnpm exec vitest run --config vitest.config.ts packages/e2e/src/reporters/scenario-reporter.test.ts`，1 文件、8 用例通过；重跑 `check:fast` 时 reporter 分支覆盖率为 100%。
+
+**FCR-2 创建交易三类业务码**
+
+- RED 反例：app-unit 只覆盖 `INVALID_REQUEST`、`TRADE_CONFLICT`，browser 只编排 40901，不能证明 `createTrade` 特有码、冲突码、通用业务码三类均按映射表呈现。
+- GREEN：契约与 `createTrade` 结果映射补入 `TRADE_NOT_FOUND`；app-unit 与 browser 均逐一覆盖三类码，每个分支断言呈现类别、恰好一次创建请求、不发出 `getTrade`，且不更新当前交易。Fixture 与摘要按生成物同步。
+- 定向验证：`pnpm exec vitest run --config packages/web/vitest.config.ts` 为 18 文件、34 用例通过；`pnpm exec vitest run --config packages/e2e/vitest.config.browser.ts packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts` 为 1 文件、6 用例通过。
+
+**FCR-3 写入审计与真实 AbortSignal**
+
+- RED 反例：`write-audit-catches-extra` 原先只对手写对象调用 `changedKeys`，未经过 `auditAction` 的失败分支；导航测试原先只验证调用顺序，没有验证旧请求的 `AbortSignal`。
+- GREEN：审计用例通过 `auditAction` 实际写入清单外键，失败信息必须包含 action 名 `setCurrentTrade` 和键名 `hidden`。浏览器取消源创建真实 `AbortController`，`beginAttempt()` 收到取消函数；导航或卸载时 abort，signal 经 `TradeStatusPort`、OpenAPI 适配器和 REST 执行器传到 `fetch`。用例断言旧 signal、`fetch` 收到的 signal 均变为 aborted。
+- 定向验证：`pnpm exec vitest run --config packages/web/vitest.config.ts` 全部通过，其中 SCN-WEB-EXAMPLE-007 的审计失败与导航中止断言均执行；OpenAPI 与 web typecheck 通过。
+
+**FCR-4 PATCH 方法大小写**
+
+- RED 反例：生成物 `meta.method` 为小写 `patch`，旧执行器把原值交给 `fetch`，mock 收到的也是小写；旧单测手写大写 `PATCH`，未覆盖真实生成物形状。
+- GREEN：在 REST 执行器边界统一执行 `operation.meta.method.toUpperCase()` 后再传给 `http.send`；生成物继续保留小写。单测改用与生成物一致的 `meta.method: 'patch'`，mock 收到的必须是 `PATCH`。
+- 定向验证：`pnpm exec vitest run --config packages/openapi/vitest.config.ts`，12 文件、40 用例通过。
+
+**本轮回归记录**
+
+- `pnpm format:check`、`pnpm typecheck`、`pnpm check:fixtures --change template-web-absorption`、`pnpm api:validate`、`pnpm api:status` 均退出码 0。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast` 已跑到单元覆盖率 100%、普通 integration 96/96 文件与 176/176 用例通过；默认并发下 `integration-heavy` 仅因 F8 暴露的 `SCN-TEMPLATE-ENGINEERING-002/gate-reduction-review-evidence` 5 秒默认超时而失败。副本内 `SCN-008` 的 `check:fast` 也仅因同一条 5 秒超时失败。单跑 `SCN-TEMPLATE-ENGINEERING-002.spec.ts` 为 10/10 通过；带正确归档作用域单跑 `SCN-008` 为 2/2 通过（190.68s）。该失败不归因于本轮四条 FCR 修复，按验收要求只登记 F8，不修改。
+- freshness 复核仍为 `PASS`，digest 未变化。
+
+**已知风险（只登记，不修）**
+
+- F5：`browser.ts` 多条占位规则使用 `route.continue`，可能绕过先注册的处理器。
+- F6：业务失败终态下 `TradeStatus` 会无限轮询，可见性切换时没有在途保护。
+- F7：`preview-local.ts` 写死示例接口，复用或替换产品时需要同步调整。
+- F8：`defineCase` 默认 5 秒覆盖项目级 `testTimeout`，并发负载下会让较慢的真实验证产生非业务超时。

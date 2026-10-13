@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { beforeEach, expect, test } from 'vitest';
 import { scenarioTest } from '../__tests__/support';
+import type { CancellationSignal } from '../runtime/ports';
 import { useApplicationStore } from '../store';
 import TradeStatus from './ui/TradeStatus/TradeStatus.vue';
 import type { TradeStatusPort } from './ports';
@@ -52,9 +53,11 @@ scenarioTest(
     const clock = new FakeTimers();
     const statuses = ['PROCESSING', 'SUCCEEDED'] as const;
     let calls = 0;
+    let requestSignal: CancellationSignal | undefined;
     const cancelled: boolean[] = [];
     const getTrade: TradeStatusPort = {
-      async get() {
+      async get(_tradeNo, signal) {
+        requestSignal = signal;
         const status = statuses[calls++]!;
         return { kind: 'success', trade: { ...trade, status } };
       },
@@ -66,12 +69,17 @@ scenarioTest(
         runtime: {
           clock,
           visibility: visibility(),
-          createCancellation: () => ({
-            port: { isCancelled: () => false, subscribe: () => () => undefined },
-            cancel: () => {
-              cancelled.push(true);
-            },
-          }),
+          createCancellation: () => {
+            const controller = new AbortController();
+            return {
+              port: { isCancelled: () => false, subscribe: () => () => undefined },
+              signal: controller.signal,
+              cancel: () => {
+                cancelled.push(true);
+                controller.abort();
+              },
+            };
+          },
         },
       },
     });
@@ -80,6 +88,7 @@ scenarioTest(
       expect(calls).toBe(1);
       expect(wrapper.get('[data-testid="trade-status"]').text()).toContain('进行中');
       expect(wrapper.find('[data-testid="loading-indicator"]').exists()).toBe(true);
+      expect(requestSignal?.aborted).toBe(false);
     });
     await clock.advance(100);
     await flushPromises();
@@ -90,6 +99,7 @@ scenarioTest(
       expect(calls).toBe(2);
       wrapper.unmount();
       expect(cancelled).toEqual([true]);
+      expect(requestSignal?.aborted).toBe(true);
     });
   },
 );
@@ -109,6 +119,7 @@ test('trade status labels failed, cancelled and absent trades', async () => {
         visibility: visibility(),
         createCancellation: () => ({
           port: { isCancelled: () => false, subscribe: () => () => undefined },
+          signal: new AbortController().signal,
           cancel: () => undefined,
         }),
       },

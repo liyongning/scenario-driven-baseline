@@ -10,7 +10,7 @@ export const businessCodeTable = {
 export type BusinessCode = keyof typeof businessCodeTable;
 
 const operationCodeTable = {
-  createTrade: ["INVALID_REQUEST","TRADE_CONFLICT"] as const,
+  createTrade: ["INVALID_REQUEST","TRADE_CONFLICT","TRADE_NOT_FOUND"] as const,
   getTrade: ["INVALID_REQUEST","TRADE_NOT_FOUND"] as const,
   listTrades: ["INVALID_REQUEST"] as const,
   cancelTrade: ["INVALID_REQUEST","TRADE_CONFLICT","TRADE_NOT_FOUND"] as const,

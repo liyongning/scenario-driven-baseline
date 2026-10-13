@@ -6,7 +6,7 @@ export const createTrade = {
     method: "post",
     path: "/api/v1/trades",
     security: [{"accessToken":[]}] as const,
-    codes: ["INVALID_REQUEST","TRADE_CONFLICT"] as const,
+    codes: ["INVALID_REQUEST","TRADE_CONFLICT","TRADE_NOT_FOUND"] as const,
     implemented: true,
   },
 } as const;

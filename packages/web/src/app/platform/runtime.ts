@@ -2,6 +2,7 @@ import type { CancellationPort, ClockPort, VisibilityPort } from '../../runtime/
 
 interface CancellationSource {
   readonly port: CancellationPort;
+  readonly signal: AbortSignal;
   cancel(): void;
 }
 
@@ -28,19 +29,18 @@ export function browserVisibility(): VisibilityPort {
 
 /** 创建一次性取消源，供组件卸载与代际切换中止在途请求。 */
 export function createBrowserCancellation(): CancellationSource {
-  let cancelled = false;
-  const listeners = new Set<() => void>();
+  const controller = new AbortController();
   return {
     port: {
-      isCancelled: () => cancelled,
+      isCancelled: () => controller.signal.aborted,
       subscribe(listener) {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
+        controller.signal.addEventListener('abort', listener, { once: true });
+        return () => controller.signal.removeEventListener('abort', listener);
       },
     },
+    signal: controller.signal,
     cancel() {
-      cancelled = true;
-      for (const listener of [...listeners]) listener();
+      controller.abort();
     },
   };
 }

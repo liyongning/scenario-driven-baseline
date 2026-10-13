@@ -34,7 +34,8 @@ type FailureFixture = Readonly<{
   token: string;
   merchantId: number;
   amount: number;
-  response: Readonly<{ code: number; message: string; data: unknown }>;
+  responses: ReadonlyArray<Readonly<{ code: number; message: string; data: unknown }>>;
+  expected: ReadonlyArray<string>;
 }>;
 
 type TransportFailureFixture = Readonly<{
@@ -349,34 +350,40 @@ defineCase(
       'web-example-004',
       {
         createTrade: {
-          expectedRequests: [{ recordOnly: true }],
-          steps: [
-            {
-              body: envelope(data.response.data, data.response.code, data.response.message),
-            },
-          ],
+          expectedRequests: data.responses.map(() => ({ recordOnly: true })),
+          steps: data.responses.map((response) => ({
+            body: envelope(response.data, response.code, response.message),
+          })),
         },
       },
       async (host, server) => {
         const observed = await driver.runCase({}, async ({ page }) => {
           await openExample(page, host, data);
-          await page.getByTestId('amount-input').fill(String(data.amount));
-          await page.getByTestId('create-submit').click();
-          await waitForCalls(
-            () => server.records(),
-            (items) => items.length === 1,
-          );
-          await page.getByTestId('create-result').getByText('交易冲突').waitFor();
+          const results: string[] = [];
+          for (const [index] of data.responses.entries()) {
+            await page.getByTestId('amount-input').fill(String(data.amount));
+            await page.getByTestId('create-submit').click();
+            await waitForCalls(
+              () => server.records(),
+              (items) => items.length === results.length + 1,
+            );
+            await page.getByTestId('create-result').getByText(data.expected[index]!).waitFor();
+            results.push((await page.getByTestId('create-result').textContent()) ?? '');
+          }
           return {
-            result: await page.getByTestId('create-result').textContent(),
+            results,
             currentTrade: await page.getByTestId('current-trade').textContent(),
             requests: server.records().map((record) => record.methodName),
           };
         });
 
-        await checkpoint('code-outcome-shown', () => expect(observed.result).toContain('交易冲突'));
+        await checkpoint('code-outcome-shown', () => {
+          expect(observed.results).toEqual(
+            data.expected.map((expected) => expect.stringContaining(expected)),
+          );
+        });
         await checkpoint('failure-no-follow-up', () => {
-          expect(observed.requests).toEqual(['createTrade']);
+          expect(observed.requests).toEqual(['createTrade', 'createTrade', 'createTrade']);
           expect(observed.currentTrade).toContain('无当前交易');
           expect(server.verify()).toEqual([]);
         });

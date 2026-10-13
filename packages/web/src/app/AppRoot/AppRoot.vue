@@ -21,6 +21,7 @@ interface AppRuntime {
   readonly visibility: VisibilityPort;
   readonly createCancellation: () => Readonly<{
     port: import('../../runtime/ports').CancellationPort;
+    signal: AbortSignal;
     cancel: () => void;
   }>;
 }

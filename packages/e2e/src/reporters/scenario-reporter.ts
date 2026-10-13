@@ -6,7 +6,8 @@ import type { Project } from '../../../../scripts/check-scenarios.ts';
 type ReporterOptions = Readonly<{
   outputFile: string;
   runId: string;
-  project?: Project;
+  /** 物理 Vitest 项目名到场景门禁逻辑环境的映射；来自清单 testProjects。 */
+  projectEnvironments?: Readonly<Record<string, Project>>;
   /** 按需运行的报告带 partial 标记，场景门禁据此拒收（GATE-13）。 */
   partial?: boolean;
   fingerprints: Readonly<{
@@ -29,6 +30,8 @@ type ScenarioRecord = Readonly<{
   protocolDigest: string;
   fixtureDigest: string | null;
   status: 'passed' | 'failed' | 'skipped';
+  /** 物理项目与绑定声明不一致时记录拒绝原因。 */
+  error?: string;
   assertions: number;
   checkpoints: string[];
   flow?: Readonly<{ id: string; caseKey: string; continuityId: string; stages: string[] }>;
@@ -71,17 +74,29 @@ export class ScenarioReporter implements Reporter {
       }
     }
     const state = testCase.result().state;
+    const declaredEnvironment = binding.environment;
+    const physicalProject = testCase.project.name;
+    const project = this.options.projectEnvironments?.[physicalProject] ?? physicalProject;
+    const environmentError =
+      declaredEnvironment !== undefined && declaredEnvironment !== project
+        ? `declared environment ${declaredEnvironment} does not match physical project ${physicalProject} mapped to ${project}`
+        : undefined;
     this.#records.push({
       runId: this.options.runId,
       file: testCase.module.moduleId,
       fullName: testCase.fullName,
       caseId: binding.caseId,
-      project: this.options.project ?? binding.environment ?? (testCase.project.name as Project),
+      project,
       sourceDigest: this.options.fingerprints.sourceDigest,
       specDigest: this.options.fingerprints.specDigest,
       protocolDigest: this.options.fingerprints.protocolDigest,
       fixtureDigest: binding.fixtureCase === null ? null : this.options.fingerprints.fixtureDigest,
-      status: state === 'passed' || state === 'failed' ? state : 'skipped',
+      status: environmentError
+        ? 'failed'
+        : state === 'passed' || state === 'failed'
+          ? state
+          : 'skipped',
+      ...(environmentError ? { error: environmentError } : {}),
       assertions: evidence.assertions,
       checkpoints: evidence.checkpoints,
       ...(flow ? { flow } : {}),

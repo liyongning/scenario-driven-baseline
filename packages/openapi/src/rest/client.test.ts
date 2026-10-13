@@ -299,7 +299,7 @@ evidence(
     await checkpoint('method-from-meta', async () => {
       const { client, requests } = setup();
       await request(client, {
-        meta: { id: 'PATCH', method: 'PATCH', path: '/method', security: [], codes: [] },
+        meta: { id: 'PATCH', method: 'patch', path: '/method', security: [], codes: [] },
       });
       context.expect(requests[0]!.method).toBe('PATCH');
     });

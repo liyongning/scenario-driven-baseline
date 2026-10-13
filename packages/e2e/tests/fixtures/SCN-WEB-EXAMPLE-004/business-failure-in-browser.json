@@ -2,12 +2,25 @@
   "token": "fixture-token",
   "merchantId": 1001,
   "amount": 25,
-  "response": {
-    "code": 40901,
-    "message": "conflict",
-    "data": {
-      "trade_no": "T-CONFLICT-1",
-      "conflict_code": "STATE_CHANGED"
+  "responses": [
+    {
+      "code": 40001,
+      "message": "invalid",
+      "data": {}
+    },
+    {
+      "code": 40901,
+      "message": "conflict",
+      "data": {
+        "trade_no": "T-CONFLICT-1",
+        "conflict_code": "STATE_CHANGED"
+      }
+    },
+    {
+      "code": 40401,
+      "message": "missing",
+      "data": {}
     }
-  }
+  ],
+  "expected": ["请求无效", "交易冲突", "交易不存在"]
 }

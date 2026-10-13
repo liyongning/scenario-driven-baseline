@@ -44,8 +44,8 @@ defineCase(
     );
     cases.push(
       original.replace(
-        'x-business-codes: [TRADE_CONFLICT]',
-        'x-business-codes: [TRADE_CONFLICT, UNKNOWN]',
+        'x-business-codes: [TRADE_CONFLICT, TRADE_NOT_FOUND]',
+        'x-business-codes: [TRADE_CONFLICT, TRADE_NOT_FOUND, UNKNOWN]',
       ),
     );
     const lintError = original.replace(

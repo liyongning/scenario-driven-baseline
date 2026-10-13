@@ -81,7 +81,7 @@
             }
           }
         },
-        "x-business-codes": ["TRADE_CONFLICT"],
+        "x-business-codes": ["TRADE_CONFLICT", "TRADE_NOT_FOUND"],
         "responses": {
           "200": {
             "description": "Create result envelope.",

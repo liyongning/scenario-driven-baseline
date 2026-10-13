@@ -34,9 +34,11 @@ test('browser runtime ports delegate clock, visibility and cancellation determin
   const unsubscribeFirst = cancellation.port.subscribe(first);
   cancellation.port.subscribe(second);
   expect(cancellation.port.isCancelled()).toBe(false);
+  expect(cancellation.signal.aborted).toBe(false);
   unsubscribeFirst();
   cancellation.cancel();
   expect(cancellation.port.isCancelled()).toBe(true);
+  expect(cancellation.signal.aborted).toBe(true);
   expect(first).not.toHaveBeenCalled();
   expect(second).toHaveBeenCalledTimes(1);
 });

@@ -27,6 +27,7 @@ function runtime() {
     visibility: { isVisible: () => true, subscribe: () => () => undefined },
     createCancellation: () => ({
       port: { isCancelled: () => false, subscribe: () => () => undefined },
+      signal: new AbortController().signal,
       cancel: () => undefined,
     }),
   };
@@ -222,13 +223,18 @@ scenarioTest(
     checks: ['code-outcome-shown', 'failure-no-follow-up'],
   },
   async ({ expect, checkpoint }) => {
-    const outcomes = ['INVALID_REQUEST', 'TRADE_CONFLICT'] as const;
-    const responses = outcomes.map((code) => {
+    const outcomes = [
+      { code: 'INVALID_REQUEST', label: '请求无效' },
+      { code: 'TRADE_CONFLICT', label: '交易冲突' },
+      { code: 'TRADE_NOT_FOUND', label: '交易不存在' },
+    ] as const;
+    const responses = outcomes.map(({ code }) => {
       const outcome = createOutcomeForCode(code);
       return { kind: 'business-failure' as const, outcome };
     });
     let createCalls = 0;
     let statusCalls = 0;
+    const rendered: string[] = [];
     const wrapper = mount(AppRoot, {
       props: {
         context: { token: 'unit-token', merchantId: 1001 },
@@ -251,17 +257,26 @@ scenarioTest(
         runtime: runtime(),
       },
     });
-    for (const response of responses) {
+    for (const [index] of responses.entries()) {
       await wrapper.get('[data-testid="amount-input"]').setValue('25');
       await wrapper.get('[data-testid="create-submit"]').trigger('submit');
       await flushPromises();
-      expect(wrapper.get('[data-testid="create-result"]').text()).toContain(
-        response.outcome === 'invalid-request' ? '请求无效' : '交易冲突',
-      );
+      const text = wrapper.get('[data-testid="create-result"]').text();
+      expect(text).toContain(outcomes[index]!.label);
+      rendered.push(text);
     }
     await checkpoint('code-outcome-shown', () => {
-      expect(createCalls).toBe(2);
-      expect(wrapper.get('[data-testid="create-result"]').text()).toContain('交易冲突');
+      expect(createCalls).toBe(3);
+      expect(rendered).toEqual([
+        expect.stringContaining('请求无效'),
+        expect.stringContaining('交易冲突'),
+        expect.stringContaining('交易不存在'),
+      ]);
+      expect(createTradeOutcomeByCode).toEqual({
+        INVALID_REQUEST: 'invalid-request',
+        TRADE_CONFLICT: 'trade-conflict',
+        TRADE_NOT_FOUND: 'trade-not-found',
+      });
     });
     await checkpoint('failure-no-follow-up', () => {
       expect(statusCalls).toBe(0);

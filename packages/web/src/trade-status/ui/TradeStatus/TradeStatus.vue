@@ -14,6 +14,7 @@ interface StatusRuntime {
   readonly visibility: VisibilityPort;
   readonly createCancellation: () => Readonly<{
     port: import('../../../runtime/ports').CancellationPort;
+    signal: AbortSignal;
     cancel: () => void;
   }>;
 }
@@ -47,8 +48,8 @@ watch(
       failed.value = false;
       return;
     }
-    const attempt = applicationStore.beginAttempt();
     cancellation = props.runtime.createCancellation();
+    const attempt = applicationStore.beginAttempt(cancellation.cancel);
     loading.value = true;
     failed.value = false;
     poller = createPoller({
@@ -56,7 +57,7 @@ watch(
       visibility: props.runtime.visibility,
       cancellation: cancellation.port,
       intervalMs: 100,
-      query: () => props.getTrade.get(trade.trade_no),
+      query: () => props.getTrade.get(trade.trade_no, cancellation!.signal),
       isTerminal: (result) => result.kind === 'success' && isTerminalTrade(result.trade),
       onValue: (result) => {
         if (result.kind === 'success') {

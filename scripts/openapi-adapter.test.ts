@@ -286,6 +286,7 @@ evidence(
           .toEqual([
             'trade.v1.createTrade#business-code#INVALID_REQUEST',
             'trade.v1.createTrade#business-code#TRADE_CONFLICT',
+            'trade.v1.createTrade#business-code#TRADE_NOT_FOUND',
           ]),
       );
       await checkpoint('request-fields-keyspace', () => {

@@ -3,7 +3,9 @@
   "ownerId": "SCN-WEB-EXAMPLE-004",
   "protocol": "openapi",
   "envelopes": {
-    "$.response": "createTrade"
+    "$.responses[0]": "createTrade",
+    "$.responses[1]": "createTrade",
+    "$.responses[2]": "createTrade"
   },
   "sources": {
     "spec": {
@@ -14,6 +16,6 @@
     "business-failure-in-browser": "business-failure-in-browser.json"
   },
   "sha256": {
-    "business-failure-in-browser.json": "b2e35ecfdb879648da04e8e3fe4c8bf2a0e4e64141f2427cfbf84a47c29e1ae4"
+    "business-failure-in-browser.json": "6fe2b99b1db007d23972f1999a939618121e7f05250e2aabf44fdd19cf822258"
   }
 }

@@ -200,7 +200,7 @@ export function createRestClient(options: RestClientOptions): RestClient {
       try {
         received = await options.http.send({
           url,
-          method: operation.meta.method,
+          method: operation.meta.method.toUpperCase(),
           headers,
           ...(body === undefined ? {} : { body }),
           timeoutMs,
