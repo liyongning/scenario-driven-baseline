@@ -14,7 +14,8 @@
       "packages/web/src/runtime/__tests__",
       "packages/web/src/shared/components/LoadingFailure",
       "packages/web/src/shared/components/LoadingIndicator",
-      "packages/e2e/tests/fixtures/_datasets",
+      "packages/e2e/tests/fixtures/_datasets/trade-completed",
+      "packages/e2e/tests/fixtures/_datasets/trade-in-progress",
       "openspec/specs/web-example"
     ],
     "files": [

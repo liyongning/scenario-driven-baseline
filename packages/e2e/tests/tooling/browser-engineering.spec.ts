@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { createControlledRoot } from './controlled-root.ts';
 import { cliEvidence } from './scenario-gate-helpers.ts';
@@ -216,6 +216,8 @@ cliEvidence(
       context
         .expect(packageJson.scripts['test:e2e:browser'])
         .toBe('tsx scripts/run-by-manifest.ts test:e2e:browser');
+      context.expect(typeof packageJson.scripts['preview:local']).toBe('string');
+      context.expect(typeof packageJson.scripts['dev:remote']).toBe('string');
       context.expect(planCommand(repositoryRoot, 'test:e2e:browser')).toEqual([
         {
           command: 'vitest',
@@ -258,6 +260,26 @@ cliEvidence(
         .expect(
           browserRegistrationIssues({
             ...manifest,
+            requiredCommands: manifest.requiredCommands.filter(
+              (command) => command !== 'preview:local',
+            ),
+          }),
+        )
+        .toContain('missing preview:local command');
+      context
+        .expect(
+          browserRegistrationIssues({
+            ...manifest,
+            requiredCommands: manifest.requiredCommands.filter(
+              (command) => command !== 'dev:remote',
+            ),
+          }),
+        )
+        .toContain('missing dev:remote command');
+      context
+        .expect(
+          browserRegistrationIssues({
+            ...manifest,
             testProjects: manifest.testProjects.map((item) =>
               item.name === 'browser' ? { ...item, class: 'integration' as const } : item,
             ),
@@ -278,6 +300,12 @@ cliEvidence(
     ) as unknown;
     await check('logic-in-src', () => {
       context.expect(hostLogicIssues(repositoryRoot)).toEqual([]);
+      context
+        .expect(existsSync(join(repositoryRoot, 'packages/e2e/src/preview/preview-launcher.ts')))
+        .toBe(true);
+      context
+        .expect(existsSync(join(repositoryRoot, 'packages/e2e/src/preview/dev-remote.ts')))
+        .toBe(true);
       const fixture = createControlledRoot({
         files: { 'packages/e2e/host/rogue.ts': 'export const rogue = true;\n' },
       });
@@ -488,8 +516,8 @@ function browserRegistrationIssues(manifest: ProjectManifest) {
     if (browser.config !== 'packages/e2e/vitest.config.browser.ts')
       issues.push('browser project config is wrong');
   }
-  if (!manifest.requiredCommands.includes('test:e2e:browser'))
-    issues.push('missing test:e2e:browser command');
+  for (const command of ['test:e2e:browser', 'preview:local', 'dev:remote'] as const)
+    if (!manifest.requiredCommands.includes(command)) issues.push(`missing ${command} command`);
   if (
     !manifest.bindings
       .find((item) => item.name === 'web-openapi-browser')

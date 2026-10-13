@@ -27,6 +27,8 @@ function fixtureConfig() {
           contentType: 'image/svg+xml',
         },
       ],
+      proxyPrefixes: ['/api'],
+      defaultDataset: 'preview',
     },
   };
 }

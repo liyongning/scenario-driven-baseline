@@ -286,8 +286,9 @@ defineCase(
       const names = readdirSync(datasetsRoot, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name);
-      expect(names.sort()).toEqual(['trade-completed', 'trade-in-progress']);
-      for (const name of names) {
+      const exampleDatasets = ['trade-completed', 'trade-in-progress'];
+      expect(names.sort()).toEqual(expect.arrayContaining(exampleDatasets));
+      for (const name of exampleDatasets) {
         const manifest = readDataset(name);
         expect(manifest.protocol).toBe('openapi');
         expect(manifest.entries.length).toBeGreaterThan(0);

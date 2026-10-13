@@ -86,6 +86,8 @@
     "test:affected",
     "test:e2e:weapp",
     "test:e2e:browser",
+    "preview:local",
+    "dev:remote",
     "check:architecture",
     "check:coverage",
     "check:fixtures",

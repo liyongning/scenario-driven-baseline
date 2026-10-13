@@ -11,6 +11,10 @@ export type PlaceholderAssetRule = Readonly<{
 
 export type WebConfig = Readonly<{
   placeholderAssets: ReadonlyArray<PlaceholderAssetRule>;
+  /** `dev:remote` 允许转发到 DEV_REMOTE_TARGET 的同源前缀。 */
+  proxyPrefixes: ReadonlyArray<string>;
+  /** `preview:local` 未传 `--dataset` 时使用的数据集名称。 */
+  defaultDataset: string;
 }>;
 
 const schemaUrl = new URL('../../host/web.config.schema.json', import.meta.url);

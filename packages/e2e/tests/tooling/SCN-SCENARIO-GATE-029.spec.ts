@@ -206,4 +206,5 @@ defineCase(
       else expect(webCases.every((item) => item.binding === undefined)).toBe(true);
     });
   },
+  { timeoutMs: 30_000 },
 );

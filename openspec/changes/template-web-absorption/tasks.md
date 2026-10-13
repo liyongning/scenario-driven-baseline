@@ -433,7 +433,7 @@
   **Commit**
   - `feat(template): add web example on OpenAPI and browser`
 
-- [ ] 12. 本地预览与开发代理
+- [x] 12. 本地预览与开发代理
 
   **Files**
   - Create：`packages/e2e/src/preview/`（预览启动器：唯一导入 `createPreviewShadowServer` 所在模块的位置；数据集装载与校验、默认数据集、资源占位域名替换、`dev:remote` 配置解析）及单测；根命令 `preview:local`、`dev:remote`；清单 `requiredCommands` 加入 `preview:local`、`dev:remote`；`packages/e2e/host/web.config.json` 补入 `dev:remote` 代理前缀列表与默认预览数据集。

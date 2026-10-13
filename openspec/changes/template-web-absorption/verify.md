@@ -521,3 +521,35 @@
 - Task 11 核对的三项重点均为通过：`SCN-TEMPLATE-ENGINEERING-008` 两个 case 均通过且没有门禁问题；`SCN-PROTOCOL-CONTRACT-018` 在本轮低负载默认并发下 2/2 通过，`records` 1→0 未复现；weapp `SCN-PROTOCOL-CONTRACT-002` 已实跑并通过。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 0；计划因工具配置与构建输入变化触发完整 `check:fast`，未选择 weapp 步骤。
 - 最终 freshness 复核为 `PASS`，digest 仍为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。此前 run `template-web-absorption-apply-task11-20261013T170900Z` 及更早尝试中的 `weapp:prepare` 未就绪、正式版掉登录和副本内 `proto:status` SSH 瞬断均为环境问题，不计业务失败或 OI；本记录以 `172500Z` 的全量结果为准。
+
+### Task 12 本地预览与开发代理
+
+**规划与输入**
+
+- 起点 HEAD 为 `a45da6c`；本任务开始时 freshness 为 `PASS`，digest 为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+- 交付本地预览启动器、`preview:local`、`dev:remote`、浏览器平台预览数据集及 `SCN-BROWSER-PLATFORM-012`～015 的证据用例，并复核 `SCN-BROWSER-PLATFORM-011` 的命令组合与 `SCN-BROWSER-PLATFORM-016` 的目录边界。
+
+**RED / GREEN**
+
+- RED 阶段确认 `SCN-BROWSER-PLATFORM-012`～015 缺少实现与绑定，`SCN-BROWSER-PLATFORM-011/command-composed` 缺少 `preview:local`、`dev:remote` 命令。
+- GREEN 后，`SCN-BROWSER-PLATFORM-013` 的默认数据集、未知数据集、数据集 schema、响应校验与占位资源反例均实际执行；`SCN-BROWSER-PLATFORM-014` 覆盖缺失目标、非法代理前缀、请求转发与双层 `/api` 路径；`SCN-BROWSER-PLATFORM-015` 用产品源码中的模式分支、混合模式配置和缺失 AGENTS 声明三类反例证明检查会失败。
+- `SCN-BROWSER-PLATFORM-012` 在真实 Chromium 中验证数据集驱动页面结果、最后一条响应重复、同一宿主代理、未编排请求日志与启动器边界，不使用预览模式请求次数作为证据。
+
+**Verification**
+
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task12-20261013T183500Z pnpm check:fast`：退出码 0。unit 140/140 文件、570/570 用例；普通 integration 95/95 文件、174/174 用例；integration-heavy 7/7 文件、13/13 用例；statements、branches、functions、lines 均为 100%。`SCN-TEMPLATE-ENGINEERING-008` 的 `example-removal-fast` 与 `example-removal-scenarios` 均通过。
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task12-20261013T183500Z pnpm test:e2e:browser`：退出码 0，4/4 文件、20/20 用例通过，包含 `SCN-BROWSER-PLATFORM-012`。
+- `pnpm format:check`、`pnpm typecheck`、`pnpm lint`、`pnpm check:fixtures --change template-web-absorption` 均通过；lint 仍只有既有 Vue warnings。
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task12-20261013T183500Z pnpm check:scenarios --inventory`：退出码 1，共 322 条问题；其中 320 条为当前阶段尚未运行 weapp 的证据缺失，非 weapp 问题恰好两条 Task 13 缺失绑定：`SCN-TEMPLATE-ENGINEERING-012/web-capability-sections-fact` 与 `SCN-OPENAPI-CONTRACT-019/unimplemented-hint-gate`。本任务四条 Scenario 的缺失绑定均已消除。
+- 手工执行 `pnpm preview:local --dataset trade-in-progress` 观察到页面状态 `进行中 → 已完成`；`pnpm preview:local --dataset trade-completed` 直接显示 `已完成`。截图仅保存在本机临时目录，未入库。
+- 按验收阶段的开发者工具独占约束，本任务未运行 `weapp:prepare`、weapp 用例或含 weapp 的 `pnpm verify`；也因此未运行可能选中 weapp 项目的 `test:affected`。
+
+**Review / Acceptance**
+
+- 默认预览数据集为平台自有的 `platform-openapi-primary`，不依赖 Web 示例；示例删除白名单只移除 `trade-completed` 与 `trade-in-progress` 两个示例数据集，不删除整个 `_datasets`。
+- 产品代码无预览/Shadow 模式分支，预览 Shadow 只能经 `packages/e2e/src/preview/` 的启动器构造；`dev:remote` 只按配置允许的路径前缀转发，不形成真实服务端与替身混合模式。
+- 实施偏离：为覆盖 `SCN-SCENARIO-GATE-029` 内串行启动三个 Vitest 子进程的完整断言，将用例预算由默认 5 秒调整为 30 秒；未减少用例或断言，不改规划语义。
+
+**Commit**
+
+- `feat(template): add local preview and remote dev proxy modes`

@@ -25,6 +25,8 @@ const valid = {
       contentType: 'image/svg+xml',
     },
   ],
+  proxyPrefixes: ['/api'],
+  defaultDataset: 'trade-in-progress',
 };
 
 test(
@@ -48,7 +50,7 @@ test(
   },
   async (context) => {
     const validRoot = writeConfig(valid);
-    context.expect(loadWebConfig(validRoot).placeholderAssets).toEqual(valid.placeholderAssets);
+    context.expect(loadWebConfig(validRoot)).toEqual(valid);
 
     const missing = writeConfig({});
     context.expect(() => loadWebConfig(missing)).toThrow(/placeholderAssets/);

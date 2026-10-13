@@ -29,7 +29,10 @@ const defaultContext = {
 } as const;
 
 /** 在创建上下文前解析占位资源，缺失文件立即失败并指出绝对路径。 */
-export function resolvePlaceholderAssets(root: string, config: WebConfig) {
+export function resolvePlaceholderAssets(
+  root: string,
+  config: Pick<WebConfig, 'placeholderAssets'>,
+) {
   return config.placeholderAssets.map((rule) => {
     const file = resolve(root, rule.file);
     if (!existsSync(file)) throw new Error(`占位资源本地文件不存在: ${file}`);

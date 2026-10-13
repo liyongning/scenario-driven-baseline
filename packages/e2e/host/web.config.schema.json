@@ -4,7 +4,7 @@
   "description": "登记浏览器用例、应用宿主与本地预览共用的平台配置。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["placeholderAssets"],
+  "required": ["placeholderAssets", "proxyPrefixes", "defaultDataset"],
   "properties": {
     "placeholderAssets": {
       "description": "占位资源域名到仓库内本地文件的兑现规则。",
@@ -37,6 +37,20 @@
           }
         }
       }
+    },
+    "proxyPrefixes": {
+      "description": "开发代理连接真实服务端时允许转发的同源路径前缀。",
+      "type": "array",
+      "items": {
+        "description": "一个以斜杠开头的同源请求路径前缀。",
+        "type": "string",
+        "pattern": "^/"
+      }
+    },
+    "defaultDataset": {
+      "description": "本地预览未显式指定数据集时使用的默认数据集目录名。",
+      "type": "string",
+      "minLength": 1
     }
   }
 }
