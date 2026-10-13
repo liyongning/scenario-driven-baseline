@@ -4,8 +4,8 @@
   "amount": 25,
   "responses": [
     {
-      "code": 40001,
-      "message": "invalid",
+      "code": 42201,
+      "message": "amount limit exceeded",
       "data": {}
     },
     {
@@ -17,10 +17,10 @@
       }
     },
     {
-      "code": 40401,
-      "message": "missing",
+      "code": 40001,
+      "message": "invalid",
       "data": {}
     }
   ],
-  "expected": ["请求无效", "交易冲突", "交易不存在"]
+  "expected": ["金额超限", "交易冲突", "请求无效"]
 }

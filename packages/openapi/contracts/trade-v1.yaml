@@ -35,7 +35,7 @@ paths:
                   merchant_id: 1001
                   amount: 190
                   channel: WEB
-      x-business-codes: [TRADE_CONFLICT, TRADE_NOT_FOUND]
+      x-business-codes: [TRADE_CONFLICT, AMOUNT_LIMIT_EXCEEDED]
       responses:
         '200':
           description: Create result envelope.
@@ -172,7 +172,7 @@ components:
           properties:
             code:
               type: integer
-              enum: [0, 40001, 40401, 40901]
+              enum: [0, 40001, 40401, 40901, 42201]
             message:
               type: string
         - type: object
@@ -247,3 +247,4 @@ x-business-code-table:
   INVALID_REQUEST: 40001
   TRADE_NOT_FOUND: 40401
   TRADE_CONFLICT: 40901
+  AMOUNT_LIMIT_EXCEEDED: 42201

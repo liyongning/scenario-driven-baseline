@@ -11,9 +11,9 @@ import {
 type Outcome = 'handled';
 
 const createTradeOutcomes = {
+  AMOUNT_LIMIT_EXCEEDED: 'handled',
   INVALID_REQUEST: 'handled',
   TRADE_CONFLICT: 'handled',
-  TRADE_NOT_FOUND: 'handled',
 } satisfies Record<OperationCodes<'createTrade'>, Outcome>;
 
 // @ts-expect-error 缺少一个接口业务码必须编译失败。
@@ -54,7 +54,7 @@ test(
       method: 'post',
       path: '/api/v1/trades',
       security: [{ accessToken: [] }],
-      codes: ['INVALID_REQUEST', 'TRADE_CONFLICT', 'TRADE_NOT_FOUND'],
+      codes: ['AMOUNT_LIMIT_EXCEEDED', 'INVALID_REQUEST', 'TRADE_CONFLICT'],
       implemented: true,
     });
     context.expect(getTrade.meta.path).toBe('/api/v1/trades/{trade_no}');
@@ -63,12 +63,13 @@ test(
     context.expect(businessCodeTable).toEqual({
       OK: 0,
       INVALID_REQUEST: 40001,
+      AMOUNT_LIMIT_EXCEEDED: 42201,
       TRADE_NOT_FOUND: 40401,
       TRADE_CONFLICT: 40901,
     });
     context
       .expect(Object.keys(createTradeOutcomes).sort())
-      .toEqual(['INVALID_REQUEST', 'TRADE_CONFLICT', 'TRADE_NOT_FOUND']);
+      .toEqual(['AMOUNT_LIMIT_EXCEEDED', 'INVALID_REQUEST', 'TRADE_CONFLICT']);
     context.expect(missingCode).toBeDefined();
     context.expect(extraCode).toBeDefined();
     context.annotate(

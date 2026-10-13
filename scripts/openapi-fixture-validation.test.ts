@@ -157,9 +157,9 @@ evidence(
     await checkpoint('own-and-common-accepted', () => {
       const common = { code: 40001, message: 'invalid', data: {} };
       const own = {
-        code: 40901,
-        message: 'conflict',
-        data: { trade_no: 'T', conflict_code: 'DUPLICATE_REQUEST' },
+        code: 42201,
+        message: 'amount limit exceeded',
+        data: {},
       };
       context
         .expect(checkOpenApiFixture({ contract: 'createTrade' }, fixtureFile(common)))
@@ -169,11 +169,11 @@ evidence(
         .toEqual([]);
     });
     await checkpoint('foreign-code-rejected', () => {
-      const foreign = { code: 50001, message: 'server error', data: {} };
+      const foreign = { code: 40401, message: 'not found', data: {} };
       const unknown = { code: 99999, message: 'unknown', data: {} };
       context
         .expect(checkOpenApiFixture({ contract: 'createTrade' }, fixtureFile(foreign)).join('\n'))
-        .toContain('业务码 50001');
+        .toContain('业务码 40401');
       context
         .expect(checkOpenApiFixture({ contract: 'createTrade' }, fixtureFile(unknown)).join('\n'))
         .toContain('99999');
@@ -182,7 +182,7 @@ evidence(
       const validator = adapter.responseValidator(operationById('createTrade')!)!;
       context.expect(validator(validCreateBody, 200)).toEqual([]);
       context
-        .expect(validator({ code: 50001, message: 'server error', data: {} }, 200).join('\n'))
+        .expect(validator({ code: 40401, message: 'not found', data: {} }, 200).join('\n'))
         .toContain('业务码');
     });
   },

@@ -85,7 +85,7 @@ export interface components {
     schemas: {
         Envelope: {
             /** @enum {integer} */
-            code: 0 | 40001 | 40401 | 40901;
+            code: 0 | 40001 | 40401 | 40901 | 42201;
             message: string;
         } & {
             data: (components["schemas"]["Trade"] | components["schemas"]["TradeConflictData"] | components["schemas"]["TradeList"] | components["schemas"]["EmptyData"]) | null;

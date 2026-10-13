@@ -96,6 +96,7 @@ defineCase(
       expect(document['x-business-code-table']).toMatchObject({
         OK: 0,
         INVALID_REQUEST: 40001,
+        AMOUNT_LIMIT_EXCEEDED: 42201,
         TRADE_NOT_FOUND: 40401,
         TRADE_CONFLICT: 40901,
       });

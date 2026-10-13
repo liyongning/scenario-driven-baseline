@@ -1,12 +1,12 @@
 import { createTrade } from '@daqian/template-openapi/generated/operations';
 import type { RestClient } from '@daqian/template-openapi';
-import { businessCodeName, createOutcomeForCode } from './outcomes';
+import { businessCodeName, createOutcomeForCode, isCreateTradeCode } from './outcomes';
 import type { CreateTradePort } from '../ports';
 import type { Trade } from '../../runtime/domain';
 
 function failureResult(code: number | string) {
   const name = typeof code === 'number' ? businessCodeName(code) : undefined;
-  if (name && name !== 'OK') {
+  if (name && name !== 'OK' && isCreateTradeCode(name)) {
     const outcome = createOutcomeForCode(name);
     return { kind: 'business-failure', outcome } as const;
   }

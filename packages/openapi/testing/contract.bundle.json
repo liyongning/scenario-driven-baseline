@@ -81,7 +81,7 @@
             }
           }
         },
-        "x-business-codes": ["TRADE_CONFLICT", "TRADE_NOT_FOUND"],
+        "x-business-codes": ["TRADE_CONFLICT", "AMOUNT_LIMIT_EXCEEDED"],
         "responses": {
           "200": {
             "description": "Create result envelope.",
@@ -104,7 +104,7 @@
                       "properties": {
                         "code": {
                           "type": "integer",
-                          "enum": [0, 40001, 40401, 40901]
+                          "enum": [0, 40001, 40401, 40901, 42201]
                         },
                         "message": {
                           "type": "string"
@@ -277,7 +277,7 @@
                       "properties": {
                         "code": {
                           "type": "integer",
-                          "enum": [0, 40001, 40401, 40901]
+                          "enum": [0, 40001, 40401, 40901, 42201]
                         },
                         "message": {
                           "type": "string"
@@ -460,7 +460,7 @@
                       "properties": {
                         "code": {
                           "type": "integer",
-                          "enum": [0, 40001, 40401, 40901]
+                          "enum": [0, 40001, 40401, 40901, 42201]
                         },
                         "message": {
                           "type": "string"
@@ -634,7 +634,7 @@
                       "properties": {
                         "code": {
                           "type": "integer",
-                          "enum": [0, 40001, 40401, 40901]
+                          "enum": [0, 40001, 40401, 40901, 42201]
                         },
                         "message": {
                           "type": "string"
@@ -816,7 +816,7 @@
             "properties": {
               "code": {
                 "type": "integer",
-                "enum": [0, 40001, 40401, 40901]
+                "enum": [0, 40001, 40401, 40901, 42201]
               },
               "message": {
                 "type": "string"
@@ -1020,6 +1020,7 @@
     "OK": 0,
     "INVALID_REQUEST": 40001,
     "TRADE_NOT_FOUND": 40401,
-    "TRADE_CONFLICT": 40901
+    "TRADE_CONFLICT": 40901,
+    "AMOUNT_LIMIT_EXCEEDED": 42201
   }
 }

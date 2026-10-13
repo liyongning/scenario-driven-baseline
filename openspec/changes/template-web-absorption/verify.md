@@ -602,6 +602,17 @@
 - GREEN：契约与 `createTrade` 结果映射补入 `TRADE_NOT_FOUND`；app-unit 与 browser 均逐一覆盖三类码，每个分支断言呈现类别、恰好一次创建请求、不发出 `getTrade`，且不更新当前交易。Fixture 与摘要按生成物同步。
 - 定向验证：`pnpm exec vitest run --config packages/web/vitest.config.ts` 为 18 文件、34 用例通过；`pnpm exec vitest run --config packages/e2e/vitest.config.browser.ts packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts` 为 1 文件、6 用例通过。
 
+**FCR-2 二次修订**
+
+- 修订原因：首轮把 `TRADE_NOT_FOUND` 当作 `createTrade` 特有码不成立；该码同时属于 `getTrade` 与 `cancelTrade`，且“交易不存在”不符合创建接口语义。契约示例改为 `AMOUNT_LIMIT_EXCEEDED: 42201`，页面结果为 `amount-limit-exceeded`，文案为“金额超限”。
+- SCN-WEB-EXAMPLE-004 的三类码按“新特有码、冲突码、通用码”改为 `AMOUNT_LIMIT_EXCEEDED`、`TRADE_CONFLICT`、`INVALID_REQUEST`；app-unit 与 browser 均逐个断言呈现结果，并保持每次恰好一次 `createTrade`、不发出 `getTrade`、不设置当前交易。
+- 反例恢复：`SCN-OPENAPI-CONTRACT-026/foreign-code-rejected` 重新用 `getTrade` 特有码 `40401` 作为外部接口码，断言 Fixture 校验和响应校验器均拒绝；`SCN-OPENAPI-CONTRACT-017` 的义务集合改为三条新 `createTrade` 业务码义务。
+- RED 证据：修改期望但未同步实现时，`packages/web/src/trade-create/adapters/outcomes.test.ts` 失败，新码被旧实现映射为 `trade-not-found`；`scripts/openapi-fixture-validation.test.ts` 失败，旧契约拒绝 `42201`。
+- GREEN 证据：`pnpm api:sync 本仓库` 已同步契约 lock、bundle、`schema.d.ts`、`operations.ts`、`codes.ts`；`pnpm api:validate`、`pnpm api:status`、`pnpm check:fixtures --change template-web-absorption`（71 个 manifest）均退出码 0。
+- 定向验证：Web 2 文件 8 用例、OpenAPI 1 文件 1 用例、Fixture/义务 2 文件 8 用例、契约工具 2 文件 2 用例、browser `SCN-WEB-EXAMPLE.browser.spec.ts` 1 文件 6 用例全部通过。
+- `pnpm build`、`pnpm format:check`、`pnpm typecheck`、`pnpm lint`（仅既有 Vue warnings）通过；`SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast` 默认并发全绿：unit 140/140 文件、571/571 用例，普通 integration 96/96 文件、176/176 用例，integration-heavy 7/7 文件、13/13 用例，四类覆盖率均为 100%。本轮未复现 `SCN-TEMPLATE-ENGINEERING-002` 的 5 秒超时。
+- 按开发者工具独占约束，本轮未运行 `weapp:prepare`、weapp 用例或完整 `pnpm verify`；F8 仍需在交回前默认并发全量中继续观察。
+
 **FCR-3 写入审计与真实 AbortSignal**
 
 - RED 反例：`write-audit-catches-extra` 原先只对手写对象调用 `changedKeys`，未经过 `auditAction` 的失败分支；导航测试原先只验证调用顺序，没有验证旧请求的 `AbortSignal`。

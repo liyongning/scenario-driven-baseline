@@ -2,10 +2,10 @@
   "contract": "trade.v1",
   "version": "1.0.0",
   "source": "本仓库",
-  "sha256": "97add98ef452d2069dd6ec60f66899c698784e0db06155d9e4f45186b01858d4",
+  "sha256": "fe3e5c6c5af946656241f01e0b12527f1a21a8526fbc05944005afc1fe616cc5",
   "generated": {
-    "src/generated/schema.d.ts": "4c88b5877e6346ecbc60403b9abe12c50557ce2a472abaa43ba430caf81a8587",
-    "src/generated/operations.ts": "61ec2740d0bc4739b07814f8a170ecd985af4a093a94e5c11a36af83e4e16fd9",
-    "src/generated/codes.ts": "252863d2a2931446275fc6595b20e0525384c638062ff0349e4ce5b8f891811a"
+    "src/generated/schema.d.ts": "47f82da04dc81f36f302eea9c7ccde324c66ecc1a943057a3a75e728349ef274",
+    "src/generated/operations.ts": "500f74a82c7ad69f12d22ab450c95d620ca55feb8af70349c51d979b25eaf77a",
+    "src/generated/codes.ts": "9513c6bf267888e0bf919e70189f889a906c3239e4d77a5e669c6e919766392f"
   }
 }

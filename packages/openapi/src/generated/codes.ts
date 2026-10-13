@@ -5,12 +5,13 @@ export const businessCodeTable = {
   INVALID_REQUEST: 40001,
   TRADE_NOT_FOUND: 40401,
   TRADE_CONFLICT: 40901,
+  AMOUNT_LIMIT_EXCEEDED: 42201,
 } as const;
 
 export type BusinessCode = keyof typeof businessCodeTable;
 
 const operationCodeTable = {
-  createTrade: ["INVALID_REQUEST","TRADE_CONFLICT","TRADE_NOT_FOUND"] as const,
+  createTrade: ["AMOUNT_LIMIT_EXCEEDED","INVALID_REQUEST","TRADE_CONFLICT"] as const,
   getTrade: ["INVALID_REQUEST","TRADE_NOT_FOUND"] as const,
   listTrades: ["INVALID_REQUEST"] as const,
   cancelTrade: ["INVALID_REQUEST","TRADE_CONFLICT","TRADE_NOT_FOUND"] as const,

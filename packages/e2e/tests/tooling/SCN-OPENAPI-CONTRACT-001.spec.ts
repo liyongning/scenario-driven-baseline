@@ -31,10 +31,16 @@ defineCase(
   async ({ checkpoint, expect }) => {
     const original = readRepositoryFile(contractPath);
     const cases = [
-      original.replace('enum: [0, 40001, 40401, 40901]', 'enum: [0, 40001, 40401, 40901, 50001]'),
+      original.replace(
+        'enum: [0, 40001, 40401, 40901, 42201]',
+        'enum: [0, 40001, 40401, 40901, 42201, 50001]',
+      ),
     ];
     cases.push(
-      original.replace('TRADE_CONFLICT: 40901', 'TRADE_CONFLICT: 40901\n  SERVER_ERROR: 50001'),
+      original.replace(
+        'AMOUNT_LIMIT_EXCEEDED: 42201',
+        'AMOUNT_LIMIT_EXCEEDED: 42201\n  SERVER_ERROR: 50001',
+      ),
     );
     cases.push(
       original.replace(
@@ -44,8 +50,8 @@ defineCase(
     );
     cases.push(
       original.replace(
-        'x-business-codes: [TRADE_CONFLICT, TRADE_NOT_FOUND]',
-        'x-business-codes: [TRADE_CONFLICT, TRADE_NOT_FOUND, UNKNOWN]',
+        'x-business-codes: [TRADE_CONFLICT, AMOUNT_LIMIT_EXCEEDED]',
+        'x-business-codes: [TRADE_CONFLICT, AMOUNT_LIMIT_EXCEEDED, UNKNOWN]',
       ),
     );
     const lintError = original.replace(

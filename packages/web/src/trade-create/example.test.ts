@@ -224,9 +224,9 @@ scenarioTest(
   },
   async ({ expect, checkpoint }) => {
     const outcomes = [
-      { code: 'INVALID_REQUEST', label: '请求无效' },
+      { code: 'AMOUNT_LIMIT_EXCEEDED', label: '金额超限' },
       { code: 'TRADE_CONFLICT', label: '交易冲突' },
-      { code: 'TRADE_NOT_FOUND', label: '交易不存在' },
+      { code: 'INVALID_REQUEST', label: '请求无效' },
     ] as const;
     const responses = outcomes.map(({ code }) => {
       const outcome = createOutcomeForCode(code);
@@ -268,14 +268,14 @@ scenarioTest(
     await checkpoint('code-outcome-shown', () => {
       expect(createCalls).toBe(3);
       expect(rendered).toEqual([
-        expect.stringContaining('请求无效'),
+        expect.stringContaining('金额超限'),
         expect.stringContaining('交易冲突'),
-        expect.stringContaining('交易不存在'),
+        expect.stringContaining('请求无效'),
       ]);
       expect(createTradeOutcomeByCode).toEqual({
+        AMOUNT_LIMIT_EXCEEDED: 'amount-limit-exceeded',
         INVALID_REQUEST: 'invalid-request',
         TRADE_CONFLICT: 'trade-conflict',
-        TRADE_NOT_FOUND: 'trade-not-found',
       });
     });
     await checkpoint('failure-no-follow-up', () => {
@@ -342,6 +342,9 @@ scenarioTest(
       expect(createDisplayState({ kind: 'idle' })).toBe('等待创建');
       expect(createDisplayState({ kind: 'success', trade })).toBe('T-1 CREATED');
       expect(createDisplayState({ kind: 'transport-failure' })).toBe('加载失败，请稍后重试');
+      expect(createDisplayState({ kind: 'failure', outcome: 'amount-limit-exceeded' })).toBe(
+        '金额超限',
+      );
       expect(createDisplayState({ kind: 'failure', outcome: 'trade-not-found' })).toBe(
         '交易不存在',
       );

@@ -16,7 +16,8 @@ export interface Trade {
 }
 
 /** 示例页面面向用户展示的业务结果类别。 */
-export type Outcome = 'success' | 'invalid-request' | 'trade-not-found' | 'trade-conflict';
+export type Outcome =
+  'success' | 'invalid-request' | 'trade-not-found' | 'trade-conflict' | 'amount-limit-exceeded';
 
 /** 判断交易是否已经到达不再轮询的终态。 */
 export function isTerminalTrade(trade: Trade): boolean {
