@@ -299,6 +299,28 @@ evidence(
       context
         .expect(await checkArchitecture(missingWebExample, 0))
         .toContain('missing removal whitelist entry openspec/specs/web-example/');
+
+      const fixtureDriven = fixture();
+      const removalFixture = join(
+        fixtureDriven,
+        'packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008',
+      );
+      mkdirSync(removalFixture, { recursive: true });
+      writeFileSync(
+        join(removalFixture, 'example-removal.json'),
+        JSON.stringify({
+          removal: {
+            directories: [],
+            files: ['packages/web/src/fixture-only.ts'],
+            globs: [],
+          },
+        }),
+      );
+      context
+        .expect(await checkArchitecture(fixtureDriven, 0))
+        .toContain('missing removal whitelist entry packages/web/src/fixture-only.ts');
+      rmSync(removalFixture, { recursive: true, force: true });
+      context.expect(await checkArchitecture(fixtureDriven, 0)).toEqual([]);
     });
 
     await check('guide-links-resolve', async () => {

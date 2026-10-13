@@ -637,3 +637,34 @@
 - F6：业务失败终态下 `TradeStatus` 会无限轮询，可见性切换时没有在途保护。
 - F7：`preview-local.ts` 写死示例接口，复用或替换产品时需要同步调整。
 - F8：`defineCase` 默认 5 秒覆盖项目级 `testTimeout`，并发负载下会让较慢的真实验证产生非业务超时。
+
+## Task 14 示例删除演练
+
+**规划与输入**
+
+- 第 1 轮无上下文 Agent 在 `d411879` 的隔离副本中按指南同时删除 `template-example` 与 `web-example`，`check:fast` 在 typecheck 失败：`packages/web/src/app/platform/openapi-ports.ts` 与 `packages/web/src/store/example.test.ts` 仍引用已删除的示例模块或状态。
+- 失败说明指南的两份删除白名单只覆盖了部分删除面，使用方照字面操作会留下共享文件引用；Task 14 checkbox 保持未勾选，本轮只修复指南与机械一致性门禁。
+
+**根因与修复**
+
+- 根因是 `SCN-TEMPLATE-ENGINEERING-008/example-removal.json` 已是副本删除演练的权威清单，但指南白名单和 `scripts/lib/example-whitelist.ts` 各自手写维护；原架构检查只核对静态条目是否出现在整篇指南中，不读取 Fixture，因此两者漂移时副本用例仍会全绿，而使用方按指南删除必然失败。
+- 指南已补齐 Fixture 中遗漏的 Web 测试目录、平台运行文件、runtime 文件、组件测试、store 测试与 `SCN-WEB-EXAMPLE-facts.spec.ts`，并把模板与 Web 两段的目录、文件、glob 逐项写清。
+- `example-whitelist.ts` 现在读取 SCN-008 Fixture；目录统一按尾斜杠、glob 展开为完整前缀路径，再分别校验它们是否出现在指南的 template-example 段与 Web 示例段。Fixture 不存在时不派生这些白名单要求。
+- RED 反例在临时 Fixture 加入指南未登记的 `packages/web/src/fixture-only.ts`，原实现没有报错；GREEN 后架构检查报出 `missing removal whitelist entry packages/web/src/fixture-only.ts`，删除 Fixture 后同一临时根恢复无问题。
+
+**Verification**
+
+- `pnpm exec vitest run --config packages/e2e/vitest.config.unit.ts scripts/check-architecture.test.ts`：退出码 0，1/1 文件、16/16 用例通过。
+- `pnpm check:architecture`：退出码 0，196 个模块、495 条依赖无违规，白名单 issues 为空。
+- `pnpm format:check`、`pnpm typecheck`、`pnpm lint`：退出码 0；lint 仅保留既有 Vue warnings。
+- `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：构建、typecheck、架构及 unit 570/571 通过后，`scripts/lib/contract-inventory.derivation.test.ts` 在 60s 预算超时，退出码 1。该文件与本次改动无关；当时 1 分钟负载约 11.29，单独复跑 1/1 用例 4.02s 通过。按外部负载下的“时败时过”登记，不计 OI，不归因本次修复。
+- freshness 在修复前后均为 `PASS`，digest 保持 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
+
+**Review / Acceptance**
+
+- 本轮未修改 proposal、specs、design 或 tasks 语义，也未执行任务 15 的任何演练。
+- Task 14 checkbox 暂不勾选；需由验收方使用新隔离副本重跑“移除模板示例”演练后决定。
+
+**Commit**
+
+- `fix(template): align example removal whitelist`

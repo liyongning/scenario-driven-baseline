@@ -11,7 +11,7 @@ import {
   guideRelativePath,
 } from './lib/architecture-doc.ts';
 import { checkExampleMarkers } from './lib/example-markers.ts';
-import { exampleWhitelistEntries } from './lib/example-whitelist.ts';
+import { checkExampleWhitelist } from './lib/example-whitelist.ts';
 import { headingsOf, linkTarget, linksTo, markdown, relativeLinks } from './lib/markdown-docs.ts';
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 import { unregisteredScenarioIds } from './lib/scenario-ids.ts';
@@ -130,8 +130,7 @@ async function checkTemplateGuide(
     if (!headings.has(`2:${section}`)) errors.push(`missing guide section ## ${section}`);
   for (const section of guideSections.level3)
     if (!headings.has(`3:${section}`)) errors.push(`missing guide section ### ${section}`);
-  for (const entry of exampleWhitelistEntries(root, manifest))
-    if (!content.includes(entry)) errors.push(`missing removal whitelist entry ${entry}`);
+  errors.push(...checkExampleWhitelist(root, manifest, content));
   for (const url of relativeLinks(content)) {
     if (!existsSync(linkTarget(guideFile, url)))
       errors.push(`broken link ${guideRelativePath} -> ${url}`);
