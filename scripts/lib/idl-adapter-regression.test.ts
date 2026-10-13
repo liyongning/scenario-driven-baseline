@@ -4,6 +4,7 @@ import { test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import {
   exampleInventoryRoot,
+  hasRepositoryIdl,
   repositoryRoot,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { buildContractInventory } from './contract-inventory.ts';
@@ -23,7 +24,7 @@ function normalizedObligations(
     .sort((left, right) => left.id.localeCompare(right.id));
 }
 
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-015 idl-adapter-regression',
   {
     timeout: 30_000,

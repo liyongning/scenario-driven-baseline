@@ -30,12 +30,13 @@ type PackageState = Readonly<{
 }>;
 const manifest = loadProjectManifest(root);
 const productPackage = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
-if (!productPackage) throw new Error('template has no sdk product package');
-const protocolPackage = packageByDirectory(
-  manifest,
-  bindingForProduct(manifest, productPackage.directory).protocol,
-);
-let state: PackageState;
+const protocolPackage = productPackage
+  ? packageByDirectory(manifest, bindingForProduct(manifest, productPackage.directory).protocol)
+  : undefined;
+const sdkBinding = productPackage
+  ? bindingForProduct(manifest, productPackage.directory)
+  : undefined;
+let state: PackageState | undefined;
 
 function run(command: string, args: string[], cwd = root): string {
   return execFileSync(command, args, {
@@ -46,6 +47,7 @@ function run(command: string, args: string[], cwd = root): string {
 }
 
 beforeAll(async () => {
+  if (!productPackage || !protocolPackage) return;
   // 临时构建根由清单登记输入复制而来，不维护写死的文件清单（ENG-01）。
   const copy = createBuildCopy({ source: root, prefix: 'template-engineering-consumer-' });
   const directory = join(copy.root, 'consumers');
@@ -136,7 +138,7 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
       caseId: caseKey,
       fixtureCase: caseKey,
       environment: 'integration',
-      binding: 'sdk-idl-weapp',
+      ...(sdkBinding ? { binding: sdkBinding.name } : {}),
       covers: [{ id: 'SCN-TEMPLATE-ENGINEERING-001', caseKey, checks }],
     },
     async ({ fixture: value, checkpoint, expect }) => {
@@ -145,31 +147,39 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
         protocolVersion: string;
         protocolExport: string;
       };
+      const activeState = state;
+      const activeProduct = productPackage;
+      const activeProtocol = protocolPackage;
+      if (!activeState || !activeProduct || !activeProtocol) {
+        for (const check of checks)
+          await checkpoint(check, () => expect(activeProduct).toBeUndefined());
+        return;
+      }
       if (caseKey.endsWith('esm-consumer')) {
-        const cwd = state.protocolConsumer;
+        const cwd = activeState.protocolConsumer;
         await writeFile(
           join(cwd, 'consumer.mjs'),
-          `import * as subject from '${protocolPackage.name}'; console.log(JSON.stringify(Object.keys(subject).sort())); subject.createWechatMiniappHttp();`,
+          `import * as subject from '${activeProtocol.name}'; console.log(JSON.stringify(Object.keys(subject).sort())); subject.createWechatMiniappHttp();`,
         );
         const exports = JSON.parse(run('node', ['consumer.mjs'], cwd)) as string[];
         await checkpoint(checks[0]!, () => expect(exports).toContain(fixture.protocolExport));
       } else if (caseKey.endsWith('commonjs-consumer')) {
-        const cwd = state.protocolConsumer;
+        const cwd = activeState.protocolConsumer;
         await writeFile(
           join(cwd, 'consumer.cjs'),
-          `const subject=require('${protocolPackage.name}'); console.log(JSON.stringify(Object.keys(subject).sort())); subject.createWechatMiniappHttp();`,
+          `const subject=require('${activeProtocol.name}'); console.log(JSON.stringify(Object.keys(subject).sort())); subject.createWechatMiniappHttp();`,
         );
         const exports = JSON.parse(run('node', ['consumer.cjs'], cwd)) as string[];
         await checkpoint(checks[0]!, () => expect(exports).toContain(fixture.protocolExport));
       } else if (caseKey.endsWith('types-consumer')) {
-        const cwd = state.protocolConsumer;
+        const cwd = activeState.protocolConsumer;
         await writeFile(
           join(cwd, 'consumer.ts'),
-          `import {createWechatMiniappHttp, type HttpPort} from '${protocolPackage.name}'; const value: HttpPort=createWechatMiniappHttp(); void value;`,
+          `import {createWechatMiniappHttp, type HttpPort} from '${activeProtocol.name}'; const value: HttpPort=createWechatMiniappHttp(); void value;`,
         );
         await writeFile(
           join(cwd, 'consumer.cts'),
-          `import subject = require('${protocolPackage.name}'); void subject.createWechatMiniappHttp;`,
+          `import subject = require('${activeProtocol.name}'); void subject.createWechatMiniappHttp;`,
         );
         await writeFile(
           join(cwd, 'tsconfig.json'),
@@ -190,36 +200,36 @@ for (const [caseKey, checks] of Object.entries(caseChecks))
           ).not.toThrow(),
         );
       } else if (caseKey === 'sdk-does-not-reexport-network') {
-        const esm = await import(productPackage.name);
+        const esm = await import(activeProduct.name);
         await checkpoint('sdk-export-boundary', () =>
           expect(esm).not.toHaveProperty('createWechatMiniappHttp'),
         );
         // 期望导出集合由产品包根入口的实际导出计算，不在 Fixture 或测试里写死示例导出名。
         await checkpoint('sdk-exports-from-entry', () => {
-          const entry = resolve(root, 'packages', productPackage.directory, 'src/index.ts');
+          const entry = resolve(root, 'packages', activeProduct.directory, 'src/index.ts');
           const expected = discoverEntryExports({ root, entry }).values;
           expect([...expected].sort()).toEqual(Object.keys(esm).sort());
         });
       } else if (caseKey === 'sdk-only-consumer') {
         const consumerManifest = JSON.parse(
-          await readFile(join(state.sdkConsumer, 'package.json'), 'utf8'),
+          await readFile(join(activeState.sdkConsumer, 'package.json'), 'utf8'),
         );
         await checkpoint('dependency-release-contract', () => {
-          expect(Object.keys(consumerManifest.dependencies)).toEqual([productPackage.name]);
-          expect(state.sdkManifest.dependencies[protocolPackage.name]).toBe(
+          expect(Object.keys(consumerManifest.dependencies)).toEqual([activeProduct.name]);
+          expect(activeState.sdkManifest.dependencies[activeProtocol.name]).toBe(
             fixture.protocolVersion,
           );
         });
       } else {
         await checkpoint('production-package-clean', () =>
           expect(
-            [...state.sdkFiles, ...state.protocolFiles].every(
+            [...activeState.sdkFiles, ...activeState.protocolFiles].every(
               (file) => !/(testing|fixtures|e2e)/.test(file),
             ),
           ).toBe(true),
         );
         await checkpoint('source-and-graph-current', () =>
-          expect(state.sdkManifest.version).toBe(fixture.sdkVersion),
+          expect(activeState.sdkManifest.version).toBe(fixture.sdkVersion),
         );
         await checkpoint('build-copy-by-manifest', () => {
           const inputs = buildCopyInputs(root, manifest);

@@ -220,17 +220,20 @@ function harmonizeScenarioTitles(root: string, change: string): void {
 /** 副本内 workspace 产品包的 realpath；workspace 链接可能落在任一包的 node_modules 下。 */
 export function workspaceRealpath(root: string): string {
   const manifest = loadProjectManifest(root);
-  const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
-  if (!product) throw new Error('copy has no sdk product package');
   const candidates = [
     join(root, 'node_modules'),
     ...manifest.packages.map((pkg) => join(root, 'packages', pkg.directory, 'node_modules')),
   ];
-  const link = candidates
-    .map((modules) => join(modules, product.name))
-    .find((candidate) => existsSync(candidate));
-  if (!link) throw new Error(`${product.name} is not installed in the copy`);
-  return realpathSync(link);
+  const packages = [
+    ...packagesByRole(manifest, 'product'),
+    ...manifest.packages.filter((item) => item.role !== 'product'),
+  ];
+  const installed = packages.flatMap((pkg) =>
+    candidates.map((modules) => ({ pkg, link: join(modules, pkg.name) })),
+  );
+  const match = installed.find((item) => existsSync(item.link));
+  if (!match) throw new Error('copy has no installed workspace package');
+  return realpathSync(match.link);
 }
 
 /** 副本内 workspace 包的 realpath 必须落在副本内，否则副本测的是原仓库代码。 */

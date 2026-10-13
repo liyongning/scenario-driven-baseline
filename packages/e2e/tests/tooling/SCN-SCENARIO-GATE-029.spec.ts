@@ -152,7 +152,6 @@ defineCase(
     caseId: 'case-binding-cli',
     fixtureCase: 'case-binding-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-SCENARIO-GATE-029',
@@ -182,15 +181,15 @@ defineCase(
 
     await checkpoint('template-case-bindings', () => {
       const manifest = loadProjectManifest(repositoryRoot);
-      const idlProtocols = new Set(
-        manifest.packages
-          .filter((pkg) => pkg.role === 'protocol' && pkg.protocolKind === 'idl')
-          .map((pkg) => pkg.directory),
+      const protocols = new Set(
+        manifest.packages.filter((pkg) => pkg.role === 'protocol').map((pkg) => pkg.directory),
       );
-      const idlBindings = manifest.bindings.filter((binding) => idlProtocols.has(binding.protocol));
-      expect(idlBindings.length).toBeGreaterThan(0);
+      const protocolBindings = manifest.bindings.filter((binding) =>
+        protocols.has(binding.protocol),
+      );
+      expect(protocolBindings.length).toBeGreaterThan(0);
       const cases = scanCaseBindings(repositoryRoot, manifest);
-      const idlCases = cases.flatMap((item) => {
+      const protocolCases = cases.flatMap((item) => {
         const manifestPath = join(
           repositoryRoot,
           'packages/e2e/tests/fixtures',
@@ -201,15 +200,15 @@ defineCase(
         const fixtureManifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
           protocol?: string;
         };
-        return fixtureManifest.protocol && idlProtocols.has(fixtureManifest.protocol)
+        return fixtureManifest.protocol && protocols.has(fixtureManifest.protocol)
           ? [{ ...item, protocol: fixtureManifest.protocol }]
           : [];
       });
-      expect(idlCases.length).toBeGreaterThan(0);
+      expect(protocolCases.length).toBeGreaterThan(0);
       expect(
-        idlCases.filter(
+        protocolCases.filter(
           (item) =>
-            !idlBindings.some(
+            !protocolBindings.some(
               (binding) => binding.protocol === item.protocol && binding.name === item.binding,
             ),
         ),

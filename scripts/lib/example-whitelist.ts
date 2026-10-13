@@ -16,9 +16,9 @@ type RemovalFixture = Readonly<{
   }>;
 }>;
 
-function isWebExamplePath(path: string): boolean {
+function isWebExamplePath(path: string, webPackageRoots: ReadonlyArray<string>): boolean {
   return (
-    path.startsWith('packages/web/') ||
+    webPackageRoots.some((root) => path.startsWith(root)) ||
     path.startsWith('openspec/specs/web-example') ||
     path.includes('WEB-EXAMPLE') ||
     path.includes('/trade-completed') ||
@@ -26,7 +26,11 @@ function isWebExamplePath(path: string): boolean {
   );
 }
 
-function removalWhitelists(root: string, testDirectory: string): ExampleWhitelists {
+function removalWhitelists(
+  root: string,
+  testDirectory: string,
+  manifest: ProjectManifest,
+): ExampleWhitelists {
   const fixturePath = join(
     root,
     'packages',
@@ -35,18 +39,26 @@ function removalWhitelists(root: string, testDirectory: string): ExampleWhitelis
   );
   if (!existsSync(fixturePath)) return { templateExample: [], webExample: [] };
   const { removal } = JSON.parse(readFileSync(fixturePath, 'utf8')) as RemovalFixture;
+  const webPackageRoots = packagesByRole(manifest, 'product')
+    .filter((item) => item.form === 'web-app')
+    .map((item) => `packages/${item.directory}/`);
   const entries = [
-    ...removal.directories.map((item) => ({ entry: `${item}/`, web: isWebExamplePath(item) })),
-    ...removal.files.map((item) => ({ entry: item, web: isWebExamplePath(item) })),
+    ...removal.directories.map((item) => ({
+      entry: `${item}/`,
+      web: isWebExamplePath(item, webPackageRoots),
+    })),
+    ...removal.files.map((item) => ({ entry: item, web: isWebExamplePath(item, webPackageRoots) })),
     ...removal.globs.flatMap((item) =>
       item.prefixes.map((prefix) => {
         const entry = `${item.directory}/${prefix}*`;
-        return { entry, web: isWebExamplePath(entry) };
+        return { entry, web: isWebExamplePath(entry, webPackageRoots) };
       }),
     ),
     ...(removal.matrices ?? []).map((item) => ({
       entry: item.fixture,
-      web: isWebExamplePath(item.fixture) || isWebExamplePath(item.declaration),
+      web:
+        isWebExamplePath(item.fixture, webPackageRoots) ||
+        isWebExamplePath(item.declaration, webPackageRoots),
     })),
   ];
   return entries.reduce<{ templateExample: string[]; webExample: string[] }>(
@@ -58,18 +70,30 @@ function removalWhitelists(root: string, testDirectory: string): ExampleWhitelis
   );
 }
 
+function unique(entries: ReadonlyArray<string>): string[] {
+  return [...new Set(entries)];
+}
+
 /** Fixture 存在时按删除清单派生；Fixture 随示例删除后不再要求这些条目。 */
 export function exampleWhitelistEntries(
   root: string,
   manifest: ProjectManifest,
 ): ExampleWhitelists {
+  const test = testPackage(manifest).directory;
+  const fixturePath = join(
+    root,
+    'packages',
+    test,
+    'tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/example-removal.json',
+  );
+  const derived = removalWhitelists(root, test, manifest);
+  // Fixture 随 template-example 删除后，本 Change 不再要求指南保留迁移前的白名单原文。
+  if (!existsSync(fixturePath)) return derived;
   const products = packagesByRole(manifest, 'product');
   const protocols = packagesByRole(manifest, 'protocol');
-  const test = testPackage(manifest).directory;
   const existing = (path: string) => existsSync(join(root, path));
-  const derived = removalWhitelists(root, test);
   return {
-    templateExample: [
+    templateExample: unique([
       ...derived.templateExample,
       ...products.map((item) => `packages/${item.directory}/src/example/`).filter(existing),
       ...protocols
@@ -92,8 +116,8 @@ export function exampleWhitelistEntries(
       'protocol-matrix.json',
       'fixtures:refresh',
       'coverageExclusions',
-    ],
-    webExample: [
+    ]),
+    webExample: unique([
       ...derived.webExample,
       'openspec/specs/web-example/',
       ...products
@@ -109,7 +133,7 @@ export function exampleWhitelistEntries(
       `packages/${test}/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`,
       'web-example:begin',
       'web-example:end',
-    ],
+    ]),
   };
 }
 

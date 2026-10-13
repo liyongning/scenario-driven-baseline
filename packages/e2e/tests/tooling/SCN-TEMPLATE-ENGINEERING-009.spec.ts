@@ -1,10 +1,10 @@
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { cliEvidence } from './scenario-gate-helpers.ts';
 import { createControlledRoot, minimalManifest } from './controlled-root.ts';
 import { coverageExclude, coverageInclude } from '../../../../scripts/lib/coverage-scope.ts';
-import { loadProjectManifest } from '../../../../scripts/lib/project-manifest.ts';
+import { loadProjectManifest, testPackage } from '../../../../scripts/lib/project-manifest.ts';
 import { repositoryRoot } from './helpers.ts';
 
 const tsx = resolve(repositoryRoot, 'node_modules/.bin/tsx');
@@ -14,16 +14,21 @@ const coverageScript = resolve(repositoryRoot, 'scripts/check-coverage.ts');
  * 允许排除的覆盖率例外由宿主目录派生，不写死名单：只有顶层 TS 文件可能只能在开发者工具
  * 内运行；宿主文件增删时期望值随之收敛，不需要手改名单（ENG-06）。
  */
-const allowedExclusions = [
-  ...coverageExclusionsInHost('weapp'),
-  ...coverageExclusionsInHost('browser'),
-].sort();
-
-function coverageExclusionsInHost(host: string): string[] {
-  return readdirSync(join(repositoryRoot, 'packages/e2e/host', host), { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .map((entry) => `packages/e2e/host/${host}/${entry.name}`);
-}
+const repositoryManifest = loadProjectManifest(repositoryRoot);
+const testDirectory = testPackage(repositoryManifest).directory;
+const hostsRoot = join(repositoryRoot, 'packages', testDirectory, 'host');
+const hostDirectories = existsSync(hostsRoot)
+  ? readdirSync(hostsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+  : [];
+const allowedExclusions = hostDirectories
+  .flatMap((host) =>
+    readdirSync(join(hostsRoot, host), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => `packages/${testDirectory}/host/${host}/${entry.name}`),
+  )
+  .sort();
 
 function manifestWith(quality: Record<string, unknown>) {
   return {
@@ -129,13 +134,16 @@ cliEvidence(
   ['template-exclusions-allowed'],
   async (context, check) => {
     await check('template-exclusions-allowed', () => {
-      const manifest = loadProjectManifest(repositoryRoot);
+      const manifest = repositoryManifest;
       const exclusions = manifest.quality?.coverageExclusions ?? [];
       context.expect(exclusions.map((item) => item.path).sort()).toEqual(allowedExclusions);
       context.expect(exclusions.every((item) => item.reason.trim().length > 0)).toBe(true);
       const include = coverageInclude(repositoryRoot, manifest);
       const exclude = coverageExclude(repositoryRoot, manifest);
-      for (const hostFile of ['packages/e2e/host/weapp/app.js']) {
+      const includedHostFiles = include.filter(
+        (path) => path.startsWith(`packages/${testDirectory}/host/`) && !exclude.includes(path),
+      );
+      for (const hostFile of includedHostFiles) {
         context.expect(include).toContain(hostFile);
         context.expect(exclude).not.toContain(hostFile);
       }

@@ -5,13 +5,14 @@ import { declarationRoot } from '../../packages/e2e/tests/tooling/declaration-fi
 import {
   customMethodFile,
   exampleInventoryRoot,
+  hasRepositoryIdl,
   inventoryTradeFile,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { evaluateCoverage } from '../check-scenarios.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 import { loadProjectManifest, packagesByRole } from './project-manifest.ts';
 
-describe('buildContractInventory', () => {
+describe.skipIf(!hasRepositoryIdl)('buildContractInventory', () => {
   it(
     'filters the inventory to a registered product and rejects an unknown product',
     { timeout: 30_000 },
@@ -344,4 +345,98 @@ describe('buildContractInventory', () => {
       }
     },
   );
+});
+
+describe('buildContractInventory topology-independent guards', () => {
+  const controlledAdapter = [
+    'const adapter = {',
+    '  resolveDeclaration({ position }) {',
+    '    return {',
+    "      key: 'Probe',",
+    "      prefix: 'probe.v1',",
+    "      methodName: 'Probe',",
+    "      httpMethod: 'POST',",
+    "      path: '/probe',",
+    '      requestFields: {},',
+    '      position,',
+    '      meta: {},',
+    '    };',
+    '  },',
+    '  deriveObligations({ operation, requiredIn, integrationOnly }) {',
+    '    return {',
+    '      obligations: operation',
+    "        ? [{ id: 'probe.v1.Probe#http-route#$', cases: ['Probe'], requiredIn: [...requiredIn] }]",
+    "        : [{ id: 'idl.error-contract#business-error#$', cases: [], requiredIn: [...integrationOnly] }],",
+    '      discoveries: [],',
+    '    };',
+    '  },',
+    '  responseValidator() { return undefined; },',
+    '  checkFixture() { return []; },',
+    "  scanCalls() { return [{ method: 'Undeclared', position: 'caller.ts:1' }]; },",
+    '};',
+    'export default adapter;',
+    '',
+  ].join('\n');
+
+  it(
+    'rejects a declaration module that does not export an array',
+    { timeout: 30_000 },
+    async () => {
+      const root = declarationRoot({
+        declaration: 'export const consumedOperations = { method: "Probe" };\n',
+        caller: null,
+        prefix: 'template-contract-non-array-',
+      });
+      try {
+        const inventory = await buildContractInventory(root.root);
+        expect(
+          inventory.issues.some((issue) =>
+            issue.includes('consumedOperations 声明模块未导出数组：'),
+          ),
+        ).toBe(true);
+      } finally {
+        root.cleanup();
+      }
+    },
+  );
+
+  it('rejects a non-variable consumedOperations export', { timeout: 30_000 }, async () => {
+    const root = declarationRoot({
+      declaration: 'export function consumedOperations() { return []; }\n',
+      caller: null,
+      prefix: 'template-contract-non-variable-',
+    });
+    try {
+      const inventory = await buildContractInventory(root.root);
+      expect(
+        inventory.issues.some((issue) => issue.includes('consumedOperations 声明模块未导出数组：')),
+      ).toBe(true);
+    } finally {
+      root.cleanup();
+    }
+  });
+
+  it('reports a declaration that is not called and rejects an unknown product', async () => {
+    const root = declarationRoot({
+      declaration: 'export const consumedOperations = [{ method: "Probe" }];\n',
+      caller: null,
+      protocolFiles: { '../testing/adapter.ts': controlledAdapter },
+      prefix: 'template-contract-unused-declaration-',
+    });
+    try {
+      const inventory = await buildContractInventory(root.root);
+      expect(
+        inventory.issues.some(
+          (issue) =>
+            issue.includes('未使用的声明：Probe') && issue.includes('consumed-operations.ts'),
+        ),
+      ).toBe(true);
+      expect(inventory.issues).toContain('未声明的调用：Undeclared（caller.ts:1）');
+      await expect(buildContractInventory(root.root, { product: 'not-a-product' })).rejects.toThrow(
+        'is not a registered product package',
+      );
+    } finally {
+      root.cleanup();
+    }
+  });
 });

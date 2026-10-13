@@ -9,6 +9,11 @@ import {
   writeRepositoryPackages,
 } from './scenario-gate-helpers.ts';
 import { writeTemplateGuideFixture, repositoryRoot } from './helpers.ts';
+import {
+  loadProjectManifest,
+  packagesByRole,
+  testPackage,
+} from '../../../../scripts/lib/project-manifest.ts';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -24,8 +29,36 @@ function guideRoot() {
   writeFileSync(join(root, 'AGENTS.md'), '[root](README.md)\n');
   writeFileSync(join(root, 'README.md'), '# readme\n');
   writeRepositoryPackages(root);
+  writeRemovalFixture(root);
   writeTemplateGuideFixture(root);
   return root;
+}
+
+/** 非空删除清单让白名单反例独立于真实示例 Fixture 是否仍存在。 */
+function writeRemovalFixture(root: string) {
+  const test = testPackage(loadProjectManifest(root));
+  const directory = join(
+    root,
+    'packages',
+    test.directory,
+    'tests/fixtures/SCN-TEMPLATE-ENGINEERING-008',
+  );
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    join(directory, 'example-removal.json'),
+    JSON.stringify({
+      removal: {
+        directories: ['openspec/specs/template-example'],
+        files: ['openspec/specs/web-example/spec.md'],
+        globs: [
+          {
+            directory: 'packages/sdk/src',
+            prefixes: ['template-example-'],
+          },
+        ],
+      },
+    }),
+  );
 }
 
 const guidePath = (root: string) => join(root, 'docs/template-guide.md');
@@ -146,20 +179,26 @@ cliEvidence(
   async (context, check) => {
     await check('example-markers-paired', () => {
       const root = guideRoot();
-      mkdirSync(join(root, 'packages/sdk/src'), { recursive: true });
-      writeFileSync(join(root, 'packages/sdk/src/marked.ts'), '// template-example:begin\n');
+      const product = packagesByRole(loadProjectManifest(root), 'product')[0]!;
+      const productSource = join(root, 'packages', product.directory, 'src');
+      mkdirSync(productSource, { recursive: true });
+      writeFileSync(join(productSource, 'marked.ts'), '// template-example:begin\n');
       const result = runArchitecture(root);
       context
         .expect(result.output?.issues.join('\n'))
-        .toContain('packages/sdk/src/marked.ts:1: template-example:begin 没有对应的 end');
+        .toContain(
+          `packages/${product.directory}/src/marked.ts:1: template-example:begin 没有对应的 end`,
+        );
       context.expect(result.status).not.toBe(0);
     });
 
     await check('guide-restorable', () => {
       const root = guideRoot();
-      mkdirSync(join(root, 'packages/sdk/src'), { recursive: true });
+      const product = packagesByRole(loadProjectManifest(root), 'product')[0]!;
+      const productSource = join(root, 'packages', product.directory, 'src');
+      mkdirSync(productSource, { recursive: true });
       writeFileSync(
-        join(root, 'packages/sdk/src/marked.ts'),
+        join(productSource, 'marked.ts'),
         '// template-example:begin\nconst example = 1;\n// template-example:end\n',
       );
       const result = runArchitecture(root);

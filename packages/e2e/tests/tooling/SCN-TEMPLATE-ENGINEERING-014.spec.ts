@@ -185,7 +185,6 @@ defineCase(
     caseId: 'binding-exclusive-rules-cli',
     fixtureCase: 'binding-exclusive-rules-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-014',
@@ -239,7 +238,6 @@ defineCase(
     caseId: 'multi-package-cli',
     fixtureCase: 'multi-package-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-014',
@@ -358,7 +356,6 @@ defineCase(
     caseId: 'single-binding-cli',
     fixtureCase: 'single-binding-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-014',
@@ -401,7 +398,6 @@ defineCase(
     caseId: 'no-unique-role-lookup',
     fixtureCase: 'no-unique-role-lookup',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-014',

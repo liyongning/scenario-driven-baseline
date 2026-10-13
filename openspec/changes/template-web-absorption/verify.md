@@ -714,14 +714,37 @@
 **已知风险（只登记，不修）**
 
 - OpenAPI 测试适配器不读取路径级 `parameters`，只取 `security[0]`；`nullable + allOf` 不接受 `null`；契约声明的额外信封字段会被拒绝。
-- `preview-local.ts` 与 `dev:remote` 仍写死 `packages/web` 和第一个 Web 应用，复用或替换产品时需要同步调整，F7 继续保留。
+- F7 已部分收窄：`preview-local.ts` 改为按清单寻找可提供 `shadow-routes.ts` 的协议包；多协议时仍选择第一个可用包，`dev:remote` 仍选择第一个 Web 应用，复用或替换时需同步调整。
 - `check:fast` 会按协议包数量重复执行 `api:validate` 与 `api:status`，多协议清单会增加重复校验时间。
 - 架构文档仍称可按 `tests/<绑定名>/` 推断绑定，但当前注册期必须显式填写 `binding`；文档与实现的这一差异继续登记。
 - 指南尚未说明重型 integration 用例会复制工作区，运行中编辑源文件可能污染其副本或结果。
 
+**追加修复（A/B，2026-10-14）**
+
+**A. Web 首业务替换顺序例外**
+
+- 指南「移除模板示例」已写明：Web 侧第一个业务直接替换 `packages/openapi/contracts/trade-v1.yaml` 时，允许在同一次提交完成契约替换与 Web 示例删除，不要求先基于旧示例单独跑通一次完整门禁。
+- 「替换点地图·协议来源」已同步该例外；只修改指南，没有改 proposal、specs、design 或 tasks。
+
+**B. 移除 `sdk-idl-weapp` 后的去写死**
+
+- 项目清单、依赖规则、架构检查、公开文档发现、协议适配器、临时仓库复制与场景门禁 helper 改为按清单中的全部包和绑定派生；只在受控清单中构造所需的最小包，不再复制真实清单后假定五种根包仍存在。
+- `SCN-TEMPLATE-ENGINEERING-001` 在没有 `sdk` 形态产品与绑定协议时执行空条件断言，不再在模块加载时假定 `sdk-idl-weapp` 必然存在；有 SDK 时仍执行原 ESM/CJS/类型声明/打包消费检查。
+- `SCN-TEMPLATE-ENGINEERING-005/006/009/011/012`、`SCN-SCENARIO-GATE-026/029/030`、`SCN-OPENAPI-CONTRACT-027`、`SCN-WEB-EXAMPLE-facts`、spec inventory 与通用门禁自测的 Fixture/期望值改为与当前清单或受控输入一致，不再要求已删除的 SDK、IDL 包或 weapp 项目仍存在。
+- `ENG-005/no-hardcoded-topology` 从只检查每种角色第一个包改为扫描全部包，并据此修掉 `scripts/preview-local.ts` 对 `packages/openapi` 与示例接口的写死；预览路由现在从清单中支持 `shadow-routes.ts` 的协议包发现。
+- `example-whitelist` 在 SCN-008 Fixture 不存在时不再要求指南保留 Fixture 原文；删除绑定后的增量 unit 回归证明此项不会再阻塞。
+- 反例使用全新隔离副本 `/tmp/sdk-template-unbind-smoke.phgIFh`，只保留 `web-openapi-browser` 一条绑定，清单中没有 `sdk`、IDL `protocol` 与 weapp 项目。副本严格按指南删除绑定独占内容，没有修改任何事实核验用例或公共辅助模块。
+- 冒烟副本 `pnpm test:unit` 退出码 0：118 个文件通过、3 个跳过，418 个用例通过、15 个跳过，四项覆盖率均为 100%。`SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:integration` 退出码 0：普通 integration 72/72 文件、141/141 用例，heavy 6/6 文件、11/11 用例；未运行 weapp。
+
+**追加 Verification**
+
+- 最终源码执行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast` 退出码 0：unit 144/144 文件、579/579 用例且覆盖率 100%；普通 integration 96/96 文件、176/176 用例；heavy 7/7 文件、13/13 用例；构建、typecheck、架构、Fixture、覆盖率、打包、bundle 与 component-tree 均通过；未运行 weapp。
+- 首轮 `check:fast` 曾发现 `scripts/lib/dependency-rules.test.ts` 格式未同步，SCN-008 副本又发现 `dependency-rules.cjs` 超过 300 行上限与 `SCN-TEMPLATE-ENGINEERING-001` 的闭包窄化 typecheck 错误；修正后单跑 SCN-008 为 2/2 通过，最终完整 `check:fast` 全绿。
+- 主工作区与冒烟副本均没有减少用例、断言或测试项目；未修改 `openspec/changes/archive/`，没有运行 weapp、开发者工具或完整 `pnpm verify`。
+
 **Review / Acceptance**
 
-- 本轮未执行 Task 15 演练本身，也未勾选 Task 14、Task 15 的 checkbox。
+- 本轮未执行 Task 14/15 的正式演练，也未勾选 Task 14、Task 15 的 checkbox；绑定删除冒烟仅用于验证模板侧去写死，不作为演练验收结论。
 - 由验收方在修复提交后的新隔离副本中重跑 Task 14 示例删除、交叉复刻、xueshan 纵切片和移除绑定演练。
 
 **Commit**

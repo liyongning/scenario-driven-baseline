@@ -13,13 +13,14 @@ import {
   controlled,
   customMethodFile,
   exampleInventoryRoot,
+  hasRepositoryIdl,
   inventoryTradeFile,
   repositoryRoot,
   requiredIn,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 
-describe('buildContractInventory', () => {
+describe.skipIf(!hasRepositoryIdl)('buildContractInventory', () => {
   it(
     'reports a missing declaration module and treats a missing registration as empty',
     { timeout: 30_000 },
@@ -180,7 +181,7 @@ describe('buildContractInventory', () => {
   });
 });
 
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-001 derivation-rules',
   {
     timeout: 30_000,
@@ -436,7 +437,7 @@ test(
   },
 );
 
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-005 call-scan-rules',
   {
     timeout: 30_000,
@@ -554,7 +555,7 @@ test(
   },
 );
 
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-010 context-obligation',
   {
     timeout: 30_000,

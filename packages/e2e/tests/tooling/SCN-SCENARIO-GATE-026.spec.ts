@@ -126,7 +126,6 @@ defineCase(
     caseId: 'self-test-isolation-cli',
     fixtureCase: 'self-test-isolation-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-SCENARIO-GATE-026',

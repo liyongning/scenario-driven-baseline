@@ -136,7 +136,6 @@ defineCase(
     caseId: 'binding-violations-cli',
     fixtureCase: 'binding-violations-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-013',
@@ -286,7 +285,6 @@ defineCase(
     caseId: 'template-bindings-fact',
     fixtureCase: 'template-bindings-fact',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-013',

@@ -7,9 +7,9 @@ import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
 import {
   declarationRoot,
-  exampleCallerSource,
-  exampleDeclarationSource,
-  repositoryProtocolSource,
+  defaultCallerSource,
+  defaultDeclarationSource,
+  syntheticBusinessErrorSource,
 } from '../../packages/e2e/tests/tooling/declaration-fixture.ts';
 import { environmentClassOf } from '../../packages/e2e/src/cases/define-case.ts';
 import { buildContractInventory } from './contract-inventory.ts';
@@ -180,7 +180,7 @@ evidence(
       expanded.bindings.push({
         name: 'web-idl-browser',
         product: 'web-idl',
-        protocol: repository.packages.find((pkg) => pkg.protocolKind === 'idl')!.directory,
+        protocol: repository.packages.find((pkg) => pkg.role === 'protocol')!.directory,
         platforms: ['browser'],
       });
       const expandedRoot = createControlledRoot({ manifest: expanded });
@@ -405,23 +405,22 @@ evidence(
     });
 
     await check('obligation-environments', async () => {
-      const manifest = loadProjectManifest(repositoryRoot);
+      // 义务运行环境由受控清单派生；不读取真实仓库当前的 SDK/IDL 拓扑。
+      const root = declarationRoot({
+        declaration: defaultDeclarationSource,
+        caller: defaultCallerSource,
+        protocolFiles: {
+          'errors/business-codes.ts': syntheticBusinessErrorSource,
+        },
+        prefix: 'template-manifest-005-',
+      });
+      const manifest = loadProjectManifest(root.root);
       const sdkProduct = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk')!;
       const integrationAndPlatform = [
         ...testEnvironmentsByClass(manifest, ['integration']),
         ...bindingForProduct(manifest, sdkProduct.directory).platforms,
       ];
       const integrationOnly = testEnvironmentsByClass(manifest, ['integration']);
-      // 义务运行环境由清单派生；声明取自受控输入，示例删除后仍能复核同一事实（ENG-06）。
-      const root = declarationRoot({
-        generatedFromRepository: true,
-        declaration: exampleDeclarationSource,
-        caller: exampleCallerSource,
-        protocolFiles: {
-          'errors/business-codes.ts': repositoryProtocolSource('errors/business-codes.ts'),
-        },
-        prefix: 'template-manifest-005-',
-      });
       const inventory = await buildContractInventory(root.root);
       root.cleanup();
       const obligationEnvironments = new Set(
@@ -504,13 +503,46 @@ evidence(
     });
 
     await check('environments-by-manifest', () => {
-      const manifest = loadProjectManifest(repositoryRoot);
-      context.expect(environmentClassOf('integration')).toBe('integration');
-      context.expect(environmentClassOf('weapp')).toBe('platform');
-      context.expect(environmentClassOf('not-registered')).toBeUndefined();
+      const manifest = baseManifest();
+      manifest.testProjects = [
+        { name: 'sample-unit', class: 'unit', config: 'packages/sample-product/vitest.config.ts' },
+        {
+          name: 'integration',
+          class: 'integration',
+          config: 'packages/sample-test/vitest.config.ts',
+        },
+        {
+          name: 'integration-heavy',
+          class: 'integration',
+          config: 'packages/sample-test/vitest.config.integration.ts',
+        },
+        {
+          name: 'platform',
+          class: 'platform',
+          config: 'packages/sample-test/vitest.config.platform.ts',
+        },
+        {
+          name: 'browser',
+          class: 'platform',
+          config: 'packages/sample-test/vitest.config.browser.ts',
+        },
+      ];
+      const environmentRoot = createControlledRoot({
+        manifest,
+        prefix: 'project-manifest-environments-',
+      });
+      context.expect(environmentClassOf('integration', environmentRoot.root)).toBe('integration');
+      context.expect(environmentClassOf('platform', environmentRoot.root)).toBe('platform');
+      context.expect(environmentClassOf('not-registered', environmentRoot.root)).toBeUndefined();
+      environmentRoot.cleanup();
       context
-        .expect(defaultReportNames(manifest))
-        .toEqual(['unit', 'integration', 'integration-heavy', 'weapp', 'browser']);
+        .expect(
+          defaultReportNames({
+            ...manifest,
+            testProjects: manifest.testProjects,
+          } as ProjectManifest),
+        )
+        .toEqual(['unit', 'integration', 'integration-heavy', 'platform', 'browser']);
       // 默认报告由清单测试项目派生：unit 合并为一份，perFile 项目取目录下的全部报告文件。
       const root = temporaryRoot('project-manifest-reports-');
       const perFileManifest = baseManifest();

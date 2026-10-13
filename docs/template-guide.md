@@ -114,7 +114,7 @@
 
 ## 移除模板示例
 
-初始化阶段（模板示例仍未被使用方自己的业务替换时）可以整块移除示例，不必为它写 Change、`REMOVED` delta 或走归档。**时机**：使用方自己的第一个 Scenario 通过完整门禁之后——此时示例承载的通用能力已被使用方业务覆盖。**方式**：直接提交删除；本节的适用范围只有下列白名单，超出白名单的内容（尤其是使用方自己的业务）退役时仍走正常的 Change。
+初始化阶段（模板示例仍未被使用方自己的业务替换时）可以整块移除示例，不必为它写 Change、`REMOVED` delta 或走归档。**时机**：使用方自己的第一个 Scenario 通过完整门禁之后——此时示例承载的通用能力已被使用方业务覆盖。Web 侧第一个业务直接替换 [packages/openapi/contracts/trade-v1.yaml](../packages/openapi/contracts/trade-v1.yaml) 时，允许在同一次提交中完成契约替换与 Web 示例删除，不要求改完契约后先单独跑通一次基于旧示例的完整门禁；这是“第一个 Scenario 通过完整门禁后再删示例”规则的例外。**方式**：直接提交删除；本节的适用范围只有下列白名单，超出白名单的内容（尤其是使用方自己的业务）退役时仍走正常的 Change。
 
 删除白名单：
 
@@ -140,7 +140,7 @@
 3. 同步文档：[本指南](template-guide.md)、[技术架构文档](architecture.md)、根与包级 `AGENTS.md`、[README.md](../README.md) 中指向已删除包、宿主或命令的内容，以及本指南能力地图和替换点地图对应行。
 4. 核验模板自身事实的用例按清单派生，例如断言“清单中的每条绑定都满足约束”，不要改成写死剩余绑定数量；按路径直接引用被删包的单测或 helper 改为受控临时根输入，或明确声明它只属于该绑定。
 5. [packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、通用请求记录、Fixture 装载、报告器和预览启动器属于测试基础设施，不属于任何绑定的独占内容，不随绑定删除。
-6. 最后在使用方自己的 Change 中用 `REMOVED` 删除只适用于该绑定的 Requirement，完整体验场景门禁；整份能力退役按下一节“归档已知限制”处理。完成后运行 `pnpm check:fast`、`pnpm check:scenarios` 与完整 `pnpm verify`，确认没有残留的绑定、报告或来源摘要。
+6. 最后在使用方自己的 Change 中用 `REMOVED` 删除只适用于该绑定的 Requirement；同一 Requirement 还保留其他绑定的内容时，该 Requirement 改用 `MODIFIED`，只移除被删绑定的 Scenario、FLOW 或说明。对受影响的 owner 运行 `pnpm fixtures:refresh <owner>`，再完整运行场景门禁；整份能力退役按下一节“归档已知限制”处理。完成后运行 `pnpm check:fast`、`pnpm check:scenarios` 与完整 `pnpm verify`，确认没有残留的绑定、报告或来源摘要。
 
 ## 跨源部署
 
@@ -154,8 +154,9 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 
 - **整份能力退役**：delta 用 `REMOVED Requirements` 删掉某个 Spec 的全部 Requirement 时，重建出的 Spec 没有任何 Requirement，归档会报 `Spec must have at least one requirement` 并中止（`Aborted. No files were changed.`），主 Spec 也不会被更新。手工步骤：删掉该 Change 的对应 delta 文件，直接在 Change 内删除主 Spec 的 Requirement 段落；整份 Spec 清空时连同 `openspec/specs/<spec>/spec.md` 一起删除，再运行 `openspec archive <change> -y`。归档后确认 `openspec/specs/` 已无该 Spec，且 `pnpm check:scenarios` 与 `pnpm check:fixtures` 没有指向已删能力的悬空引用。
 - **保留 ID、只改 Scenario 标题**：`MODIFIED` 块里换了 Scenario 标题、主 Spec 还是旧标题时会被拒绝，报 `current spec contains scenario(s) not present in the modified block`。手工步骤：先在主 Spec 中把标题改成最终标题（这一步单独提交），再归档只包含其余修改的 delta。
+- **MODIFIED 块缺少主 Spec 中的 Scenario**：`MODIFIED` 块只列出一部分 Scenario 时，归档也会拒绝，报 `current spec contains scenario(s) not present in the modified block`。处理删除绑定或部分退役时，若 Requirement 仍有其他内容，应把所有保留 Scenario 原样列回 `MODIFIED` 块，只移除本次退役的 Scenario。
 
-这两条限制都来自 OpenSpec 自身的校验；升级 CLI 时先重跑上述两种情形，确认行为是否变化。
+这些限制都来自 OpenSpec 自身的校验；升级 CLI 时先重跑上述情形，确认行为是否变化。
 
 ## 版本对齐
 
@@ -223,7 +224,7 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 - **OpenAPI（当前）**：契约 [packages/openapi/contracts/trade-v1.yaml](../packages/openapi/contracts/trade-v1.yaml) 与 lock、生成物 [packages/openapi/src/generated](../packages/openapi/src/generated)、执行器 [packages/openapi/src/rest/client.ts](../packages/openapi/src/rest/client.ts)、浏览器网络工厂 [packages/openapi/src/adapters/network/fetch.ts](../packages/openapi/src/adapters/network/fetch.ts)、适配器 [packages/openapi/testing/adapter.ts](../packages/openapi/testing/adapter.ts) 与路由构造器 [packages/openapi/testing/shadow-routes.ts](../packages/openapi/testing/shadow-routes.ts)；Web 消费声明在 [packages/web/src/app/consumed-operations.ts](../packages/web/src/app/consumed-operations.ts)，协议义务运行证据见 `SCN-OPENAPI-CONTRACT-007`、`SCN-OPENAPI-CONTRACT-021` 与 `SCN-OPENAPI-CONTRACT-028`。
 - **OpenAPI 的清单**：`manifest.packages[].protocolKind: 'openapi'`、`packages[].contract` 与 `manifest.fingerprints.protocolInputs`；协议包以 workspace 依赖绑定 Web 产品包，API 命令由 `packages[].checks` 登记为 `api:validate`、`api:status`。
 - **OpenAPI 的门禁**：`SCN-OPENAPI-CONTRACT-001`、`SCN-OPENAPI-CONTRACT-006`、`SCN-OPENAPI-CONTRACT-007`、`SCN-OPENAPI-CONTRACT-021`、`SCN-OPENAPI-CONTRACT-028`，以及 `pnpm api:validate`、`pnpm api:sync`、`pnpm api:status` 与 `pnpm check:fast`。
-- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。原协议包整体删除；[packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、请求记录、Fixture 装载、报告器与预览启动器属于测试基础设施，不属于任何协议选项，必须保留。
+- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。Web 侧第一个业务可以直接替换 [packages/openapi/contracts/trade-v1.yaml](../packages/openapi/contracts/trade-v1.yaml) 并在同一次提交中删除 Web 示例，顺序按“移除模板示例”的例外执行；替换完成后以新业务 Scenario 的完整门禁为准。原协议包整体删除；[packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、请求记录、Fixture 装载、报告器与预览启动器属于测试基础设施，不属于任何协议选项，必须保留。
 
 ### 运行平台
 

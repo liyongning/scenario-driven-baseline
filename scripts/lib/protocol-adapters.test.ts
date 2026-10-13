@@ -1,4 +1,4 @@
-import { afterEach, expect, test, type TestContext } from 'vitest';
+import { afterEach, expect, test, vi, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import {
   createAdapterFixture,
@@ -146,6 +146,11 @@ test(
       await context
         .expect(loadProtocolAdapter(namedManifest, 'protocol-b', { root: namedAdapter.root }))
         .resolves.toMatchObject({ responseValidator: expect.any(Function) });
+      const cwd = vi.spyOn(process, 'cwd').mockReturnValue(namedAdapter.root);
+      await context
+        .expect(loadProtocolAdapter(namedManifest, 'protocol-b'))
+        .resolves.toMatchObject({ responseValidator: expect.any(Function) });
+      cwd.mockRestore();
 
       context
         .expect(() => assertProtocolAdapter(undefined, 'protocol-b'))
@@ -154,7 +159,7 @@ test(
         .expect(loadProtocolAdapter(methodManifest, 'product-a', { root: missingMethod.root }))
         .rejects.toThrow(/product-a is not a protocol package/);
       await context
-        .expect(loadProtocolAdapter(loadProjectManifest(process.cwd()), 'protocol'))
+        .expect(loadProtocolAdapter(namedManifest, 'protocol-b', { root: namedAdapter.root }))
         .resolves.toMatchObject({ responseValidator: expect.any(Function) });
     });
 

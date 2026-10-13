@@ -96,6 +96,57 @@ function stubEnvironment(stub: ReturnType<typeof createOpenSpecStub>): NodeJS.Pr
   return stub.env;
 }
 
+/** 自包含协议适配器替身；目标协议包被绑定移除后，通用门禁自测仍可运行。 */
+export function genericProtocolAdapterSource(): string {
+  return [
+    'const adapter = {',
+    '  resolveDeclaration() {',
+    '    return undefined;',
+    '  },',
+    '  deriveObligations({ operation, requiredIn, integrationOnly }) {',
+    "    const scope = operation ? `sample.${operation.methodName}` : 'sample.binding';",
+    '    return {',
+    '      obligations: [',
+    "        { id: `${scope}#result#$`, cases: ['normal'], requiredIn: [...requiredIn] },",
+    '        {',
+    "          id: 'idl.error-contract#business-error#$',",
+    '          cases: [],',
+    '          requiredIn: [...integrationOnly],',
+    '        },',
+    '      ],',
+    '      discoveries: [],',
+    '    };',
+    '  },',
+    '  responseValidator() {',
+    '    return undefined;',
+    '  },',
+    '  checkFixture() {',
+    '    return [];',
+    '  },',
+    '  scanCalls() {',
+    '    return [];',
+    '  },',
+    '};',
+    '',
+    'export default adapter;',
+    '',
+  ].join('\n');
+}
+
+/** 写协议包适配器：仓库存在同名实现时转导出，否则使用与真实协议解耦的替身。 */
+export function protocolAdapterFixtureSource(protocolDirectory: string): string {
+  const repositoryAdapter = join(
+    repositoryRoot,
+    'packages',
+    protocolDirectory,
+    'testing',
+    'adapter.ts',
+  );
+  return existsSync(repositoryAdapter)
+    ? `export { default } from '${pathToFileURL(repositoryAdapter).href}';\n`
+    : genericProtocolAdapterSource();
+}
+
 /**
  * 统一的受控临时根：`git init` + 最小 OpenSpec 结构 + 清单 + 额外文件 + 初始提交。
  * `openspec` 默认用替身，需要真实 CLI 时把仓库 node_modules/.bin 放到 PATH 前。
@@ -159,10 +210,7 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
       if (pkg.role !== 'protocol' || pkg.protocolKind !== 'idl') continue;
       const path = join(root, 'packages', pkg.directory, 'testing/adapter.ts');
       mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(
-        path,
-        `export { default } from '${pathToFileURL(join(repositoryRoot, 'packages/protocol/testing/adapter.ts')).href}';\n`,
-      );
+      writeFileSync(path, protocolAdapterFixtureSource(pkg.directory));
     }
   }
   for (const [relative, content] of Object.entries(options.files ?? {})) {

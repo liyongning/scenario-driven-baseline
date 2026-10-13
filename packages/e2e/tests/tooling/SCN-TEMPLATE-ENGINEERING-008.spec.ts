@@ -321,7 +321,6 @@ defineCase(
     caseId: 'example-removal-fast',
     fixtureCase: 'example-removal-fast',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-008',
@@ -412,7 +411,6 @@ defineCase(
     caseId: 'example-removal-scenarios',
     fixtureCase: 'example-removal-scenarios',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-ENGINEERING-008',

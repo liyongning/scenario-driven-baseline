@@ -3,8 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { nodeText, readSpecInventory } from './spec-inventory.ts';
+import type { TestProject } from './project-manifest.ts';
 
 const block = `\n\`\`\`json verification\n{"formatVersion":2,"checkpoints":{"sent":"request sent"},"cases":[{"key":"ok","kind":"behavior","requiredIn":["integration","weapp"],"checks":["sent"]}],"blockedBy":[]}\n\`\`\``;
+const projects: ReadonlyArray<TestProject> = [
+  { name: 'sdk-unit', class: 'unit', config: 'packages/sdk/vitest.config.ts' },
+  { name: 'protocol-unit', class: 'unit', config: 'packages/protocol/vitest.config.ts' },
+  { name: 'integration', class: 'integration', config: 'packages/e2e/vitest.config.ts' },
+  { name: 'weapp', class: 'platform', config: 'packages/e2e/vitest.config.weapp.ts' },
+];
 
 describe('readSpecInventory', () => {
   it('extracts literal and nested AST text and rejects non-node values', () => {
@@ -20,7 +27,7 @@ describe('readSpecInventory', () => {
       path,
       `#### Scenario: SCN-SAMPLE-CORE-001 One\n- **WHEN** x\n- **THEN** y\n${block}\n## 必需集成流程（评审草案）\n\n| FLOW ID | 关联 Scenario | 公共入口与连续阶段/检查点 | 必需 case key | 必需环境 | 输入及验证说明 |\n| --- | --- | --- | --- | --- | --- |\n| FLOW-SAMPLE-001 | SCN-SAMPLE-CORE-001 | pay → result | normal、long | integration、weapp | fixed |\n`,
     );
-    const inventory = await readSpecInventory([path]);
+    const inventory = await readSpecInventory([path], undefined, projects);
     expect(inventory.issues).toEqual([]);
     expect(inventory.scenarios[0]).toMatchObject({
       id: 'SCN-SAMPLE-CORE-001',
@@ -46,7 +53,7 @@ describe('readSpecInventory', () => {
       second,
       `#### Scenario: SCN-SAMPLE-CORE-001 Again\n${block.replace('"sent"', '"unknown"')}`,
     );
-    const inventory = await readSpecInventory([first, second]);
+    const inventory = await readSpecInventory([first, second], undefined, projects);
     expect(inventory.scenarios).toHaveLength(2);
     expect(inventory.issues).toEqual(
       expect.arrayContaining([
@@ -84,7 +91,7 @@ ${duplicateCases}
 | FLOW-SAMPLE-001 | CORE-001 | pay → result | normal | integration | duplicate |
 `,
     );
-    const inventory = await readSpecInventory([path]);
+    const inventory = await readSpecInventory([path], undefined, projects);
     expect(inventory.issues).toEqual(
       expect.arrayContaining([
         expect.stringContaining('verification JSON cannot be parsed'),
@@ -117,7 +124,7 @@ ${duplicateCases}
         .join('\n'),
     );
 
-    const inventory = await readSpecInventory([path]);
+    const inventory = await readSpecInventory([path], undefined, projects);
 
     expect(inventory.scenarios).toHaveLength(5);
     expect(
@@ -142,7 +149,7 @@ ${block}
 ${block}
 \`\`\``,
     );
-    const inventory = await readSpecInventory([path]);
+    const inventory = await readSpecInventory([path], undefined, projects);
     expect(inventory.issues).toEqual(
       expect.arrayContaining([expect.stringContaining('multiple verification metadata blocks')]),
     );
@@ -153,7 +160,7 @@ ${block}
     const root = await mkdtemp(join(tmpdir(), 'template-spec-malformed-scenario-'));
     const path = join(root, 'spec.md');
     await writeFile(path, '#### Scenario:\n\nA malformed scenario\n');
-    const inventory = await readSpecInventory([path]);
+    const inventory = await readSpecInventory([path], undefined, projects);
     expect(inventory.scenarios).toHaveLength(1);
     expect(inventory.issues).toEqual(
       expect.arrayContaining([expect.stringContaining('Scenario heading Scenario: is malformed')]),
@@ -173,7 +180,7 @@ ${block}
       kind: 'main' as const,
       content: `${header}| FLOW-OK | SCN-OK | create → observe | normal | integration | outside |\n\n### Requirement: TEST flow\n\n#### Scenario: BAD-ID Invalid\n\n${block}\n\n${header}| FLOW-OK | SCN-OK | create → observe | normal | sdk-unit | wrong environment |\n| FLOW-OK | bad-id | create → observe | normal | integration | bad related |\n| FLOW-OK | SCN-OK | | normal | integration | missing stage |\n| FLOW-OK | SCN-OK | create → observe | normal | integration |\n`,
     };
-    const inventory = await readSpecInventory([source], config);
+    const inventory = await readSpecInventory([source], config, projects);
     expect(inventory.issues).toEqual(
       expect.arrayContaining([
         expect.stringContaining('FLOW table is outside a Requirement'),
@@ -186,12 +193,16 @@ ${block}
   });
 
   it('reads the reviewed v2 denominator without reducing any category', async () => {
-    const inventory = await readSpecInventory([
-      new URL(
-        '../../openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md',
-        import.meta.url,
-      ).pathname,
-    ]);
+    const inventory = await readSpecInventory(
+      [
+        new URL(
+          '../../openspec/changes/archive/2026-09-30-template-example/specs/template-example/spec.md',
+          import.meta.url,
+        ).pathname,
+      ],
+      undefined,
+      projects,
+    );
     const cases = inventory.scenarios.flatMap((scenario) => scenario.verification?.cases ?? []);
     expect(inventory.issues).toEqual([]);
     expect(inventory.scenarios).toHaveLength(11);

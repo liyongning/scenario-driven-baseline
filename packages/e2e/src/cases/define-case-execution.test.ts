@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createControlledRoot } from '../../tests/tooling/controlled-root.ts';
+import { baseManifest } from '../../tests/tooling/project-manifest-fixture.ts';
 
 const state = vi.hoisted(() => ({
   registered: undefined as undefined | ((context: unknown) => Promise<void>),
@@ -137,24 +138,33 @@ describe('defineCase execution', () => {
   });
 
   it('rejects binding drift before executing the test body', async () => {
-    const fixture = createControlledRoot({ prefix: 'define-case-runtime-' });
-    const repositoryRoot = process.cwd();
-    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(repositoryRoot);
+    const fixture = createControlledRoot({
+      manifest: baseManifest(),
+      prefix: 'define-case-runtime-owned-',
+    });
+    const driftManifest = baseManifest();
+    driftManifest.bindings[0]!.name = 'other-binding';
+    const driftFixture = createControlledRoot({
+      manifest: driftManifest,
+      prefix: 'define-case-runtime-drift-',
+    });
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(fixture.root);
     let executed = false;
     try {
       defineCase(
-        { ...binding, binding: 'sdk-idl-weapp' },
+        { ...binding, binding: 'sample-product-protocol' },
         () => {
           executed = true;
         },
         { fixtureRoot: '/fixtures' },
       );
-      cwd.mockReturnValue(fixture.root);
+      cwd.mockReturnValue(driftFixture.root);
       await expect(state.registered!(context())).rejects.toThrow(/is not registered/);
       expect(executed).toBe(false);
     } finally {
       cwd.mockRestore();
       fixture.cleanup();
+      driftFixture.cleanup();
     }
   });
 });

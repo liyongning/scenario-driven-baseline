@@ -59,7 +59,7 @@ function blockAt(config: ReadonlyArray<MaxLinesBlock>, index: number): MaxLinesB
 
 /** 把清单里的测试包改名，用来证明测试文件模式随清单派生而不是写死。 */
 function renamedTestManifest(): ProjectManifest {
-  const manifest = loadProjectManifest(repositoryRoot);
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
   return {
     ...manifest,
     packages: manifest.packages.map((pkg) =>
@@ -156,11 +156,8 @@ async function evidence(
 
 /** 把仓库清单改名成另一个包目录，用来证明规则随清单变化而不是写死。 */
 function renamedManifest(): ProjectManifest {
-  const manifest = loadProjectManifest(repositoryRoot);
-  const names = new Map([
-    ['sdk', 'renamed-sdk'],
-    ['web', 'renamed-web'],
-  ]);
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const names = new Map([['sample-product', 'renamed-sdk']]);
   return {
     ...manifest,
     packages: manifest.packages.map((pkg) =>
@@ -225,13 +222,38 @@ evidence(
   ['rules-by-role'],
   async (context, check) => {
     await check('rules-by-role', () => {
-      const repository = loadProjectManifest(repositoryRoot);
+      const repository = structuredClone(minimalManifest()) as ProjectManifest & {
+        packages: Array<ProjectManifest['packages'][number]>;
+        bindings: Array<ProjectManifest['bindings'][number]>;
+      };
+      repository.packages.push({
+        directory: 'sample-web',
+        name: '@sample/web',
+        role: 'product',
+        form: 'web-app',
+        private: true,
+        allowedDirectories: ['src'],
+        moduleRoots: ['src'],
+      });
+      repository.bindings.push({
+        name: 'sample-web-protocol',
+        product: 'sample-web',
+        protocol: 'sample-protocol',
+        platforms: [],
+      });
       const repositoryRules = rules.dependencyRules(repository);
       const sdk = repository.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'sdk')!;
       const sdkRoot = sdk.moduleRoots?.[0] ?? 'src';
+      const web = repository.packages.find(
+        (pkg) => pkg.role === 'product' && pkg.form === 'web-app',
+      )!;
+      const webRoot = web.moduleRoots?.[0] ?? 'src';
       context
         .expect(ruleByName(repositoryRules, 'domain-core-no-generated').from.path)
         .toBe(`^packages/${sdk.directory}/${sdkRoot}/[^/]+/(core|ports)/`);
+      context
+        .expect(ruleByName(repositoryRules, `core-no-platform-or-node:${web.directory}`).from.path)
+        .toBe(`^packages/${web.directory}/${webRoot}/(runtime|[^/]+/(core|ports))/`);
       const crossWorkspace = ruleByName(repositoryRules, 'cross-workspace-no-direct-files');
       for (const pkg of repository.packages.filter((item) => item.role !== 'test')) {
         const root = pkg.moduleRoots?.[0] ?? 'src';
@@ -316,35 +338,34 @@ evidence(
 );
 
 test('shadow engine rule covers engine files but not route sources', () => {
-  const rule = ruleByName(
-    rules.dependencyRules(loadProjectManifest(repositoryRoot)),
-    'shadow-engine-no-generated',
-  );
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const rule = ruleByName(rules.dependencyRules(manifest), 'shadow-engine-no-generated');
   const path = new RegExp(rule.from.path!);
   // pathNot 与 dependency-cruiser 同义：命中的引擎文件再被排除项减去。
   const pathNot = new RegExp(rule.from.pathNot!);
   const matched = (file: string) => path.test(file) && !pathNot.test(file);
   // 引擎文件（含后续新增的）受约束。
+  const testDirectory = rules.testPackage(manifest).directory;
+  const protocolDirectory = rules.packagesByRole(manifest, 'protocol')[0]!.directory;
   for (const engine of ['server', 'faults', 'requests', 'routes', 'synthetic-engine'])
-    expect(matched(`packages/e2e/src/shadow/${engine}.ts`), engine).toBe(true);
-  expect(matched('packages/e2e/src/shadow/server.test.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/idl-routes.ts')).toBe(false);
+    expect(matched(`packages/${testDirectory}/src/shadow/${engine}.ts`), engine).toBe(true);
+  expect(matched(`packages/${testDirectory}/src/shadow/server.test.ts`)).toBe(false);
+  expect(matched(`packages/${protocolDirectory}/testing/shadow/idl-routes.ts`)).toBe(false);
 });
 
 test('preview constructor is importable only from the preview launcher directory', () => {
-  const rule = ruleByName(
-    rules.dependencyRules(loadProjectManifest(repositoryRoot)),
-    'shadow-preview-constructor-restricted',
-  );
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const rule = ruleByName(rules.dependencyRules(manifest), 'shadow-preview-constructor-restricted');
+  const testDirectory = rules.testPackage(manifest).directory;
   const excludedFrom = new RegExp(rule.from.pathNot!);
   const to = new RegExp(rule.to!.path!);
   const rejected = (source: string) =>
-    !excludedFrom.test(source) && to.test('packages/e2e/src/shadow/preview-server.ts');
-  expect(rejected('packages/e2e/src/preview/launcher.ts')).toBe(false);
-  expect(rejected('packages/e2e/src/preview/preview-server.test.ts')).toBe(false);
-  expect(rejected('packages/e2e/tests/tooling/preview.spec.ts')).toBe(true);
-  expect(rejected('packages/e2e/src/harness.ts')).toBe(true);
-  expect(rejected('packages/e2e/src/shadow/index.ts')).toBe(true);
+    !excludedFrom.test(source) && to.test(`packages/${testDirectory}/src/shadow/preview-server.ts`);
+  expect(rejected(`packages/${testDirectory}/src/preview/launcher.ts`)).toBe(false);
+  expect(rejected(`packages/${testDirectory}/src/preview/preview-server.test.ts`)).toBe(false);
+  expect(rejected(`packages/${testDirectory}/tests/tooling/preview.spec.ts`)).toBe(true);
+  expect(rejected(`packages/${testDirectory}/src/harness.ts`)).toBe(true);
+  expect(rejected(`packages/${testDirectory}/src/shadow/index.ts`)).toBe(true);
 });
 
 test('escapeRegExp escapes regular expression metacharacters', () => {
@@ -352,7 +373,7 @@ test('escapeRegExp escapes regular expression metacharacters', () => {
 });
 
 test('package readers use manifest roles without assuming a unique package', () => {
-  const manifest = loadProjectManifest(repositoryRoot);
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
   expect(rules.packagesByRole(manifest, 'product').map((item) => item.name)).toEqual(
     manifest.packages.filter((item) => item.role === 'product').map((item) => item.name),
   );
@@ -361,10 +382,10 @@ test('package readers use manifest roles without assuming a unique package', () 
     [],
   );
   expect(rules.packagesByRole({} as unknown as ProjectManifest, 'product')).toEqual([]);
-  expect(rules.testPackage(manifest).directory).toBe('e2e');
-  expect(rules.bindingForProduct(manifest, 'sdk')).toMatchObject({
-    name: 'sdk-idl-weapp',
-    protocol: 'protocol',
+  expect(rules.testPackage(manifest).directory).toBe('sample-test');
+  expect(rules.bindingForProduct(manifest, 'sample-product')).toMatchObject({
+    name: 'sample-product-protocol',
+    protocol: 'sample-protocol',
   });
   expect(() => rules.testPackage({ packages: [] } as unknown as ProjectManifest)).toThrow(
     /no test package/,
@@ -450,7 +471,7 @@ evidence(
     await check('max-lines-enforced', () => {
       // 两档上限与开关：源文件 300、测试文件 600，空行与注释都不计入。
       context.expect([rules.SOURCE_MAX_LINES, rules.TEST_MAX_LINES]).toEqual([300, 600]);
-      const manifest = loadProjectManifest(repositoryRoot);
+      const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
       const config = rules.maxLinesConfig(manifest);
       const source = blockAt(config, 0);
       const tests = blockAt(config, 1);
@@ -472,7 +493,7 @@ evidence(
         .toEqual([
           '**/*.test.{js,mjs,cjs,ts,mts,cts}',
           '**/*.spec.{js,mjs,cjs,ts,mts,cts}',
-          'packages/e2e/tests/**/*.{js,mjs,cjs,ts,mts,cts}',
+          'packages/sample-test/tests/**/*.{js,mjs,cjs,ts,mts,cts}',
         ]);
       context
         .expect(patterns.every((pattern) => pattern.endsWith('{js,mjs,cjs,ts,mts,cts}')))
@@ -484,7 +505,7 @@ evidence(
 
     await check('exemptions-by-manifest', () => {
       // 模板自身的豁免为空：拆分是唯一出路，没有整文件豁免。
-      const repository = loadProjectManifest(repositoryRoot);
+      const repository = structuredClone(minimalManifest()) as unknown as ProjectManifest;
       context.expect(rules.maxLinesExemptions(repository)).toEqual([]);
       context.expect(repository.quality?.maxLinesExemptions).toEqual([]);
       // 清单登记的豁免生成整文件关闭块，且只在源/测试两档之后追加。

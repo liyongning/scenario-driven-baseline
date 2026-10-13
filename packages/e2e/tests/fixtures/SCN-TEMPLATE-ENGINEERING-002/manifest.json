@@ -1,7 +1,6 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-TEMPLATE-ENGINEERING-002",
-  "protocol": "protocol",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {

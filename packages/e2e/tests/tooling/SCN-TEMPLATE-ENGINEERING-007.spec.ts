@@ -26,10 +26,8 @@ const dependencyRules = createRequire(import.meta.url)(
 ) as DependencyRules;
 
 const repositoryManifest = loadProjectManifest(repositoryRoot);
-const productPackage = packagesByRole(repositoryManifest, 'product').find(
-  (item) => item.form === 'sdk',
-);
-if (!productPackage) throw new Error('template has no sdk product package');
+const productPackage = packagesByRole(repositoryManifest, 'product')[0];
+if (!productPackage) throw new Error('template has no product package');
 const protocolPackage = packageByDirectory(
   repositoryManifest,
   bindingForProduct(repositoryManifest, productPackage.directory).protocol,
@@ -38,6 +36,8 @@ const protocolPackages = packagesByRole(repositoryManifest, 'protocol');
 const e2ePackage = testPackage(repositoryManifest);
 const productSource = `packages/${productPackage.directory}/src`;
 const protocolSource = `packages/${protocolPackage.directory}/src`;
+const generatedAccessRule =
+  productPackage.form === 'web-app' ? 'domain-control-no-generated' : 'domain-core-no-generated';
 
 let copy: RepositoryCopy;
 const copies: RepositoryCopy[] = [];
@@ -242,12 +242,17 @@ test(
   },
   async (context) => {
     const before = context.expect.getState().assertionCalls;
+    const generatedTarget = write(
+      copy.root,
+      `${protocolSource}/generated/synthetic-generated.ts`,
+      'export const syntheticGenerated = 1;\n',
+    );
     const generated = write(
       copy.root,
       `${productSource}/synthetic-domain/core/synthetic-generated.ts`,
-      `import '../../../../${protocolPackage.directory}/src/generated/index';\n`,
+      `import '../../../../${protocolPackage.directory}/src/generated/synthetic-generated';\n`,
     );
-    expectViolation(context, copy.root, generated, 'domain-core-no-generated');
+    expectViolation(context, copy.root, generated, generatedAccessRule);
     const nodeBuiltin = write(
       copy.root,
       `${productSource}/synthetic-domain/core/synthetic-node.ts`,
@@ -262,7 +267,7 @@ test(
     const lint = execute(copy.root, 'eslint', [wx]);
     context.expect(lint.status).not.toBe(0);
     context.expect(lint.stdout + lint.stderr).toContain('no-restricted-globals');
-    for (const relative of [generated, nodeBuiltin, wx])
+    for (const relative of [generated, generatedTarget, nodeBuiltin, wx])
       rmSync(join(copy.root, relative), { force: true });
     rmSync(join(copy.root, `${productSource}/synthetic-domain`), { recursive: true, force: true });
     expectRestored(context, copy.root, repositoryManifest);
@@ -284,13 +289,19 @@ test(
   },
   async (context) => {
     const before = context.expect.getState().assertionCalls;
+    const generatedTarget = write(
+      copy.root,
+      `${protocolSource}/generated/synthetic-engine.ts`,
+      'export const syntheticEngine = 1;\n',
+    );
     const engine = write(
       copy.root,
       `packages/${e2ePackage.directory}/src/shadow/synthetic-engine.ts`,
-      `import '../../../${protocolPackage.directory}/src/generated/index';\n`,
+      `import '../../../${protocolPackage.directory}/src/generated/synthetic-engine';\n`,
     );
     expectViolation(context, copy.root, engine, 'shadow-engine-no-generated');
-    rmSync(join(copy.root, engine), { force: true });
+    for (const relative of [engine, generatedTarget])
+      rmSync(join(copy.root, relative), { force: true });
     expectRestored(context, copy.root, repositoryManifest);
     await context.annotate(
       JSON.stringify({

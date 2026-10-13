@@ -1,14 +1,12 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, expect, test } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { checkExampleWhitelist, exampleWhitelistEntries } from './example-whitelist.ts';
-import { loadProjectManifest, type ProjectManifest } from './project-manifest.ts';
+import type { ProjectManifest } from './project-manifest.ts';
 
 const roots: string[] = [];
-const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -39,6 +37,7 @@ function writeRemovalFixture(root: string, matrices?: unknown) {
 const manifest = {
   packages: [
     { directory: 'sample-sdk', role: 'product', form: 'sdk' },
+    { directory: 'sample-web', role: 'product', form: 'web-app' },
     { directory: 'sample-protocol', role: 'protocol', protocolKind: 'idl' },
     { directory: 'sample-tests', role: 'test' },
   ],
@@ -56,28 +55,28 @@ test('derives non-empty removal entries without requiring a matrices field', () 
       'packages/sample-sdk/src/removed-*',
     ]),
   );
-  expect(exampleWhitelistEntries(controlledRoot(), manifest).templateExample).not.toEqual([]);
+  expect(exampleWhitelistEntries(controlledRoot(), manifest)).toEqual({
+    templateExample: [],
+    webExample: [],
+  });
 });
 
 test('guide whitelist parsing handles present and absent section boundaries', () => {
-  const repository = loadProjectManifest(repositoryRoot);
-  expect(checkExampleWhitelist(repositoryRoot, repository, '# guide')).toContain(
+  const root = controlledRoot();
+  writeRemovalFixture(root);
+  expect(checkExampleWhitelist(root, manifest, '# guide')).toContain(
     'missing removal whitelist entry openspec/specs/template-example/',
   );
-  expect(checkExampleWhitelist(repositoryRoot, repository, '## 移除模板示例')).toContain(
+  expect(checkExampleWhitelist(root, manifest, '## 移除模板示例')).toContain(
+    'missing removal whitelist entry openspec/specs/web-example/',
+  );
+  expect(checkExampleWhitelist(root, manifest, '## 移除模板示例\n## 归档已知限制\n')).toContain(
+    'missing removal whitelist entry openspec/specs/web-example/',
+  );
+  expect(checkExampleWhitelist(root, manifest, '## 移除模板示例\nWeb 示例白名单\n')).toContain(
     'missing removal whitelist entry openspec/specs/web-example/',
   );
   expect(
-    checkExampleWhitelist(repositoryRoot, repository, '## 移除模板示例\n## 归档已知限制\n'),
-  ).toContain('missing removal whitelist entry openspec/specs/web-example/');
-  expect(
-    checkExampleWhitelist(repositoryRoot, repository, '## 移除模板示例\nWeb 示例白名单\n'),
-  ).toContain('missing removal whitelist entry openspec/specs/web-example/');
-  expect(
-    checkExampleWhitelist(
-      repositoryRoot,
-      repository,
-      '## 移除模板示例\nWeb 示例白名单\n## 归档已知限制\n',
-    ),
+    checkExampleWhitelist(root, manifest, '## 移除模板示例\nWeb 示例白名单\n## 归档已知限制\n'),
   ).toContain('missing removal whitelist entry openspec/specs/template-example/');
 });

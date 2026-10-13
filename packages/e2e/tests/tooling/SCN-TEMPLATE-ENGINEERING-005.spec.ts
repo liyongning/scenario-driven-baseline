@@ -12,10 +12,7 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { afterEach } from 'vitest';
 import {
-  bindingForProduct,
   loadProjectManifest,
-  packageByDirectory,
-  packagesByRole,
   type TestProjectClass,
 } from '../../../../scripts/lib/project-manifest.ts';
 import {
@@ -184,8 +181,7 @@ const scannedConfigs = ['.dependency-cruiser.cjs', 'eslint.config.js', 'vitest.c
  * 根 scripts 的键名不扫描；与 requiredCommands 同名的命令参数不算写死。
  */
 function scanHardcodedTopology(root: string, manifest: FixtureManifest): string[] {
-  const product = manifest.packages.find((item) => item.role === 'product')!;
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
+  const packages = manifest.packages.filter((item) => item.role !== 'test');
   const registry = manifest.release?.registry;
   const mismatchedProjects = manifest.testProjects
     .filter((project) => project.name !== project.class)
@@ -197,7 +193,7 @@ function scanHardcodedTopology(root: string, manifest: FixtureManifest): string[
   const problems: string[] = [];
   /** 文件内容按路径/引号字面量匹配；scripts 的值是 shell 文本，按独立词元匹配。 */
   const inspect = (text: string, label: string, tokenMode: boolean) => {
-    for (const pkg of [product, protocol]) {
+    for (const pkg of packages) {
       if (new RegExp(`packages/${escapeRegExp(pkg.directory)}(?=[/'"\x60])`).test(text))
         problems.push(`${label}: package directory ${pkg.directory}`);
       if (text.includes(pkg.name)) problems.push(`${label}: package name ${pkg.name}`);
@@ -374,13 +370,36 @@ cliEvidence(
       const manifest = loadProjectManifest(repositoryRoot);
       context.expect(scanHardcodedTopology(repositoryRoot, manifest)).toEqual([]);
 
-      // 正例控制：在受控临时根中写入写死包名与项目名的脚本、配置与根 scripts，必须被逐项命中。
-      const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
-      if (!product) throw new Error('template has no sdk product package');
-      const protocol = packageByDirectory(
-        manifest,
-        bindingForProduct(manifest, product.directory).protocol,
-      );
+      // 反例覆盖每种角色的全部包：第二个产品/协议包同样不能写死。
+      const probeManifest = structuredClone(manifest) as FixtureManifest & {
+        packages: Array<FixtureManifest['packages'][number]>;
+        bindings: Array<FixtureManifest['bindings'][number]>;
+      };
+      const secondProduct = {
+        directory: 'second-product',
+        name: '@sample/second-product',
+        role: 'product' as const,
+        form: 'web-app' as const,
+        private: true,
+        allowedDirectories: ['src'],
+      };
+      const secondProtocol = {
+        directory: 'second-protocol',
+        name: '@sample/second-protocol',
+        role: 'protocol' as const,
+        protocolKind: 'openapi' as const,
+        private: false,
+        allowedDirectories: ['src', 'testing'],
+      };
+      probeManifest.packages.push(secondProduct, secondProtocol);
+      probeManifest.bindings.push({
+        name: 'second-product-protocol',
+        product: secondProduct.directory,
+        protocol: secondProtocol.directory,
+        platforms: [],
+      });
+      const product = secondProduct;
+      const protocol = secondProtocol;
       const platform = manifest.testProjects.find((project) => project.class === 'platform')!;
       const probe = mkdtempSync(join(tmpdir(), 'template-hardcoded-probe-'));
       roots.push(probe);
@@ -399,7 +418,7 @@ cliEvidence(
           },
         }),
       );
-      const found = scanHardcodedTopology(probe, manifest);
+      const found = scanHardcodedTopology(probe, probeManifest);
       context
         .expect(found)
         .toEqual(
@@ -424,9 +443,13 @@ cliEvidence(
     const repositoryManifest = JSON.parse(
       readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
     ) as FixtureManifest;
+    const protocolInput = repositoryManifest.fingerprints.protocolInputs[0]!;
     const root = createControlledRoot({
       manifest: repositoryManifest,
-      files: { 'scripts/marker.ts': 'export const marker = 1;' },
+      files: {
+        'scripts/marker.ts': 'export const marker = 1;',
+        [protocolInput]: 'initial protocol input',
+      },
       prefix: 'template-digest-cli-',
     });
     try {
@@ -469,7 +492,7 @@ cliEvidence(
         context.expect(changedDigests?.sourceDigest).not.toBe(beforeDigests?.sourceDigest);
 
         writeFileSync(join(root.root, 'scripts/AGENTS.md'), 'changed docs');
-        writeFileSync(join(root.root, 'proto-gen.lock'), 'changed idl');
+        writeFileSync(join(root.root, protocolInput), 'changed protocol input');
         const afterDocs = runGate(root.root);
         const afterDigests = afterDocs.output?.digests as
           { sourceDigest: string; protocolDigest: string } | undefined;

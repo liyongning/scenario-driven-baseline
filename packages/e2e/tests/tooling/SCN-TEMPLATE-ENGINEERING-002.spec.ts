@@ -13,6 +13,8 @@ import {
   repositoryRoot,
 } from './helpers.ts';
 import { writeRepositoryPackages } from './scenario-gate-helpers.ts';
+import { baseManifest } from './project-manifest-fixture.ts';
+import { testPackage } from '../../../../scripts/lib/project-manifest.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const roots: string[] = [];
@@ -25,9 +27,9 @@ test.afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { force: true, recursive: true });
 });
 
-function run(command: string, args: string[], input?: string) {
+function run(command: string, args: string[], input?: string, cwd = repositoryRoot) {
   const result = spawnSync(command, args, {
-    cwd: repositoryRoot,
+    cwd,
     encoding: 'utf8',
     ...(input === undefined ? {} : { input }),
   });
@@ -36,12 +38,13 @@ function run(command: string, args: string[], input?: string) {
 
 function architectureFixture() {
   const root = tempRoot('template-architecture-cli-');
+  const manifest = baseManifest();
   mkdirSync(join(root, 'packages'));
   writeFileSync(join(root, 'README.md'), '# facts\n');
   writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md)\n');
   writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
-  writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  writeRepositoryPackages(root);
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest));
+  writeRepositoryPackages(root, manifest);
   writeTemplateGuideFixture(root);
   return root;
 }
@@ -57,14 +60,17 @@ function runArchitecture(root: string) {
 }
 
 function packageInput() {
+  const manifest = baseManifest();
+  const product = manifest.packages.find((pkg) => pkg.role === 'product')!;
+  const protocol = manifest.packages.find((pkg) => pkg.role === 'protocol')!;
   return {
     sdkManifest: {
-      name: '@daqian/template-sdk',
+      name: product.name,
       version: '0.1.0',
       files: ['dist'],
-      dependencies: { '@daqian/template-protocol': '0.1.0' },
+      dependencies: { [protocol.name]: '0.1.0' },
     },
-    protocolManifest: { name: '@daqian/template-protocol', version: '0.1.0', files: ['dist'] },
+    protocolManifest: { name: protocol.name, version: '0.1.0', files: ['dist'] },
     sdkFiles: ['package/package.json', 'package/dist/index.js'],
     protocolFiles: ['package/package.json', 'package/dist/index.js'],
     record: { sdkVersion: '0.1.0', protocolVersion: '0.1.0' },
@@ -74,9 +80,17 @@ function packageInput() {
 
 function runPackageCli(input: ReturnType<typeof packageInput>) {
   const root = tempRoot('template-package-cli-');
+  const manifest = baseManifest();
+  writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+  writeRepositoryPackages(root, manifest);
   const path = join(root, 'input.json');
   writeFileSync(path, JSON.stringify(input));
-  return run(resolve('node_modules/.bin/tsx'), ['scripts/check-package.ts', '--input', path]);
+  return run(
+    resolve('node_modules/.bin/tsx'),
+    [resolve(repositoryRoot, 'scripts/check-package.ts'), '--input', path],
+    undefined,
+    root,
+  );
 }
 
 const checks = {
@@ -104,18 +118,26 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<
     },
     async ({ checkpoint, expect }) => {
       let result: ReturnType<typeof run>;
+      const testDirectory = testPackage(baseManifest()).directory;
       switch (caseKey) {
         case 'missing-agent-entry': {
           const root = architectureFixture();
-          rmSync(join(root, 'packages/e2e/AGENTS.md'));
+          rmSync(join(root, 'packages', testDirectory, 'AGENTS.md'));
           result = runArchitecture(root);
           break;
         }
         case 'reverse-dependency': {
           const root = architectureFixture();
-          const path = join(root, 'packages/protocol/package.json');
+          const fixtureManifest = JSON.parse(
+            readFileSync(join(root, 'project.manifest.json'), 'utf8'),
+          ) as {
+            packages: Array<{ directory: string; name: string; role: string }>;
+          };
+          const product = fixtureManifest.packages.find((pkg) => pkg.role === 'product')!;
+          const protocol = fixtureManifest.packages.find((pkg) => pkg.role === 'protocol')!;
+          const path = join(root, 'packages', protocol.directory, 'package.json');
           const manifest = JSON.parse(readFileSync(path, 'utf8'));
-          manifest.dependencies = { '@daqian/template-sdk': '0.1.0' };
+          manifest.dependencies = { [product.name]: '0.1.0' };
           writeFileSync(path, JSON.stringify(manifest));
           result = runArchitecture(root);
           break;
@@ -128,7 +150,7 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<
         }
         case 'scenario-directory-escape': {
           const root = architectureFixture();
-          mkdirSync(join(root, 'packages/e2e/outside-scenarios'));
+          mkdirSync(join(root, 'packages', testDirectory, 'outside-scenarios'));
           result = runArchitecture(root);
           break;
         }
@@ -229,10 +251,12 @@ for (const [caseKey, requiredChecks] of Object.entries(checks) as Array<
           expect(result.status).not.toBe(0);
           expect(result.stdout + result.stderr).toMatch(
             {
-              'missing-agent-entry': /missing packages\/e2e\/AGENTS.md/,
+              'missing-agent-entry': new RegExp(`missing packages/${testDirectory}/AGENTS.md`),
               'reverse-dependency': /protocol cannot depend on products or E2E/,
               'shadow-in-production': /test-only path/,
-              'scenario-directory-escape': /unexpected directory packages\/e2e\/outside-scenarios/,
+              'scenario-directory-escape': new RegExp(
+                `unexpected directory packages/${testDirectory}/outside-scenarios`,
+              ),
               'lint-violation': /no-explicit-any|Unexpected any/,
               'type-violation': /Type 'number' is not assignable to type 'string'/,
               'untested-handwritten-file': /Coverage for (?:statements|branches|functions|lines)/,

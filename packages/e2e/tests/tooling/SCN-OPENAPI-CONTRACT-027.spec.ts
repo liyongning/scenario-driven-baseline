@@ -6,7 +6,6 @@ import { spawnSync } from 'node:child_process';
 import { cliEvidence } from './scenario-gate-helpers.ts';
 import { repositoryRoot } from './helpers.ts';
 
-const openapiRoot = join(repositoryRoot, 'packages/openapi');
 const require = createRequire(import.meta.url);
 
 function filesUnder(root: string): string[] {
@@ -33,7 +32,23 @@ cliEvidence(
     'not-in-release-plan',
   ],
   async (context, check) => {
-    const built = spawnSync('pnpm', ['--filter', '@daqian/template-openapi', 'build'], {
+    const manifest = JSON.parse(
+      readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
+    ) as {
+      packages: Array<{
+        directory: string;
+        name: string;
+        role: string;
+        form?: string;
+        protocolKind?: string;
+      }>;
+      bindings: Array<{ product: string; protocol: string }>;
+    };
+    const openapi = manifest.packages.find(
+      (pkg) => pkg.role === 'protocol' && pkg.protocolKind === 'openapi',
+    )!;
+    const openapiRoot = join(repositoryRoot, 'packages', openapi.directory);
+    const built = spawnSync('pnpm', ['--filter', openapi.name, 'build'], {
       cwd: repositoryRoot,
       encoding: 'utf8',
     });
@@ -42,13 +57,6 @@ cliEvidence(
       files: string[];
       exports: Record<string, unknown>;
     };
-    const manifest = JSON.parse(
-      readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
-    ) as {
-      packages: Array<{ directory: string; name: string; role: string; form?: string }>;
-      bindings: Array<{ product: string; protocol: string }>;
-    };
-
     await check('dual-format', () => {
       for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts'])
         context.expect(existsSync(join(openapiRoot, 'dist', file)), file).toBe(true);
@@ -77,25 +85,28 @@ cliEvidence(
 
     await check('consumers-use-dist', () => {
       context
-        .expect(import.meta.resolve('@daqian/template-openapi'))
-        .toContain('/packages/openapi/dist/index.js');
+        .expect(import.meta.resolve(openapi.name))
+        .toContain(`/packages/${openapi.directory}/dist/index.js`);
       const runner = readFileSync(join(openapiRoot, 'testing/browser-runner.ts'), 'utf8');
-      context.expect(runner).toContain("from '@daqian/template-openapi'");
-      context.expect(runner).not.toMatch(/packages\/openapi\/src/);
+      context.expect(runner).toContain(`from '${openapi.name}'`);
+      context.expect(runner).not.toContain(`packages/${openapi.directory}/src`);
     });
 
     await check('not-in-release-plan', () => {
-      const sdk = manifest.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'sdk')!;
-      const web = manifest.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'web-app');
-      const openapi = manifest.packages.find((pkg) => pkg.directory === 'openapi')!;
-      const sdkProtocol = manifest.bindings.find(
-        (binding) => binding.product === sdk.directory,
-      )!.protocol;
-      context.expect(openapi.directory).not.toBe(sdkProtocol);
-      if (web)
-        context
-          .expect(manifest.bindings.find((binding) => binding.product === web.directory)?.protocol)
-          .toBe(openapi.directory);
+      const products = new Map(manifest.packages.map((pkg) => [pkg.directory, pkg]));
+      const sdkBindings = manifest.bindings.filter(
+        (binding) => products.get(binding.product)?.form === 'sdk',
+      );
+      const webBindings = manifest.bindings.filter(
+        (binding) => products.get(binding.product)?.form === 'web-app',
+      );
+      context.expect(webBindings.length).toBeGreaterThan(0);
+      context
+        .expect(webBindings.every((binding) => binding.protocol === openapi.directory))
+        .toBe(true);
+      context
+        .expect(sdkBindings.some((binding) => binding.protocol === openapi.directory))
+        .toBe(false);
     });
   },
   { timeoutMs: 60_000 },

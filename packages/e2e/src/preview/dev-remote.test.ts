@@ -5,6 +5,7 @@ import { once } from 'node:events';
 import { join } from 'node:path';
 import type { ViteDevServer } from 'vite';
 import { afterEach, test, vi } from 'vitest';
+import { baseManifest } from '../../tests/tooling/project-manifest-fixture.ts';
 import { startDevRemote } from './dev-remote.ts';
 
 const servers: Server[] = [];
@@ -148,37 +149,32 @@ test(
 
     const noWebRoot = mkdtempSync(join(tmpdir(), 'dev-remote-no-web-'));
     try {
-      const manifest = JSON.parse(
-        readFileSync(join(process.cwd(), 'project.manifest.json'), 'utf8'),
-      ) as {
-        packages: Array<{ directory: string; form?: string }>;
-        bindings: Array<{ product: string }>;
-      };
-      const webDirectories = new Set(
-        manifest.packages.filter((item) => item.form === 'web-app').map((item) => item.directory),
-      );
-      manifest.packages = manifest.packages.filter((item) => !webDirectories.has(item.directory));
-      manifest.bindings = manifest.bindings.filter((item) => !webDirectories.has(item.product));
-      writeFileSync(join(noWebRoot, 'project.manifest.json'), JSON.stringify(manifest));
+      const manifest = baseManifest();
+      writeFileSync(join(noWebRoot, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+      for (const pkg of manifest.packages) {
+        const directory = join(noWebRoot, 'packages', pkg.directory);
+        mkdirSync(directory, { recursive: true });
+        const dependencies = Object.fromEntries(
+          manifest.bindings
+            .filter((binding) => binding.product === pkg.directory)
+            .map((binding) => manifest.packages.find((item) => item.directory === binding.protocol))
+            .filter((protocol) => protocol !== undefined)
+            .map((protocol) => [protocol.name, 'workspace:*']),
+        );
+        writeFileSync(
+          join(directory, 'package.json'),
+          JSON.stringify({
+            name: pkg.name,
+            private: pkg.private,
+            version: '0.0.0',
+            dependencies,
+          }),
+        );
+      }
       writeFileSync(
         join(noWebRoot, 'web.config.json'),
         readFileSync(join(process.cwd(), 'packages/e2e/host/web.config.json'), 'utf8'),
       );
-      const completeManifest = JSON.parse(
-        readFileSync(join(process.cwd(), 'project.manifest.json'), 'utf8'),
-      ) as {
-        packages: Array<{ directory: string; name: string; private: boolean; form?: string }>;
-      };
-      for (const item of completeManifest.packages.filter(
-        (pkg) => !webDirectories.has(pkg.directory),
-      )) {
-        const directory = join(noWebRoot, 'packages', item.directory);
-        mkdirSync(directory, { recursive: true });
-        writeFileSync(
-          join(directory, 'package.json'),
-          readFileSync(join(process.cwd(), 'packages', item.directory, 'package.json'), 'utf8'),
-        );
-      }
       const neverCreate = vi.fn();
       await context
         .expect(

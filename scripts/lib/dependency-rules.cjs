@@ -101,6 +101,15 @@ function dependencyRules(manifest) {
         dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased-workspace'],
       },
     },
+    ...products.map((product) => ({
+      name: `core-no-platform-or-node:${product.directory}`,
+      severity: 'error',
+      from: {
+        path: `^packages/${escapeRegExp(product.directory)}/${escapeRegExp(sourceRoot(product))}/(runtime|[^/]+/(core|ports))/`,
+        pathNot: TEST_FILE_PATTERN,
+      },
+      to: { dependencyTypes: ['core'] },
+    })),
   ];
   for (const product of products) {
     const productDir = escapeRegExp(product.directory);
@@ -212,15 +221,6 @@ function dependencyRules(manifest) {
       continue;
     }
     rules.push(
-      {
-        name: `core-no-platform-or-node:${product.directory}`,
-        severity: 'error',
-        from: {
-          path: `^packages/${productDir}/${productRoot}/(runtime|[^/]+/(core|ports))/`,
-          pathNot: TEST_FILE_PATTERN,
-        },
-        to: { dependencyTypes: ['core'] },
-      },
       {
         name: `domain-core-no-generated:${product.directory}`,
         severity: 'error',

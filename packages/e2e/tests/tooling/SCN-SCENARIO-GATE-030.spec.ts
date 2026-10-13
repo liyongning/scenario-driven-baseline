@@ -179,7 +179,6 @@ defineCase(
     caseId: 'owner-protocol-cli',
     fixtureCase: 'owner-protocol-cli',
     environment: 'integration',
-    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-SCENARIO-GATE-030',

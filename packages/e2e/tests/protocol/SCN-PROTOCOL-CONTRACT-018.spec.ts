@@ -13,7 +13,7 @@ import {
 } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
 import * as sdk from '@daqian/template-sdk';
 import { discoverDeclaredRoutes } from '@template-test/protocol';
-import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
+import { createShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
@@ -79,7 +79,7 @@ defineCase(
           return pending;
         },
       };
-      const server: RunningShadowServer = await createShadowServer({
+      const server = await createShadowServer({
         routes: discoverDeclaredRoutes([QueryTrade]),
         environmentClass: 'integration',
         scenarios: [
@@ -102,6 +102,8 @@ defineCase(
           deadlineAtMs: Date.now() + (options.timeoutMs ?? 2_000),
           ...(options.cancelInFlight ? { cancellation: source.cancellation } : {}),
         });
+        // 客户端可能因取消、超时或断连先于服务端记录完成；等待记录事件，避免默认并发下观察竞态。
+        await server.waitForRecords(1);
         return { result, records: server.records(), issues: server.verify() };
       } finally {
         await server.close();

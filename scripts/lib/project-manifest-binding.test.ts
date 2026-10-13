@@ -15,6 +15,7 @@ import {
   sdkProduct,
   testPackage,
   validateManifest,
+  type ProjectManifest,
 } from './project-manifest.ts';
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -336,12 +337,12 @@ evidence(
 );
 
 test('manifest readers return registered entries and reject absent entries', () => {
-  const manifest = loadProjectManifest(repositoryRoot);
-  expect(sdkProduct(manifest).directory).toBe('sdk');
-  expect(packageByDirectory(manifest, 'protocol').directory).toBe('protocol');
-  expect(testPackage(manifest).directory).toBe('e2e');
-  expect(bindingForProduct(manifest, 'sdk').name).toBe('sdk-idl-weapp');
-  expect(bindingByName(manifest, 'sdk-idl-weapp').product).toBe('sdk');
+  const manifest = baseManifest() as unknown as ProjectManifest;
+  expect(sdkProduct(manifest).directory).toBe('sample-product');
+  expect(packageByDirectory(manifest, 'sample-protocol').directory).toBe('sample-protocol');
+  expect(testPackage(manifest).directory).toBe('sample-test');
+  expect(bindingForProduct(manifest, 'sample-product').name).toBe('sample-product-protocol');
+  expect(bindingByName(manifest, 'sample-product-protocol').product).toBe('sample-product');
   expect(componentNameExemptions(manifest)).toEqual([]);
   expect(
     componentNameExemptions({
