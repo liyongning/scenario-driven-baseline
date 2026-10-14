@@ -8,6 +8,9 @@ export type NormalizedContractConventions = Readonly<{
   issues: ReadonlyArray<string>;
 }>;
 
+/** 约定模块可登记的单 schema 规范化钩子。 */
+export type SchemaNormalizer = (schema: unknown) => unknown;
+
 function isObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

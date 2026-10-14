@@ -126,7 +126,7 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     const server = await createShadowServer({
-      routes: routesFromOpenApiOperations([getTrade], [getTrade]),
+      routes: routesFromOpenApiOperations([getTrade], [getTrade], { contractCarrier: 'engine' }),
       environmentClass: 'platform',
       scenarios: [
         {
@@ -342,7 +342,9 @@ async function runNetworkErrorCase(
 ) {
   const expectedCount = proxy === 'raw' && fault === 'disconnect' ? 2 : 1;
   const server = await createShadowServer({
-    routes: routesFromOpenApiOperations([createTrade], [createTrade]),
+    routes: routesFromOpenApiOperations([createTrade], [createTrade], {
+      contractCarrier: 'engine',
+    }),
     environmentClass: 'platform',
     scenarios: [
       {

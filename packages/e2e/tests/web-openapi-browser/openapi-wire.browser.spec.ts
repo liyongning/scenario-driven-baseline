@@ -1,8 +1,5 @@
 import type { RestOperation } from '@daqian/template-openapi';
-import * as productGeneratedOperations from '@daqian/template-openapi/generated/operations';
-import * as engineGeneratedOperations from '../../../openapi/testing/engine/generated/operations.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
-import type { ProtocolHost } from '../../src/hosts/protocol-host.ts';
 import { waitForCalls } from '../../src/harness.ts';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { routesFromOpenApiOperations } from '../../../openapi/testing/shadow-routes.ts';
@@ -12,31 +9,33 @@ import {
   runBrowserPlan,
   runBrowserPlanWithCancel,
   useBrowserDriver,
-  type BrowserPlan,
 } from './browser-case-support.ts';
-import { accessIdentity, operatorIdentity, securitySchemes } from './openapi-wire.ts';
+import { accessIdentity, operatorIdentity } from './openapi-wire.ts';
 import { createTradeStep, trade } from './openapi-wire-plan.ts';
-import { withProtocolHost } from './openapi-wire-support.ts';
+import {
+  browserOptions,
+  createOpenApiRunner,
+  engineOperations,
+  productOperations,
+  withProtocolHost,
+} from './openapi-wire-support.ts';
 import {
   assertMatrixObligations,
   matrixCaseCovers,
-  matrixIdentity,
   matrixObligationKeys,
+} from './openapi-obligation-matrix.ts';
+import {
+  matrixIdentity,
   matrixPlan,
   matrixScenario,
   matrixSecuritySchemes,
-} from './openapi-obligation-matrix.ts';
+} from '../../src/preview/openapi-obligation-matrix.ts';
 
 const root = process.cwd();
 const driver = useBrowserDriver();
+const run = createOpenApiRunner(driver);
 const requestIdPattern = '^\\d{8}_\\d{6}_\\d{3}_[a-z]{6}$';
-const engineOperations = Object.fromEntries(
-  Object.values(engineGeneratedOperations).map((operation) => [operation.meta.id, operation]),
-) as Readonly<Record<string, RestOperation>>;
-const productOperations = Object.fromEntries(
-  Object.values(productGeneratedOperations).map((operation) => [operation.meta.id, operation]),
-) as Readonly<Record<string, RestOperation>>;
-const { cancelTrade, createTrade, getTrade, listTrades } = engineGeneratedOperations;
+const { cancelTrade, createTrade, getTrade, listTrades } = engineOperations;
 const inventory = await buildContractInventory(root);
 const matrixOperations = Object.fromEntries(
   inventory.methods
@@ -67,7 +66,7 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     await withProtocolHost(
-      routesFromOpenApiOperations([createTrade], [createTrade]),
+      routesFromOpenApiOperations([createTrade], [createTrade], { contractCarrier: 'engine' }),
       {
         createTrade: {
           expectedRequests: Array.from({ length: 4 }, () => ({ recordOnly: true })),
@@ -150,7 +149,9 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     await withProtocolHost(
-      routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades]),
+      routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades], {
+        contractCarrier: 'engine',
+      }),
       {
         getTrade: {
           expectedRequests: [{ recordOnly: true }],
@@ -211,6 +212,7 @@ defineCase(
       routesFromOpenApiOperations(
         [getTrade, cancelTrade, listTrades],
         [getTrade, cancelTrade, listTrades],
+        { contractCarrier: 'engine' },
       ),
       {
         getTrade: {
@@ -304,7 +306,9 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     await withProtocolHost(
-      routesFromOpenApiOperations([createTrade, getTrade], [createTrade, getTrade]),
+      routesFromOpenApiOperations([createTrade, getTrade], [createTrade, getTrade], {
+        contractCarrier: 'engine',
+      }),
       {
         createTrade: {
           expectedRequests: [{ recordOnly: true }],
@@ -351,7 +355,7 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     await withProtocolHost(
-      routesFromOpenApiOperations([createTrade], [createTrade]),
+      routesFromOpenApiOperations([createTrade], [createTrade], { contractCarrier: 'engine' }),
       {
         createTrade: {
           expectedRequests: Array.from({ length: 2 }, () => ({
@@ -401,7 +405,7 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     await withProtocolHost(
-      routesFromOpenApiOperations([createTrade], [createTrade]),
+      routesFromOpenApiOperations([createTrade], [createTrade], { contractCarrier: 'engine' }),
       {
         createTrade: {
           expectedRequests: Array.from({ length: 3 }, () => ({ recordOnly: true })),
@@ -475,7 +479,6 @@ defineCase(
     const expectedKeys = matrixObligationKeys(inventory, matrixOperations);
     await withProtocolHost(
       routesFromOpenApiOperations(selected, Object.values(productOperations), {
-        contract,
         contractCarrier: 'product',
       }),
       matrixScenario(matrixOperations, contract),
@@ -553,7 +556,7 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     await withProtocolHost(
-      routesFromOpenApiOperations([createTrade], [createTrade]),
+      routesFromOpenApiOperations([createTrade], [createTrade], { contractCarrier: 'engine' }),
       {
         createTrade: {
           expectedRequests: [{ recordOnly: true }],
@@ -588,22 +591,3 @@ defineCase(
   },
   { timeoutMs: 30_000 },
 );
-
-async function run(
-  host: ProtocolHost,
-  plan: BrowserPlan,
-  options: Readonly<Record<string, unknown>> = {},
-) {
-  return driver.runCase({}, ({ page }) =>
-    runBrowserPlan(page, host, plan, { ...browserOptions(host), ...options }),
-  );
-}
-
-function browserOptions(host: ProtocolHost) {
-  return {
-    gatewayBaseUrl: `${host.url.replace(/\/$/, '')}/__shadow`,
-    securitySchemes,
-    identity: accessIdentity,
-    operations: engineOperations,
-  };
-}

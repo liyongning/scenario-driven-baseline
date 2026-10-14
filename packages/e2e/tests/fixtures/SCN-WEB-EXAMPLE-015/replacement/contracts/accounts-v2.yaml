@@ -8,21 +8,21 @@ info:
     url: https://example.invalid/license
 servers:
   - url: https://accounts.example.invalid
+security:
+  - accountToken: []
 tags:
   - name: accounts
     description: Account queries.
 paths:
   /api/v2/accounts/{account_ref}:
+    parameters:
+      - $ref: '#/components/parameters/AccountRef'
+      - $ref: '#/components/parameters/XRequestId'
     get:
       operationId: retrieveAccount
       summary: Retrieve one account
       description: Returns one account through the configured business envelope.
       tags: [accounts]
-      security:
-        - accountToken: []
-      parameters:
-        - $ref: '#/components/parameters/AccountRef'
-        - $ref: '#/components/parameters/XRequestId'
       x-business-codes: [ACCOUNT_NOT_FOUND]
       responses:
         '200':
@@ -97,7 +97,7 @@ components:
           type: integer
         note:
           type: string
-          nullable: true
+          minLength: 1
     EmptyData:
       type: object
       additionalProperties: false

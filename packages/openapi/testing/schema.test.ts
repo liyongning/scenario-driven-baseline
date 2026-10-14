@@ -1,4 +1,5 @@
 import { expect, test, type TestContext } from 'vitest';
+import { createOpenApiAdapter } from './adapter.ts';
 import {
   componentSchemas,
   contract,
@@ -9,12 +10,10 @@ import {
   schemaRequired,
   type OpenApiOperationContract,
 } from './contract';
-import {
-  createResponseValidator,
-  normalizeSchema,
-  validateResponse,
-  type NormalizeHook,
-} from './schema';
+import { createOpenApiContract, type OpenApiBundle } from './contract.ts';
+import { normalizeStandardContractConventions } from './conventions.ts';
+import * as engineConventions from './engine/conventions.ts';
+import { normalizeSchema, validateResponse, type NormalizeHook } from './schema';
 
 type Checkpoint = (name: string, assertion: () => void | Promise<void>) => Promise<void>;
 
@@ -125,20 +124,91 @@ evidence(
         .toEqual([]);
     });
     await checkpoint('hook-extensible', () => {
+      const hookBundle = {
+        info: { title: 'hooked' },
+        paths: {
+          '/hooked': {
+            get: {
+              operationId: 'hookedComponent',
+              security: [],
+              responses: {
+                '200': {
+                  content: {
+                    'application/json': {
+                      schema: { $ref: '#/components/schemas/Envelope' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            Envelope: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['code', 'message', 'data'],
+              properties: {
+                code: { type: 'integer', enum: [0] },
+                message: { type: 'string' },
+                data: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['value'],
+                  properties: { value: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+      } as unknown as OpenApiBundle;
+      const calls: unknown[] = [];
       const hook: NormalizeHook = (schema) => {
-        const value = structuredClone(schema) as Record<string, unknown>;
-        const properties = value.properties as Record<string, Record<string, unknown>>;
-        properties.data!.maximum = 1;
-        return value;
+        calls.push(schema);
+        const value = schema as {
+          properties?: { data?: { properties?: { value?: Record<string, unknown> } } };
+        };
+        if (!value.properties?.data?.properties?.value) return schema;
+        return {
+          ...value,
+          properties: {
+            ...value.properties,
+            data: {
+              ...value.properties.data,
+              properties: {
+                ...value.properties.data.properties,
+                value: { type: ['string', 'null'] },
+              },
+            },
+          },
+        };
       };
-      const validator = createResponseValidator(nullableAndExclusive, [hook]);
+      const product = createOpenApiContract(hookBundle, normalizeStandardContractConventions, [
+        hook,
+      ]);
+      const engine = createOpenApiContract(hookBundle, normalizeStandardContractConventions);
+      const adapter = createOpenApiAdapter({
+        productContract: () => product,
+        engineContract: engine,
+      });
+      const validator = adapter.responseValidator('hookedComponent', {
+        manifest: { contractCarrier: 'product' },
+      })!;
+      context.expect(validator({ code: 0, message: 'ok', data: { value: null } }, 200)).toEqual([]);
+      context.expect(calls).toHaveLength(2);
+      context.expect(calls).toContainEqual({ $ref: '#/$defs/Envelope' });
+      const engineValidator = adapter.responseValidator('hookedComponent', {
+        manifest: { contractCarrier: 'engine' },
+      })!;
       context
-        .expect(validator({ code: 0, message: 'ok', data: 2 }, 200).join('\n'))
-        .toContain('<= 1');
+        .expect(engineValidator({ code: 0, message: 'ok', data: { value: null } }, 200).join('\n'))
+        .toContain('value');
     });
     await checkpoint('example-needs-no-hook', () =>
       context
-        .expect(
+        .expect([
+          'schemaNormalizers' in engineConventions,
           validateResponse(
             operationById('createTrade')!,
             {
@@ -148,8 +218,8 @@ evidence(
             },
             200,
           ),
-        )
-        .toEqual([]),
+        ])
+        .toEqual([false, []]),
     );
   },
 );

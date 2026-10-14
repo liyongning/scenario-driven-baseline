@@ -25,7 +25,8 @@ function isOperation(value: unknown): value is Operation {
   );
 }
 
-async function previewRoutes(root: string) {
+/** 从清单登记的 OpenAPI 协议包发现产品契约路由；预览启动前由调用方使用。 */
+export async function previewRoutes(root: string) {
   const manifest = loadProjectManifest(root);
   const protocol = packagesByRole(manifest, 'protocol').find((pkg) =>
     existsSync(resolve(root, 'packages', pkg.directory, 'testing/shadow-routes.ts')),
@@ -45,18 +46,24 @@ async function previewRoutes(root: string) {
 
 /* v8 ignore start -- 真实启动、信号退出与地址输出由本地预览演练承担。 */
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
-  const datasetName = parsePreviewDatasetArgument(process.argv);
-  const preview = await startLocalPreview({
-    root: process.cwd(),
-    ...(datasetName === undefined ? {} : { datasetName }),
-    routes: await previewRoutes(process.cwd()),
-  });
-  console.log(`本地预览已启动：${preview.url}?token=preview-token&merchant=1001`);
-  const stop = async () => {
-    await preview.close();
-    process.exitCode = 0;
+  const main = async () => {
+    const datasetName = parsePreviewDatasetArgument(process.argv);
+    const preview = await startLocalPreview({
+      root: process.cwd(),
+      ...(datasetName === undefined ? {} : { datasetName }),
+      routes: await previewRoutes(process.cwd()),
+    });
+    console.log(`本地预览已启动：${preview.url}?token=preview-token&merchant=1001`);
+    const stop = async () => {
+      await preview.close();
+      process.exitCode = 0;
+    };
+    process.once('SIGINT', () => void stop());
+    process.once('SIGTERM', () => void stop());
   };
-  process.once('SIGINT', () => void stop());
-  process.once('SIGTERM', () => void stop());
+  void main().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
 /* v8 ignore stop */

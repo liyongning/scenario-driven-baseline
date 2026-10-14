@@ -10,6 +10,30 @@ export type NormalizedContractConventions = Readonly<{
   issues: ReadonlyArray<string>;
 }>;
 
+function normalizeNullableNote(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeNullableNote);
+  const schema = object(value);
+  if (!schema) return value;
+  const properties = object(schema.properties);
+  const note = object(properties?.note);
+  const normalized =
+    note?.type === 'string' && note.minLength === 1
+      ? {
+          ...schema,
+          properties: {
+            ...properties,
+            note: { ...note, type: ['string', 'null'] },
+          },
+        }
+      : schema;
+  return Object.fromEntries(
+    Object.entries(normalized).map(([key, item]) => [key, normalizeNullableNote(item)]),
+  );
+}
+
+/** 修正产品契约中组件字段的已知写法差异；仅用于响应 schema 校验。 */
+export const schemaNormalizers = [normalizeNullableNote] as const;
+
 function object(value: unknown): JsonObject | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as JsonObject)

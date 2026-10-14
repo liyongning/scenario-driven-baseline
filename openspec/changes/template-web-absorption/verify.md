@@ -642,8 +642,7 @@
 
 **规划与输入**
 
-- 起始 HEAD：`c6f8860`；本次按修订后的 Task 14 执行，原 Task 14/15 的示例删除与复刻演练记录已顺延为 Task 15/16。
-- 起始与结束 freshness 均为 `PASS`，digest `3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0`。
+- 初始实施 HEAD：`c6f8860`，freshness `PASS`，digest `3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0`。规划修订二定稿后以 `9942202` 继续，freshness `PASS`，digest `3a9dec29eb49f620a46db1644eb7e399ef94b14fa7f93e71e08039096e1dafa5`；原 Task 14/15 的示例删除与复刻演练记录顺延为 Task 15/16。
 - 未修改 proposal、specs、design、tasks 的语义，只勾选 Task 14 checkbox。
 
 **RED / GREEN**
@@ -656,6 +655,31 @@
 - SCN-OPENAPI-CONTRACT-029 的 `engine-artifacts-fresh` 原先只有 integration engineering 断言，没有登记 `openapi-unit` 证据。现将真实 generated/bundle 比对迁入 `packages/openapi/testing/engine/generated.test.ts` 并由 `openapi-unit` 覆盖，integration 只保留结构事实；定向验证 openapi-unit 2/2、SCN-029 integration 1/1。
 - 第二批复刻发现一并处理：SCN-OPENAPI-CONTRACT-027 改为“引用 OpenAPI 的绑定都属于 web-app，sdk 不引用 OpenAPI”；IDL 浏览器执行器新增可选网关基地址、令牌和请求上下文；`SCN-PROTOCOL-CONTRACT-004/016` 按清单遍历全部协议包；IDL 绑定独占用例按指南随绑定删除，不再在整份 skip 时登记 cover；项目清单样例包名改为不与真实清单冲突的生成名；指南补充共用接口删除顺序、weapp 依赖处理、归档删除 Scenario 的限制和新增绑定接线点。
 - 默认并发稳定性修复使用 Vitest project 隔离：构建、安装、完整 unit 与密集 CLI 子进程用例进入 `integration-heavy` 逐文件串行；`SCN-SCENARIO-GATE-026` 的嵌套 unit 仅在受限副本中显式使用 `TEMPLATE_UNIT_MAX_WORKERS=1`。未减少用例、断言或测试项目，未用扩大等待时间掩盖竞态。
+
+**第 3 轮 xueshan 纵切片修复**
+
+- 规划修订二起点为 `9942202`，freshness 复核为 `PASS`，digest `3a9dec29eb49f620a46db1644eb7e399ef94b14fa7f93e71e08039096e1dafa5`；本轮未修改 proposal、specs、design 或 tasks 语义。
+- OAS-04：`createOpenApiContract` 未声明 `security` 的接口继承顶层安全要求，接口级 `security: []` 保持匿名；path item 与 operation 级 `parameters` 按 `in + name` 合并，operation 级覆盖同名参数。生成器 `meta.security` 的顶层继承由 `scripts/api-contract.boundaries.test.ts` 的反例锁定。
+- OAS-05：矩阵样例、输入、身份与 Shadow 编排的纯派生函数迁到 `packages/e2e/src/preview/openapi-obligation-matrix.ts`，浏览器用例改为复用该模块；`matrix-samples` 按内置规范化后的 schema 生成，不应用产品钩子，并保留 `allOf` 分支中的 `type`、`pattern` 等约束。
+- OAS-06：产品侧约定模块可通过具名 `schemaNormalizers` 登记钩子；适配器按 `contractCarrier` 加载，并在内置规范化之后分别处理响应 schema 根与每个 `$defs` 组件。Fixture 认领也改用带同一组钩子的响应校验器，新增就近单测同时证明无钩子时 `note: null` 失败、有钩子时通过；引擎侧约定模块不导出额外钩子。
+- 路由辅助只接受 `contractCarrier`，缺省 `product`；预览启动器按清单产品契约发现路由，浏览器平台与引擎用例显式传 `engine`。SCN-WEB-EXAMPLE-015 的替换 Fixture 已覆盖顶层 security、path item 参数、`{code, meaning, message}` 数组码表、产品侧组件 schema 钩子和产品契约预览启动前校验。
+- 第 3 轮第 7 项实复现：在隔离副本中只按 Web 白名单删除 Web 示例、保留 `template-example`，场景清单模式 exit 1，共 959 条问题；其中包含 `SCN-WEB-APP-001/template-alignment-fact`、`SCN-WEB-APP-001/alignment-violation-cli`、`SCN-WEB-APP-010/untested-vue-cli`、`SCN-WEB-APP-012/bundle-manifest-cli` 四条 integration missing binding。根因是副本会归档作用域内 active Change，并排除会再次创建副本的 `copyCreatingSpecs`，这些尚未执行的 integration 用例必然缺报告；这是 SCN-008 已按同口径扣除的预期中间态，不是模板缺陷。指南已写明该行为及示例。
+- 指南另补充：示例标记删除的“全仓库”包括 `scripts/` 下带标记的测试片段；产品契约替换前先运行 Prettier；`schemaNormalizers` 只在产品侧约定模块登记且作用于响应 schema 根与 `$defs`；浏览器用例按清单产品契约发现路由，不需要额外传契约对象。
+
+**第 3 轮移除绑定追加修复**
+
+- 追加项 A：移除绑定演练独立复现了 `SCN-WEB-APP-001/010/012` 的 integration missing binding。受控根反例先失败：`copyCreatingSpecs` 中的 `cliEvidence` 用例没有 `environment:` / `ownerId:` 字面量，`expectedMissingBindings` 因而返回空集合；修复后同一反例准确得到两条 expected issue。改动同时让该推导读取 `cliEvidence` owner，并把其固定运行环境识别为 `integration`。
+- 追加项 B：IDL 删除后 `fingerprints.protocolInputs[0]` 可能落入 `sourceRoots`，`SCN-TEMPLATE-ENGINEERING-005/digest-inputs-cli` 不能再用“修改协议输入后源码摘要不变”断言。现已把文档变更与协议输入变更拆成两步，只断言文档不进入源码摘要、协议输入进入协议摘要；目标文件 5/5 通过。
+- 追加项 C：指南更正 `SCN-PROTOCOL-CONTRACT-004/016` 在仅剩 OpenAPI 时仍可保留，`SCN-004` 只退役 `idl-route-source` case；补充 `SCN-001/002/003/005/015` 及 Fixture 的 IDL 独占处理、删除测试项目后的 `requiredIn` 中间态与建 Change 顺序、IDL/weapp 根工程接线和命令删除范围，并修正并不存在的 `node.ts` 描述。[技术架构文档](architecture.md) 的示例正文同步要求也补入「移除模板示例」。
+
+**第 3 轮定向验证**
+
+- `pnpm typecheck`、`pnpm format:check`、`pnpm check:fixtures --change template-web-absorption`、`pnpm check:architecture` 均退出码 0；Fixture 共 73 个 manifest、0 条问题，架构检查 206 个模块、532 条依赖无违规。
+- 新 Fixture 钩子反例、契约继承单测与 schema 正规化单测共 3 个文件、9 个用例通过；矩阵纯函数单测 1 个文件、5 个用例通过，模块覆盖率 100%。
+- SCN-OPENAPI-CONTRACT-001 独立复跑 1/1 通过；副本内 `check:fast` 曾在该用例 30 秒预算下受外部高负载超时，独立复跑 18.58 秒通过，按外部负载下的时败时过登记，不计业务失败或 OI。
+- A/B 最新反例：`removal-expected.spec.ts` 1/1 通过（29ms），`SCN-TEMPLATE-ENGINEERING-005` 5/5 通过（14.49s）。
+- 最新重型副本定向：`SCN-WEB-EXAMPLE-015/product-contract-replacement` 1/1 通过（322.77s），`SCN-WEB-APP-010/untested-vue-cli` 1/1 通过（100.72s），`SCN-TEMPLATE-ENGINEERING-008` 2/2 通过（179.55s）；未运行 weapp 或完整 verify。
+- Task 14 提交前默认并发 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast` 退出码 0：unit 149/149 文件、604/604 用例，普通 integration 92/92 文件、152/152 用例，integration-heavy 14/14 文件、40/40 用例，四项覆盖率均为 100%；构建、typecheck、架构、Fixture、打包、bundle 与 component-tree 均通过，integration-heavy 段耗时 793.52s。
 
 **Verification**
 
@@ -674,6 +698,13 @@
 - 高负载下 integration-heavy 副本用例与 `contract-inventory.derivation.test.ts` 仍可能受外部机器负载影响；`fixtures:refresh` 需要目标 manifest 已存在，缺失时要先写占位文件。
 - web-app 的 integration 行为证据落位尚未在指南中写明；`openspec new change` 可能生成 `openspec/config.yaml`，属于 Change Skill 问题。
 - F5–F8 仍按前述条目登记；IDL 执行器缺少执行选项的问题已由本次可选 `BrowserRunnerOptions` 修复。
+- `TEMPLATE_UNIT_MAX_WORKERS` 未在指南中登记，integration-heavy 也没有面向使用方的降并发开关；高负载下 `SCN-OPENAPI-CONTRACT-001/api-validate-cli` 等近 30 秒预算用例可能时败时过。
+- OpenAPI 执行器遇到多个 `apiKey` 方案二选一（OR）时仍只取首项；本轮只保证继承与匿名语义，不扩展多方案选择。
+- `eslint-plugin-vue` 与 Prettier 对部分 `.vue` 文件的格式规则会产生 warning，模板自带 Vue 文件同样存在。
+- 预览提示仍写死 `?token=preview-token&merchant=1001`，替换产品身份或宿主约定时需要同步调整。
+- 第 3 轮移除绑定演练登记：[repository-copy.ts](packages/e2e/tests/tooling/repository-copy.ts) 的 `copyEnvironment` 会剥离全部 `VITEST*` 变量，调用方设置的 `VITEST_MAX_WORKERS` 在副本内失效；高负载（演练负载 20–48）下重型用例容易时败时过。
+- 第 3 轮移除绑定演练登记：`TEMPLATE_UNIT_MAX_WORKERS` 未写入指南；场景门禁清单模式依赖已有的 unit/integration 报告；`openspec new change` 会额外生成 `openspec/config.yaml`。这些均按已知工具/文档缺口登记，不在本 Change 扩大范围。
+- 第 3 轮移除绑定演练登记：删除唯一 `sdk` 形态产品包后，`manifest.release` 等发布模块应如何退役尚未形成指南步骤。
 
 ## Task 15 示例删除演练
 

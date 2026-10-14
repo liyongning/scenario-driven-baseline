@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { normalizeContractConventions as normalizeProductContractConventions } from '../contracts/conventions.ts';
+import * as productConventions from '../contracts/conventions.ts';
+import * as engineConventions from './engine/conventions.ts';
 import {
   normalizeStandardContractConventions,
   type NormalizedContractConventions,
+  type SchemaNormalizer,
 } from './conventions.ts';
 
 type JsonObject = Record<string, unknown>;
@@ -16,6 +18,7 @@ export type OpenApiContract = Readonly<{
   commonBusinessCodes: ReadonlyArray<string>;
   securitySchemes: Readonly<Record<string, JsonObject>>;
   componentSchemas: Readonly<Record<string, unknown>>;
+  schemaNormalizers: ReadonlyArray<SchemaNormalizer>;
 }>;
 
 export type OpenApiOperationContract = Readonly<{
@@ -34,6 +37,7 @@ export type OpenApiOperationContract = Readonly<{
 
 export type OpenApiBundle = Readonly<{
   info: Readonly<{ title: string }>;
+  security?: ReadonlyArray<Readonly<Record<string, readonly string[]>>>;
   paths: Record<string, JsonObject>;
   components: Readonly<{
     securitySchemes?: Record<string, JsonObject>;
@@ -56,10 +60,25 @@ function requestBody(operation: JsonObject): JsonObject | undefined {
   return object(json?.schema);
 }
 
+function parameters(pathItem: JsonObject, operation: JsonObject): JsonObject[] {
+  const merged = new Map<string, JsonObject>();
+  for (const source of [pathItem.parameters, operation.parameters]) {
+    if (!Array.isArray(source)) continue;
+    for (const item of source) {
+      const parameter = object(item);
+      if (!parameter) continue;
+      const key = `${String(parameter.in)}:${String(parameter.name)}`;
+      merged.set(key, parameter);
+    }
+  }
+  return [...merged.values()];
+}
+
 /** 从 bundle 与约定模块构造运行时契约；该对象不依赖模块位置之外的产品契约。 */
 export function createOpenApiContract(
   bundle: OpenApiBundle,
   normalize: (value: unknown) => NormalizedContractConventions,
+  schemaNormalizers: ReadonlyArray<SchemaNormalizer> = [],
 ): OpenApiContract {
   const normalized = normalize(bundle);
   const componentSchemas = bundle.components.schemas ?? {};
@@ -69,12 +88,7 @@ export function createOpenApiContract(
       const operation = object(value);
       const id = operation?.operationId;
       if (!operation || typeof id !== 'string') return [];
-      const parameters: JsonObject[] = [];
-      if (Array.isArray(operation.parameters))
-        for (const item of operation.parameters) {
-          const parsed = object(item);
-          if (parsed) parameters.push(parsed);
-        }
+      const operationParameters = parameters(pathItem, operation);
       const specific = normalized.operationCodes[id] ?? [];
       const bodySchema = requestBody(operation);
       return [
@@ -84,10 +98,12 @@ export function createOpenApiContract(
           path,
           security: Array.isArray(operation.security)
             ? (operation.security as OpenApiOperationContract['security'])
-            : [],
+            : Array.isArray(bundle.security)
+              ? bundle.security
+              : [],
           codes: [...new Set([...normalized.commonCodes, ...specific])],
           implemented: operation['x-implemented'] !== false,
-          parameters,
+          parameters: operationParameters,
           ...(bodySchema ? { requestBody: bodySchema } : {}),
           responses: Object.fromEntries(
             Object.entries(object(operation.responses) ?? {}).flatMap(([status, response]) => {
@@ -109,7 +125,17 @@ export function createOpenApiContract(
     commonBusinessCodes: normalized.commonCodes,
     securitySchemes,
     componentSchemas,
+    schemaNormalizers,
   };
+}
+
+function schemaNormalizersFrom(module: object): ReadonlyArray<SchemaNormalizer> {
+  const registered = (module as { readonly schemaNormalizers?: unknown }).schemaNormalizers;
+  return Array.isArray(registered)
+    ? registered.filter(
+        (normalizer): normalizer is SchemaNormalizer => typeof normalizer === 'function',
+      )
+    : [];
 }
 
 function readBundle(path: URL): OpenApiBundle {
@@ -120,7 +146,8 @@ function readBundle(path: URL): OpenApiBundle {
 export function productContract(): OpenApiContract {
   return createOpenApiContract(
     readBundle(new URL('./contract.bundle.json', import.meta.url)),
-    normalizeProductContractConventions,
+    productConventions.normalizeContractConventions,
+    schemaNormalizersFrom(productConventions),
   );
 }
 
@@ -128,6 +155,7 @@ export function productContract(): OpenApiContract {
 export const engineContract = createOpenApiContract(
   readBundle(new URL('./engine/contract.bundle.json', import.meta.url)),
   normalizeStandardContractConventions,
+  schemaNormalizersFrom(engineConventions),
 );
 
 export const contract = engineContract.bundle;

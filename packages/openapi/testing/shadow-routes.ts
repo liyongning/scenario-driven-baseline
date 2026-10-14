@@ -1,5 +1,5 @@
 import adapter from './adapter.ts';
-import { engineContract, operationByIdFrom, type OpenApiContract } from './contract.ts';
+import { engineContract, operationByIdFrom, productContract } from './contract.ts';
 
 export type OpenApiOperationSource = Readonly<{
   meta: Readonly<{ id: string; method: string; path: string }>;
@@ -12,7 +12,6 @@ export type ShadowRoute = Readonly<{
 }>;
 
 export type OpenApiRouteOptions = Readonly<{
-  contract?: OpenApiContract;
   contractCarrier?: 'product' | 'engine';
 }>;
 
@@ -22,8 +21,8 @@ export function routesFromOpenApiOperations(
   candidates: ReadonlyArray<OpenApiOperationSource>,
   options: OpenApiRouteOptions = {},
 ): ShadowRoute[] {
-  const contract = options.contract ?? engineContract;
-  const contractCarrier = options.contractCarrier ?? 'engine';
+  const contractCarrier = options.contractCarrier ?? 'product';
+  const contract = contractCarrier === 'engine' ? engineContract : productContract();
   return required.map((operation) => {
     const id = operation.meta.id;
     const discovered = candidates.find((candidate) => candidate.meta.id === id);

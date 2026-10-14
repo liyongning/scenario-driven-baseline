@@ -423,7 +423,9 @@ test('local preview serves Vite, shared proxy, and configured local assets', asy
   const preview = await startLocalPreview({
     root: repositoryRoot,
     datasetName: 'platform-openapi-primary',
-    routes: routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades]),
+    routes: routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades], {
+      contractCarrier: 'engine',
+    }),
     adapterLoader: async () => openApiAdapter,
   });
   try {
@@ -451,7 +453,9 @@ test('local preview accepts an explicit host', async () => {
   const preview = await startLocalPreview({
     root: repositoryRoot,
     datasetName: 'platform-openapi-primary',
-    routes: routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades]),
+    routes: routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades], {
+      contractCarrier: 'engine',
+    }),
     adapterLoader: async () => openApiAdapter,
     host: '127.0.0.1',
   });

@@ -9,12 +9,14 @@ import { productContract } from '../../../openapi/testing/contract.ts';
 import {
   assertMatrixObligations,
   matrixCaseCovers,
-  matrixIdentity,
   matrixObligationKeys,
+} from '../web-openapi-browser/openapi-obligation-matrix.ts';
+import {
+  matrixIdentity,
   matrixPlan,
   matrixScenario,
   matrixSecuritySchemes,
-} from '../web-openapi-browser/openapi-obligation-matrix.ts';
+} from '../../src/preview/openapi-obligation-matrix.ts';
 import { runOpenApiMatrix, type OpenApiMatrixPlan } from '../web-openapi-browser/openapi-matrix.ts';
 import { openApiFixtureRoot } from './openapi-fixture.ts';
 import { cliEvidence } from './scenario-gate-helpers.ts';
@@ -62,7 +64,6 @@ defineCase(
     const expectedKeys = matrixObligationKeys(inventory, matrixOperations);
     const server = await createShadowServer({
       routes: routesFromOpenApiOperations(selected, Object.values(available), {
-        contract,
         contractCarrier: 'product',
       }),
       environmentClass: 'integration',
@@ -239,7 +240,6 @@ cliEvidence(
         plans,
         securitySchemes: matrixSecuritySchemes(contract),
         ...(identity ? { identity } : {}),
-        contract,
         contractCarrier: 'product',
       });
       const resolved = import.meta.resolve('@daqian/template-openapi');

@@ -114,11 +114,21 @@ export function expectedMissingBindings(
     // 示例自身的 spec 随白名单删除、对应 Scenario 也已删除：没有可推导的缺失项。
     if (!existsSync(join(copy.root, spec))) continue;
     const source = readFileSync(join(copy.root, spec), 'utf8');
+    // `cliEvidence('<owner>', ...)` 声明的用例固定运行在 integration，源码里没有 environment / ownerId 字面量。
+    const evidenceOwners = [...source.matchAll(/cliEvidence\(\s*'([^']+)'/g)].map(
+      (match) => match[1]!,
+    );
     const environments = [
-      ...new Set([...source.matchAll(/environment: '([^']+)'/g)].map((match) => match[1]!)),
+      ...new Set([
+        ...(evidenceOwners.length > 0 ? ['integration'] : []),
+        ...[...source.matchAll(/environment: '([^']+)'/g)].map((match) => match[1]!),
+      ]),
     ];
     const owners = [
-      ...new Set([...source.matchAll(/ownerId: '([^']+)'/g)].map((match) => match[1]!)),
+      ...new Set([
+        ...evidenceOwners,
+        ...[...source.matchAll(/ownerId: '([^']+)'/g)].map((match) => match[1]!),
+      ]),
     ];
     for (const ownerId of owners) {
       const scenario = byId.get(ownerId);

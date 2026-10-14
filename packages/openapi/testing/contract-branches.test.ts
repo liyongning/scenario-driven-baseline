@@ -35,9 +35,25 @@ const bundle = vi.hoisted(() => ({
   'x-business-code-table': { OWN: 7 },
 }));
 
+const productConventions = vi.hoisted(() => {
+  const normalizer = (schema: unknown) => schema;
+  return {
+    normalizer,
+    normalizeContractConventions: () => ({
+      codeTable: { OWN: 7 },
+      commonCodes: [],
+      operationCodes: {},
+      issues: [],
+    }),
+    schemaNormalizers: [normalizer, null],
+  };
+});
+
 vi.mock('node:fs', () => ({
   readFileSync: () => JSON.stringify(bundle),
 }));
+
+vi.mock('../contracts/conventions.ts', () => productConventions);
 
 const {
   businessCodeTable,
@@ -46,6 +62,7 @@ const {
   contractName,
   createOpenApiContract,
   operations,
+  productContract,
   responseSchema,
   schemaProperties,
   securitySchemes,
@@ -85,4 +102,8 @@ test('OpenAPI contract construction accepts a conventions module without operati
     () => ({ codeTable: {}, commonCodes: [], operationCodes: {}, issues: [] }),
   );
   expect(contract.operations[0]?.codes).toEqual([]);
+});
+
+test('product contract keeps only registered schema normalizer functions', () => {
+  expect(productContract().schemaNormalizers).toEqual([productConventions.normalizer]);
 });

@@ -381,3 +381,37 @@ paths:
   expect(generated['src/generated/operations.ts']).toContain('security: [] as const');
   expect(generated['src/generated/operations.ts']).toContain('codes: []');
 });
+
+test('operations inherit top-level security while an explicit empty array remains anonymous', async () => {
+  const source = `openapi: 3.0.3
+info:
+  title: Security inheritance
+  version: 1.0.0
+security:
+  - accountToken: []
+paths:
+  /inherits:
+    get:
+      operationId: inherits
+      responses:
+        "200":
+          description: Success
+  /anonymous:
+    get:
+      operationId: anonymous
+      security: []
+      responses:
+        "200":
+          description: Success
+`;
+  const generated = await generateContractFiles(source, {
+    codeTable: {},
+    commonCodes: [],
+    operationCodes: {},
+    issues: [],
+  });
+  expect(generated['src/generated/operations.ts']).toContain(
+    'security: [{"accountToken":[]}] as const',
+  );
+  expect(generated['src/generated/operations.ts']).toContain('security: [] as const');
+});

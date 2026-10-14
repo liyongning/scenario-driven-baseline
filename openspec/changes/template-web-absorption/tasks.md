@@ -499,7 +499,7 @@
   **Commit**
   - `docs(template): document web capabilities, bindings and replacement points`
 
-- [ ] 14. OpenAPI 引擎证据与产品契约分离
+- [x] 14. OpenAPI 引擎证据与产品契约分离
 
   **Files**
   - Create：`packages/openapi/testing/engine/`（引擎测试契约 `trade-v1.yaml`，内容取自当前 `contracts/trade-v1.yaml`；约定模块 `conventions.ts`；由同一生成器产出并提交的 `generated/` 与 bundle）；`packages/openapi/contracts/conventions.ts`（产品侧约定模块，初始与引擎侧相同）；SCN-WEB-EXAMPLE-015 的中立替换契约 Fixture（文件名与接口都不同、码表为 `{code, meaning, message}` 数组、单一身份方案）及其约定模块与同目录单测，列入 WEX-08 白名单；不属于任何白名单的删除辅助模块（从 `example-removal-support.ts` 移出标记剥离、整目录与整文件删除、JSON 键删除），并把 Web 示例的删除清单从 `SCN-TEMPLATE-ENGINEERING-008/example-removal.json` 移到 Web 示例自己的 Fixture（008 在其不存在时只删 `template-example`；修正 008 中 OpenAPI 义务为空的断言，与 EX-10 同口径：Web 示例删除清单不存在时（使用方已替换契约并删除 Web 示例）不断言 OpenAPI 义务为空，存在时按 Web 消费声明中标记外的条目判定（与现有 `outsideMethodsBefore` 的 IDL 逻辑一致），契约名前缀从清单契约读取）；通用删除辅助模块的标记剥离按标记种类参数化（SCN-WEB-EXAMPLE-015 只剥离 `web-example`）；引擎侧 lint 配置 `testing/engine/redocly.yaml`，SCN-OPENAPI-CONTRACT-004 改为通用的"每条调整有理由注释"断言并以引擎侧配置 lint 引擎测试契约；删除任务 6 遗留、不在 lock 中的 `src/generated/declarations.ts`；`contracts/` 若因新增 `conventions.ts` 被项目地图视为模块，补 AGENTS.md 与 CLAUDE.md；`contracts/conventions.test.ts`、`testing/engine/conventions.test.ts`；白名单门禁 `scripts/lib/example-whitelist.ts` 及其单测、`check-architecture-fixture.ts` 与 SCN-TEMPLATE-ENGINEERING-006 中引用 `example-removal.json` 的位置：两份白名单分别从各自示例的删除清单派生（不再以 `isWebExamplePath` 从 008 清单中拆分），任一份删除清单不存在时只跳过那一份；去掉对 `example-removal-support.ts` 的硬编码；新的通用删除辅助模块不出现在任何一份白名单中，指南"移除模板示例"的白名单段同步；指南与各级 AGENTS 只链接 `packages/openapi/contracts/` 目录或引用清单字段，不链接具体契约文件名（产品契约文件名可被替换）；确认 `contracts/*.ts` 进入 typecheck 与 lint 的覆盖范围；`testing/engine/` 的 AGENTS.md 与 CLAUDE.md。

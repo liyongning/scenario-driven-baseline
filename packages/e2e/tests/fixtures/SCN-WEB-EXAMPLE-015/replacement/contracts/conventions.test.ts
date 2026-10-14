@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { normalizeContractConventions } from './conventions.ts';
+import { normalizeContractConventions, schemaNormalizers } from './conventions.ts';
 
 const table = [
   { code: 0, meaning: 'Request succeeded', message: 'OK' },
@@ -100,5 +100,49 @@ test('replacement conventions tolerate missing and malformed containers', () => 
     commonCodes: [],
     operationCodes: { valid: [] },
     issues: ['envelope code enum does not equal x-business-code-table codes'],
+  });
+});
+
+test('replacement schema normalizers make the fixture-only null note valid', () => {
+  const account = {
+    type: 'object',
+    properties: { note: { type: 'string', minLength: 1 } },
+  };
+  expect(schemaNormalizers[0](account)).toEqual({
+    type: 'object',
+    properties: { note: { type: ['string', 'null'], minLength: 1 } },
+  });
+  expect(schemaNormalizers[0]({ type: 'string' })).toEqual({ type: 'string' });
+  expect(
+    schemaNormalizers[0]({
+      allOf: [
+        {
+          properties: {
+            data: {
+              oneOf: [
+                {
+                  type: 'object',
+                  properties: { note: { type: 'string', minLength: 1 } },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }),
+  ).toMatchObject({
+    allOf: [
+      {
+        properties: {
+          data: {
+            oneOf: [
+              {
+                properties: { note: { type: ['string', 'null'], minLength: 1 } },
+              },
+            ],
+          },
+        },
+      },
+    ],
   });
 });

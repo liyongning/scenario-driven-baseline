@@ -9,7 +9,9 @@ import { accessIdentity, securitySchemes } from './openapi-wire.ts';
 
 const root = process.cwd();
 const driver = useBrowserDriver();
-const routes = routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades]);
+const routes = routesFromOpenApiOperations([getTrade, listTrades], [getTrade, listTrades], {
+  contractCarrier: 'engine',
+});
 
 defineCase(
   {

@@ -45,6 +45,8 @@ type Evidence = Readonly<{
   inventoryStatus: number | null;
   inventory: InventoryOutput;
   inventoryLog: string;
+  previewRouteStatus: number | null;
+  previewRouteOutput: string;
   changed: ReadonlyArray<string>;
   removed: ReadonlyArray<string>;
   markerFiles: ReadonlyArray<string>;
@@ -181,6 +183,25 @@ function installReplacementMatrix(copy: RepositoryCopy): void {
   if (refresh.status !== 0) throw new Error(`fixtures:refresh failed: ${refresh.output}`);
 }
 
+function checkPreviewStartup(copy: RepositoryCopy) {
+  return run(copy, 'pnpm', [
+    'exec',
+    'tsx',
+    '--eval',
+    [
+      "import { startLocalPreview } from './packages/e2e/src/preview/preview-launcher.ts';",
+      "import { previewRoutes } from './scripts/preview-local.ts';",
+      '(async () => {',
+      '  const routes = await previewRoutes(process.cwd());',
+      "  if (!routes.some((route) => route.methodName === 'retrieveAccount')) throw new Error('retrieveAccount route is missing');",
+      '  const preview = await startLocalPreview({ root: process.cwd(), routes });',
+      '  try { console.log(JSON.stringify({ datasetName: preview.datasetName, routeCount: routes.length })); }',
+      '  finally { await preview.close(); }',
+      '})();',
+    ].join('\n'),
+  ]);
+}
+
 async function runReplacement(): Promise<Evidence> {
   const fixture = JSON.parse(
     readFileSync(join(ownerFixtureRoot, 'web-example-removal.json'), 'utf8'),
@@ -207,6 +228,7 @@ async function runReplacement(): Promise<Evidence> {
     syncCoverageExclusions(copy.root);
     addReplacementDeclaration(copy);
     installReplacementMatrix(copy);
+    const previewStartup = checkPreviewStartup(copy);
 
     const formatted = run(copy, 'pnpm', ['format']);
     if (formatted.status !== 0) throw new Error(`format failed: ${formatted.output}`);
@@ -236,6 +258,8 @@ async function runReplacement(): Promise<Evidence> {
       inventoryStatus: inventoryRun.status,
       inventory,
       inventoryLog,
+      previewRouteStatus: previewStartup.status,
+      previewRouteOutput: previewStartup.output,
       changed,
       removed: removedExample.removed,
       markerFiles: removedExample.marked,
@@ -260,6 +284,7 @@ afterAll(async () => {
 function assertReplacement(value: Evidence, expect: Expect): void {
   expect(value.validateStatus, value.validateOutput).toBe(0);
   expect(value.statusStatus, value.statusOutput).toBe(0);
+  expect(value.previewRouteStatus, value.previewRouteOutput).toBe(0);
 }
 
 function assertBaseline(value: Evidence, expect: Expect): void {

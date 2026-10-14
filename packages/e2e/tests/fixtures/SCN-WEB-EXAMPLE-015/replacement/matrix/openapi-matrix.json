@@ -1,6 +1,7 @@
 {
   "envelopes": {
-    "$.plans.retrieveAccount.responses[0]": "retrieveAccount"
+    "$.plans.retrieveAccount.responses[0]": "retrieveAccount",
+    "$.plans.retrieveAccount.responses[1]": "retrieveAccount"
   },
   "plans": {
     "retrieveAccount": {
@@ -15,6 +16,11 @@
             "balance": 100,
             "note": null
           }
+        },
+        {
+          "code": 40401,
+          "message": "ACCOUNT_NOT_FOUND",
+          "data": null
         }
       ]
     }

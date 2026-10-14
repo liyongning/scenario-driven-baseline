@@ -1,5 +1,6 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import { type OpenApiOperationContract, responseSchema } from './contract.ts';
+import type { SchemaNormalizer } from './conventions.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -7,7 +8,7 @@ function isObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export type NormalizeHook = (schema: unknown) => unknown;
+export type NormalizeHook = SchemaNormalizer;
 
 function normalizeSchemaDefaults(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeSchemaDefaults);
@@ -73,7 +74,7 @@ function validatorFor(
     $defs: Object.fromEntries(
       Object.entries(operation.componentSchemas).map(([name, value]) => [
         name,
-        normalizeSchema(value),
+        normalizeSchema(value, hooks),
       ]),
     ),
     ...(normalizeSchema(schema, hooks) as JsonObject),

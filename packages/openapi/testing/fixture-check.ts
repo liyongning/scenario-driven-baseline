@@ -1,5 +1,5 @@
 import { engineContract, type OpenApiContract, type OpenApiOperationContract } from './contract.ts';
-import { validateResponse } from './schema.ts';
+import { createResponseValidator } from './schema.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -98,7 +98,9 @@ function claims(manifest: unknown, document: unknown): Claim[] {
 
 function matchesAnyOperation(body: unknown, contract: OpenApiContract): string[] {
   return contract.operations.flatMap((operation) =>
-    validateResponse(operation, body, 200).length === 0 ? [operation.id] : [],
+    createResponseValidator(operation, contract.schemaNormalizers)(body, 200).length === 0
+      ? [operation.id]
+      : [],
   );
 }
 
@@ -116,7 +118,9 @@ function validateClaim(
       : [`${claim.path}: malformed 实际符合接口 ${matches.join(', ')}`];
   }
   if (!operation) return [`${claim.path}: 未知接口 ${claim.contract}`];
-  return validateResponse(operation, body, 200).map((issue) => `${claim.path}: ${issue}`);
+  return createResponseValidator(operation, contract.schemaNormalizers)(body, 200).map(
+    (issue) => `${claim.path}: ${issue}`,
+  );
 }
 
 function parseDocuments(files: Readonly<Record<string, unknown>>) {

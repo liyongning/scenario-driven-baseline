@@ -8,7 +8,6 @@ import {
   type RestOperation,
 } from '@daqian/template-openapi';
 import { routesFromOpenApiOperations } from '../../../openapi/testing/shadow-routes.ts';
-import type { OpenApiContract } from '../../../openapi/testing/contract.ts';
 
 export const securitySchemes = {
   accessToken: { type: 'apiKey', in: 'header', name: 'X-Access-Token' },
@@ -38,9 +37,9 @@ export function clientFor(
 export function routesFor(
   required: ReadonlyArray<RestOperation>,
   candidates: ReadonlyArray<RestOperation> = required,
-  contract?: OpenApiContract,
+  options: Readonly<{ contractCarrier?: 'product' | 'engine' }> = {},
 ) {
   return routesFromOpenApiOperations(required, candidates, {
-    ...(contract ? { contract } : {}),
+    contractCarrier: options.contractCarrier ?? 'engine',
   });
 }

@@ -14,20 +14,31 @@ import {
 } from './contract.ts';
 import { checkOpenApiFixture } from './fixture-check.ts';
 import { derivePresence } from './presence.ts';
-import { validateResponse } from './schema.ts';
+import { createResponseValidator } from './schema.ts';
 
 type JsonObject = Record<string, unknown>;
 
-function contractForGeneratedRoot(generatedRoot: string | undefined): OpenApiContract {
+type OpenApiContractCarriers = Readonly<{
+  productContract: () => OpenApiContract;
+  engineContract: OpenApiContract;
+}>;
+
+function contractForGeneratedRoot(
+  generatedRoot: string | undefined,
+  carriers: OpenApiContractCarriers,
+): OpenApiContract {
   return generatedRoot?.replace(/\\/g, '/').includes('/testing/engine/generated')
-    ? engineContract
-    : productContract();
+    ? carriers.engineContract
+    : carriers.productContract();
 }
 
-function contractForManifest(manifest: unknown): OpenApiContract {
+function contractForManifest(
+  manifest: unknown,
+  carriers: OpenApiContractCarriers,
+): OpenApiContract {
   const carrier = value(manifest)?.contractCarrier;
-  if (carrier === undefined || carrier === 'product') return productContract();
-  if (carrier === 'engine') return engineContract;
+  if (carrier === undefined || carrier === 'product') return carriers.productContract();
+  if (carrier === 'engine') return carriers.engineContract;
   throw new Error(`OpenAPI 适配器不支持 contractCarrier=${String(carrier)}`);
 }
 
@@ -152,47 +163,58 @@ function obligationsFor(
   return obligations;
 }
 
-/** OpenAPI 适配器：门禁只经本接口消费协议能力。 */
-const adapter: ProtocolAdapter = {
-  resolveDeclaration(input) {
-    return resolveOpenApiDeclaration(input, contractForGeneratedRoot(input.generatedRoot));
-  },
-  deriveObligations(input) {
-    if (!input.operation) return { obligations: [], discoveries: [] };
-    const operation =
-      operationFrom(input.operation.meta, engineContract) ??
-      productContract().operations.find((item) => item.id === input.operation!.methodName);
-    if (!operation) {
-      input.issues.push(`OpenAPI 契约中不存在接口 ${input.operation.methodName}`);
-      return { obligations: [], discoveries: [] };
-    }
-    if (!operation.implemented)
-      console.warn(
-        `OpenAPI 接口 ${operation.id} 标记为未实现；开发代理连接真实服务端时会返回未实现错误`,
+/** 使用指定契约载体构造适配器；默认双载体仅供 testing 内部与就近单测使用。 */
+export function createOpenApiAdapter(carriers: OpenApiContractCarriers): ProtocolAdapter {
+  return {
+    resolveDeclaration(input) {
+      return resolveOpenApiDeclaration(
+        input,
+        contractForGeneratedRoot(input.generatedRoot, carriers),
       );
-    validateRequestFields(
-      operation,
-      input.operation.requestFields,
-      input.operation.position,
-      input.issues,
-    );
-    return { obligations: obligationsFor(operation, input), discoveries: [] };
-  },
-  responseValidator(value, options) {
-    const operation =
-      directOperation(value) ?? operationFrom(value, contractForManifest(options?.manifest));
-    return operation ? (body, status) => validateResponse(operation, body, status) : undefined;
-  },
-  checkFixture(manifest, files) {
-    try {
-      return checkOpenApiFixture(manifest, files, contractForManifest(manifest));
-    } catch (error) {
-      return [error instanceof Error ? error.message : String(error)];
-    }
-  },
-  scanCalls(input) {
-    return scanOpenApiCalls(input);
-  },
-};
+    },
+    deriveObligations(input) {
+      if (!input.operation) return { obligations: [], discoveries: [] };
+      const operation =
+        operationFrom(input.operation.meta, carriers.engineContract) ??
+        carriers
+          .productContract()
+          .operations.find((item) => item.id === input.operation!.methodName);
+      if (!operation) {
+        input.issues.push(`OpenAPI 契约中不存在接口 ${input.operation.methodName}`);
+        return { obligations: [], discoveries: [] };
+      }
+      if (!operation.implemented)
+        console.warn(
+          `OpenAPI 接口 ${operation.id} 标记为未实现；开发代理连接真实服务端时会返回未实现错误`,
+        );
+      validateRequestFields(
+        operation,
+        input.operation.requestFields,
+        input.operation.position,
+        input.issues,
+      );
+      return { obligations: obligationsFor(operation, input), discoveries: [] };
+    },
+    responseValidator(value, options) {
+      const direct = directOperation(value);
+      if (direct) return createResponseValidator(direct);
+      const contract = contractForManifest(options?.manifest, carriers);
+      const operation = operationFrom(value, contract);
+      return operation ? createResponseValidator(operation, contract.schemaNormalizers) : undefined;
+    },
+    checkFixture(manifest, files) {
+      try {
+        return checkOpenApiFixture(manifest, files, contractForManifest(manifest, carriers));
+      } catch (error) {
+        return [error instanceof Error ? error.message : String(error)];
+      }
+    },
+    scanCalls(input) {
+      return scanOpenApiCalls(input);
+    },
+  };
+}
+
+const adapter = createOpenApiAdapter({ productContract, engineContract });
 
 export default adapter;

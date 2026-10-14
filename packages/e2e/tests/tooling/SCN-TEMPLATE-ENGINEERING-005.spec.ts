@@ -499,12 +499,19 @@ cliEvidence(
           { sourceDigest: string; protocolDigest: string } | undefined;
         context.expect(changedDigests?.sourceDigest).not.toBe(beforeDigests?.sourceDigest);
 
+        // 文档变更不进入源码摘要；协议输入可能同时位于某个源码目录内（例如契约文件），
+        // 因此协议输入的变更只断言协议摘要变化，不再断言源码摘要保持不变。
         writeFileSync(join(root.root, 'scripts/AGENTS.md'), 'changed docs');
-        writeFileSync(join(root.root, protocolInput), 'changed protocol input');
         const afterDocs = runGate(root.root);
-        const afterDigests = afterDocs.output?.digests as
+        const afterDocsDigests = afterDocs.output?.digests as
           { sourceDigest: string; protocolDigest: string } | undefined;
-        context.expect(afterDigests?.sourceDigest).toBe(changedDigests?.sourceDigest);
+        context.expect(afterDocsDigests?.sourceDigest).toBe(changedDigests?.sourceDigest);
+        context.expect(afterDocsDigests?.protocolDigest).toBe(changedDigests?.protocolDigest);
+
+        writeFileSync(join(root.root, protocolInput), 'changed protocol input');
+        const afterProtocol = runGate(root.root);
+        const afterDigests = afterProtocol.output?.digests as
+          { sourceDigest: string; protocolDigest: string } | undefined;
         context.expect(afterDigests?.protocolDigest).not.toBe(changedDigests?.protocolDigest);
       });
     } finally {

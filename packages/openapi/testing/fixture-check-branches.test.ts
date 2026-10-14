@@ -1,4 +1,6 @@
 import { expect, test } from 'vitest';
+import { createOpenApiContract, type OpenApiBundle } from './contract.ts';
+import { normalizeStandardContractConventions } from './conventions.ts';
 import { checkOpenApiFixture } from './fixture-check.ts';
 
 const valid = {
@@ -77,4 +79,68 @@ test('Fixture checker accepts manifest malformed claims and rejects unknown cont
       json({ body: valid }),
     ).join('\n'),
   ).toContain('未知接口 unknownOperation');
+});
+
+test('Fixture checker applies the selected contract schema normalizers', () => {
+  const bundle = {
+    info: { title: 'hooked-fixture' },
+    paths: {
+      '/items': {
+        get: {
+          operationId: 'readItem',
+          responses: {
+            '200': {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    required: ['code', 'message', 'data'],
+                    properties: {
+                      code: { type: 'integer' },
+                      message: { type: 'string' },
+                      data: {
+                        type: 'object',
+                        required: ['note'],
+                        properties: { note: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: { schemas: {} },
+  } as unknown as OpenApiBundle;
+  const withoutHook = createOpenApiContract(bundle, normalizeStandardContractConventions);
+  const withHook = createOpenApiContract(bundle, normalizeStandardContractConventions, [
+    (schema: unknown) => {
+      const value = schema as {
+        properties?: { data?: { properties?: { note?: Record<string, unknown> } } };
+      };
+      const note = value.properties?.data?.properties?.note;
+      if (!note || note.type !== 'string') return schema;
+      return {
+        ...value,
+        properties: {
+          ...value.properties,
+          data: {
+            ...value.properties?.data,
+            properties: {
+              ...value.properties?.data?.properties,
+              note: { ...note, type: ['string', 'null'] },
+            },
+          },
+        },
+      };
+    },
+  ]);
+  const files = json({ code: 0, message: 'ok', data: { note: null } });
+
+  expect(checkOpenApiFixture({ contract: 'readItem' }, files, withoutHook).join('\n')).toContain(
+    'note',
+  );
+  expect(checkOpenApiFixture({ contract: 'readItem' }, files, withHook)).toEqual([]);
 });
