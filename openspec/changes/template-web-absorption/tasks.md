@@ -539,7 +539,7 @@
   - `refactor(template): separate OpenAPI engine evidence from the replaceable product contract`
   - 第 3 轮演练后的补充：`fix(template): make the OpenAPI engine accept replaced product contracts`
 
-- [ ] 15. 示例删除验证
+- [x] 15. 示例删除验证
 
   **Files**
   - Modify：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 及 Fixture（同时删除 template-example 与 web-example，副本内 `check:fast` 与 `check:scenarios --inventory`，核对两个产品包依赖在副本内）。

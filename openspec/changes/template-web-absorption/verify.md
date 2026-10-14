@@ -732,6 +732,12 @@
 
 **Verification**
 
+- 在 `9e9eab5` 上以 `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task15-20261015T003000Z pnpm exec vitest run --project integration-heavy packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 执行交付状态复核：退出码 0，1/1 文件、2/2 用例通过，耗时 162.02s。该用例已在副本中同时删除 `template-example` 与 `web-example`。
+- 副本内 `pnpm check:fast` 退出码 0：unit 131/131 文件、527/527 用例，普通 integration 76/76 文件、125/125 用例，integration-heavy 8/8 文件、28/28 用例；所有确定性门禁均通过。
+- 副本内 `pnpm check:scenarios --inventory` 得到 32 条问题，逐条等于清单 platform 项目和 `TEMPLATE_COPY=1` 排除的会创建副本用例所对应的缺失绑定，没有指向已删除示例的悬空 Scenario、FLOW、Fixture、预览数据集或用例绑定。反例探针删除一条共享 Scenario 绑定后，问题集合恰好多出该条并保持非零退出。
+- `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task15-affected-20261015T003000Z pnpm test:affected` 退出码 0：工作区相对基线没有修改文件，选择 0 个测试步骤；本任务没有新增代码或 Fixture 语义，008 与 Web 删除清单已随 `de25fbe` 的引擎/产品契约拆分交付，本轮补齐的是实际删除态验证证据。
+- Task 15 的 checkbox 已勾选。Task 16 的无上下文 Agent 完整示例删除演练与最终 `pnpm verify` 仍按原排期执行。
+
 - `pnpm exec vitest run --config packages/e2e/vitest.config.unit.ts scripts/check-architecture.test.ts`：退出码 0，1/1 文件、16/16 用例通过。
 - `pnpm check:architecture`：退出码 0，196 个模块、495 条依赖无违规，白名单 issues 为空。
 - `pnpm format:check`、`pnpm typecheck`、`pnpm lint`：退出码 0；lint 仅保留既有 Vue warnings。
