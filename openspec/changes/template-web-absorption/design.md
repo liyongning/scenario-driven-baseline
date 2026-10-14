@@ -337,7 +337,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 
 **响应校验与 Fixture 认领**（OpenAPI 适配器）：
 
-- **规范化钩子**：Ajv 校验前把 OAS 3.0 的 `nullable` 转为 2020 写法，把布尔形式的 `exclusive*` 换算为数值形式（来源 xueshan `contract-schema.ts`）。钩子作为协议包配置可扩展，用于契约存在已知缺陷时的规范化，示例契约本身不需要它。
+- **规范化钩子**：Ajv 校验前把 OAS 3.0 的 `nullable` 转为 2020 写法，把布尔形式的 `exclusive*` 换算为数值形式（来源 xueshan `contract-schema.ts`）。钩子由协议约定模块登记：约定模块可选具名导出 `schemaNormalizers`，适配器按契约载体加载对应约定模块的钩子，在内置规范化之后执行，只作用于响应 schema 校验；使用方登记钩子只改写产品侧约定模块，不改 `testing/` 引擎代码；引擎侧约定模块不导出钩子，引擎测试契约不需要它。钩子对响应 schema 根与其引用的每个组件 schema 分别调用（契约缺陷多在组件 schema 中）。`nullable: true` 旁没有同级 `type` 的写法在 OAS 3.0.3 下不生效，且被 `api:validate` 基线（redocly `struct`）拒绝，引擎不把它当作标准写法支持，指南基线不变；使用方遇到时修正契约，或写明理由调整根 `redocly.yaml` 并登记钩子。引擎按 OAS 3.0 支持的继承规则：接口未声明 `security` 时继承顶层，path item 级 `parameters` 与 operation 级合并。运行时契约（`testing/contract.ts` 的 `createOpenApiContract`）承担这两条继承规则，义务派生与义务矩阵从它取得路由、参数与身份。面向使用方的路由辅助（`discoverOpenApiRoutes`、`routesFromOpenApiOperations`）的选项中只接受契约载体、缺省 `product`，契约由载体推导，不另传契约对象；以引擎契约为载体的调用方显式传 `engine`。曾考虑的另两种做法：只把规格表述改为"函数参数级扩展"（使用方遇到契约缺陷仍要改引擎代码，违背 OAS-01 的替换承诺）；在项目清单 `packages[]` 增加协议包配置字段（要改清单 schema、加载器与门禁，范围最大）。用户 2026-10-14 选择由约定模块登记（与"契约与协议约定是替换点"的定位一致）。
 - **严格同形**：Shadow 响应与 Fixture 中的信封必须与契约严格同形，契约之外的字段一律失败，不提供"只放过多出字段"的宽松认领（用户决定）。服务端新增字段时，先更新契约，再写测试数据；产品需要使用某个新字段时，同样必须先进入契约。
 - **信封认领**：Fixture 文件中每个形似信封的对象（`code` 为数字且有 `message` 或 `data`）必须被认领，否则失败：
   - `envelopes`：按路径逐个登记所属接口；

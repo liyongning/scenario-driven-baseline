@@ -4,7 +4,7 @@
 
 OpenAPI 协议包的契约文件与 lock MUST 登记在该协议包的清单条目 `packages[].contract: { file, lock }` 中，并 SHALL 写入 `fingerprints.protocolInputs`。模板中 OpenAPI 协议包为 `packages/openapi`（`@daqian/template-openapi`，`protocolKind: openapi`），产品契约、lock 与协议约定模块（`conventions.ts`）放在该包的 `contracts/` 下（模板初始的产品契约为 `packages/openapi/contracts/trade-v1.yaml`，内容与 OAS-08 的引擎测试契约相同），其 `allowedDirectories` 含 `contracts`。产品契约、lock、约定模块与 `redocly.yaml` 是替换点：使用方把产品契约换成结构与约定都不同的契约时，只需替换 `contracts/` 下的文件、改写约定模块（必要时在 `redocly.yaml` 写明理由后调整规则）、运行 `api:sync`，并更新清单中该契约的 `packages[].contract` 与 `fingerprints.protocolInputs` 路径、产品消费接口声明、OpenAPI 协议矩阵 Fixture 的键与 Web 应用本地预览的默认数据集（`packages/e2e/host/web.config.json` 的 `defaultDataset`）；引擎测试契约目录、本能力的引擎用例、`scripts/` 门禁代码与门禁配置 MUST NOT 需要修改。Web 示例依赖模板初始产品契约的生成常量，因此替换产品契约 SHALL 在同一次提交中删除 Web 示例（见 WEX-08，是"第一个 Scenario 通过完整门禁后再删示例"的例外）；`defaultDataset` 的模板初始值指向引擎载体的平台数据集，替换产品契约时 SHALL 改指使用方自己的产品侧数据集；不改指时 `preview:local` 启动失败并报出数据集中产品契约不存在的 operationId（预览路由取自产品契约），门禁不对此做检查，由指南写明这一步；这一可替换性的回归证据由 WEX-09 承担。门禁与同步命令 MUST 只从清单读取契约与 lock 路径，不在脚本中写死。根 `package.json` SHALL 提供 `api:validate`、`api:sync`、`api:status` 三个命令：
 
-- **`api:validate`**：`redocly lint` 无 error（通用基线）；再经契约同目录的**协议约定模块**做约定自洽检查。约定模块 SHALL 把契约中的业务码约定规范化为固定输出：码表（码名 → 码值）、通用码列表与各接口码列表（元素都是码表中的码名）、自洽问题列表；契约中没有码名时（例如码表为 `{code, meaning, message}` 数组），码名由约定模块决定（例如 `CODE_40001`），生成物、`meta.codes`、`OperationCodes<Id>` 与 `business-code#<码>` 义务 ID 只使用这些码名。约定模块 SHALL 具名导出 `normalizeContractConventions(document)`：入参为 bundle 后的契约对象，返回 `{ codeTable: Record<码名, 码值>, commonCodes: 码名[], operationCodes: Record<operationId, 码名[]>, issues: string[] }`。两个约定模块（产品侧 `contracts/conventions.ts`、引擎侧 `testing/engine/conventions.ts`）是手写代码，各自的单测与模块同目录（`contracts/conventions.test.ts`、`testing/engine/conventions.test.ts`），由 `openapi-unit` 收集并计入手写代码覆盖率（`packages/openapi/contracts` 登记在 `fingerprints.sourceRoots`），使用方改写产品侧约定模块时连同其同目录单测一起改写；两个模块并 SHALL 登记在 `fingerprints.protocolInputs`（变化时验收报告的协议摘要过期并触发全量）；`api:validate`、生成器（OAS-02）与 OpenAPI 适配器（OAS-05、OAS-06）MUST 只经约定模块读取业务码约定，`scripts/` 门禁代码与适配器中 MUST NOT 直接读取 `x-business-code-table` 等约定扩展。模板默认约定：信封 `code` 的枚举 MUST 等于 `x-business-code-table` 登记的码集合；顶层 `x-common-business-codes` 与各接口的 `x-business-codes` MUST 都是 `x-business-code-table` 的子集。任一不满足时非零退出，并指出不一致的码与位置。
+- **`api:validate`**：`redocly lint` 无 error（通用基线）；再经契约同目录的**协议约定模块**做约定自洽检查。约定模块 SHALL 把契约中的业务码约定规范化为固定输出：码表（码名 → 码值）、通用码列表与各接口码列表（元素都是码表中的码名）、自洽问题列表；契约中没有码名时（例如码表为 `{code, meaning, message}` 数组），码名由约定模块决定（例如 `CODE_40001`），生成物、`meta.codes`、`OperationCodes<Id>` 与 `business-code#<码>` 义务 ID 只使用这些码名。约定模块 SHALL 具名导出 `normalizeContractConventions(document)`：入参为 bundle 后的契约对象，返回 `{ codeTable: Record<码名, 码值>, commonCodes: 码名[], operationCodes: Record<operationId, 码名[]>, issues: string[] }`；约定模块另 MAY 具名导出响应校验用的规范化钩子 `schemaNormalizers`（见 OAS-06）。两个约定模块（产品侧 `contracts/conventions.ts`、引擎侧 `testing/engine/conventions.ts`）是手写代码，各自的单测与模块同目录（`contracts/conventions.test.ts`、`testing/engine/conventions.test.ts`），由 `openapi-unit` 收集并计入手写代码覆盖率（`packages/openapi/contracts` 登记在 `fingerprints.sourceRoots`），使用方改写产品侧约定模块时连同其同目录单测一起改写；两个模块并 SHALL 登记在 `fingerprints.protocolInputs`（变化时验收报告的协议摘要过期并触发全量）；`api:validate`、生成器（OAS-02）与 OpenAPI 适配器（OAS-05、OAS-06）MUST 只经约定模块读取业务码约定，`scripts/` 门禁代码与适配器中 MUST NOT 直接读取 `x-business-code-table` 等约定扩展。模板默认约定：信封 `code` 的枚举 MUST 等于 `x-business-code-table` 登记的码集合；顶层 `x-common-business-codes` 与各接口的 `x-business-codes` MUST 都是 `x-business-code-table` 的子集。任一不满足时非零退出，并指出不一致的码与位置。
 - **`api:sync <契约来源>`**：契约来源（本地路径，或仓库、分支、commit 信息）MUST 由命令参数传入并原样写进 lock，脚本中 MUST NOT 写死任何来源；未传来源时非零退出。模板初始产品契约的来源记为"本仓库"。同步 SHALL 重新生成全部生成物（见 OAS-02），并把契约版本、契约 sha256，以及全部生成物的路径与 sha256 写进 lock。
 - **`api:status`**：lock 中的契约版本与 sha256 MUST 与当前契约一致；lock 中登记的生成物路径集合 MUST 与重新生成结果的路径集合完全相同（不得漏登，例如漏登 `codes.ts`；也不得多登），每个生成物的 sha256 MUST 与重新生成结果逐一一致。任一不一致时非零退出，并指出不一致的项。
 - `redocly.yaml` SHALL 只保留有理由的规则调整，每条调整 MUST 带说明理由的注释（例如"HTTP 恒 200"约定下关闭 `operation-4xx-response`）；`api:validate` 对产品契约同样要求 lint 零告警、零 error。根 `redocly.yaml` 属于协议约定替换点（只作用于产品契约），不属于门禁配置，使用方可在写明理由后调整规则。引擎测试契约 SHALL 使用固定的引擎侧配置 `packages/openapi/testing/engine/redocly.yaml`（只含有理由的调整，模板中与根配置的初始内容相同），在该配置下 MUST 零告警、零 error，不得为容纳契约缺陷而降级规则；使用方调整根 `redocly.yaml` 不影响引擎证据。
@@ -101,7 +101,7 @@ OpenAPI 协议包中产品契约的生成物 MUST 统一放在协议包 `src/gen
 | `operations.ts` | 每个接口一个精简描述常量 `{ meta: { id, method, path, security, codes, implemented } }`；MUST NOT 含描述文字、示例与 `x-fixture` |
 | `codes.ts` | `businessCodeTable`、`BusinessCode` 类型与 `OperationCodes<Id>` 类型 |
 
-`meta.codes` SHALL 等于约定模块给出的该接口码与通用码的并集（模板默认约定下即 `x-business-codes` 与 `x-common-business-codes` 的并集）；`meta.implemented` SHALL 取接口的 `x-implemented`（缺省为 `true`）；`meta.security` SHALL 保留契约中该接口的安全要求（`security: []` 表示匿名）。
+`meta.codes` SHALL 等于约定模块给出的该接口码与通用码的并集（模板默认约定下即 `x-business-codes` 与 `x-common-business-codes` 的并集）；`meta.implemented` SHALL 取接口的 `x-implemented`（缺省为 `true`）；`meta.security` SHALL 保留契约中该接口生效的安全要求：接口未声明 `security` 时继承顶层 `security`，接口级 `security: []` 覆盖为匿名（空数组）。
 
 `codes.ts` 与 `meta.codes` SHALL 取自约定模块的规范化输出（见 OAS-01）。引擎测试契约（OAS-08）的生成物与 bundle 由同一生成器产出，放在 `testing/engine/` 下，不进入 `src/generated/`。
 
@@ -155,7 +155,7 @@ OpenAPI 协议包 SHALL 提供 REST 执行器，调用形式为 `client.request(
 - **结果**：MUST 为判别联合：`success`（`data`）、`business-failure`（`code`、`message`、`data`）、`transport-failure`（`reason` 取 `HTTP_STATUS`、`INVALID_ENVELOPE`、`NETWORK_ERROR`、`TIMEOUT`、`CANCELLED`、`CODEC_ERROR`、`EMPTY_ACCESS_TOKEN`、`HOST_CONTEXT_ERROR` 之一）。执行器 MUST NOT 以抛异常代替上述结果。
 - **信封约定**：作为协议包配置，默认值为"HTTP 状态 200 且 `code === 0` 表示成功，信封为 `{ code, message, data }`"，项目 SHALL 能修改该配置，执行器中 MUST NOT 写死该约定。按默认约定：HTTP 状态非 200 得到 `HTTP_STATUS`；响应体不符合信封形状得到 `INVALID_ENVELOPE`；信封 `code` 非 0 得到 `business-failure`。
 - **路径参数**：路径中的每个 `{x}` MUST 以 `encodeURIComponent` 编码后替换；缺少任一路径参数时 MUST 得到 `CODEC_ERROR` 且不发出请求。路径参数的类型 SHALL 从生成类型推导。
-- **身份头**：头名 MUST 按契约 `components.securitySchemes`（`apiKey`，`in: header`）映射，执行器中 MUST NOT 写死头名；接口 `security: []` 时 MUST NOT 发送任何身份头；所需 token 缺失或为空时 MUST 得到 `EMPTY_ACCESS_TOKEN` 且不发出请求；宿主上下文提供的身份与接口要求的方案不匹配时 MUST 得到 `HOST_CONTEXT_ERROR` 且不发出请求。
+- **身份头**：接口的安全要求按 `meta.security`（OAS-02，含顶层继承）取；头名 MUST 按契约 `components.securitySchemes`（`apiKey`，`in: header`）映射，执行器中 MUST NOT 写死头名；接口 `security: []` 时 MUST NOT 发送任何身份头；所需 token 缺失或为空时 MUST 得到 `EMPTY_ACCESS_TOKEN` 且不发出请求；宿主上下文提供的身份与接口要求的方案不匹配时 MUST 得到 `HOST_CONTEXT_ERROR` 且不发出请求。
 - **HTTP 方法**：MUST 按描述常量中的方法发送，支持契约中实际出现的方法，不限制为 GET/POST/PUT。
 - **X-Request-Id**：MUST 遵守 PC-05 中头名、格式、生成规则与"不可覆盖"的要求：由本包 `transport/` 内的标准生成器生成，每次请求一个新值，公共选项与公共导出中不存在覆盖或注入请求 ID 的途径，生成器的时钟与随机源只能经内部参数注入供单测使用。OpenAPI 没有 BaseReq，PC-05 中"头与 `BaseReq.requestId` 相等"的要求不适用于本包。本包与 IDL 包各有一份生成器实现，SHALL 由同一组格式 Scenario（PC-05 的 SCN-PROTOCOL-CONTRACT-009）约束。
 - **未知字段**：成功响应中契约之外的字段 MUST 在运行时忽略，不导致失败；这与测试数据的严格同形（OAS-06）不矛盾。
@@ -324,6 +324,8 @@ OpenAPI 协议包 SHALL 提供 REST 执行器，调用形式为 `client.request(
 
 OpenAPI 协议包 MUST 在 `testing/adapter.ts` 导出协议适配器，实现 PC-07 定义的协议适配器接口的五个方法；门禁按清单 `packages[].protocolKind: 'openapi'` 定位并加载它。适配器位于 `testing/`，MUST NOT 进入协议包生产产物。
 
+**运行时契约的继承规则**：OpenAPI 适配器与 Shadow 使用的运行时契约（`packages/openapi/testing/contract.ts` 的 `createOpenApiContract`）SHALL 按 OAS 3.0 规则构造每个接口：接口未声明 `security` 时继承顶层 `security`，接口级 `security: []` 为匿名；参数合并 path item 级与 operation 级 `parameters`（同名且同 `in` 时以 operation 级为准）。义务派生（OAS-05 的 `route`、`identity`）与义务矩阵的请求输入和身份都从运行时契约取得，因此同样遵守这两条规则（见 SCN-OPENAPI-CONTRACT-030）。
+
 | 方法 | OpenAPI 实现 |
 |---|---|
 | `resolveDeclaration(element)` | 把消费接口声明元素解析为 `{ key, prefix, meta }`：元素的 `method` MUST 是 `operations.ts` 中生成的描述常量，`prefix` 取契约名（模板初始为 `trade.v1`）；非法元素 MUST 报错并指出元素 |
@@ -378,6 +380,28 @@ OpenAPI 协议包 MUST 在 `testing/adapter.ts` 导出协议适配器，实现 P
 }
 ```
 
+#### Scenario: SCN-OPENAPI-CONTRACT-030 运行时契约按 OAS 3.0 继承顶层安全要求并合并 path item 级参数
+- **WHEN** 在单测中以一份临时契约 bundle 经 `createOpenApiContract` 构造运行时契约：顶层 `security` 引用一个 `apiKey`（`in: header`）方案；接口甲不声明 `security`、路径参数 `x` 只在 path item 级 `parameters` 中定义；接口乙声明 `security: []`。对甲、乙派生协议义务（openapi-unit），并按义务矩阵的方式（`matrixInput`、`matrixIdentity`，test-tools-unit）从运行时契约派生请求输入与身份；在 integration 中为甲手工构造 `ShadowRoute`（不经面向使用方的路由辅助），以派生出的输入与身份经公共客户端与真实 `fetch` 调用甲
+- **THEN** 甲的运行时契约安全要求等于顶层安全要求、参数含 path item 级的 `x`，乙的安全要求为空；甲派生出 `identity` 的 `header:<方案>` 义务与 `route#path.x` 义务，乙派生出匿名 `identity`；矩阵派生的甲的输入含路径参数 `x`、身份取该方案；integration 中 Shadow 在甲上收到该方案的头名与 token，请求命中路由，执行器不得到 `CODEC_ERROR` 或 `EMPTY_ACCESS_TOKEN`。
+
+```json verification
+{
+  "formatVersion": 2,
+  "checkpoints": {
+    "top-level-security-inherited": "未声明 security 的接口在运行时契约中继承顶层安全要求并派生 identity 的 header 义务；security: [] 的接口派生匿名 identity",
+    "path-item-parameters-merged": "只在 path item 级定义的路径参数并入运行时契约并派生 route#path 义务",
+    "matrix-derives-inherited": "义务矩阵从运行时契约派生的输入含 path item 级路径参数，身份取继承的方案",
+    "matrix-request-reaches-shadow": "按矩阵派生的输入与身份经公共客户端与真实 fetch 发出，Shadow 收到身份头并命中路由"
+  },
+  "cases": [
+    {"key": "inheritance-derivation", "kind": "module", "requiredIn": ["openapi-unit"], "checks": ["top-level-security-inherited", "path-item-parameters-merged"]},
+    {"key": "inheritance-matrix", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["matrix-derives-inherited"]},
+    {"key": "inheritance-wire", "kind": "behavior", "requiredIn": ["integration"], "checks": ["matrix-request-reaches-shadow"]}
+  ],
+  "blockedBy": []
+}
+```
+
 ### Requirement: OAS-05 接口粒度的协议义务派生
 
 OpenAPI 适配器 SHALL 为产品声明的消费接口按接口粒度派生协议义务，MUST NOT 派生叶子字段义务。
@@ -397,7 +421,7 @@ OpenAPI 适配器 SHALL 为产品声明的消费接口按接口粒度派生协�
 - `transport-failure`：network-error、timeout、cancelled；
 - `presence`：`data` 本身及其一级属性的出现性，取值为 `present`、`present-or-null`、`optional`。
 
-每条义务的运行环境为 integration 类项目加该产品所在绑定的 `platforms`（模板中为 `browser`，见 GATE-07）。
+每条义务的运行环境为 integration 类项目加该产品所在绑定的 `platforms`（模板中为 `browser`，见 GATE-07）。义务矩阵的样例数据 SHALL 按内置规范化后的响应 schema 生成（不应用产品侧 `schemaNormalizers` 钩子；保留 `allOf` 各分支中的 `type`、`pattern` 等约束）；`data` 的 schema 为对象时 MUST NOT 生成 `null`；由 SCN-OPENAPI-CONTRACT-017 的 `matrix-samples-normalized` 检查点验证。
 
 **presence 派生**：遇到联合类型（`oneOf`/`anyOf`）时，若存在一个分支包含其余全部分支，则 `required` 取各分支交集、`properties` 取并集；否则该位置 MUST 报"待定"，派生器 MUST NOT 抛出运行时异常（例如 TypeError），也 MUST NOT 静默忽略。待定项计入场景门禁的问题。
 
@@ -413,6 +437,7 @@ OpenAPI 适配器 SHALL 为产品声明的消费接口按接口粒度派生协�
 {
   "formatVersion": 2,
   "checkpoints": {
+    "matrix-samples-normalized": "义务矩阵样例按内置规范化后的响应 schema 生成，保留 allOf 分支中的 type 与 pattern 约束，对象形 data 不生成 null",
     "obligation-kinds": "每个声明接口派生 route、identity、request-headers、request-fields、envelope、business-code、transport-failure、presence 义务",
     "obligation-id-format": "义务 ID 格式为 <契约名>.<operationId>#<义务类>#<键>",
     "no-leaf-obligations": "不派生叶子字段义务",
@@ -424,7 +449,8 @@ OpenAPI 适配器 SHALL 为产品声明的消费接口按接口粒度派生协�
   },
   "cases": [
     {"key": "derive-obligations-unit", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["obligation-kinds", "obligation-id-format", "no-leaf-obligations", "business-code-per-code", "request-fields-keyspace", "request-id-obligation", "empty-declaration"]},
-    {"key": "derive-obligations-gate", "kind": "engineering", "requiredIn": ["integration"], "checks": ["obligation-kinds", "obligation-id-format", "environments-by-binding"]}
+    {"key": "derive-obligations-gate", "kind": "engineering", "requiredIn": ["integration"], "checks": ["obligation-kinds", "obligation-id-format", "environments-by-binding"]},
+    {"key": "matrix-samples", "kind": "module", "requiredIn": ["test-tools-unit"], "checks": ["matrix-samples-normalized"]}
   ],
   "blockedBy": []
 }
@@ -515,7 +541,7 @@ OpenAPI 适配器 SHALL 为产品声明的消费接口按接口粒度派生协�
 
 OpenAPI 适配器的 `responseValidator(op)` 与 `checkFixture(manifest, files)` SHALL 实现以下规则；Shadow 引擎仍 MUST NOT 导入协议生成物，校验函数由 OpenAPI 路由构造器注入（见 PC-03、PC-04）。`check:fixtures` 只对 manifest 声明 `protocol` 为 OpenAPI 协议包的 Fixture 与预览数据集调用本适配器（见 GATE-16）。
 
-- **规范化钩子**：Ajv 校验前 SHALL 把 OAS 3.0 的 `nullable` 转为 2020 写法，并把布尔形式的 `exclusiveMinimum`/`exclusiveMaximum` 换算为数值形式。钩子 SHALL 作为协议包配置可扩展，用于契约存在已知缺陷时的规范化；引擎测试契约本身 MUST NOT 依赖额外钩子。
+- **规范化钩子**：Ajv 校验前 SHALL 把 OAS 3.0 的 `nullable` 转为 2020 写法，并把布尔形式的 `exclusiveMinimum`/`exclusiveMaximum` 换算为数值形式。钩子 SHALL 由协议约定模块登记：约定模块 MAY 具名导出 `schemaNormalizers`（`(schema) => schema` 函数的数组），OpenAPI 适配器按契约载体加载对应约定模块的钩子（产品载体取 `contracts/conventions.ts`，引擎载体取 `testing/engine/conventions.ts`），在内置规范化之后按数组顺序执行；钩子对响应 schema 根与其引用的每个组件 schema（`$defs`）分别调用一次，输入为内置规范化后的该 schema；钩子只作用于响应 schema 的校验（Fixture、预览数据集与 Shadow 响应），不影响请求编码、路由发现、生成器与业务码约定；用于契约存在已知缺陷时的规范化（例如 `nullable: true` 旁没有同级 `type`：OAS 3.0.3 下该写法不生效且被 `api:validate` 的基线拒绝，引擎不按标准写法支持它，使用方应修正契约，或在根 `redocly.yaml` 写明理由调整规则并登记钩子），使用方登记钩子只改写产品侧约定模块，MUST NOT 需要修改 `testing/` 引擎代码；引擎侧约定模块 MUST NOT 导出额外钩子（引擎测试契约本身 MUST NOT 依赖额外钩子）。
 - **严格同形**：Shadow 响应与 Fixture 中的信封 MUST 与契约（按接口与 HTTP 状态码取响应 schema）严格同形，契约之外的字段一律失败。MUST NOT 提供"只放过多出字段"的宽松认领或同类配置。服务端新增字段时，先更新契约再写测试数据。
 - **信封认领**：Fixture 文件中每个形似信封的对象（`code` 为数字，且有 `message` 或 `data`）MUST 被认领，否则失败并指出文件与 JSON 路径。认领方式：
   - `envelopes`：按 JSON 路径逐个登记所属接口；
@@ -524,8 +550,8 @@ OpenAPI 适配器的 `responseValidator(op)` 与 `checkFixture(manifest, files)`
 - **业务码核对**：每个被认领信封的 `code` MUST 属于约定模块给出的该接口码与通用码的并集，否则失败并指出接口、码与位置。
 
 #### Scenario: SCN-OPENAPI-CONTRACT-022 规范化钩子在校验前转换 3.0 写法
-- **WHEN** 以含 OAS 3.0 `nullable: true` 与布尔形式 `exclusiveMinimum` 的 schema 构造响应校验器，分别校验 `null` 值、边界值与合法值；另注册一个自定义规范化钩子并校验；对引擎测试契约不注册额外钩子构造校验器
-- **THEN** `nullable` 字段接受 `null`；布尔 `exclusive*` 按数值形式生效，边界值被拒绝；自定义钩子在校验前被调用并生效；引擎测试契约无需额外钩子即可校验。
+- **WHEN** 以含 OAS 3.0 `nullable: true` 与布尔形式 `exclusiveMinimum` 的 schema 构造响应校验器，分别校验 `null` 值、边界值与合法值；另让产品侧约定模块导出一个自定义钩子（`schemaNormalizers`；可经 `testing/` 内部工厂的参数注入约定模块，或以模块替身替换产品侧约定模块；不扩展 PC-07 的适配器接口），该钩子修正一个被响应 schema 引用的组件 schema 内的写法，经适配器以产品载体构造校验器并校验；对引擎测试契约不注册额外钩子构造校验器
+- **THEN** `nullable` 字段接受 `null`；布尔 `exclusive*` 按数值形式生效，边界值被拒绝；自定义钩子在内置规范化之后、校验前对组件 schema 被调用并生效，且不需要修改 `testing/` 引擎代码；引擎侧约定模块不导出钩子，引擎测试契约无需额外钩子即可校验。
 
 ```json verification
 {
@@ -533,8 +559,8 @@ OpenAPI 适配器的 `responseValidator(op)` 与 `checkFixture(manifest, files)`
   "checkpoints": {
     "nullable-normalized": "OAS 3.0 nullable 转为 2020 写法后 null 值被接受",
     "exclusive-normalized": "布尔形式 exclusive* 换算为数值形式，边界值被拒绝",
-    "hook-extensible": "自定义规范化钩子可经协议包配置注册并在校验前生效",
-    "example-needs-no-hook": "引擎测试契约不依赖额外钩子"
+    "hook-extensible": "自定义规范化钩子经产品侧约定模块的 schemaNormalizers 导出登记，适配器以产品载体校验时对响应 schema 根与引用的组件 schema 在内置规范化之后调用并生效，修正组件 schema 内的写法，无需修改 testing/ 引擎代码",
+    "example-needs-no-hook": "引擎侧约定模块不导出钩子，引擎测试契约不依赖额外钩子"
   },
   "cases": [
     {"key": "normalization-hooks", "kind": "module", "requiredIn": ["openapi-unit"], "checks": ["nullable-normalized", "exclusive-normalized", "hook-extensible", "example-needs-no-hook"]}

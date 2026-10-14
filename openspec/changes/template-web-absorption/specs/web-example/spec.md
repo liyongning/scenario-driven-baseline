@@ -323,19 +323,21 @@ Web 示例 SHALL 与 `template-example` 一样可按白名单删除：示例独�
 模板 SHALL 以一个随 Web 示例删除的维护用例证明 OAS-01 所述"产品契约与协议约定是替换点"：使用方把产品契约换成结构与约定都不同的契约并删除 Web 示例后，通用基线仍全绿，且无需修改引擎测试契约、`openapi-contract` 引擎用例、`scripts/` 门禁代码与门禁配置。该用例、它使用的中立替换契约 Fixture（契约、约定模块及其同目录单测）与 Web 示例删除清单都属于 WEX-08 白名单，随 Web 示例一起删除（与 SCN-TEMPLATE-ENGINEERING-008 随 `template-example` 删除同理）；中立替换契约 MUST NOT 使用 xueshan 契约。该用例 MUST NOT 依赖 `template-example` 白名单内的任何文件：按白名单删除的通用逻辑（标记剥离、整目录与整文件删除、JSON 键删除）放在不属于任何白名单的测试辅助模块中，Web 示例的删除清单放在 Web 示例自己的 Fixture 中；SCN-TEMPLATE-ENGINEERING-008 同样经该辅助模块与两份删除清单工作，Web 示例的删除清单不存在时（Web 示例已删除）只删除 `template-example`。这样两份白名单可以按任意顺序分别删除，任一用例都不因另一份白名单已删除而失败。
 
 #### Scenario: SCN-WEB-EXAMPLE-015 替换产品契约与约定后通用基线仍全绿
-- **WHEN** 在按 ENG-06 构造的仓库副本中（复用核心 Change 的副本 helper 与不属于任何白名单的删除辅助模块、期望集合推导与 008 同口径；本用例登记在 `TEMPLATE_COPY=1` 排除列表，登记条目以 `web-example` 标记包裹）：把产品契约换成作为 Fixture 提交的一份中立契约（文件名、接口与示例都不同，码表为 `{code, meaning, message}` 数组，只有一个身份方案），按该约定改写 `contracts/conventions.ts` 及其同目录单测，更新清单中该契约的 `packages[].contract` 与 `fingerprints.protocolInputs` 路径，把 `defaultDataset` 改指一个产品侧数据集，以本地路径来源运行 `api:sync`；按 WEX-08 白名单删除 Web 示例；在 Web 应用的消费接口声明中登记新契约的一个接口，补一处 `client.request` 调用及其单测，按指南补齐矩阵 Fixture 键并刷新摘要；依次运行 `api:validate`、`api:status`、`check:fast` 与 `check:scenarios --inventory`；比较副本相对初始状态的改动文件
-- **THEN** 各命令通过；清单模式的问题集合恰好等于 008 同口径推导的集合（被 `TEMPLATE_COPY=1` 排除的用例对应的缺失绑定，加上 `requiredIn` 中 `class` 为 `platform` 的测试项目），多一条或少一条均为失败；对新接口派生的协议义务有 integration 运行证据；改动文件只落在：`contracts/` 下的文件、`src/generated/`、`testing/` 下的产品 bundle、清单中该契约的 `packages[].contract` 与 `fingerprints.protocolInputs` 两项、`web.config.json` 的 `defaultDataset` 及其指向的产品侧预览数据集、WEX-08 白名单内容、`packages/web/src` 下新增的调用、装配代码及其单测、矩阵 Fixture 及其 manifest；引擎测试契约目录、`contractCarrier: "engine"` 的 Fixture 与平台数据集、`openapi-contract` 引擎用例、`scripts/` 与门禁配置均未改动。
+- **WHEN** 在按 ENG-06 构造的仓库副本中（复用核心 Change 的副本 helper 与不属于任何白名单的删除辅助模块、期望集合推导与 008 同口径；本用例登记在 `TEMPLATE_COPY=1` 排除列表，登记条目以 `web-example` 标记包裹）：把产品契约换成作为 Fixture 提交的一份中立契约（文件名、接口与示例都不同，码表为 `{code, meaning, message}` 数组，只有一个身份方案且写在顶层 `security`、接口不逐个声明，至少一个路径参数只在 path item 级 `parameters` 中定义，并含一处由产品侧约定模块 `schemaNormalizers` 钩子修正的组件 schema 写法——契约把某字段声明为非空，产品侧 Fixture 中该字段为 `null`，钩子把它规范化为可空），按该约定改写 `contracts/conventions.ts` 及其同目录单测，更新清单中该契约的 `packages[].contract` 与 `fingerprints.protocolInputs` 路径，把 `defaultDataset` 改指一个产品侧数据集，以本地路径来源运行 `api:sync`；按 WEX-08 白名单删除 Web 示例；在 Web 应用的消费接口声明中登记新契约的一个接口，补一处 `client.request` 调用及其单测，按指南补齐矩阵 Fixture 键并刷新摘要；依次运行 `api:validate`、`api:status`、`check:fast` 与 `check:scenarios --inventory`，并以产品契约运行预览启动器的启动前校验（按产品契约发现路由，校验 `defaultDataset` 指向的产品侧数据集）；比较副本相对初始状态的改动文件
+- **THEN** 各命令通过；预览启动前校验通过（路由取自产品契约）；新接口经顶层安全要求发送身份头，path item 级路径参数命中路由；钩子修正的字段为 `null` 的 Fixture 被认领且校验通过；清单模式的问题集合恰好等于 008 同口径推导的集合（被 `TEMPLATE_COPY=1` 排除的用例对应的缺失绑定，加上 `requiredIn` 中 `class` 为 `platform` 的测试项目），多一条或少一条均为失败；对新接口派生的协议义务有 integration 运行证据；改动文件只落在：`contracts/` 下的文件、`src/generated/`、`testing/` 下的产品 bundle、清单中该契约的 `packages[].contract` 与 `fingerprints.protocolInputs` 两项、`web.config.json` 的 `defaultDataset` 及其指向的产品侧预览数据集、WEX-08 白名单内容、`packages/web/src` 下新增的调用、装配代码及其单测、矩阵 Fixture 及其 manifest；引擎测试契约目录、`contractCarrier: "engine"` 的 Fixture 与平台数据集、`openapi-contract` 引擎用例、`scripts/` 与门禁配置均未改动。
 
 ```json verification
 {
   "formatVersion": 2,
   "checkpoints": {
-    "replace-contract-and-conventions": "产品契约换成文件名、接口与约定都不同的中立契约并改写约定模块后，api:validate 与 api:status 通过",
-    "baseline-green-after-replace": "删除 Web 示例并登记新契约接口后，副本内 check:fast 通过，清单模式问题集合恰为 008 同口径推导的集合，新接口的协议义务有 integration 证据",
+    "replace-contract-and-conventions": "产品契约换成文件名、接口与约定都不同的中立契约（顶层 security、path item 级参数、数组形码表、由产品侧钩子修正的组件 schema）并改写约定模块后，api:validate 与 api:status 通过",
+    "preview-from-product": "以产品契约运行预览启动前校验通过，路由取自产品契约",
+    "product-hook-applied": "产品侧约定模块登记的钩子生效，钩子修正字段为 null 的 Fixture 被认领且校验通过",
+    "baseline-green-after-replace": "删除 Web 示例并登记新契约接口后，副本内 check:fast 通过，清单模式问题集合恰为 008 同口径推导的集合，新接口的协议义务有 integration 证据（含经顶层安全要求发送身份头、path item 级路径参数命中路由）",
     "engine-untouched": "改动只落在 WEX-09 列出的范围内，引擎测试契约、engine 载体的 Fixture 与平台数据集、引擎用例、scripts 与门禁配置未改动"
   },
   "cases": [
-    {"key": "product-contract-replacement", "kind": "engineering", "requiredIn": ["integration"], "checks": ["replace-contract-and-conventions", "baseline-green-after-replace", "engine-untouched"]}
+    {"key": "product-contract-replacement", "kind": "engineering", "requiredIn": ["integration"], "checks": ["replace-contract-and-conventions", "preview-from-product", "product-hook-applied", "baseline-green-after-replace", "engine-untouched"]}
   ],
   "blockedBy": []
 }

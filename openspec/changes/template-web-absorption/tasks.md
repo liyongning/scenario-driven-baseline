@@ -499,7 +499,7 @@
   **Commit**
   - `docs(template): document web capabilities, bindings and replacement points`
 
-- [x] 14. OpenAPI 引擎证据与产品契约分离
+- [ ] 14. OpenAPI 引擎证据与产品契约分离
 
   **Files**
   - Create：`packages/openapi/testing/engine/`（引擎测试契约 `trade-v1.yaml`，内容取自当前 `contracts/trade-v1.yaml`；约定模块 `conventions.ts`；由同一生成器产出并提交的 `generated/` 与 bundle）；`packages/openapi/contracts/conventions.ts`（产品侧约定模块，初始与引擎侧相同）；SCN-WEB-EXAMPLE-015 的中立替换契约 Fixture（文件名与接口都不同、码表为 `{code, meaning, message}` 数组、单一身份方案）及其约定模块与同目录单测，列入 WEX-08 白名单；不属于任何白名单的删除辅助模块（从 `example-removal-support.ts` 移出标记剥离、整目录与整文件删除、JSON 键删除），并把 Web 示例的删除清单从 `SCN-TEMPLATE-ENGINEERING-008/example-removal.json` 移到 Web 示例自己的 Fixture（008 在其不存在时只删 `template-example`；修正 008 中 OpenAPI 义务为空的断言，与 EX-10 同口径：Web 示例删除清单不存在时（使用方已替换契约并删除 Web 示例）不断言 OpenAPI 义务为空，存在时按 Web 消费声明中标记外的条目判定（与现有 `outsideMethodsBefore` 的 IDL 逻辑一致），契约名前缀从清单契约读取）；通用删除辅助模块的标记剥离按标记种类参数化（SCN-WEB-EXAMPLE-015 只剥离 `web-example`）；引擎侧 lint 配置 `testing/engine/redocly.yaml`，SCN-OPENAPI-CONTRACT-004 改为通用的"每条调整有理由注释"断言并以引擎侧配置 lint 引擎测试契约；删除任务 6 遗留、不在 lock 中的 `src/generated/declarations.ts`；`contracts/` 若因新增 `conventions.ts` 被项目地图视为模块，补 AGENTS.md 与 CLAUDE.md；`contracts/conventions.test.ts`、`testing/engine/conventions.test.ts`；白名单门禁 `scripts/lib/example-whitelist.ts` 及其单测、`check-architecture-fixture.ts` 与 SCN-TEMPLATE-ENGINEERING-006 中引用 `example-removal.json` 的位置：两份白名单分别从各自示例的删除清单派生（不再以 `isWebExamplePath` 从 008 清单中拆分），任一份删除清单不存在时只跳过那一份；去掉对 `example-removal-support.ts` 的硬编码；新的通用删除辅助模块不出现在任何一份白名单中，指南"移除模板示例"的白名单段同步；指南与各级 AGENTS 只链接 `packages/openapi/contracts/` 目录或引用清单字段，不链接具体契约文件名（产品契约文件名可被替换）；确认 `contracts/*.ts` 进入 typecheck 与 lint 的覆盖范围；`testing/engine/` 的 AGENTS.md 与 CLAUDE.md。
@@ -507,10 +507,11 @@
   - Modify：OAS 引擎用例与平台用例改以引擎测试契约为载体（OAS-08"证据载体"所列；含 `packages/openapi/**` 单测、`scripts/openapi-*.test.ts`、`scripts/api-contract*.test.ts`、`packages/e2e/tests/web-openapi-browser/` 中的 OAS 与 BRW 用例、`packages/e2e/tests/tooling/` 中的 OAS 用例、平台数据集 `_datasets/platform-openapi-*` 与 `preview-launcher.test.ts`）；以产品契约为载体的用例（015 模板事实、017 门禁部分、021）改为从清单、契约与声明派生，不写死接口名、契约名与码值。
   - Modify：Fixture 与数据集的契约载体：`fixture.schema.json` 与数据集 schema（`packages/e2e/tests/fixtures/dataset.schema.json`）声明可选 `contractCarrier`（枚举 `product`、`engine`）；PC-07 `responseValidator(op, options?)` 增加可选 `options.manifest`，`scripts/lib/dataset-fixtures.ts` 与 `packages/e2e/src/preview/preview-launcher.ts` 原样传入数据集 manifest，IDL 适配器忽略；OpenAPI 适配器在 `checkFixture` 与 `responseValidator` 中解释它；SCN-SCENARIO-GATE-028 的桩适配器记录收到的 manifest；以引擎测试契约为载体的 Fixture 与平台数据集声明 `contractCarrier: "engine"` 并刷新摘要。
   - Modify：清单 `fingerprints.protocolInputs` 以 `packages/openapi/testing/engine/**` 登记引擎测试契约目录并登记两个约定模块；`packages/openapi/contracts` 加入 `fingerprints.sourceRoots`，`openapi-unit` 收集 `contracts/**/*.test.ts`，两个约定模块计入手写代码覆盖率；lint 与格式化忽略 `testing/engine/generated/`；指南替换点地图（OpenAPI 一行的替换步骤与通用基线、"协议约定"点位、IDL 一行列出以共用 IDL 具体接口为载体的引擎用例并注明后续 Change OI-WA-04）、"移除模板示例"中产品契约的表述、技术架构文档 OpenAPI 一节、`packages/openapi/AGENTS.md`。
+  - Modify（2026-10-14 第 3 轮 xueshan 纵切片演练后补充，兑现 OAS-01 的替换承诺）：运行时契约 `testing/contract.ts` 的 `createOpenApiContract` 按 OAS-04 的继承规则支持顶层 `security` 继承与 path item 级 `parameters` 合并，义务派生（`adapter.ts`）与义务矩阵随之正确；义务矩阵的纯派生函数（样例生成、`matrixInput`、`matrixIdentity`）移到 `packages/e2e/src/preview/openapi-obligation-matrix.ts`（同步该模块 AGENTS.md 的对外入口），`packages/e2e/tests/web-openapi-browser/openapi-obligation-matrix.ts` 改为从其导入，就近单测 `packages/e2e/src/preview/openapi-obligation-matrix.test.ts` 由 test-tools-unit 收集，承担 SCN-017 `matrix-samples` 与 SCN-030 `inheritance-matrix`（OAS-04 / SCN-OPENAPI-CONTRACT-030；生成器 `meta.security` 已按顶层继承，核对保持）；义务矩阵样例按内置规范化后的 schema 生成（OAS-05 / SCN-017 `matrix-samples`）；路由辅助（`discoverOpenApiRoutes`、`routesFromOpenApiOperations`）的选项中只接受契约载体、缺省 `product`，契约由载体推导，以引擎契约为载体且不传选项的调用方（含 `SCN-BROWSER-PLATFORM-012`、browser-platform 与 openapi-wire 浏览器用例、`preview-launcher.test.ts`）改为显式传 `engine`；OAS-06 规范化钩子经约定模块的 `schemaNormalizers` 导出登记，适配器按契约载体加载，对响应 schema 根与每个组件 schema（`schema.ts` 的 `$defs`）分别调用；无同级 type 的 `nullable` 不作为标准写法支持（指南「协议来源」写明：修正契约，或写明理由调整根 `redocly.yaml` 并登记钩子）；SCN-WEB-EXAMPLE-015 的中立替换契约 Fixture 按 WEX-09 增补（顶层 security、path item 级参数、由产品侧钩子修正的组件 schema）并运行预览启动前校验；各修复点补就近单测。
   - Create：SCN-WEB-EXAMPLE-015 用例（会创建副本，登记到 `integration-heavy` 与 `TEMPLATE_COPY=1` 排除列表，复用 008 的副本 helper 与期望集合推导），列入 WEX-08 白名单，在 `copyCreatingSpecs` 与 `heavyIntegrationSpecs` 中的登记条目以 `web-example` 标记包裹；ENG-06 的递归排除说明与 008 期望集合随之包含它。
 
   **Requirements / Scenarios**
-  - openapi-contract：OAS-01 / SCN-OPENAPI-CONTRACT-001、004；OAS-02 / 005；OAS-03 / 007～014；OAS-04 / 015；OAS-05 / 017～020；OAS-06 / 022～026；OAS-08 / 029
+  - openapi-contract：OAS-01 / SCN-OPENAPI-CONTRACT-001、004；OAS-02 / 005；OAS-03 / 007～014；OAS-04 / 015、030；OAS-05 / 017～020；OAS-06 / 022～026；OAS-08 / 029
   - browser-platform：SCN-BROWSER-PLATFORM-003、006 与 012 中改以引擎测试契约为载体的部分；web-example：WEX-08、WEX-09 / SCN-WEB-EXAMPLE-015；protocol-contract：PC-07 `responseValidator` 可选参数（IDL 适配器回归）；scenario-gate：GATE-16 / SCN-SCENARIO-GATE-028；template-example：EX-10 / SCN-TEMPLATE-ENGINEERING-008（删除逻辑迁移、两份清单、`whitelist-only-removal` 表述）；template-engineering：ENG-06 中 Web 白名单、示例删除时机例外与递归排除的表述
 
   **Design Decisions**
@@ -522,6 +523,7 @@
 
   **RED**
   - 先写 SCN-WEB-EXAMPLE-015：在副本中替换产品契约并删除 Web 示例后，记录失败的门禁与被迫改动的引擎用例（预期与 xueshan 纵切片演练第 2 轮一致）；001 的"替换约定模块"反例在约定模块落地前失败。
+  - 第 3 轮补充的 RED：SCN-OPENAPI-CONTRACT-030 在运行时契约的继承规则落地前失败（运行时契约中甲的安全要求为空、派生出匿名 `identity` 且缺少 `route#path.x` 义务；按矩阵派生的输入缺路径参数得到 `CODEC_ERROR`、身份取不到方案得到 `EMPTY_ACCESS_TOKEN`）；SCN-017 `matrix-samples` 在样例生成修正前失败（对象形 `data` 生成 `null`、丢失 `allOf` 约束）；SCN-WEB-EXAMPLE-015 增补的 Fixture 在修复前失败于预览启动前校验（`generated OpenAPI metadata is missing`）与钩子未登记导致的 Fixture 校验失败；SCN-OPENAPI-CONTRACT-022 的组件 schema 钩子用例在钩子覆盖 `$defs` 前失败。
 
   **GREEN**
   - SCN-WEB-EXAMPLE-015 通过：改动只落在 WEX-09 允许的范围内；全部 OAS 与 BRW 用例在引擎测试契约上通过；按导入来源核对：`openapi-contract` 引擎用例与平台用例不从 `@daqian/template-openapi` 导入生成常量、不读取 `contracts/` 与 `src/generated/`，engine 载体的 Fixture 与平台数据集都声明 `contractCarrier: "engine"`（核对清单写入验收记录）。
@@ -535,6 +537,7 @@
 
   **Commit**
   - `refactor(template): separate OpenAPI engine evidence from the replaceable product contract`
+  - 第 3 轮演练后的补充：`fix(template): make the OpenAPI engine accept replaced product contracts`
 
 - [ ] 15. 示例删除验证
 
