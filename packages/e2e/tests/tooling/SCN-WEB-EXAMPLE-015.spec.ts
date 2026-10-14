@@ -47,10 +47,32 @@ type Evidence = Readonly<{
   inventoryLog: string;
   previewRouteStatus: number | null;
   previewRouteOutput: string;
+  productHookStatus: number | null;
+  productHookOutput: string;
   changed: ReadonlyArray<string>;
   removed: ReadonlyArray<string>;
   markerFiles: ReadonlyArray<string>;
 }>;
+
+type PreviewRouteEvidence = Readonly<{
+  datasetName: string;
+  productOperation: Readonly<{ id: string; method: string; path: string }>;
+  route: Readonly<{ methodName: string; httpMethod: string; path: string }>;
+  engineHasOperation: boolean;
+}>;
+
+type ProductHookEvidence = Readonly<{
+  operationId: string;
+  status: number;
+  adapterIssueCount: number;
+  unnormalizedIssueCount: number;
+}>;
+
+function resultJson<T>(output: string): T {
+  const line = output.split(/\r?\n/).find((item) => item.startsWith('RESULT:'));
+  if (!line) throw new Error(`命令没有输出 RESULT 证据：${output}`);
+  return JSON.parse(line.slice('RESULT:'.length)) as T;
+}
 
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
@@ -191,12 +213,50 @@ function checkPreviewStartup(copy: RepositoryCopy) {
     [
       "import { startLocalPreview } from './packages/e2e/src/preview/preview-launcher.ts';",
       "import { previewRoutes } from './scripts/preview-local.ts';",
+      "import { engineContract, productContract } from './packages/openapi/testing/contract.ts';",
       '(async () => {',
+      "  const productOperation = productContract().operations.find((operation) => operation.id === 'retrieveAccount');",
+      "  const engineHasOperation = engineContract.operations.some((operation) => operation.id === 'retrieveAccount');",
+      "  if (!productOperation || engineHasOperation) throw new Error('replacement operation is not exclusively owned by the product contract');",
       '  const routes = await previewRoutes(process.cwd());',
-      "  if (!routes.some((route) => route.methodName === 'retrieveAccount')) throw new Error('retrieveAccount route is missing');",
+      "  const route = routes.find((item) => item.methodName === 'retrieveAccount');",
+      "  if (!route) throw new Error('retrieveAccount route is missing');",
+      "  if (route.httpMethod !== productOperation.method || route.path !== productOperation.path) throw new Error('preview route does not match the product contract');",
       '  const preview = await startLocalPreview({ root: process.cwd(), routes });',
-      '  try { console.log(JSON.stringify({ datasetName: preview.datasetName, routeCount: routes.length })); }',
+      "  try { console.log('RESULT:' + JSON.stringify({ datasetName: preview.datasetName, productOperation: { id: productOperation.id, method: productOperation.method, path: productOperation.path }, route: { methodName: route.methodName, httpMethod: route.httpMethod, path: route.path }, engineHasOperation })); }",
       '  finally { await preview.close(); }',
+      '})();',
+    ].join('\n'),
+  ]);
+}
+
+function checkProductHook(copy: RepositoryCopy) {
+  return run(copy, 'pnpm', [
+    'exec',
+    'tsx',
+    '--eval',
+    [
+      "import { readFileSync } from 'node:fs';",
+      "import { productContract } from './packages/openapi/testing/contract.ts';",
+      "import { createResponseValidator } from './packages/openapi/testing/schema.ts';",
+      "import { loadProjectManifest } from './scripts/lib/project-manifest.ts';",
+      "import { loadProtocolAdapter } from './scripts/lib/protocol-adapters.ts';",
+      '(async () => {',
+      "  const dataset = JSON.parse(readFileSync('packages/e2e/tests/fixtures/_datasets/player-api-primary/manifest.json', 'utf8'));",
+      "  const entry = dataset.entries.find((item) => item.operationId === 'retrieveAccount');",
+      "  if (!entry) throw new Error('replacement dataset is missing retrieveAccount');",
+      '  const response = entry.responses.find((item) => (item.status ?? 200) === 200);',
+      "  if (!response) throw new Error('replacement dataset is missing the success response');",
+      "  const adapter = await loadProtocolAdapter(loadProjectManifest(process.cwd()), 'openapi', { root: process.cwd() });",
+      "  const validator = adapter.responseValidator('retrieveAccount', { manifest: dataset });",
+      "  if (!validator) throw new Error('product adapter cannot resolve retrieveAccount');",
+      '  const adapterIssues = validator(response.body, 200);',
+      "  const operation = productContract().operations.find((item) => item.id === 'retrieveAccount');",
+      "  if (!operation) throw new Error('product contract is missing retrieveAccount');",
+      '  const unnormalizedIssues = createResponseValidator(operation)(response.body, 200);',
+      "  if (adapterIssues.length > 0) throw new Error('product adapter rejected fixture: ' + adapterIssues.join('; '));",
+      "  if (unnormalizedIssues.length === 0) throw new Error('without the product hook the fixture unexpectedly passed');",
+      "  console.log('RESULT:' + JSON.stringify({ operationId: entry.operationId, status: response.status ?? 200, adapterIssueCount: adapterIssues.length, unnormalizedIssueCount: unnormalizedIssues.length }));",
       '})();',
     ].join('\n'),
   ]);
@@ -229,6 +289,7 @@ async function runReplacement(): Promise<Evidence> {
     addReplacementDeclaration(copy);
     installReplacementMatrix(copy);
     const previewStartup = checkPreviewStartup(copy);
+    const productHook = checkProductHook(copy);
 
     const formatted = run(copy, 'pnpm', ['format']);
     if (formatted.status !== 0) throw new Error(`format failed: ${formatted.output}`);
@@ -260,6 +321,8 @@ async function runReplacement(): Promise<Evidence> {
       inventoryLog,
       previewRouteStatus: previewStartup.status,
       previewRouteOutput: previewStartup.output,
+      productHookStatus: productHook.status,
+      productHookOutput: productHook.output,
       changed,
       removed: removedExample.removed,
       markerFiles: removedExample.marked,
@@ -284,7 +347,34 @@ afterAll(async () => {
 function assertReplacement(value: Evidence, expect: Expect): void {
   expect(value.validateStatus, value.validateOutput).toBe(0);
   expect(value.statusStatus, value.statusOutput).toBe(0);
+}
+
+function assertPreviewFromProduct(value: Evidence, expect: Expect): void {
   expect(value.previewRouteStatus, value.previewRouteOutput).toBe(0);
+  const result = resultJson<PreviewRouteEvidence>(value.previewRouteOutput);
+  expect(result).toEqual({
+    datasetName: 'player-api-primary',
+    productOperation: {
+      id: 'retrieveAccount',
+      method: 'get',
+      path: '/api/v2/accounts/{account_ref}',
+    },
+    route: {
+      methodName: 'retrieveAccount',
+      httpMethod: 'get',
+      path: '/api/v2/accounts/{account_ref}',
+    },
+    engineHasOperation: false,
+  });
+}
+
+function assertProductHookApplied(value: Evidence, expect: Expect): void {
+  expect(value.productHookStatus, value.productHookOutput).toBe(0);
+  const result = resultJson<ProductHookEvidence>(value.productHookOutput);
+  expect(result.operationId).toBe('retrieveAccount');
+  expect(result.status).toBe(200);
+  expect(result.adapterIssueCount).toBe(0);
+  expect(result.unnormalizedIssueCount).toBeGreaterThan(0);
 }
 
 function assertBaseline(value: Evidence, expect: Expect): void {
@@ -351,6 +441,8 @@ defineCase(
         caseKey: 'product-contract-replacement',
         checks: [
           'replace-contract-and-conventions',
+          'preview-from-product',
+          'product-hook-applied',
           'baseline-green-after-replace',
           'engine-untouched',
         ],
@@ -360,6 +452,8 @@ defineCase(
   async ({ checkpoint, expect }) => {
     const value = await evidence();
     await checkpoint('replace-contract-and-conventions', () => assertReplacement(value, expect));
+    await checkpoint('preview-from-product', () => assertPreviewFromProduct(value, expect));
+    await checkpoint('product-hook-applied', () => assertProductHookApplied(value, expect));
     await checkpoint('baseline-green-after-replace', () => assertBaseline(value, expect));
     await checkpoint('engine-untouched', () => assertEngineUntouched(value, expect));
   },

@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createControlledRoot } from '../../tests/tooling/controlled-root.ts';
 import { baseManifest } from '../../tests/tooling/project-manifest-fixture.ts';
@@ -120,6 +121,65 @@ describe('defineCase execution', () => {
       return checkpoint('wire', () => localExpect(true).toBe(true));
     });
     await state.registered!(context('/repo/packages/e2e/tests/tooling/runtime-binding.spec.ts'));
+  });
+
+  it('defers platform binding validation until a registered binding directory is available', async () => {
+    const fixture = createControlledRoot({
+      manifest: baseManifest(),
+      prefix: 'define-case-binding-directory-',
+    });
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(fixture.root);
+    try {
+      expect(() =>
+        defineCase(
+          { ...binding, environment: 'platform' },
+          ({ expect: localExpect, checkpoint }) => {
+            localExpect(true).toBe(true);
+            return checkpoint('wire', () => localExpect(true).toBe(true));
+          },
+        ),
+      ).not.toThrow();
+      await expect(
+        state.registered!(
+          context(
+            join(
+              fixture.root,
+              'packages/sample-test/tests/sample-product-protocol/platform.spec.ts',
+            ),
+          ),
+        ),
+      ).resolves.toBeUndefined();
+    } finally {
+      cwd.mockRestore();
+      fixture.cleanup();
+    }
+  });
+
+  it('rejects an unbound platform case at runtime when its file is outside binding directories', async () => {
+    const fixture = createControlledRoot({
+      manifest: baseManifest(),
+      prefix: 'define-case-unbound-platform-',
+    });
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(fixture.root);
+    try {
+      expect(() =>
+        defineCase(
+          { ...binding, environment: 'platform' },
+          ({ expect: localExpect, checkpoint }) => {
+            localExpect(true).toBe(true);
+            return checkpoint('wire', () => localExpect(true).toBe(true));
+          },
+        ),
+      ).not.toThrow();
+      await expect(
+        state.registered!(
+          context(join(fixture.root, 'packages/sample-test/tests/tooling/platform.spec.ts')),
+        ),
+      ).rejects.toThrow(/environment platform is platform but case is not bound/);
+    } finally {
+      cwd.mockRestore();
+      fixture.cleanup();
+    }
   });
 
   it('rejects bodies without assertions or required checkpoints and uses the default fixture root', async () => {

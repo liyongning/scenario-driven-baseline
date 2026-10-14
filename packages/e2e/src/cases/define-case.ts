@@ -48,7 +48,11 @@ export function bindingNameOfCase(
 
 export function validateCaseBinding(
   binding: CaseBinding,
-  options: Readonly<{ root?: string; testFile?: string }> = {},
+  options: Readonly<{
+    root?: string;
+    testFile?: string;
+    deferUnboundPlatform?: boolean;
+  }> = {},
 ): string[] {
   const issues: string[] = [];
   if (!/^[A-Z][A-Z0-9-]*$/.test(binding.ownerId)) issues.push('ownerId is invalid');
@@ -76,7 +80,7 @@ export function validateCaseBinding(
         issues.push(
           `case ${binding.caseId} environment ${binding.environment} is not in binding ${bindingName}`,
         );
-    } else if (environment?.class === 'platform') {
+    } else if (environment?.class === 'platform' && !options.deferUnboundPlatform) {
       issues.push(
         `case ${binding.caseId} environment ${binding.environment} is platform but case is not bound`,
       );
@@ -108,7 +112,10 @@ export function defineCase(
   body: (context: CaseContext) => void | Promise<void>,
   options: Readonly<{ fixtureRoot?: string; timeoutMs?: number }> = {},
 ) {
-  const issues = validateCaseBinding(binding, { root: process.cwd() });
+  const issues = validateCaseBinding(binding, {
+    root: process.cwd(),
+    deferUnboundPlatform: true,
+  });
   if (issues.length > 0) throw new Error(issues.join('; '));
   const environmentClass = environmentClassOf(binding.environment)!;
   test(

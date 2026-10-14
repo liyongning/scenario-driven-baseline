@@ -683,6 +683,8 @@
 
 **Verification**
 
+- 提交后首次重跑 `template-web-absorption-apply-20261014T152844Z`：`check:fast` exit 1（948273ms）；unit 149/149 文件、604/604 用例与普通 integration 92/92 文件、152/152 用例通过，integration-heavy 13/14 文件、38/40 用例通过。`SCN-TEMPLATE-ENGINEERING-008/example-removal-fast` 的副本内 `check:fast` 因 `spawnAffectedStep` 5s 超时、`SCN-OPENAPI-CONTRACT-002/sync-lock-writer` 20s 超时及两处 Vitest forks worker 启动超时而失败，`example-removal-scenarios` 随后级联失败；weapp、browser 与场景门禁未进入。验收方根据提交前同代码默认并发全绿、运行时负载 11+ 和外部演练副本仍在运行，判定为环境负载问题，不计业务失败或 OI。
+- 负载恢复后从头重跑 `template-web-absorption-apply-20261014T155052Z`：`check:fast` exit 0（799035ms），heavy 用例 `SCN-TEMPLATE-ENGINEERING-008/example-removal-fast`、`SCN-SCENARIO-GATE-026/self-test-isolation-cli` 与 `SCN-WEB-EXAMPLE-015/product-contract-replacement` 均通过。`test:e2e:weapp` exit 0（394334ms）；`SCN-TEMPLATE-EXAMPLE-002/weapp-create-success` 首次 30005ms 超时，per-file-retry 重新 prepare 后以 9483ms 通过，按通过计。`test:e2e:browser` exit 0（33314ms）。`check:scenarios` exit 1（1926ms），问题为 `integration/product-contract-replacement` 的 `preview-from-product` 与 `product-hook-applied` 两个 Spec checkpoint 未执行：用例报告的 `checks` 与已执行 checkpoint 仅有 `replace-contract-and-conventions`、`baseline-green-after-replace`、`engine-untouched`。该缺口属于 Task 14 自身证据登记，未归入 Task 15/16；本轮 verify 最终非零，停止等待处理。
 - final1 run id `template-web-absorption-apply-task14-20261014T092800Z-final1`，`pnpm verify --change template-web-absorption` 整轮通过。
   - `check:fast`：exit 0，827013ms；unit 147/147 文件、594/594 用例，普通 integration 90/90 文件、150/150 用例，integration-heavy 14/14 文件、40/40 用例，覆盖率 100%。
   - `test:e2e:weapp`：exit 0，309625ms；6/6 文件、6/6 用例。`FLOW-TEMPLATE-EXAMPLE-001/weapp-normal` 首次 30008ms 超时，按 verify 的 per-file-retry 重新 prepare 后以 9666ms 通过；按验收方修订口径按通过计，不归为 OI。
@@ -690,6 +692,14 @@
   - `check:scenarios`：exit 0，2085ms；本 Change 场景对账通过，`issues: []`。
 - final2 run id `template-web-absorption-apply-task14-20261014T094850Z-final2`，`check:fast` 通过（864380ms；unit 147/147、594/594，普通 integration 90/90、150/150，heavy 14/14、40/40），weapp 前两个文件 `SCN-PROTOCOL-CONTRACT-002` 与 `SCN-PROTOCOL-CONTRACT-008` 均为 1/1 通过；随后 `weapp:prepare` 报“180000ms 内未就绪：第 6 次探测超过 4983ms 未返回”，该步骤最终 exit 1，browser 与场景门禁未进入。
 - final2 的中断归因于正式版微信开发者工具主进程僵死（PID 40334 状态 `UE`，`kill -9` 无效），不是模板缺陷、业务失败或 OI；续跑待环境恢复后使用 `--from test:e2e:weapp` 补跑。
+
+**SCN-WEB-EXAMPLE-015 checkpoint 补齐与 GATE-17 修复**
+
+- `SCN-WEB-EXAMPLE-015` 先以 `check:scenarios` RED：Spec 要求的 `preview-from-product`、`product-hook-applied` 两个 checkpoint 未登记也未执行。补齐后，定向运行 `pnpm exec vitest run --project integration-heavy packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-015.spec.ts` 在 run id `template-web-absorption-apply-20261014T155052Z` 下 1/1 通过（331.75s、18 assertions、5 个 checkpoint）；两个新 checkpoint 分别读取命令的 `RESULT:` JSON，实际断言产品契约预览路由与产品侧 `schemaNormalizers` 生效。
+- 使用同一 run id 补跑 `check:scenarios --change template-web-absorption` 后，015 的两个 missing checkpoint 已消失；退出码 1 的 1142 条问题全部是测试源码变更后旧报告过期，包括 1141 条逐用例 stale 和 1 条报告 envelope/record 摘要不一致，非 stale 问题为 0。`integration-heavy.json` 中该用例记录已包含 5 个 checkpoint；完整证据需由后续在最终源码上的全量验证重建。
+- GATE-17 RED：`define-case-execution.test.ts` 新增两个反例后，绑定目录 `tests/sample-product-protocol/` 中未写 `binding` 的 platform 用例在模块加载期被错误拒绝，原文件 9 个用例中 2 个失败。
+- GREEN：加载期保留绑定名、环境和 owner 等校验，只通过显式的 `deferUnboundPlatform` 延后“platform 未归属绑定”判定；运行期仍以 Vitest 提供的真实 `testFile` 完成严格校验。绑定目录内的 platform 用例可由目录推断并通过，`tests/tooling/` 下的同形用例仍在运行期报 `environment platform is platform but case is not bound`，不会放过真正未绑定的用例。
+- GATE-17 定向验证：`define-case.test.ts`、`define-case-binding.test.ts`、`define-case-execution.test.ts` 共 3 文件、15 用例通过；`pnpm exec eslint`、`pnpm typecheck`、Prettier 与 freshness digest 检查均退出码 0，freshness `PASS`。
 
 **已知风险（只登记，不修）**
 
