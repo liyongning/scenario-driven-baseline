@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { createTrade, getTrade } from '../src/generated/operations';
+import { createTrade, getTrade } from './engine/generated/operations.ts';
 import adapter from './adapter';
 import { discoverOpenApiRoutes, routesFromOpenApiOperations } from './shadow-routes';
 

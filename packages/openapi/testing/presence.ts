@@ -18,9 +18,12 @@ function isObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function dereference(schema: unknown): JsonObject {
+function dereference(schema: unknown, schemas?: Readonly<Record<string, unknown>>): JsonObject {
   const source = isObject(schema) ? schema : {};
-  return mergeObjectSchema(source.$ref ? resolveSchemaReference(source.$ref) : source);
+  return mergeObjectSchema(
+    source.$ref ? resolveSchemaReference(source.$ref, schemas) : source,
+    schemas,
+  );
 }
 
 function nullable(schema: unknown): boolean {
@@ -35,10 +38,13 @@ function presence(schema: unknown, required: boolean): Presence {
 
 type UnionShape = Readonly<{ required: string[]; properties: Record<string, unknown> }>;
 
-function unionShape(schema: JsonObject): UnionShape | undefined {
+function unionShape(
+  schema: JsonObject,
+  schemas?: Readonly<Record<string, unknown>>,
+): UnionShape | undefined {
   const branches = (schema.oneOf ?? schema.anyOf) as unknown;
   if (!Array.isArray(branches)) return undefined;
-  const shapes = branches.map((branch) => dereference(branch));
+  const shapes = branches.map((branch) => dereference(branch, schemas));
   const requiredSets = shapes.map((shape) => new Set(schemaRequired(shape)));
   const required = [...requiredSets[0]!].filter((name) =>
     requiredSets.every((names) => names.has(name)),
@@ -65,12 +71,15 @@ function unionShape(schema: JsonObject): UnionShape | undefined {
 }
 
 /** 派生 data 本身及一级属性的出现性；不可判定联合明确返回 pending。 */
-export function derivePresence(responseSchema: unknown): PresenceResult {
-  const envelope = dereference(responseSchema);
+export function derivePresence(
+  responseSchema: unknown,
+  schemas?: Readonly<Record<string, unknown>>,
+): PresenceResult {
+  const envelope = dereference(responseSchema, schemas);
   const dataSchema = schemaProperties(envelope).data;
   const data = presence(dataSchema, schemaRequired(envelope).includes('data'));
-  const source = dereference(dataSchema);
-  const union = unionShape(source);
+  const source = dereference(dataSchema, schemas);
+  const union = unionShape(source, schemas);
   if ((source.oneOf ?? source.anyOf) !== undefined && !union) {
     return { pending: true, data, properties: {} };
   }

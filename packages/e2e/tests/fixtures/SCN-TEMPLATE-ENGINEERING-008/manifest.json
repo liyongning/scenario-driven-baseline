@@ -4,7 +4,7 @@
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "requirementDigest": "a35e6cca11662b1b7370bfeff5805faeb0e437bf4b78ee82c746495879ebda7f"
+      "requirementDigest": "1f51ec4c7c2fb11235b60323f9cb1f0da53cc5950de145f7d52967228859c0a9"
     }
   },
   "cases": {
@@ -12,6 +12,6 @@
     "example-removal-scenarios": "example-removal.json"
   },
   "sha256": {
-    "example-removal.json": "ea09ca00e48b370a8cafa0607b0d81d856fb9b6812828f9012eff7e88887f4c4"
+    "example-removal.json": "5c69cd6dcbdba1912dcf6236db4d32edbcee890b31e6276e96dfb325f6c47232"
   }
 }

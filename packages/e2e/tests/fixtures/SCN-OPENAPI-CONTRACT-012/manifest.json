@@ -2,10 +2,11 @@
   "formatVersion": 1,
   "ownerId": "SCN-OPENAPI-CONTRACT-012",
   "protocol": "openapi",
+  "contractCarrier": "engine",
   "sources": {
     "kind": "reviewed-engineering-input",
     "spec": {
-      "requirementDigest": "6f66a4aefaaa11e434ee92d4944f4d75e0bdcafe4724bb0edd86eb2bba09cb85"
+      "requirementDigest": "b2b07355ccd2988f08dabe5cf22f305670d8890b8e6c504ea04084b15211bd26"
     }
   },
   "cases": {

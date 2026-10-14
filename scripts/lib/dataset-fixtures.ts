@@ -8,6 +8,7 @@ import type { ProtocolAdapter } from './protocol-adapters.ts';
 type DatasetManifest = Readonly<{
   formatVersion: number;
   protocol: string;
+  contractCarrier?: 'product' | 'engine';
   description?: string;
   entries: ReadonlyArray<
     Readonly<{
@@ -72,7 +73,7 @@ export async function checkDatasets(options: {
       continue;
     }
     for (const item of manifest.entries) {
-      const validator = adapter.responseValidator(item.operationId);
+      const validator = adapter.responseValidator(item.operationId, { manifest });
       if (!validator) {
         options.issues.push(
           `${entry.name}: operationId ${item.operationId} cannot be resolved by protocol ${manifest.protocol}`,

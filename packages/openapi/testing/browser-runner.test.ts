@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import * as openapi from '../src/index';
 import { browserCancelEvent, browserSerializable, run } from './browser-runner';
+import { getTrade, listTrades } from './engine/generated/operations.ts';
 
 test('OpenAPI browser runner executes serializable plans without hardcoded operation names', async () => {
   const originalFetch = globalThis.fetch;
@@ -15,6 +16,7 @@ test('OpenAPI browser runner executes serializable plans without hardcoded opera
         },
       ],
       {
+        operations: { getTrade },
         gatewayBaseUrl: 'https://api.example.invalid',
         securitySchemes: {
           accessToken: { type: 'apiKey', in: 'header', name: 'X-Access-Token' },
@@ -46,6 +48,7 @@ test('OpenAPI browser runner reports unknown operations and cancellation without
         { method: 'getTrade', input: { path: { trade_no: 'T' } }, cancel: 'in-flight' },
       ],
       {
+        operations: { getTrade },
         gatewayBaseUrl: 'https://api.example.invalid',
         securitySchemes: {
           accessToken: { type: 'apiKey', in: 'header', name: 'X-Access-Token' },
@@ -55,6 +58,24 @@ test('OpenAPI browser runner reports unknown operations and cancellation without
     );
     expect(results[0]).toEqual({ kind: 'transport-failure', reason: 'CANCELLED' });
     expect(results[1]).toMatchObject({ kind: 'transport-failure' });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('OpenAPI browser runner prefers explicitly supplied operations', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('{"code":0,"message":"ok","data":{"ok":true}}');
+  try {
+    const operation = {
+      meta: { id: 'fixtureOperation', method: 'get', path: '/fixture', security: [], codes: [] },
+    };
+    await expect(
+      run([{ method: 'fixtureOperation', input: {} }], {
+        gatewayBaseUrl: 'https://api.example.invalid',
+        operations: { fixtureOperation: operation },
+      }),
+    ).resolves.toEqual([{ kind: 'success', data: { ok: true } }]);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -81,7 +102,9 @@ test('OpenAPI browser runner applies defaults when options are omitted', async (
   globalThis.fetch = async () => new Response('{"code":0,"message":"ok","data":{"trade_no":"T"}}');
   try {
     await expect(
-      run([{ method: 'listTrades', input: { path: { merchant_id: 1 } } }]),
+      run([{ method: 'listTrades', input: { path: { merchant_id: 1 } } }], {
+        operations: { listTrades },
+      }),
     ).resolves.toEqual([{ kind: 'success', data: { trade_no: 'T' } }]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -104,6 +127,7 @@ test('OpenAPI browser runner installs and removes the browser cancellation liste
     const pending = run(
       [{ method: 'getTrade', input: { path: { trade_no: 'T' } }, cancel: 'in-flight' }],
       {
+        operations: { getTrade },
         gatewayBaseUrl: 'https://api.example.invalid',
         securitySchemes: {
           accessToken: { type: 'apiKey', in: 'header', name: 'X-Access-Token' },

@@ -1,6 +1,7 @@
 {
   "formatVersion": 1,
   "protocol": "openapi",
+  "contractCarrier": "engine",
   "description": "浏览器平台预览证据：同一交易直接成功。",
   "entries": [
     {

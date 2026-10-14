@@ -1,10 +1,5 @@
 import Ajv2020 from 'ajv/dist/2020.js';
-import {
-  businessCodeTable,
-  componentSchemas,
-  type OpenApiOperationContract,
-  responseSchema,
-} from './contract.ts';
+import { type OpenApiOperationContract, responseSchema } from './contract.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -76,7 +71,10 @@ function validatorFor(
   });
   const validate = ajv.compile({
     $defs: Object.fromEntries(
-      Object.entries(componentSchemas).map(([name, value]) => [name, normalizeSchema(value)]),
+      Object.entries(operation.componentSchemas).map(([name, value]) => [
+        name,
+        normalizeSchema(value),
+      ]),
     ),
     ...(normalizeSchema(schema, hooks) as JsonObject),
   });
@@ -110,7 +108,7 @@ export function createResponseValidator(
     if (!isObject(body)) return issues;
     const code = body.code;
     if (typeof code !== 'number') return issues;
-    const allowed = new Set([0, ...operation.codes.map((name) => businessCodeTable[name])]);
+    const allowed = new Set([0, ...operation.codes.map((name) => operation.codeTable[name])]);
     if (!allowed.has(code)) issues.push(`${operation.id}: 业务码 ${code} 不属于该接口`);
     return issues;
   };

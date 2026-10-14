@@ -1,8 +1,11 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../packages/e2e/src/vitest.d.ts';
+import { normalizeStandardContractConventions } from '../packages/openapi/testing/conventions.ts';
 import {
   checkContractConsistency,
   generateContractFiles,
@@ -12,6 +15,7 @@ import {
 } from './api-contract.ts';
 
 const roots: string[] = [];
+const conventionsFor = (source: string) => normalizeStandardContractConventions(parseYaml(source));
 
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -80,6 +84,18 @@ x-business-code-table:
 `;
 
 const redoclyConfig = `extends:\n  - recommended\nrules:\n  operation-4xx-response: off # 业务错误统一经 HTTP 200 信封返回，不使用 4xx 状态码表达。\n`;
+const standardConventions = pathToFileURL(
+  fileURLToPath(new URL('../packages/openapi/testing/conventions.ts', import.meta.url)),
+).href;
+
+function writeConventions(root: string, directory: string) {
+  const contracts = join(root, 'packages', directory, 'contracts');
+  mkdirSync(contracts, { recursive: true });
+  writeFileSync(
+    join(contracts, 'conventions.ts'),
+    `export { normalizeStandardContractConventions as normalizeContractConventions } from ${JSON.stringify(standardConventions)};\n`,
+  );
+}
 
 function fixture(contract = validContract) {
   const root = mkdtempSync(join(tmpdir(), 'template-api-contract-'));
@@ -179,6 +195,7 @@ function fixture(contract = validContract) {
   }
   mkdirSync(join(root, 'packages/openapi/contracts'), { recursive: true });
   writeFileSync(join(root, 'packages/openapi/contracts/sample.yaml'), contract);
+  writeConventions(root, 'openapi');
   writeFileSync(join(root, 'redocly.yaml'), redoclyConfig);
   return root;
 }
@@ -228,23 +245,27 @@ function evidence(
 evidence(
   'SCN-OPENAPI-CONTRACT-001',
   'contract-consistency-rules',
-  ['envelope-enum-equals-table', 'codes-subset-of-table'],
+  ['envelope-enum-equals-table', 'codes-subset-of-table', 'convention-from-module'],
   async (context, check) => {
     await check('envelope-enum-equals-table', () => {
-      const contract = checkContractConsistency(validContract);
+      const contract = checkContractConsistency(validContract, conventionsFor(validContract));
       context.expect(contract.issues).toEqual([]);
 
       const extraEnum = validContract.replace(
         'enum: [0, 40001, 40901]',
         'enum: [0, 40001, 40901, 50001]',
       );
-      context.expect(checkContractConsistency(extraEnum).issues.join('\n')).toContain('50001');
+      context
+        .expect(checkContractConsistency(extraEnum, conventionsFor(extraEnum)).issues.join('\n'))
+        .toContain('50001');
 
       const extraTable = validContract.replace(
         'TRADE_CONFLICT: 40901',
         'TRADE_CONFLICT: 40901\n  SERVER_ERROR: 50001',
       );
-      context.expect(checkContractConsistency(extraTable).issues.join('\n')).toContain('50001');
+      context
+        .expect(checkContractConsistency(extraTable, conventionsFor(extraTable)).issues.join('\n'))
+        .toContain('50001');
     });
     await check('codes-subset-of-table', () => {
       const common = validContract.replace(
@@ -252,7 +273,7 @@ evidence(
         'x-common-business-codes: [INVALID_REQUEST, UNKNOWN]',
       );
       context
-        .expect(checkContractConsistency(common).issues.join('\n'))
+        .expect(checkContractConsistency(common, conventionsFor(common)).issues.join('\n'))
         .toContain('top-level UNKNOWN');
 
       const operation = validContract.replace(
@@ -260,8 +281,28 @@ evidence(
         'x-business-codes: [TRADE_CONFLICT, UNKNOWN]',
       );
       context
-        .expect(checkContractConsistency(operation).issues.join('\n'))
+        .expect(checkContractConsistency(operation, conventionsFor(operation)).issues.join('\n'))
         .toContain('createTrade UNKNOWN');
+    });
+    await check('convention-from-module', async () => {
+      const root = fixture();
+      writeFileSync(
+        join(root, 'packages/openapi/contracts/conventions.ts'),
+        [
+          'export function normalizeContractConventions() {',
+          '  return {',
+          '    codeTable: {},',
+          '    commonCodes: [],',
+          '    operationCodes: {},',
+          "    issues: ['custom-convention'],",
+          '  };',
+          '}',
+          '',
+        ].join('\n'),
+      );
+      const result = await runApiContractCli(['validate'], root);
+      context.expect(result.exitCode).not.toBe(0);
+      context.expect(result.issues.join('\n')).toContain('custom-convention');
     });
   },
 );
@@ -373,7 +414,7 @@ evidence(
     'codes-table-matches',
   ],
   async (context, check) => {
-    const generated = await generateContractFiles(validContract);
+    const generated = await generateContractFiles(validContract, conventionsFor(validContract));
     await check('generated-location', () => {
       context
         .expect(Object.keys(generated).sort())

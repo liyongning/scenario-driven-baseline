@@ -5,7 +5,7 @@ import { request as httpRequest } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import express, { type RequestHandler } from 'express';
 import { createServer as createViteServer } from 'vite';
-import { createTrade, getTrade } from '@daqian/template-openapi/generated/operations';
+import { createTrade, getTrade } from '../../../openapi/testing/engine/generated/operations.ts';
 import { createShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { createBrowserDriver, resolvePlaceholderAssets } from '../../src/drivers/browser.ts';
@@ -159,6 +159,7 @@ defineCase(
             gatewayBaseUrl: `${host.url.replace(/\/$/, '')}/__shadow`,
             securitySchemes,
             identity: accessIdentity,
+            operations: { getTrade },
           },
         );
       });
@@ -380,6 +381,7 @@ async function runNetworkErrorCase(
           gatewayBaseUrl: `${host.url.replace(/\/$/, '')}/__shadow`,
           securitySchemes,
           identity: accessIdentity,
+          operations: { createTrade },
         },
       ),
     );

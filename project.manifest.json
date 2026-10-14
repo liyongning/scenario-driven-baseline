@@ -160,6 +160,7 @@
       "packages/protocol/testing",
       "packages/openapi/src",
       "packages/openapi/testing",
+      "packages/openapi/contracts",
       "packages/web/src",
       "packages/e2e/src",
       "packages/e2e/host",
@@ -184,7 +185,9 @@
     "protocolInputs": [
       "proto-gen.lock",
       "packages/openapi/contracts/trade-v1.yaml",
-      "packages/openapi/contracts/trade-v1.lock.json"
+      "packages/openapi/contracts/trade-v1.lock.json",
+      "packages/openapi/contracts/conventions.ts",
+      "packages/openapi/testing/engine/**"
     ]
   },
   "quality": {

@@ -76,6 +76,7 @@ export default defineConfig([
       '.local/**',
       '.superpowers/**',
       ...protocolPackages.map((pkg) => `packages/${pkg.directory}/src/generated/**`),
+      ...protocolPackages.map((pkg) => `packages/${pkg.directory}/testing/engine/generated/**`),
     ],
   },
   { files: ['**/*.{js,mjs,cjs,ts,mts,cts}'], plugins: { js }, extends: ['js/recommended'] },

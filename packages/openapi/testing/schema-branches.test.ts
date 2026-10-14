@@ -16,6 +16,8 @@ function operation(id: string, schema?: unknown): OpenApiOperationContract {
     codes: [],
     implemented: true,
     parameters: [],
+    codeTable: {},
+    componentSchemas: {},
     responses: schema ? { '200': { content: { 'application/json': { schema } } } } : {},
   };
 }

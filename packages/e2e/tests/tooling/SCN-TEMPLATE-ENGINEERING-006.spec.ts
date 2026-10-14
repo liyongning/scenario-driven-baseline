@@ -37,25 +37,37 @@ function guideRoot() {
 /** 非空删除清单让白名单反例独立于真实示例 Fixture 是否仍存在。 */
 function writeRemovalFixture(root: string) {
   const test = testPackage(loadProjectManifest(root));
-  const directory = join(
+  const templateDirectory = join(
     root,
     'packages',
     test.directory,
     'tests/fixtures/SCN-TEMPLATE-ENGINEERING-008',
   );
-  mkdirSync(directory, { recursive: true });
+  const webDirectory = join(root, 'packages', test.directory, 'tests/fixtures/SCN-WEB-EXAMPLE-015');
+  mkdirSync(templateDirectory, { recursive: true });
+  mkdirSync(webDirectory, { recursive: true });
   writeFileSync(
-    join(directory, 'example-removal.json'),
+    join(templateDirectory, 'example-removal.json'),
     JSON.stringify({
       removal: {
         directories: ['openspec/specs/template-example'],
-        files: ['openspec/specs/web-example/spec.md'],
+        files: ['packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts'],
         globs: [
           {
             directory: 'packages/sdk/src',
             prefixes: ['template-example-'],
           },
         ],
+      },
+    }),
+  );
+  writeFileSync(
+    join(webDirectory, 'web-example-removal.json'),
+    JSON.stringify({
+      removal: {
+        directories: [],
+        files: ['openspec/specs/web-example/spec.md'],
+        globs: [],
       },
     }),
   );
@@ -135,11 +147,14 @@ cliEvidence(
       const webExample = guideRoot();
       writeFileSync(
         guidePath(webExample),
-        readFileSync(guidePath(webExample), 'utf8').replace('openspec/specs/web-example/', ''),
+        readFileSync(guidePath(webExample), 'utf8').replace(
+          'openspec/specs/web-example/spec.md',
+          '',
+        ),
       );
       context
         .expect(issuesOf(webExample))
-        .toContain('missing removal whitelist entry openspec/specs/web-example/');
+        .toContain('missing removal whitelist entry openspec/specs/web-example/spec.md');
     });
 
     await check('guide-links-resolve', () => {

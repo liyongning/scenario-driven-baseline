@@ -50,7 +50,7 @@ function evidence(
 }
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
-const generatedRoot = join(repositoryRoot, 'packages/openapi/src/generated');
+const generatedRoot = join(repositoryRoot, 'packages/openapi/testing/engine/generated');
 const generatedOperations = join(generatedRoot, 'operations.ts');
 const idlOperations = join(
   repositoryRoot,
@@ -150,10 +150,11 @@ evidence(
           httpMethod: 'post',
           path: '/api/v1/trades',
         });
-        context.expect(operation?.meta).toEqual({
+        context.expect(operation?.meta).toMatchObject({
           id: 'createTrade',
           method: 'post',
           path: '/api/v1/trades',
+          codeTable: expect.objectContaining({ AMOUNT_LIMIT_EXCEEDED: 42201 }),
         });
       });
     } finally {

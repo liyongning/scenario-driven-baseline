@@ -2,11 +2,12 @@
 import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'yaml';
 import { afterAll, vi, type TestContext } from 'vitest';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { copyCreatingSpecs } from '../../vitest.config.integration.ts';
-import { expectedMissingBindings, type InventoryOutput } from './example-removal-expected.ts';
+import { expectedMissingBindings, type InventoryOutput } from './removal-expected.ts';
 import {
   declarationBody,
   fixtureKeys,
@@ -26,7 +27,7 @@ import {
   type Probe,
   type Removal,
   type RemovalFixture,
-} from './example-removal-support.ts';
+} from './removal-support.ts';
 import { repositoryRoot } from './helpers.ts';
 import {
   createRepositoryCopy,
@@ -39,6 +40,7 @@ import {
 vi.setConfig({ testTimeout: 900_000 });
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
+const webRemovalFixture = join(fixtureRoot, 'SCN-WEB-EXAMPLE-015', 'web-example-removal.json');
 const integrationConfig = 'packages/e2e/vitest.config.integration.ts';
 const specRelative = relative(repositoryRoot, fileURLToPath(import.meta.url));
 const specFile = specRelative.split('/').pop()!;
@@ -50,6 +52,7 @@ const matrixSpecFiles = [
 type Expect = TestContext['expect'];
 type Evidence = Readonly<{
   copy: RepositoryCopy;
+  removal: Removal;
   removed: ReadonlyArray<string>;
   markerFiles: ReadonlyArray<string>;
   declarations: ReadonlyArray<DeclarationEvidence>;
@@ -66,8 +69,72 @@ type Evidence = Readonly<{
   probe: Probe;
 }>;
 
+/** 模板示例验收同时覆盖两份独立删除清单；Web 清单不存在时只删除 template-example。 */
+function combinedRemoval(removal: Removal, web?: Removal): Removal {
+  if (!web) return removal;
+  return {
+    directories: [...new Set([...removal.directories, ...web.directories])],
+    files: [...new Set([...removal.files, ...web.files])],
+    globs: [...removal.globs, ...web.globs],
+    matrices: [...removal.matrices, ...web.matrices],
+  };
+}
+
+/** 从 Web 声明所在产品绑定和清单契约读取 openapi 契约标题。 */
+function contractNameForDeclaration(root: string, declaration: string): string {
+  const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as {
+    packages: Array<{
+      directory: string;
+      role: string;
+      protocolKind?: string;
+      contract?: { file: string };
+    }>;
+    bindings: ReadonlyArray<{ product: string; protocol: string }>;
+  };
+  const product = manifest.packages.find((pkg) =>
+    declaration.startsWith(`packages/${pkg.directory}/`),
+  );
+  const protocols = new Set(
+    manifest.bindings
+      .filter((binding) => binding.product === product?.directory)
+      .map((binding) => binding.protocol),
+  );
+  const openapi = manifest.packages.find(
+    (pkg) =>
+      protocols.has(pkg.directory) &&
+      pkg.role === 'protocol' &&
+      pkg.protocolKind === 'openapi' &&
+      pkg.contract,
+  );
+  if (!openapi?.contract) throw new Error(`声明 ${declaration} 没有对应的 OpenAPI 契约`);
+  const source = readFileSync(join(root, openapi.contract.file), 'utf8');
+  const document = parse(source) as { info?: { title?: unknown } };
+  if (typeof document.info?.title !== 'string' || document.info.title.length === 0)
+    throw new Error(`契约 ${openapi.contract.file} 缺少 info.title`);
+  return document.info.title;
+}
+
+function operationIdsForContract(
+  obligations: ReadonlyArray<{ id: string }>,
+  contractName: string,
+): string[] {
+  const prefix = `${contractName}.`;
+  return [
+    ...new Set(
+      obligations.flatMap((item) => {
+        if (!item.id.startsWith(prefix)) return [];
+        const operationId = item.id.slice(prefix.length).split('#', 1)[0];
+        return operationId ? [operationId] : [];
+      }),
+    ),
+  ];
+}
+
 async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
-  const { removal } = fixture;
+  const optionalWebFixture = existsSync(webRemovalFixture)
+    ? (JSON.parse(readFileSync(webRemovalFixture, 'utf8')) as RemovalFixture)
+    : undefined;
+  const removal = combinedRemoval(fixture.removal, optionalWebFixture?.removal);
   const copy = createRepositoryCopy({ prefix: 'engineering-008-' });
   try {
     // 模拟交付状态并格式化，再提交基线：白名单删除的 diff 只反映删除本身。
@@ -90,13 +157,28 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
     const declarationPaths = [...new Set(removal.matrices.map((matrix) => matrix.declaration))];
     const manifestPath = join(copy.root, 'project.manifest.json');
     const manifestBefore = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown;
-    const marked = markerFiles(copy.root);
+    const markedByStem = new Map<string, Set<'template-example' | 'web-example'>>();
+    for (const path of markerFiles(copy.root, 'template-example'))
+      markedByStem.set(path, new Set(['template-example']));
+    if (optionalWebFixture)
+      for (const path of markerFiles(copy.root, 'web-example')) {
+        const stems = markedByStem.get(path) ?? new Set();
+        stems.add('web-example');
+        markedByStem.set(path, stems);
+      }
+    const marked = [...markedByStem.keys()];
     const fragments = new Map<string, string>();
     for (const path of marked) {
       const absolute = join(copy.root, path);
-      const stripped = stripMarkedFragments(path, readFileSync(absolute, 'utf8'));
-      writeFileSync(absolute, stripped.text);
-      fragments.set(path, stripped.removed);
+      let text = readFileSync(absolute, 'utf8');
+      const removed: string[] = [];
+      for (const stem of markedByStem.get(path)!) {
+        const stripped = stripMarkedFragments(path, text, stem);
+        text = stripped.text;
+        removed.push(stripped.removed);
+      }
+      writeFileSync(absolute, text);
+      fragments.set(path, removed.join('\n'));
     }
     const removed = removeWhitelistedPaths(copy.root, removal);
     const declarations = declarationPaths.map((path): DeclarationEvidence => {
@@ -168,6 +250,7 @@ async function runRemoval(fixture: RemovalFixture): Promise<Evidence> {
     const probe = probeSharedBindingBreak(copy);
     return {
       copy,
+      removal,
       removed,
       markerFiles: marked,
       declarations,
@@ -337,7 +420,7 @@ defineCase(
   },
   async ({ fixture, checkpoint, expect }) => {
     const value = await evidence(fixture as RemovalFixture);
-    const { removal } = fixture as RemovalFixture;
+    const { removal } = value;
     await checkpoint('copy-construction', () => assertCopyConstruction(value, expect));
     await checkpoint('whitelist-only-removal', () => assertWhitelistOnly(value, removal, expect));
     await checkpoint('fast-gates-green', () => {
@@ -370,15 +453,27 @@ defineCase(
       // 矩阵用例在两种状态下都执行完（声明为空时断言义务为空并结束，不因缺少示例路由失败）。
       for (const matrixSpecFile of matrixSpecFiles)
         expect(value.fastOutput).toContain(matrixSpecFile);
-      const errors = (await buildContractInventory(value.copy.root)).obligations.filter((item) =>
+      const inventory = await buildContractInventory(value.copy.root);
+      const errors = inventory.obligations.filter((item) =>
         item.id.startsWith('idl.error-contract#business-error#'),
       );
       expect(errors.length).toBe(1);
       expect(errors[0]!.requiredIn).toEqual(['integration']);
-      const openapiObligations = (await buildContractInventory(value.copy.root)).obligations.filter(
-        (item) => item.id.startsWith('trade.v1.'),
-      );
-      expect(openapiObligations).toEqual([]);
+      const openapiMatrix = removal.matrices.find((matrix) => matrix.kind === 'openapi-plans');
+      if (openapiMatrix) {
+        const declaration = value.declarations.find(
+          (item) => item.path === openapiMatrix.declaration,
+        );
+        if (!declaration) throw new Error(`矩阵声明不存在: ${openapiMatrix.declaration}`);
+        const contractName = contractNameForDeclaration(value.copy.root, declaration.path);
+        expect(operationIdsForContract(inventory.obligations, contractName).sort()).toEqual(
+          [...declaration.outsideMethodsBefore].sort(),
+        );
+        if (declaration.outsideMethodsBefore.length === 0)
+          expect(
+            inventory.obligations.filter((item) => item.id.startsWith(`${contractName}.`)),
+          ).toEqual([]);
+      }
     });
     await checkpoint('no-recursive-copy', async () => {
       expect(value.copy.env.TEMPLATE_COPY).toBe('1');
@@ -421,7 +516,7 @@ defineCase(
   },
   async ({ fixture, checkpoint, expect }) => {
     const value = await evidence(fixture as RemovalFixture);
-    const { removal } = fixture as RemovalFixture;
+    const { removal } = value;
     await checkpoint('copy-construction', () => assertCopyConstruction(value, expect));
     await checkpoint('whitelist-only-removal', () => assertWhitelistOnly(value, removal, expect));
     await checkpoint('scenario-gate-green', () => {

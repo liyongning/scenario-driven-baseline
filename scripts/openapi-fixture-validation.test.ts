@@ -1,6 +1,6 @@
 import { test, type TestContext } from 'vitest';
 import adapter from '../packages/openapi/testing/adapter';
-import { operationById } from '../packages/openapi/testing/contract';
+import { operationById } from '../packages/openapi/testing/contract.ts';
 import { checkOpenApiFixture } from '../packages/openapi/testing/fixture-check';
 
 type Checkpoint = (name: string, assertion: () => void | Promise<void>) => Promise<void>;

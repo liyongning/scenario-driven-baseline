@@ -68,6 +68,8 @@ function operation(
     codes,
     implemented: true,
     parameters: [],
+    codeTable: {},
+    componentSchemas: {},
     responses: {
       '200': { content: { 'application/json': { schema } } },
       '202': {

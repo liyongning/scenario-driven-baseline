@@ -5,7 +5,7 @@ import type {
   ProtocolDeclarationInput,
   RequestPolicy,
 } from '../../../scripts/lib/protocol-adapters.ts';
-import { contractName, operationById } from './contract.ts';
+import { engineContract, operationByIdFrom, type OpenApiContract } from './contract.ts';
 
 function unwrapExpression(expression: ts.Expression): ts.Expression {
   let current = expression;
@@ -57,7 +57,7 @@ function operationId(
   if (
     generatedRoot
       ? !sourcePath.startsWith(generatedRoot)
-      : !sourcePath.endsWith('/src/generated/operations.ts')
+      : !sourcePath.endsWith('/generated/operations.ts')
   )
     return undefined;
   const initializer = unwrapExpression(declaration.initializer);
@@ -116,7 +116,10 @@ function requestFields(
 }
 
 /** 解析 OpenAPI generated 描述常量；手写对象、IDL 常量或缺失 method 均被拒绝。 */
-export function resolveOpenApiDeclaration(input: ProtocolDeclarationInput) {
+export function resolveOpenApiDeclaration(
+  input: ProtocolDeclarationInput,
+  contract: OpenApiContract = engineContract,
+) {
   const source = (input.program as ts.Program)
     .getSourceFiles()
     .find((file) => file.fileName === input.modulePath);
@@ -131,7 +134,7 @@ export function resolveOpenApiDeclaration(input: ProtocolDeclarationInput) {
     methodNode && ts.isPropertyAssignment(methodNode)
       ? operationId(input.checker as ts.TypeChecker, input.generatedRoot, methodNode.initializer)
       : undefined;
-  const operation = id ? operationById(id) : undefined;
+  const operation = id ? operationByIdFrom(contract, id) : undefined;
   if (!operation) {
     input.issues.push(`声明元素的 method 不是 OpenAPI generated 描述常量：${where}`);
     return undefined;
@@ -140,13 +143,13 @@ export function resolveOpenApiDeclaration(input: ProtocolDeclarationInput) {
   if (!fields) return undefined;
   return {
     key: operation.id,
-    prefix: contractName,
+    prefix: contract.name,
     methodName: operation.id,
     httpMethod: operation.method,
     path: operation.path,
     requestFields: fields,
     position: where,
-    meta: { id: operation.id, method: operation.method, path: operation.path },
+    meta: operation,
   };
 }
 

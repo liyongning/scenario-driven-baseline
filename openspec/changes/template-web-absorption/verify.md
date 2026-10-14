@@ -47,7 +47,7 @@
 - 架构检查会拒绝导入绑定独占包但未声明绑定的测试文件；临时根反例通过。
 - 发布范围限定为 SDK 形态产品包及其绑定协议包；Web 产品包骨架尚未登记。
 - `git diff --check` 退出码 0。
-- 未发现需要在后续任务继续处理的缺陷；未执行任务 14、15 的演练，也未修改其 checkbox。
+- 未发现需要在后续任务继续处理的缺陷；未执行任务 15、16 的演练，也未修改其 checkbox。
 
 **Commit**
 
@@ -75,7 +75,7 @@
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 1。
   - unit：80/80 文件、409/409 用例通过；四项覆盖率均为 100%。
   - integration：64 个文件通过、1 个文件失败，132/133 个用例通过。
-  - 唯一失败为 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios`；`example-removal-fast` 通过。按 R5-M1 仅为任务 1–13 中途允许的后续未登记测试项目问题，归属任务 14。
+  - 唯一失败为 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios`；`example-removal-fast` 通过。按 R5-M1 仅为任务 1–13 中途允许的后续未登记测试项目问题，归属任务 15。
   - 日志：`/tmp/task2-check-fast.log`。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，计划 run id `affected-20261011T071950Z`。
   - 因工具配置变化按规则全量触发；unit 80/80 文件、409/409 用例通过。
@@ -104,7 +104,7 @@
 - 大型分析用例仅补充合理超时（`adapter.test.ts` 30 秒、SCN-004 30 秒、contract-inventory derivation 120 秒），断言未改变。
 - weapp 的 5 个 case 外层超时由默认 5 秒调整为 30 秒。正式版下实际成功耗时约 10.7–13.1 秒，原 5 秒会稳定截断；断言、步骤和请求次数均未改变。
 - 补齐并实际执行 adapter、路由、异常、命名导出、dataset 等单测；新增检查已用反例证明可失败。
-- freshness 与场景门禁在 weapp 通过后复核仍为预期状态；未执行任务 14、15 的演练，也未修改其 checkbox。
+- freshness 与场景门禁在 weapp 通过后复核仍为预期状态；未执行任务 15、16 的演练，也未修改其 checkbox。
 
 **Commit**
 
@@ -140,14 +140,14 @@
   - 010 的 `.vue` 反例确认 301 有效行触发 `max-lines`，template、script、style 三段均计入。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 1，仅 SCN-TEMPLATE-ENGINEERING-008 的允许失败。
   - format、lint、build、typecheck、architecture 通过；unit 82/82 文件、411/411 用例通过，statements/branches/functions/lines 均为 100%；fixtures 30 个 manifest 通过。
-  - integration 66/67 文件、136/137 用例通过；唯一失败为 `example-removal-scenarios`，`example-removal-fast` 通过。按 R5-M1 归属任务 14。
+  - integration 66/67 文件、136/137 用例通过；唯一失败为 `example-removal-scenarios`，`example-removal-fast` 通过。按 R5-M1 归属任务 15。
   - 因该允许失败会截断 `check:fast` 后续步骤，另行执行 `pnpm check:package`、`pnpm check:bundle`、`pnpm check:component-tree`：退出码均为 0，当前 SDK 仓库分别得到 package `issues: []` 与两个 web-app 检查的 `checked: []`。
 - `pnpm check:scenarios --change template-web-absorption`：退出码 1，共 45 条问题；全部属于 A2 期望集合之外的两类允许问题。
   - `openapi-unit` 未登记 11 条，归属任务 5；`app-unit` 未登记 13 条，归属任务 8；`browser` 未登记 21 条（含 `FLOW-WEB-EXAMPLE-001`），归属任务 10。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：第一次 run id `affected-20261011T131556Z` 因工具配置变化全量触发 `check:fast`；SCN-SCENARIO-GATE-026 在并行负载下失败，单独以相同作用域复跑该文件通过。登记“时败时过”1 次，按验收方口径不计 OI，也不属于 Task 3 业务失败。
 - 最终复跑 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，run id `affected-20261011T132434Z`；按规则全量触发 `pnpm check:fast`。
   - unit 82/82 文件、411/411 用例通过；integration 66/67 文件、136/137 用例通过；SCN-SCENARIO-GATE-026 通过（130.6 秒）。
-  - 唯一失败仍为 SCN-TEMPLATE-ENGINEERING-008 的允许项，归属任务 14；先前 SCN-026 波动未复现，本轮“时败时过”累计为 2、均已关闭；按验收方口径 OI 仍为 0。
+  - 唯一失败仍为 SCN-TEMPLATE-ENGINEERING-008 的允许项，归属任务 15；先前 SCN-026 波动未复现，本轮“时败时过”累计为 2、均已关闭；按验收方口径 OI 仍为 0。
 - freshness：结束检查 `PASS`，digest 与起始值一致；`git diff --check` 退出码 0。
 
 **Review / Acceptance**
@@ -155,7 +155,7 @@
 - `check:package` 在没有 SDK 形态产品包时直接成功；有 SDK 时仍只检查 SDK 与其绑定协议包。
 - `check:bundle`、`check:component-tree` 已登记为根命令与清单必需命令，并串入 `check:fast`；当前骨架无 web-app 包时按空检查通过，具体产物与组件树规则留给任务 8、9。
 - SCN-TEMPLATE-ENGINEERING-016 中“对模板自身清单运行注释门禁、web-app 包走源码模式”的模板事实推迟到任务 8；SCN-TEMPLATE-ENGINEERING-009 的模板排除事实推迟到任务 10。两项均已在任务 3 实现机制，承接任务负责模板自身 GREEN。
-- 未执行任务 14、15 的演练，也未修改其 checkbox。
+- 未执行任务 15、16 的演练，也未修改其 checkbox。
 
 **Commit**
 
@@ -188,10 +188,10 @@
 - `pnpm lint`、`pnpm typecheck`、`pnpm check:architecture`：退出码均为 0；架构检查输出 `no dependency violations found`。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fast`：退出码 1，仅 SCN-TEMPLATE-ENGINEERING-008 的允许失败。
   - format、build、typecheck、architecture 通过；unit 83/83 文件、413/413 用例通过，statements/branches/functions/lines 均为 100%；fixtures 31 个 manifest 通过。
-  - integration 67/68 文件、138/139 用例通过；`example-removal-fast` 通过，唯一失败为 `example-removal-scenarios`，输出问题仍全部是 `openapi-unit`、`app-unit`、`browser` 未登记项，按 R5-M1 归属后续任务 5、8、10 与任务 14。
+  - integration 67/68 文件、138/139 用例通过；`example-removal-fast` 通过，唯一失败为 `example-removal-scenarios`，输出问题仍全部是 `openapi-unit`、`app-unit`、`browser` 未登记项，按 R5-M1 归属后续任务 5、8、10 与任务 15。
   - 单独以 protocol-unit 覆盖率参数运行新增文件时，全局阈值会因其他 unit 项目未纳入而退出 1；完整 `pnpm test:unit` 已证明全部手写代码四项覆盖率 100%，新增两个文件无未覆盖行，该命令作用域问题不记业务失败。
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 1，run id `affected-20261011T141144Z`；因适配器与驱动目录变化全量触发 `check:fast`。
-  - unit 83/83 文件、413/413 用例通过；integration 67/68 文件、138/139 用例通过；唯一失败仍为上述允许的 SCN-008，归属任务 14。
+  - unit 83/83 文件、413/413 用例通过；integration 67/68 文件、138/139 用例通过；唯一失败仍为上述允许的 SCN-008，归属任务 15。
 - weapp 段补跑：`pnpm verify --change template-web-absorption --from test:e2e:weapp`，run id `template-web-absorption-apply-20261012T023104Z`，整体退出码 1；`check:fast` 按计划跳过，`test:e2e:weapp` 退出码 0（306891ms），`check:scenarios` 退出码 1（1353ms）。
   - 运行前确认正式版 `islogin=true`；未读取或复制本地凭据，也未触碰同时运行的 Nightly 实例。`weapp:prepare` 与 5 个 weapp 文件均通过，实际执行 5/5 文件、5/5 用例：SCN-PROTOCOL-CONTRACT-002、SCN-PROTOCOL-CONTRACT-008、FLOW-TEMPLATE-EXAMPLE-001、SCN-TEMPLATE-EXAMPLE-002、SCN-TEMPLATE-EXAMPLE-004。
   - `check:scenarios` 剩余 21 条问题全部是尚未登记 `browser` 测试项目的预期中间态，归属任务 10，与 Task 4 无关。
@@ -201,7 +201,7 @@
 
 - 已对照小程序适配器逐项核对网络行为义务；新增断言的超时等待均通过假计时器触发，响应体读取期间取消与超时分别有独立证据。
 - 执行器源码检查确认不写死业务接口名，只经协议包包名根入口导入公共客户端与网络工厂，不以相对路径导入 `src/`。
-- 未执行任务 14、15 的演练，未修改对应 checkbox；Task 4 的 weapp 段已补跑通过。
+- 未执行任务 15、16 的演练，未修改对应 checkbox；Task 4 的 weapp 段已补跑通过。
 
 **Commit**
 
@@ -240,13 +240,13 @@
   - `browser` 未登记：21 条，其中 20 条 Scenario 元数据与 1 条 `FLOW-WEB-EXAMPLE-001` 行；归属任务 10。
   - `app-unit` 未登记：13 条；归属任务 8。
   - `openapi-unit` 的 11 条问题已随本任务登记消失；没有缺失绑定、非本 Change Scenario 或其他问题，符合 R5-M1 的 A2 增量口径。
-- SCN-008 的期望集合按门禁真实阶段处理：预检存在尚未登记项目时门禁会在覆盖评估前返回，因此只比对精确预检问题；共享绑定缺失反例在预检清空后继续执行，任务 14 必须使用 A2 的精确 GREEN 口径。此调整只修正测试夹具的阶段判定，不改变规划语义。
+- SCN-008 的期望集合按门禁真实阶段处理：预检存在尚未登记项目时门禁会在覆盖评估前返回，因此只比对精确预检问题；共享绑定缺失反例在预检清空后继续执行，任务 15 必须使用 A2 的精确 GREEN 口径。此调整只修正测试夹具的阶段判定，不改变规划语义。
 
 **Review / Acceptance**
 
 - 对照 xueshan 契约脚本完成三处修正：来源与输出路径参数化；lock 覆盖三个生成物并在 `status` 中反查未知条目；运行接口表只读取生成方法元数据，不复制契约全文。
 - 架构检查确认 `packages/openapi/src` 的生产图不含 `testing/`、示例契约或生成 bundle；跨包路径继续只允许公开入口。
-- `git diff --check` 退出码 0；未执行任务 14、15 的演练，也未修改对应 checkbox。
+- `git diff --check` 退出码 0；未执行任务 15、16 的演练，也未修改对应 checkbox。
 
 **Commit**
 
@@ -288,7 +288,7 @@
 - 新增检查均以反例验证：非法声明、未知请求字段策略、未认领或悬空 Fixture、错误业务码、响应 schema 不符、传输失败与取消均有明确非零或判别结果。
 - 高并发下 AST 分支用例曾超过原 30 秒预算；将单例预算调整为 120 秒后连续三轮完整 unit 与两轮副本 `check:fast` 均通过。该调整只解决测试负载预算，不放宽断言。
 - 本轮 Task 6 自发现并修复的门禁回归均在提交前关闭，不新增“时败时过”；按验收方口径 Tasks 2、3 的两次也不是 OI，当前新增 OI 为 0。`git diff --check` 退出码 0。
-- 未执行任务 14、15 的演练，未修改对应 checkbox；本次全量 verify 的 weapp 段当时等待环境恢复，Task 4 后续补跑已通过。
+- 未执行任务 15、16 的演练，未修改对应 checkbox；本次全量 verify 的 weapp 段当时等待环境恢复，Task 4 后续补跑已通过。
 
 **Commit**
 
@@ -323,7 +323,7 @@
 
 - 依赖检查用受控临时根逐一验证：`packages/e2e/src/preview/` 导入通过；用例、harness 直接导入被拒绝；引擎入口临时转导出后，由用例经入口导入仍被拒绝并指出中转文件。恢复引擎入口后用 `depcruise` 复核通过，确认规则不能靠重导出绕过。
 - `shadow-engine-no-generated` 继续覆盖新增预览模块；预览构造模块只复用中立路由、步骤与共享同形校验，不导入任何协议包 generated 或 testing 模块。
-- 新增断言均核对实际用例数而非只看退出码；预览未命中与部分响应故障都有可观察结果，不是恒真检查。Task 7 未新增 OI，未执行任务 14、15 的演练，未修改对应 checkbox。
+- 新增断言均核对实际用例数而非只看退出码；预览未命中与部分响应故障都有可观察结果，不是恒真检查。Task 7 未新增 OI，未执行任务 15、16 的演练，未修改对应 checkbox。
 - `pnpm format:check`、`git diff --check` 退出码均为 0。
 
 **Commit**
@@ -359,7 +359,7 @@
 **Review / Acceptance**
 
 - 对照 create-vue 生成物，保留明确依赖的 `@vue/devtools-api`、精确版本、根级 lint/format 配置和 Vue 工具链；去除包级配置与脚手架残留，并按模板清单接入 `globalStore`、绑定、测试项目、模块根和核心 tsconfig。
-- 新增检查均通过反例或真实仓库运行观察到失败后再恢复，未用恒真断言替代行为证据。Task 8 未执行任务 14、15 的演练，也未勾选对应 Task。
+- 新增检查均通过反例或真实仓库运行观察到失败后再恢复，未用恒真断言替代行为证据。Task 8 未执行任务 15、16 的演练，也未勾选对应 Task。
 - `git diff --check` 退出码 0。
 
 **Commit**
@@ -409,7 +409,7 @@
   - `SCN-WEB-APP-010`：副本内连续执行多次 build/test/coverage 子进程，全量负载下超过用例预算并失败；隔离 84.47s 通过，未命中共享端口、临时目录或全局状态。
   - `SCN-SCENARIO-GATE-026`：副本内完整 unit 的两个 CPU 密集用例 `resolve-declaration-unit`（30s）与契约声明点派生（5s）在全量争用下超时；带 `SCENARIO_GATE_CHANGES` 隔离复跑 79.19s 通过，不是共享端口、临时目录或主仓库全局状态冲突。
   - 上述时败时过均已通过隔离和单 worker 全量关闭；按验收方口径不计 OI，单列统计。本轮按“按需通过但全量失败”口径新增 OI 为 0。
-- Task 4 的 weapp 段补跑已通过，run id `template-web-absorption-apply-20261012T023104Z`；Task 9 本次全量也已运行 weapp 5/5。未执行任务 14、15 的演练，未修改对应 checkbox。
+- Task 4 的 weapp 段补跑已通过，run id `template-web-absorption-apply-20261012T023104Z`；Task 9 本次全量也已运行 weapp 5/5。未执行任务 15、16 的演练，未修改对应 checkbox。
 
 **Commit**
 
@@ -476,7 +476,7 @@
 
 - Task 2 提交时只登记了 `SCN-PROTOCOL-CONTRACT-015/idl-adapter-regression` 的 `test-tools-unit` 证据，未登记本 Spec 独立要求的 `protocol-unit/idl-adapter-validator`。验收时依赖 `check:fast` 的总体退出码，未逐项核对 case→环境覆盖矩阵，因此漏掉了这条独立 missing binding。
 - Task 8 提交时只在 integration 的 `SCN-WEB-APP-010/untested-vue-cli` 内覆盖了 `vitest-root-fixed`，未建立 `test-tools-unit/vitest-project-config` 独立证据。阶段总结把剩余问题概括为 browser 中间态，漏列了这条非 browser 的 missing binding；归因是环境覆盖矩阵核对不完整，不是被 browser 问题掩盖。
-- 两项漏交付均属验收证据接线缺失，不改 proposal/spec/design/tasks 语义；本次在 Task 10 收尾内修复并把“逐 case 与环境核对”补入本记录。任务 14、15 的演练与 checkbox 未执行、未修改。
+- 两项漏交付均属验收证据接线缺失，不改 proposal/spec/design/tasks 语义；本次在 Task 10 收尾内修复并把“逐 case 与环境核对”补入本记录。任务 15、16 的演练与 checkbox 未执行、未修改。
 
 **Commit**
 
@@ -502,7 +502,7 @@
 
 - `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task11-check-fast-20261013T145204Z pnpm check:fast`：退出码 0（约 522 秒）。unit 138/138 文件、566/566 用例；普通 integration 94/94 文件、173/173 用例；integration-heavy 7/7 文件、13/13 用例；statements 5770/5770、branches 3777/3777、functions 1169/1169、lines 5065/5065 均 100%。
 - `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=task11-check-fast-20261013T151800Z pnpm test:e2e:browser`：退出码 0（36.12 秒），3/3 文件、19/19 用例通过；其中 `SCN-WEB-EXAMPLE` 6/6，包含修正后的 partial-then-disconnect 与 FLOW 用例。
-- 同一 run id 独立运行 `pnpm check:scenarios`：退出码 1。共 338 条问题，其中 320 条为本任务尚未运行的 weapp 证据缺失；非 weapp 仅 18 条：Task 12 四条、Task 13 两条、Task 14 的 SCN-008 重型副本因本轮外部负载失败十二条。Task 11 相关 `SCN-WEB-EXAMPLE`、`FLOW-WEB-EXAMPLE-001`、`SCN-OPENAPI-CONTRACT-017`、021 已无问题。
+- 同一 run id 独立运行 `pnpm check:scenarios`：退出码 1。共 338 条问题，其中 320 条为本任务尚未运行的 weapp 证据缺失；非 weapp 仅 18 条：Task 12 四条、Task 13 两条、Task 15 的 SCN-008 重型副本因本轮外部负载失败十二条。Task 11 相关 `SCN-WEB-EXAMPLE`、`FLOW-WEB-EXAMPLE-001`、`SCN-OPENAPI-CONTRACT-017`、021 已无问题。
 - 最终 freshness 复核为 `PASS`，digest 仍为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
 
 **外部负载导致的时败时过**
@@ -638,12 +638,49 @@
 - F7：`preview-local.ts` 写死示例接口，复用或替换产品时需要同步调整。
 - F8：`defineCase` 默认 5 秒覆盖项目级 `testTimeout`，并发负载下会让较慢的真实验证产生非业务超时。
 
-## Task 14 示例删除演练
+## Task 14 OpenAPI 引擎证据与产品契约分离
+
+**规划与输入**
+
+- 起始 HEAD：`c6f8860`；本次按修订后的 Task 14 执行，原 Task 14/15 的示例删除与复刻演练记录已顺延为 Task 15/16。
+- 起始与结束 freshness 均为 `PASS`，digest `3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0`。
+- 未修改 proposal、specs、design、tasks 的语义，只勾选 Task 14 checkbox。
+
+**RED / GREEN**
+
+- `SCN-WEB-EXAMPLE-015` 先在副本中替换产品契约并删除 Web 示例，RED 暴露引擎用例仍读取 `packages/openapi/contracts/` 与 `src/generated/`、开放数据载体仍从产品契约派生、OpenAPI 平台用例与契约命令彼此耦合、Whitelist 与删除清单分散等问题；迁移后 `product-contract-replacement` 通过，改动只落在 WEX-09 允许的范围。
+- 引擎测试载体新增 `packages/openapi/testing/engine/` 下的 `trade-v1.yaml`、约定模块、同源 generated 与 bundle；产品侧新增 `packages/openapi/contracts/conventions.ts`。契约加载、业务码解释、Shadow 路由、响应校验和浏览器执行器改为显式接收契约来源或描述，不再按模块位置读取产品契约。
+- 载体迁移的完整文件面包括：`packages/openapi/testing/engine/**`、`packages/openapi/contracts/conventions.ts`、`packages/openapi/testing/**`、`scripts/api-contract.ts`、`scripts/lib/openapi-contract-core.ts`、`scripts/openapi-*.test.ts`、`scripts/api-contract*.test.ts`、`packages/e2e/tests/web-openapi-browser/**`、`packages/e2e/tests/tooling/openapi-*.ts` 与 `SCN-OPENAPI-CONTRACT-*.spec.ts`、`packages/e2e/tests/fixtures/SCN-OPENAPI-CONTRACT-*`、`packages/e2e/tests/fixtures/_datasets/platform-openapi-*`、`packages/e2e/src/preview/preview-launcher.ts` 及其单测、`packages/openapi/vitest.config.ts`、`project.manifest.json`、相关 AGENTS/CLAUDE、架构与使用指南。Fixture 与数据集 schema 新增可选 `contractCarrier`，所有引擎证据声明 `contractCarrier: "engine"` 并刷新来源摘要；产品事实用例继续从清单、契约和声明派生，不写死接口名、契约名或码值。
+- OAS/BRW 载体核对：OpenAPI 引擎用例与浏览器平台用例均从 `testing/engine/` 或平台登记入口取得契约描述，不导入 `@daqian/template-openapi` 的产品生成常量，也不读取 `contracts/` 或 `src/generated/`；Fixture 与平台数据集的 `contractCarrier` 为 `engine`。`src/generated/` 只保留 lock 登记的生成物，任务 6 遗留的 `declarations.ts` 已删除。
+- 删除辅助逻辑迁到不带示例标记的 `removal-support.ts`；模板示例与 Web 示例的删除清单、白名单和标记剥离均各自由自己的 Fixture 派生。SCN-008 在 Web 删除清单不存在时只删除 template-example，并只在 Web 清单存在时按标记外消费声明核对 OpenAPI 义务，与 EX-10 精确口径一致。
+- SCN-OPENAPI-CONTRACT-029 的 `engine-artifacts-fresh` 原先只有 integration engineering 断言，没有登记 `openapi-unit` 证据。现将真实 generated/bundle 比对迁入 `packages/openapi/testing/engine/generated.test.ts` 并由 `openapi-unit` 覆盖，integration 只保留结构事实；定向验证 openapi-unit 2/2、SCN-029 integration 1/1。
+- 第二批复刻发现一并处理：SCN-OPENAPI-CONTRACT-027 改为“引用 OpenAPI 的绑定都属于 web-app，sdk 不引用 OpenAPI”；IDL 浏览器执行器新增可选网关基地址、令牌和请求上下文；`SCN-PROTOCOL-CONTRACT-004/016` 按清单遍历全部协议包；IDL 绑定独占用例按指南随绑定删除，不再在整份 skip 时登记 cover；项目清单样例包名改为不与真实清单冲突的生成名；指南补充共用接口删除顺序、weapp 依赖处理、归档删除 Scenario 的限制和新增绑定接线点。
+- 默认并发稳定性修复使用 Vitest project 隔离：构建、安装、完整 unit 与密集 CLI 子进程用例进入 `integration-heavy` 逐文件串行；`SCN-SCENARIO-GATE-026` 的嵌套 unit 仅在受限副本中显式使用 `TEMPLATE_UNIT_MAX_WORKERS=1`。未减少用例、断言或测试项目，未用扩大等待时间掩盖竞态。
+
+**Verification**
+
+- final1 run id `template-web-absorption-apply-task14-20261014T092800Z-final1`，`pnpm verify --change template-web-absorption` 整轮通过。
+  - `check:fast`：exit 0，827013ms；unit 147/147 文件、594/594 用例，普通 integration 90/90 文件、150/150 用例，integration-heavy 14/14 文件、40/40 用例，覆盖率 100%。
+  - `test:e2e:weapp`：exit 0，309625ms；6/6 文件、6/6 用例。`FLOW-TEMPLATE-EXAMPLE-001/weapp-normal` 首次 30008ms 超时，按 verify 的 per-file-retry 重新 prepare 后以 9666ms 通过；按验收方修订口径按通过计，不归为 OI。
+  - `test:e2e:browser`：exit 0，44333ms；4/4 文件、20/20 用例。
+  - `check:scenarios`：exit 0，2085ms；本 Change 场景对账通过，`issues: []`。
+- final2 run id `template-web-absorption-apply-task14-20261014T094850Z-final2`，`check:fast` 通过（864380ms；unit 147/147、594/594，普通 integration 90/90、150/150，heavy 14/14、40/40），weapp 前两个文件 `SCN-PROTOCOL-CONTRACT-002` 与 `SCN-PROTOCOL-CONTRACT-008` 均为 1/1 通过；随后 `weapp:prepare` 报“180000ms 内未就绪：第 6 次探测超过 4983ms 未返回”，该步骤最终 exit 1，browser 与场景门禁未进入。
+- final2 的中断归因于正式版微信开发者工具主进程僵死（PID 40334 状态 `UE`，`kill -9` 无效），不是模板缺陷、业务失败或 OI；续跑待环境恢复后使用 `--from test:e2e:weapp` 补跑。
+
+**已知风险（只登记，不修）**
+
+- Web 示例删除白名单会一并删除通用轮询基建（`runtime/poller.ts`、`runtime/generation.ts` 等）；删除 Web 示例后若仍需这些能力，应保留或重新提供实现。
+- 预览与开发代理仍选择第一个可用协议/Web 包，并保留 `?token=preview-token&merchant=1001` 示例提示；多包替换时需同步调整。
+- 高负载下 integration-heavy 副本用例与 `contract-inventory.derivation.test.ts` 仍可能受外部机器负载影响；`fixtures:refresh` 需要目标 manifest 已存在，缺失时要先写占位文件。
+- web-app 的 integration 行为证据落位尚未在指南中写明；`openspec new change` 可能生成 `openspec/config.yaml`，属于 Change Skill 问题。
+- F5–F8 仍按前述条目登记；IDL 执行器缺少执行选项的问题已由本次可选 `BrowserRunnerOptions` 修复。
+
+## Task 15 示例删除演练
 
 **规划与输入**
 
 - 第 1 轮无上下文 Agent 在 `d411879` 的隔离副本中按指南同时删除 `template-example` 与 `web-example`，`check:fast` 在 typecheck 失败：`packages/web/src/app/platform/openapi-ports.ts` 与 `packages/web/src/store/example.test.ts` 仍引用已删除的示例模块或状态。
-- 失败说明指南的两份删除白名单只覆盖了部分删除面，使用方照字面操作会留下共享文件引用；Task 14 checkbox 保持未勾选，本轮只修复指南与机械一致性门禁。
+- 失败说明指南的两份删除白名单只覆盖了部分删除面，使用方照字面操作会留下共享文件引用；Task 15 checkbox 保持未勾选，本轮只修复指南与机械一致性门禁。
 
 **根因与修复**
 
@@ -677,15 +714,15 @@
 
 **Review / Acceptance**
 
-- 本轮未修改 proposal、specs、design 或 tasks 语义，也未执行任务 15 的任何演练。
-- Task 14 checkbox 暂不勾选；需由验收方使用新隔离副本重跑“移除模板示例”演练后决定。
+- 本轮未修改 proposal、specs、design 或 tasks 语义，也未执行任务 16 的任何演练。
+- Task 15 checkbox 暂不勾选；需由验收方使用新隔离副本重跑“移除模板示例”演练后决定。
 
-## Task 15 复刻演练阻塞修复（交回前）
+## Task 16 复刻演练阻塞修复（交回前）
 
 **规划与输入**
 
 - 交叉复刻演练在按清单新增 `packages/web-idl` 与 `web-idl-browser` 后被模板自测的写死拓扑阻断；xueshan 纵切片在新增 `packages/player-api`、`packages/player-web` 与 `player-web-browser` 后又被相同模式阻断。
-- 这些失败来自门禁测试读取真实仓库或临时复制真实清单时仍写死包名、绑定名、包数量、协议契约数量、目录布局或固定重定向调用次数，违反 AGENTS.md 的“门禁只从清单读取”和指南的“替换点地图”约定。Task 15 checkbox 保持未勾选。
+- 这些失败来自门禁测试读取真实仓库或临时复制真实清单时仍写死包名、绑定名、包数量、协议契约数量、目录布局或固定重定向调用次数，违反 AGENTS.md 的“门禁只从清单读取”和指南的“替换点地图”约定。Task 16 checkbox 保持未勾选。
 
 **交叉复刻修复**
 
@@ -744,8 +781,8 @@
 
 **Review / Acceptance**
 
-- 本轮未执行 Task 14/15 的正式演练，也未勾选 Task 14、Task 15 的 checkbox；绑定删除冒烟仅用于验证模板侧去写死，不作为演练验收结论。
-- 由验收方在修复提交后的新隔离副本中重跑 Task 14 示例删除、交叉复刻、xueshan 纵切片和移除绑定演练。
+- 本轮未执行 Task 15/16 的正式演练，也未勾选 Task 15、Task 16 的 checkbox；绑定删除冒烟仅用于验证模板侧去写死，不作为演练验收结论。
+- 由验收方在修复提交后的新隔离副本中重跑 Task 15 示例删除、交叉复刻、xueshan 纵切片和移除绑定演练。
 
 **Commit**
 

@@ -1,10 +1,12 @@
 import type { RestOperation } from '@daqian/template-openapi';
-import * as generatedOperations from '@daqian/template-openapi/generated/operations';
+import * as productGeneratedOperations from '@daqian/template-openapi/generated/operations';
+import * as engineGeneratedOperations from '../../../openapi/testing/engine/generated/operations.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import type { ProtocolHost } from '../../src/hosts/protocol-host.ts';
 import { waitForCalls } from '../../src/harness.ts';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { routesFromOpenApiOperations } from '../../../openapi/testing/shadow-routes.ts';
+import { productContract } from '../../../openapi/testing/contract.ts';
 import { browserCancelEvent } from '../../../openapi/testing/browser-runner.ts';
 import {
   runBrowserPlan,
@@ -13,27 +15,33 @@ import {
   type BrowserPlan,
 } from './browser-case-support.ts';
 import { accessIdentity, operatorIdentity, securitySchemes } from './openapi-wire.ts';
+import { createTradeStep, trade } from './openapi-wire-plan.ts';
 import { withProtocolHost } from './openapi-wire-support.ts';
 import {
   assertMatrixObligations,
   matrixCaseCovers,
+  matrixIdentity,
   matrixObligationKeys,
   matrixPlan,
   matrixScenario,
+  matrixSecuritySchemes,
 } from './openapi-obligation-matrix.ts';
 
 const root = process.cwd();
 const driver = useBrowserDriver();
 const requestIdPattern = '^\\d{8}_\\d{6}_\\d{3}_[a-z]{6}$';
-const operations = Object.fromEntries(
-  Object.values(generatedOperations).map((operation) => [operation.meta.id, operation]),
+const engineOperations = Object.fromEntries(
+  Object.values(engineGeneratedOperations).map((operation) => [operation.meta.id, operation]),
 ) as Readonly<Record<string, RestOperation>>;
-const { cancelTrade, createTrade, getTrade, listTrades } = generatedOperations;
+const productOperations = Object.fromEntries(
+  Object.values(productGeneratedOperations).map((operation) => [operation.meta.id, operation]),
+) as Readonly<Record<string, RestOperation>>;
+const { cancelTrade, createTrade, getTrade, listTrades } = engineGeneratedOperations;
 const inventory = await buildContractInventory(root);
 const matrixOperations = Object.fromEntries(
   inventory.methods
-    .filter((method) => method.name in operations)
-    .map((method) => [method.name, operations[method.name]!]),
+    .filter((method) => method.name in productOperations)
+    .map((method) => [method.name, productOperations[method.name]!]),
 ) as Readonly<Record<string, RestOperation>>;
 
 defineCase(
@@ -462,17 +470,29 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     const selected = Object.values(matrixOperations);
+    const contract = productContract();
+    const identity = matrixIdentity(contract, matrixOperations);
     const expectedKeys = matrixObligationKeys(inventory, matrixOperations);
     await withProtocolHost(
-      routesFromOpenApiOperations(selected, Object.values(operations)),
-      matrixScenario(matrixOperations),
+      routesFromOpenApiOperations(selected, Object.values(productOperations), {
+        contract,
+        contractCarrier: 'product',
+      }),
+      matrixScenario(matrixOperations, contract),
       async (host, server) => {
-        const results = await run(host, matrixPlan(matrixOperations), { timeoutMs: 5_000 });
+        const results = await run(host, matrixPlan(matrixOperations, contract), {
+          timeoutMs: 5_000,
+          operations: productOperations,
+          securitySchemes: matrixSecuritySchemes(contract),
+          identity,
+        });
         const covered = await assertMatrixObligations({
           inventory,
           operations: matrixOperations,
           results,
           records: server.records(),
+          contract,
+          identity,
           expect,
           checkpoint,
         });
@@ -484,7 +504,7 @@ defineCase(
         await checkpoint('real-client-path', () => {
           expect(server.records()).toHaveLength(
             Object.values(matrixOperations).reduce(
-              (count, operation) => count + (operation.meta.codes?.length ?? 0) + 4,
+              (count, operation) => count + (operation.meta.codes?.length ?? 0) + 5,
               0,
             ),
           );
@@ -506,7 +526,7 @@ defineCase(
           expect(Object.keys(matrixOperations).sort()).toEqual(
             inventory.methods
               .map((method) => method.name)
-              .filter((name) => name in operations)
+              .filter((name) => name in productOperations)
               .sort(),
           );
         });
@@ -584,16 +604,6 @@ function browserOptions(host: ProtocolHost) {
     gatewayBaseUrl: `${host.url.replace(/\/$/, '')}/__shadow`,
     securitySchemes,
     identity: accessIdentity,
+    operations: engineOperations,
   };
-}
-
-function createTradeStep() {
-  return {
-    method: 'createTrade',
-    input: { body: { merchant_id: 1001, amount: 1, channel: 'WEB' } },
-  } as const;
-}
-
-function trade() {
-  return { trade_no: 'T-1', status: 'CREATED', amount: 1, merchant_id: 1001 };
 }

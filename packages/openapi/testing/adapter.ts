@@ -5,9 +5,11 @@ import type {
 } from '../../../scripts/lib/protocol-adapters.ts';
 import { resolveOpenApiDeclaration, scanOpenApiCalls } from './ast.ts';
 import {
-  operationById,
+  engineContract,
+  productContract,
   responseSchema,
   schemaProperties,
+  type OpenApiContract,
   type OpenApiOperationContract,
 } from './contract.ts';
 import { checkOpenApiFixture } from './fixture-check.ts';
@@ -15,6 +17,41 @@ import { derivePresence } from './presence.ts';
 import { validateResponse } from './schema.ts';
 
 type JsonObject = Record<string, unknown>;
+
+function contractForGeneratedRoot(generatedRoot: string | undefined): OpenApiContract {
+  return generatedRoot?.replace(/\\/g, '/').includes('/testing/engine/generated')
+    ? engineContract
+    : productContract();
+}
+
+function contractForManifest(manifest: unknown): OpenApiContract {
+  const carrier = value(manifest)?.contractCarrier;
+  if (carrier === undefined || carrier === 'product') return productContract();
+  if (carrier === 'engine') return engineContract;
+  throw new Error(`OpenAPI 适配器不支持 contractCarrier=${String(carrier)}`);
+}
+
+function value(input: unknown): JsonObject | undefined {
+  return input && typeof input === 'object' && !Array.isArray(input)
+    ? (input as JsonObject)
+    : undefined;
+}
+
+function directOperation(value: unknown): OpenApiOperationContract | undefined {
+  if (value && typeof value === 'object' && 'codeTable' in value && 'componentSchemas' in value)
+    return value as OpenApiOperationContract;
+  return undefined;
+}
+
+function operationFrom(value: unknown, contract: OpenApiContract) {
+  const direct = directOperation(value);
+  if (direct) return direct;
+  const source = value && typeof value === 'object' ? (value as JsonObject) : undefined;
+  const meta =
+    source?.meta && typeof source.meta === 'object' ? (source.meta as JsonObject) : source;
+  const id = typeof value === 'string' ? value : typeof meta?.id === 'string' ? meta.id : undefined;
+  return id ? contract.operations.find((operation) => operation.id === id) : undefined;
+}
 
 function requestBodyProperties(
   operation: OpenApiOperationContract,
@@ -106,7 +143,7 @@ function obligationsFor(
       cases: [...policy.cases],
       requiredIn,
     });
-  const presence = derivePresence(responseSchema(operation, 200));
+  const presence = derivePresence(responseSchema(operation, 200), operation.componentSchemas);
   obligations.push({ id: `${prefix}#presence#data`, cases: [presence.data], requiredIn });
   if (!presence.pending)
     for (const [name, value] of Object.entries(presence.properties))
@@ -118,11 +155,13 @@ function obligationsFor(
 /** OpenAPI 适配器：门禁只经本接口消费协议能力。 */
 const adapter: ProtocolAdapter = {
   resolveDeclaration(input) {
-    return resolveOpenApiDeclaration(input);
+    return resolveOpenApiDeclaration(input, contractForGeneratedRoot(input.generatedRoot));
   },
   deriveObligations(input) {
     if (!input.operation) return { obligations: [], discoveries: [] };
-    const operation = operationById(input.operation.methodName);
+    const operation =
+      operationFrom(input.operation.meta, engineContract) ??
+      productContract().operations.find((item) => item.id === input.operation!.methodName);
     if (!operation) {
       input.issues.push(`OpenAPI 契约中不存在接口 ${input.operation.methodName}`);
       return { obligations: [], discoveries: [] };
@@ -139,17 +178,17 @@ const adapter: ProtocolAdapter = {
     );
     return { obligations: obligationsFor(operation, input), discoveries: [] };
   },
-  responseValidator(value) {
-    const source = value && typeof value === 'object' ? (value as JsonObject) : undefined;
-    const meta =
-      source?.meta && typeof source.meta === 'object' ? (source.meta as JsonObject) : source;
-    const id =
-      typeof value === 'string' ? value : typeof meta?.id === 'string' ? meta.id : undefined;
-    const operation = id ? operationById(id) : undefined;
+  responseValidator(value, options) {
+    const operation =
+      directOperation(value) ?? operationFrom(value, contractForManifest(options?.manifest));
     return operation ? (body, status) => validateResponse(operation, body, status) : undefined;
   },
   checkFixture(manifest, files) {
-    return checkOpenApiFixture(manifest, files);
+    try {
+      return checkOpenApiFixture(manifest, files, contractForManifest(manifest));
+    } catch (error) {
+      return [error instanceof Error ? error.message : String(error)];
+    }
   },
   scanCalls(input) {
     return scanOpenApiCalls(input);

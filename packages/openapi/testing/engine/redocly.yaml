@@ -1,0 +1,6 @@
+extends:
+  - recommended
+
+rules:
+  # 引擎测试契约同样以 HTTP 200 业务信封表达失败，不展开为 4xx 状态码。
+  operation-4xx-response: off

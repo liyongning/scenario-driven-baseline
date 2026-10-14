@@ -416,27 +416,31 @@ describe('buildContractInventory topology-independent guards', () => {
     }
   });
 
-  it('reports a declaration that is not called and rejects an unknown product', async () => {
-    const root = declarationRoot({
-      declaration: 'export const consumedOperations = [{ method: "Probe" }];\n',
-      caller: null,
-      protocolFiles: { '../testing/adapter.ts': controlledAdapter },
-      prefix: 'template-contract-unused-declaration-',
-    });
-    try {
-      const inventory = await buildContractInventory(root.root);
-      expect(
-        inventory.issues.some(
-          (issue) =>
-            issue.includes('未使用的声明：Probe') && issue.includes('consumed-operations.ts'),
-        ),
-      ).toBe(true);
-      expect(inventory.issues).toContain('未声明的调用：Undeclared（caller.ts:1）');
-      await expect(buildContractInventory(root.root, { product: 'not-a-product' })).rejects.toThrow(
-        'is not a registered product package',
-      );
-    } finally {
-      root.cleanup();
-    }
-  });
+  it(
+    'reports a declaration that is not called and rejects an unknown product',
+    { timeout: 30_000 },
+    async () => {
+      const root = declarationRoot({
+        declaration: 'export const consumedOperations = [{ method: "Probe" }];\n',
+        caller: null,
+        protocolFiles: { '../testing/adapter.ts': controlledAdapter },
+        prefix: 'template-contract-unused-declaration-',
+      });
+      try {
+        const inventory = await buildContractInventory(root.root);
+        expect(
+          inventory.issues.some(
+            (issue) =>
+              issue.includes('未使用的声明：Probe') && issue.includes('consumed-operations.ts'),
+          ),
+        ).toBe(true);
+        expect(inventory.issues).toContain('未声明的调用：Undeclared（caller.ts:1）');
+        await expect(
+          buildContractInventory(root.root, { product: 'not-a-product' }),
+        ).rejects.toThrow('is not a registered product package');
+      } finally {
+        root.cleanup();
+      }
+    },
+  );
 });

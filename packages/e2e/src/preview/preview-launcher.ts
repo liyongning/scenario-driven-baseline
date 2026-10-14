@@ -22,6 +22,7 @@ import type { ShadowRoute } from '../shadow/routes.ts';
 type DatasetManifest = Readonly<{
   formatVersion: 1;
   protocol: string;
+  contractCarrier?: 'product' | 'engine';
   description?: string;
   entries: ReadonlyArray<PreviewEntry>;
 }>;
@@ -112,7 +113,7 @@ function defaultAdapterLoader(
 function responseIssues(manifest: DatasetManifest, adapter: ProtocolAdapter): string[] {
   const issues: string[] = [];
   manifest.entries.forEach((entry, entryIndex) => {
-    const validator = adapter.responseValidator(entry.operationId);
+    const validator = adapter.responseValidator(entry.operationId, { manifest });
     if (!validator) {
       issues.push(`entry ${entryIndex + 1} ${entry.operationId}: 协议无法解析 operationId`);
       return;

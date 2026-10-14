@@ -166,9 +166,18 @@ evidence(
         )
         .toEqual([]);
       const expanded = structuredClone(repository) as MutableManifest;
+      let suffix = 1;
+      while (
+        repository.packages.some(
+          (pkg) =>
+            pkg.directory === `web-idl-${suffix}` || pkg.name === `@sample/web-idl-${suffix}`,
+        )
+      )
+        suffix += 1;
+      const sampleDirectory = `web-idl-${suffix}`;
       expanded.packages.push({
-        directory: 'web-idl',
-        name: '@sample/web-idl',
+        directory: sampleDirectory,
+        name: `@sample/${sampleDirectory}`,
         role: 'product',
         form: 'web-app',
         private: true,
@@ -178,8 +187,8 @@ evidence(
         consumedOperations: ['src/app/consumed-operations.ts'],
       });
       expanded.bindings.push({
-        name: 'web-idl-browser',
-        product: 'web-idl',
+        name: `${sampleDirectory}-browser`,
+        product: sampleDirectory,
         protocol: repository.packages.find((pkg) => pkg.role === 'protocol')!.directory,
         platforms: ['browser'],
       });
@@ -600,6 +609,9 @@ evidence(
           'run',
           ...testProjectsByClass(manifest, ['unit']).flatMap((name) => ['--project', name]),
           '--coverage',
+          ...(process.env.TEMPLATE_UNIT_MAX_WORKERS
+            ? [`--maxWorkers=${process.env.TEMPLATE_UNIT_MAX_WORKERS}`]
+            : []),
         ]);
     });
   },

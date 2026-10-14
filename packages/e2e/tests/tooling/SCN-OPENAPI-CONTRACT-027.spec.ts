@@ -94,19 +94,18 @@ cliEvidence(
 
     await check('not-in-release-plan', () => {
       const products = new Map(manifest.packages.map((pkg) => [pkg.directory, pkg]));
-      const sdkBindings = manifest.bindings.filter(
-        (binding) => products.get(binding.product)?.form === 'sdk',
+      const openapiBindings = manifest.bindings.filter(
+        (binding) => binding.protocol === openapi.directory,
       );
-      const webBindings = manifest.bindings.filter(
-        (binding) => products.get(binding.product)?.form === 'web-app',
-      );
-      context.expect(webBindings.length).toBeGreaterThan(0);
+      context.expect(openapiBindings.length).toBeGreaterThan(0);
       context
-        .expect(webBindings.every((binding) => binding.protocol === openapi.directory))
+        .expect(
+          openapiBindings.every((binding) => products.get(binding.product)?.form === 'web-app'),
+        )
         .toBe(true);
       context
-        .expect(sdkBindings.some((binding) => binding.protocol === openapi.directory))
-        .toBe(false);
+        .expect(openapiBindings.filter((binding) => products.get(binding.product)?.form === 'sdk'))
+        .toEqual([]);
     });
   },
   { timeoutMs: 60_000 },

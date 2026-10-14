@@ -5,7 +5,10 @@ import ts from 'typescript';
 import { afterEach, expect, test } from 'vitest';
 import { resolveOpenApiDeclaration } from './ast.ts';
 
-const generatedOperations = join(process.cwd(), 'packages/openapi/src/generated/operations.ts');
+const generatedOperations = join(
+  process.cwd(),
+  'packages/openapi/testing/engine/generated/operations.ts',
+);
 const cleanups: string[] = [];
 
 afterEach(() => {
@@ -16,7 +19,7 @@ function declarationFixture(declaration: string, options: { generatedRoot?: stri
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'openapi-ast-')));
   cleanups.push(root);
   const generatedRoot =
-    options.generatedRoot ?? join(process.cwd(), 'packages/openapi/src/generated');
+    options.generatedRoot ?? join(process.cwd(), 'packages/openapi/testing/engine/generated');
   const modulePath = join(root, 'declarations.ts');
   writeFileSync(modulePath, declaration);
   const program = ts.createProgram([modulePath, generatedOperations], {

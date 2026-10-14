@@ -1,9 +1,11 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { afterEach, expect, test, vi } from 'vitest';
+import { parse as parseYaml } from 'yaml';
+import { normalizeStandardContractConventions } from '../packages/openapi/testing/conventions.ts';
 import {
   runApiContractCli,
   statusContract,
@@ -25,6 +27,10 @@ vi.mock('node:child_process', async (importOriginal) => {
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 const spawn = vi.mocked(spawnSync);
 const roots: string[] = [];
+const standardConventions = pathToFileURL(
+  fileURLToPath(new URL('../packages/openapi/testing/conventions.ts', import.meta.url)),
+).href;
+const conventionsFor = (source: string) => normalizeStandardContractConventions(parseYaml(source));
 
 afterEach(() => {
   spawn.mockReset();
@@ -68,6 +74,15 @@ function spawnResult(status: number, stdout = '', stderr = '') {
   return { status, stdout, stderr, output: [], pid: 1, signal: null } as ReturnType<
     typeof spawnSync
   >;
+}
+
+function writeConventions(root: string, directory: string) {
+  const contracts = join(root, 'packages', directory, 'contracts');
+  mkdirSync(contracts, { recursive: true });
+  writeFileSync(
+    join(contracts, 'conventions.ts'),
+    `export { normalizeStandardContractConventions as normalizeContractConventions } from ${JSON.stringify(standardConventions)};\n`,
+  );
 }
 
 function syncFixture() {
@@ -135,6 +150,7 @@ function syncFixture() {
   }
   mkdirSync(join(root, 'packages/openapi/contracts'), { recursive: true });
   writeFileSync(join(root, 'packages/openapi/contracts/sample.yaml'), validContract);
+  writeConventions(root, 'openapi');
   return root;
 }
 
@@ -184,6 +200,7 @@ test('validate checks every registered OpenAPI contract through the mocked lint 
     JSON.stringify({ name: '@sample/player-api', private: false }, null, 2),
   );
   writeFileSync(join(root, 'packages/player-api/contracts/player.yaml'), validContract);
+  writeConventions(root, 'player-api');
 
   const lintCalls: unknown[] = [];
   spawn.mockImplementation((_command, args) => {
@@ -192,6 +209,23 @@ test('validate checks every registered OpenAPI contract through the mocked lint 
   });
   await expect(validateContract(root)).resolves.toEqual({ issues: [], exitCode: 0 });
   expect(lintCalls).toHaveLength(2);
+});
+
+test('validate reports missing and malformed contract convention modules', async () => {
+  const missing = syncFixture();
+  rmSync(join(missing, 'packages/openapi/contracts/conventions.ts'));
+  const missingResult = await runApiContractCli(['validate'], missing);
+  expect(missingResult.exitCode).toBe(1);
+  expect(missingResult.issues.join('\n')).toContain('无法加载契约约定模块');
+
+  const malformed = syncFixture();
+  writeFileSync(
+    join(malformed, 'packages/openapi/contracts/conventions.ts'),
+    'export const normalizeContractConventions = 1;\n',
+  );
+  const malformedResult = await runApiContractCli(['validate'], malformed);
+  expect(malformedResult.exitCode).toBe(1);
+  expect(malformedResult.issues.join('\n')).toContain('缺少 normalizeContractConventions');
 });
 
 test('sync exposes bundle failures without writing generated output', async () => {
@@ -259,10 +293,12 @@ test('status detects an unknown lock entry after fixing generated files', async 
 });
 
 test('sparse contracts exercise parser and generator fallbacks', async () => {
-  expect(() => checkContractConsistency('- invalid')).toThrow(/YAML object/);
+  expect(() => checkContractConsistency('- invalid', conventionsFor('- invalid'))).toThrow(
+    /YAML object/,
+  );
 
   const empty = 'openapi: 3.0.3\ninfo: {}\n';
-  expect(checkContractConsistency(empty).issues).toEqual([]);
+  expect(checkContractConsistency(empty, conventionsFor(empty)).issues).toEqual([]);
   expect(contractVersion(empty)).toBe('');
   expect(contractTitle(empty, 'fallback')).toBe('fallback');
 
@@ -300,10 +336,48 @@ x-business-code-table:
   IGNORED: text
 x-common-business-codes: []
 `;
-  expect(checkContractConsistency(nested).issues).toEqual([]);
-  const generated = await generateContractFiles(
-    nested.replace('        - null\n', '').replace('        - false\n', ''),
-  );
+  expect(checkContractConsistency(nested, conventionsFor(nested)).issues).toEqual([]);
+  const sparse = `openapi: 3.0.3
+security: invalid
+paths:
+  - invalid
+`;
+  const generatedSparse = await generateContractFiles(sparse, {
+    codeTable: {},
+    commonCodes: [],
+    operationCodes: {},
+    issues: [],
+  });
+  expect(generatedSparse).toMatchObject({
+    'src/generated/codes.ts': expect.any(String),
+    'src/generated/operations.ts': expect.any(String),
+    'src/generated/schema.d.ts': expect.any(String),
+  });
+  const nestedSource = nested.replace('        - null\n', '').replace('        - false\n', '');
+  const generated = await generateContractFiles(nestedSource, conventionsFor(nestedSource));
   expect(generated['src/generated/operations.ts']).toContain('implemented: false');
   expect(generated['src/generated/operations.ts']).toContain('security: [{"apiKey":[]}]');
+});
+
+test('operations without security or registered codes default to empty arrays', async () => {
+  const source = `openapi: 3.0.3
+info:
+  title: Defaults
+  version: 1.0.0
+paths:
+  /anonymous:
+    get:
+      operationId: anonymous
+      responses:
+        "200":
+          description: Success
+`;
+  const generated = await generateContractFiles(source, {
+    codeTable: {},
+    commonCodes: [],
+    operationCodes: {},
+    issues: [],
+  });
+  expect(generated['src/generated/operations.ts']).toContain('security: [] as const');
+  expect(generated['src/generated/operations.ts']).toContain('codes: []');
 });

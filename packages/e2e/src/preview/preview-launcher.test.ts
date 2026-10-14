@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
-import { getTrade, listTrades } from '../../../openapi/src/generated/operations.ts';
+import { getTrade, listTrades } from '../../../openapi/testing/engine/generated/operations.ts';
 import openApiAdapter from '../../../openapi/testing/adapter.ts';
 import { routesFromOpenApiOperations } from '../../../openapi/testing/shadow-routes.ts';
 import {
@@ -56,7 +56,13 @@ function datasetFixture(
 }
 
 function validDataset(entries: ReadonlyArray<unknown>) {
-  return { formatVersion: 1, protocol: 'openapi', description: '测试数据集', entries };
+  return {
+    formatVersion: 1,
+    protocol: 'openapi',
+    contractCarrier: 'engine',
+    description: '测试数据集',
+    entries,
+  };
 }
 
 test(
@@ -91,14 +97,21 @@ test(
       .expect(parsePreviewDatasetArgument(['node', 'preview-local', '--dataset', 'named']))
       .toBe('named');
 
+    const configuredDefault = (
+      JSON.parse(
+        readFileSync(join(repositoryRoot, 'packages/e2e/host/web.config.json'), 'utf8'),
+      ) as {
+        defaultDataset: string;
+      }
+    ).defaultDataset;
     const defaultDataset = await loadPreviewDataset({
       root: repositoryRoot,
       adapterLoader: async () => openApiAdapter,
     });
-    context.expect(defaultDataset.name).toBe('platform-openapi-primary');
+    context.expect(defaultDataset.name).toBe(configuredDefault);
     context
       .expect((await loadPreviewDataset({ root: repositoryRoot })).name)
-      .toBe('platform-openapi-primary');
+      .toBe(configuredDefault);
 
     const named = await loadPreviewDataset({
       root: repositoryRoot,
@@ -114,15 +127,14 @@ test(
         ).entries,
       );
 
-    await context
-      .expect(
-        loadPreviewDataset({
-          root: repositoryRoot,
-          datasetName: 'does-not-exist',
-          adapterLoader: async () => openApiAdapter,
-        }),
-      )
-      .rejects.toThrow(/does-not-exist.*platform-openapi-primary.*platform-openapi-alternate/);
+    const missingDataset = await loadPreviewDataset({
+      root: repositoryRoot,
+      datasetName: 'does-not-exist',
+      adapterLoader: async () => openApiAdapter,
+    }).catch((error: unknown) => error);
+    context.expect(String(missingDataset)).toContain('does-not-exist');
+    context.expect(String(missingDataset)).toContain('platform-openapi-primary');
+    context.expect(String(missingDataset)).toContain('platform-openapi-alternate');
 
     const sortedDatasetsRoot = mkdtempSync(join(tmpdir(), 'preview-launcher-'));
     roots.push(sortedDatasetsRoot);

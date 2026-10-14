@@ -103,6 +103,18 @@ export function openApiFixtureRoot(
       resolve(repositoryRoot, openApiDirectory, 'testing'),
       `${openApiDirectory}/testing`,
     ),
+    sourceFiles(
+      resolve(repositoryRoot, openApiDirectory, 'contracts'),
+      `${openApiDirectory}/contracts`,
+    ),
+    sourceFiles(
+      resolve(repositoryRoot, openApiDirectory, 'testing/engine/generated'),
+      `${openApiDirectory}/src/generated`,
+    ),
+  );
+  files[`${openApiDirectory}/testing/contract.bundle.json`] = readFileSync(
+    resolve(repositoryRoot, openApiDirectory, 'testing/engine/contract.bundle.json'),
+    'utf8',
   );
   files['scripts/lib/protocol-adapters.ts'] = readFileSync(
     resolve(repositoryRoot, 'scripts/lib/protocol-adapters.ts'),

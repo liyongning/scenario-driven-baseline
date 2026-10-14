@@ -14,6 +14,10 @@
       "type": "string",
       "minLength": 1
     },
+    "contractCarrier": {
+      "description": "数据集使用的契约载体；缺省为 product。",
+      "enum": ["product", "engine"]
+    },
     "description": {
       "description": "数据集用途的可读说明。",
       "type": "string",

@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { InventoryOutput } from './example-removal-expected.ts';
+import type { InventoryOutput } from './removal-expected.ts';
 import type { RepositoryCopy } from './repository-copy.ts';
 
 export const markerStems = ['template-example', 'web-example'] as const;
@@ -81,24 +81,23 @@ export function run(copy: RepositoryCopy, command: string, args: ReadonlyArray<s
 function markerAt(
   path: string,
   line: string,
+  stem: MarkerStem,
 ): Readonly<{ kind: 'begin' | 'end'; stem: MarkerStem }> | undefined {
   const trimmed = line.trim();
   const comment = /^\/\//.test(trimmed) || /^<!--/.test(trimmed);
   if (!comment) return undefined;
-  for (const stem of markerStems) {
-    if (trimmed.includes(`${stem}:begin`)) return { kind: 'begin', stem };
-    if (trimmed.includes(`${stem}:end`)) return { kind: 'end', stem };
-  }
+  if (trimmed.includes(`${stem}:begin`)) return { kind: 'begin', stem };
+  if (trimmed.includes(`${stem}:end`)) return { kind: 'end', stem };
   return undefined;
 }
 
 /** 删除文件里全部成对标记之间的内容（连同标记本身），返回删除后的文本与被删片段。 */
-export function stripMarkedFragments(path: string, content: string) {
+export function stripMarkedFragments(path: string, content: string, stem: MarkerStem) {
   const kept: string[] = [];
   const removed: string[] = [];
   const open: MarkerStem[] = [];
   for (const line of content.split('\n')) {
-    const marker = markerAt(path, line);
+    const marker = markerAt(path, line, stem);
     if (marker?.kind === 'begin') {
       open.push(marker.stem);
       removed.push(line);
@@ -118,7 +117,7 @@ export function stripMarkedFragments(path: string, content: string) {
 }
 
 /** 全仓库含标记的文件清单：删除片段前确定，作为「只删白名单」的允许改动面。 */
-export function markerFiles(root: string): string[] {
+export function markerFiles(root: string, stem: MarkerStem = 'template-example'): string[] {
   const found: string[] = [];
   for (const path of git(root, ['ls-files', '--cached', '--others', '--exclude-standard']).split(
     '\n',
@@ -128,7 +127,7 @@ export function markerFiles(root: string): string[] {
     if (
       readFileSync(join(root, path), 'utf8')
         .split('\n')
-        .some((line) => markerAt(path, line) !== undefined)
+        .some((line) => markerAt(path, line, stem) !== undefined)
     )
       found.push(path);
   }

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createTrade } from '@daqian/template-openapi/generated/operations';
+import { createTrade } from '../../../openapi/testing/engine/generated/operations.ts';
 import { createShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { routesFor } from './openapi-wire.ts';

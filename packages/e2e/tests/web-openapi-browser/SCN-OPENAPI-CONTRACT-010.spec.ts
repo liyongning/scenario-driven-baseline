@@ -1,4 +1,8 @@
-import { cancelTrade, getTrade, listTrades } from '@daqian/template-openapi/generated/operations';
+import {
+  cancelTrade,
+  getTrade,
+  listTrades,
+} from '../../../openapi/testing/engine/generated/operations.ts';
 import { createShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { clientFor, operatorIdentity, routesFor } from './openapi-wire.ts';

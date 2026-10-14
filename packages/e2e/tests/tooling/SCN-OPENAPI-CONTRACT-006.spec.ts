@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { writeOpenApiRoot, repositoryRoot } from './openapi-contract-fixture.ts';
+import { contractPath, writeOpenApiRoot, repositoryRoot } from './openapi-contract-fixture.ts';
 
 function filesBelow(directory: string): string[] {
   const result: string[] = [];
@@ -63,12 +63,17 @@ defineCase(
       expect(production).not.toContain('Create a virtual trade');
     });
     await checkpoint('bundle-in-testing-only', () => {
-      const bundle = join(repositoryRoot, 'packages/openapi/testing/contract.bundle.json');
+      const bundle = join(repositoryRoot, dirname(contractPath), 'contract.bundle.json');
       expect(readFileSync(bundle, 'utf8')).toContain('Neutral trade example');
       const openapiFiles = filesBelow(join(repositoryRoot, 'packages/openapi'))
         .filter((path) => path.endsWith('contract.bundle.json'))
         .map((path) => path.slice(join(repositoryRoot, 'packages/openapi').length + 1));
-      expect(openapiFiles).toEqual(['testing/contract.bundle.json']);
+      expect(openapiFiles.sort()).toEqual(
+        [
+          'testing/contract.bundle.json',
+          `${contractPath.replace(/^packages\/openapi\//, '').replace('trade-v1.yaml', 'contract.bundle.json')}`,
+        ].sort(),
+      );
     });
     await checkpoint('violation-blocked', () => {
       const fixture = writeOpenApiRoot();

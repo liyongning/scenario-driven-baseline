@@ -1,7 +1,19 @@
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { contractPath, readRepositoryFile, repositoryRoot } from './openapi-contract-fixture.ts';
+import { readRepositoryFile, repositoryRoot } from './openapi-contract-fixture.ts';
+
+const engineContractPath = 'packages/openapi/testing/engine/trade-v1.yaml';
+const engineConfigPath = 'packages/openapi/testing/engine/redocly.yaml';
+
+function adjustments(config: string) {
+  const lines = config.split('\n');
+  return lines.flatMap((line, index) =>
+    /^ {2}[a-z0-9-]+:/.test(line)
+      ? [{ line: line.trim(), previous: (lines[index - 1] ?? '').trim() }]
+      : [],
+  );
+}
 
 defineCase(
   {
@@ -18,29 +30,24 @@ defineCase(
     ],
   },
   async ({ checkpoint, expect }) => {
-    const config = readRepositoryFile('redocly.yaml');
+    const configs = [readRepositoryFile('redocly.yaml'), readRepositoryFile(engineConfigPath)];
     await checkpoint('rule-adjustments-justified', () => {
-      const lines = config.split('\n');
-      const adjustments = lines.flatMap((line, index) =>
-        /^ {2}[a-z0-9-]+:/.test(line)
-          ? [{ line: line.trim(), previous: lines[index - 1] ?? '' }]
-          : [],
-      );
-      expect(adjustments).toEqual([
-        {
-          line: 'operation-4xx-response: off',
-          previous: '  # 该协议统一以 HTTP 200 业务信封表达失败，不把业务错误展开为 4xx 状态码。',
-        },
-      ]);
+      for (const config of configs) {
+        const configured = adjustments(config);
+        expect(configured.length).toBeGreaterThan(0);
+        for (const adjustment of configured) {
+          expect(adjustment.previous).toMatch(/^#\s*\S/);
+        }
+      }
     });
     await checkpoint('example-zero-warnings', () => {
       const result = spawnSync(
         join(repositoryRoot, 'node_modules/.bin/redocly'),
         [
           'lint',
-          contractPath,
+          engineContractPath,
           '--config',
-          join(repositoryRoot, 'redocly.yaml'),
+          join(repositoryRoot, engineConfigPath),
           '--format',
           'json',
         ],

@@ -5,8 +5,11 @@ import { afterEach, expect, test } from 'vitest';
 import { planCommand, runByManifest, spawnStep, type PlannedCommand } from './run-by-manifest.ts';
 
 const roots: string[] = [];
+const originalUnitMaxWorkers = process.env.TEMPLATE_UNIT_MAX_WORKERS;
 afterEach(() => {
   delete process.env.VERIFY_RUN_ID;
+  if (originalUnitMaxWorkers === undefined) delete process.env.TEMPLATE_UNIT_MAX_WORKERS;
+  else process.env.TEMPLATE_UNIT_MAX_WORKERS = originalUnitMaxWorkers;
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
@@ -117,12 +120,26 @@ test('assembles typecheck from each package tsconfig.build.json plus the root to
 
 test('runs every unit project together with coverage and a single unit report', () => {
   const root = fixtureRoot();
+  delete process.env.TEMPLATE_UNIT_MAX_WORKERS;
   process.env.VERIFY_RUN_ID = 'run-42';
   expect(planCommand(root, 'test:unit')).toEqual([
     {
       command: 'vitest',
       args: ['run', '--project', 'sample-unit', '--coverage'],
       env: { VERIFY_REPORT_FILE: join(root, 'artifacts/run-42/reports/unit.json') },
+    },
+  ]);
+});
+
+test('respects an explicit unit worker limit', () => {
+  const root = fixtureRoot();
+  process.env.TEMPLATE_UNIT_MAX_WORKERS = '1';
+  process.env.VERIFY_RUN_ID = 'run-copy';
+  expect(planCommand(root, 'test:unit')).toEqual([
+    {
+      command: 'vitest',
+      args: ['run', '--project', 'sample-unit', '--coverage', '--maxWorkers=1'],
+      env: { VERIFY_REPORT_FILE: join(root, 'artifacts/run-copy/reports/unit.json') },
     },
   ]);
 });

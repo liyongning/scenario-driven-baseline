@@ -1,0 +1,22 @@
+{
+  "envelopes": {
+    "$.plans.retrieveAccount.responses[0]": "retrieveAccount"
+  },
+  "plans": {
+    "retrieveAccount": {
+      "input": { "path": { "account_ref": "A-1" } },
+      "responses": [
+        {
+          "code": 0,
+          "message": "ok",
+          "data": {
+            "account_ref": "A-1",
+            "display_name": "Fixture Account",
+            "balance": 100,
+            "note": null
+          }
+        }
+      ]
+    }
+  }
+}

@@ -16,6 +16,12 @@ export type BrowserPlanStep = Readonly<{
 }>;
 export type BrowserStepResult = Readonly<Record<string, unknown>>;
 
+export type BrowserRunnerOptions = Readonly<{
+  gatewayBaseUrl?: string;
+  getAccessToken?: () => string | null | Promise<string | null>;
+  requestContext?: Readonly<{ productId?: string; lane?: string; appVersion?: string }>;
+}>;
+
 const generatedIdlModules: ReadonlyArray<Record<string, unknown>> = [tradeIdl];
 
 /** 按接口名扫描 generated 导出，不写死任何业务接口。 */
@@ -55,7 +61,10 @@ export function browserSerializable(value: unknown): unknown {
   ) as unknown;
 }
 
-async function runStep(step: BrowserPlanStep): Promise<BrowserStepResult> {
+async function runStep(
+  step: BrowserPlanStep,
+  options: BrowserRunnerOptions,
+): Promise<BrowserStepResult> {
   const meta = findMethod(step.method);
   if (!meta) return { ok: false, error: { code: 'UNRESOLVED_METHOD', method: step.method } };
 
@@ -80,8 +89,9 @@ async function runStep(step: BrowserPlanStep): Promise<BrowserStepResult> {
         }
       : rawHttp;
   const client = createProtocolClient({
-    gatewayBaseUrl: '',
-    getAccessToken: () => 'browser-fixture-token',
+    gatewayBaseUrl: options.gatewayBaseUrl ?? '',
+    getAccessToken: options.getAccessToken ?? (() => 'browser-fixture-token'),
+    ...(options.requestContext ? { requestContext: options.requestContext } : {}),
     http,
     runtime: {
       nowMs: () => Date.now(),
@@ -97,8 +107,11 @@ async function runStep(step: BrowserPlanStep): Promise<BrowserStepResult> {
 }
 
 /** 顺序执行页面下发计划，逐项返回可序列化结果；单个步骤失败不会中断后续步骤。 */
-export async function run(plan: ReadonlyArray<BrowserPlanStep>): Promise<BrowserStepResult[]> {
+export async function run(
+  plan: ReadonlyArray<BrowserPlanStep>,
+  options: BrowserRunnerOptions = {},
+): Promise<BrowserStepResult[]> {
   const results: BrowserStepResult[] = [];
-  for (const step of plan) results.push(await runStep(step));
+  for (const step of plan) results.push(await runStep(step, options));
   return results;
 }

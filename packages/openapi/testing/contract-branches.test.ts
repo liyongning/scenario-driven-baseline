@@ -32,6 +32,7 @@ const bundle = vi.hoisted(() => ({
     },
   },
   components: {},
+  'x-business-code-table': { OWN: 7 },
 }));
 
 vi.mock('node:fs', () => ({
@@ -43,6 +44,7 @@ const {
   commonBusinessCodes,
   componentSchemas,
   contractName,
+  createOpenApiContract,
   operations,
   responseSchema,
   schemaProperties,
@@ -51,7 +53,7 @@ const {
 
 test('OpenAPI bundle parsing keeps optional fields and skips malformed entries', () => {
   expect(contractName).toBe('synthetic');
-  expect(businessCodeTable).toEqual({});
+  expect(businessCodeTable).toEqual({ OWN: 7 });
   expect(commonBusinessCodes).toEqual([]);
   expect(securitySchemes).toEqual({});
   expect(componentSchemas).toEqual({});
@@ -71,4 +73,16 @@ test('OpenAPI bundle parsing keeps optional fields and skips malformed entries',
   expect(responseSchema(operations[1]!, 200)).toBeUndefined();
   expect(schemaProperties(valid.requestBody)).toEqual({ name: { type: 'string' } });
   expect(schemaProperties(1)).toEqual({});
+});
+
+test('OpenAPI contract construction accepts a conventions module without operation codes', () => {
+  const contract = createOpenApiContract(
+    {
+      info: { title: 'sparse' },
+      paths: { '/minimal': { get: { operationId: 'minimal' } } },
+      components: {},
+    },
+    () => ({ codeTable: {}, commonCodes: [], operationCodes: {}, issues: [] }),
+  );
+  expect(contract.operations[0]?.codes).toEqual([]);
 });

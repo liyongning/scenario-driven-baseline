@@ -66,7 +66,7 @@ cliEvidence(
             placeholderAssets: [],
             proxyPrefixes: ['/api'],
             defaultDataset: 'platform-openapi-primary',
-            routes: { getTrade: { server: 'remote' } },
+            routes: { anyOperation: { server: 'remote' } },
           }),
         );
         context.expect(() => loadWebConfig(root)).toThrow(/routes/);

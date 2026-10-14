@@ -7,6 +7,7 @@ export type BrowserPlanStep = Readonly<{
   input: Readonly<Record<string, unknown>>;
   timeoutMs?: number;
   cancel?: BrowserRunnerCancel;
+  operation?: RestOperation;
 }>;
 export type BrowserStepResult =
   | Readonly<{ kind: 'success'; data: unknown }>
@@ -16,12 +17,15 @@ export type BrowserRunnerOptions = Readonly<{
   gatewayBaseUrl?: string;
   securitySchemes?: Readonly<Record<string, SecurityScheme>>;
   identity?: Readonly<{ scheme: string; token: string }>;
+  operations?: Readonly<Record<string, RestOperation>>;
 }>;
 
 /** 浏览器用例在 Shadow 记录到请求后触发，用于确定性地推进 in-flight 取消。 */
 export const browserCancelEvent = 'template-openapi-cancel';
 
-function findOperation(name: string): RestOperation | undefined {
+function findOperation(name: string, options: BrowserRunnerOptions): RestOperation | undefined {
+  const configured = options.operations?.[name];
+  if (configured) return configured;
   for (const value of Object.values(openapi)) {
     const operation = value as Partial<RestOperation> | undefined;
     if (operation?.meta?.id === name) return operation as RestOperation;
@@ -58,7 +62,7 @@ async function runStep(
   step: BrowserPlanStep,
   options: BrowserRunnerOptions,
 ): Promise<BrowserStepResult> {
-  const operation = findOperation(step.method);
+  const operation = step.operation ?? findOperation(step.method, options);
   if (!operation) return { kind: 'transport-failure', reason: 'CODEC_ERROR', method: step.method };
   const source = cancellationSource();
   let cleanupCancellation = () => {};

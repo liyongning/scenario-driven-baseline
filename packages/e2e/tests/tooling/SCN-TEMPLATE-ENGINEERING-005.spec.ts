@@ -281,7 +281,15 @@ cliEvidence(
       context.expect(planCommand(renamedRoot, 'test:unit')).toEqual([
         {
           command: 'vitest',
-          args: ['run', '--project', 'sample-unit', '--coverage'],
+          args: [
+            'run',
+            '--project',
+            'sample-unit',
+            '--coverage',
+            ...(process.env.TEMPLATE_UNIT_MAX_WORKERS
+              ? [`--maxWorkers=${process.env.TEMPLATE_UNIT_MAX_WORKERS}`]
+              : []),
+          ],
           env: {
             // 报告路径跟随运行入口的 run id（pnpm verify 会设置 VERIFY_RUN_ID），不写死 local。
             VERIFY_REPORT_FILE: join(

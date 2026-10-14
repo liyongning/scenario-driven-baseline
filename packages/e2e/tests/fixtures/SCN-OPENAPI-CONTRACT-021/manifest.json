@@ -4,7 +4,7 @@
   "protocol": "openapi",
   "sources": {
     "spec": {
-      "requirementDigest": "d73ff0ed09ed5de1264ed5d33c2f10b15830afd04e8636d18f248726db4fac5e"
+      "requirementDigest": "7cdba1702f46a9ef88c9e7d520e0fcc2d1fbc37f8778f5838e3d401f35e4ebc5"
     }
   },
   "cases": {

@@ -5,15 +5,17 @@ import { createShadowServer } from '@template-test/shadow';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { routesFromOpenApiOperations } from '../../../openapi/testing/shadow-routes.ts';
+import { productContract } from '../../../openapi/testing/contract.ts';
 import {
   assertMatrixObligations,
   matrixCaseCovers,
+  matrixIdentity,
   matrixObligationKeys,
   matrixPlan,
   matrixScenario,
+  matrixSecuritySchemes,
 } from '../web-openapi-browser/openapi-obligation-matrix.ts';
 import { runOpenApiMatrix, type OpenApiMatrixPlan } from '../web-openapi-browser/openapi-matrix.ts';
-import { accessIdentity, securitySchemes } from '../web-openapi-browser/openapi-wire.ts';
 import { openApiFixtureRoot } from './openapi-fixture.ts';
 import { cliEvidence } from './scenario-gate-helpers.ts';
 import { repositoryRoot } from './helpers.ts';
@@ -55,21 +57,28 @@ defineCase(
   },
   async ({ checkpoint, expect }) => {
     const selected = Object.values(matrixOperations);
+    const contract = productContract();
+    const identity = matrixIdentity(contract, matrixOperations);
     const expectedKeys = matrixObligationKeys(inventory, matrixOperations);
     const server = await createShadowServer({
-      routes: routesFromOpenApiOperations(selected, Object.values(available)),
+      routes: routesFromOpenApiOperations(selected, Object.values(available), {
+        contract,
+        contractCarrier: 'product',
+      }),
       environmentClass: 'integration',
-      scenarios: [{ id: 'openapi-matrix', routes: matrixScenario(matrixOperations) as never }],
+      scenarios: [
+        { id: 'openapi-matrix', routes: matrixScenario(matrixOperations, contract) as never },
+      ],
     }).start();
     try {
       const client = createRestClient({
         gatewayBaseUrl: server.url,
         http: createFetchHttp(),
-        securitySchemes,
-        identity: accessIdentity,
+        securitySchemes: matrixSecuritySchemes(contract),
+        ...(identity ? { identity } : {}),
       });
       const results = [];
-      for (const step of matrixPlan(matrixOperations)) {
+      for (const step of matrixPlan(matrixOperations, contract)) {
         const cancellation = cancellationSource(step.cancel === 'before-send');
         results.push(
           await client.request(matrixOperations[step.method]!, step.input, {
@@ -83,6 +92,8 @@ defineCase(
         operations: matrixOperations,
         results,
         records: server.records(),
+        contract,
+        identity,
         expect,
         checkpoint,
       });
@@ -94,7 +105,7 @@ defineCase(
       await checkpoint('real-client-path', () => {
         expect(server.records()).toHaveLength(
           Object.values(matrixOperations).reduce(
-            (count, operation) => count + (operation.meta.codes?.length ?? 0) + 4,
+            (count, operation) => count + (operation.meta.codes?.length ?? 0) + 5,
             0,
           ),
         );
@@ -122,7 +133,10 @@ cliEvidence(
   'derive-obligations-gate',
   ['obligation-kinds', 'obligation-id-format', 'environments-by-binding'],
   async (context, check) => {
-    const obligations = inventory.obligations.filter((item) => item.id.startsWith('trade.v1.'));
+    const contractName = productContract().name;
+    const obligations = inventory.obligations.filter((item) =>
+      item.id.startsWith(`${contractName}.`),
+    );
     await check('obligation-kinds', async () => {
       const categories = new Set(obligations.map((item) => item.id.split('#')[1]));
       if (obligations.length === 0) context.expect(categories.size).toBe(0);
@@ -156,9 +170,12 @@ cliEvidence(
     });
     await check('obligation-id-format', () => {
       if (obligations.length === 0) context.expect(obligations).toEqual([]);
+      const escapedName = contractName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       context
         .expect(
-          obligations.every((item) => /^trade\.v1\.[A-Za-z][A-Za-z0-9]*#[^#]+#/.test(item.id)),
+          obligations.every((item) =>
+            new RegExp(`^${escapedName}\\.[A-Za-z][A-Za-z0-9]*#[^#]+#`).test(item.id),
+          ),
         )
         .toBe(true);
     });
@@ -205,12 +222,14 @@ cliEvidence(
       const inventory = await buildContractInventory(fixture.root);
       const methods = inventory.methods.filter((method) =>
         inventory.obligations.some((obligation) =>
-          obligation.id.startsWith(`trade.v1.${method.name}#`),
+          obligation.id.startsWith(`${productContract().name}.${method.name}#`),
         ),
       );
       const plans = Object.fromEntries(
         methods.map((method) => [method.name, { responses: [] } satisfies OpenApiMatrixPlan]),
       );
+      const contract = productContract();
+      const identity = matrixIdentity(contract, matrixOperations);
       const result = await runOpenApiMatrix({
         methods,
         operations: Object.values(openapi).flatMap((value) => {
@@ -218,8 +237,10 @@ cliEvidence(
           return operation ? [operation] : [];
         }),
         plans,
-        securitySchemes,
-        identity: accessIdentity,
+        securitySchemes: matrixSecuritySchemes(contract),
+        ...(identity ? { identity } : {}),
+        contract,
+        contractCarrier: 'product',
       });
       const resolved = import.meta.resolve('@daqian/template-openapi');
 

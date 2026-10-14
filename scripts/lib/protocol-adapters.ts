@@ -65,7 +65,10 @@ export type ProtocolAdapter = Readonly<{
     obligations: Obligation[];
     discoveries: FieldDiscovery[];
   }>;
-  responseValidator(operation: unknown): ((body: unknown, status: number) => string[]) | undefined;
+  responseValidator(
+    operation: unknown,
+    options?: Readonly<{ manifest?: unknown }>,
+  ): ((body: unknown, status: number) => string[]) | undefined;
   checkFixture(
     manifest: unknown,
     files: ProtocolFixtureFiles,

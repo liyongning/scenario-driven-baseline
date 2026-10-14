@@ -431,11 +431,11 @@ Web 应用需要从 OpenAPI 契约生成类型和精简运行描述，同时把�
 
 #### 实现机制与关键文件
 
-[packages/openapi](../packages/openapi) 保存契约、lock 与 `src/generated/`；[packages/openapi/src/rest/client.ts](../packages/openapi/src/rest/client.ts) 实现 REST 执行器，[packages/openapi/src/adapters/network/fetch.ts](../packages/openapi/src/adapters/network/fetch.ts) 提供真实浏览器网络工厂，[packages/openapi/testing/contract.ts](../packages/openapi/testing/contract.ts)、[shadow-routes.ts](../packages/openapi/testing/shadow-routes.ts) 与 [browser-runner.ts](../packages/openapi/testing/browser-runner.ts) 提供测试适配；命令与摘要由 [scripts/api-contract.ts](../scripts/api-contract.ts) 按清单驱动。
+[packages/openapi/contracts](../packages/openapi/contracts) 保存清单登记的产品契约、lock 与产品侧约定，[packages/openapi/src/generated](../packages/openapi/src/generated) 保存产品生成物；[packages/openapi/testing/engine](../packages/openapi/testing/engine) 保存与产品来源分离的引擎测试契约、约定、bundle 与生成物。该分离让替换产品契约只需改 `contracts/` 并从清单重跑同步，不需要改写引擎用例；[packages/openapi/src/rest/client.ts](../packages/openapi/src/rest/client.ts) 实现 REST 执行器，[packages/openapi/src/adapters/network/fetch.ts](../packages/openapi/src/adapters/network/fetch.ts) 提供真实浏览器网络工厂，[packages/openapi/testing/contract.ts](../packages/openapi/testing/contract.ts)、[shadow-routes.ts](../packages/openapi/testing/shadow-routes.ts) 与 [browser-runner.ts](../packages/openapi/testing/browser-runner.ts) 按产品或引擎载体提供测试适配；命令与摘要由 [scripts/api-contract.ts](../scripts/api-contract.ts) 按清单驱动。
 
 #### 关键设计决策与被否决的方案
 
-生成物按契约派生，完整契约只放在 `testing/`；响应使用可配置信封，默认 HTTP 200 且业务码 0 为成功，未知字段可由执行器忽略，但 Fixture 与 Shadow 必须严格同形并显式认领。身份头从 `securitySchemes` 推导，`x-implemented: false` 只提示不阻断；与 IDL 一样使用不可覆盖的 `X-Request-Id`。否决了在 xueshan 项目里写死信封约定，也否决了“只放过多出字段”的宽松认领。
+生成物分别从产品契约与引擎测试契约派生，完整契约不进入生产产物。响应使用可配置信封，默认 HTTP 200 且业务码 0 为成功；码表与接口码先经同目录约定模块规范化，Fixture、数据集与浏览器执行器再用 `contractCarrier` 显式选择 `product` 或 `engine`，缺省为产品载体。未知字段可由执行器忽略，但 Fixture 与 Shadow 必须严格同形并显式认领。身份头从 `securitySchemes` 推导，`x-implemented: false` 只提示不阻断；与 IDL 一样使用不可覆盖的 `X-Request-Id`。否决了在产品替换时同步改写引擎证据，也否决了在 xueshan 项目里写死信封约定或“只放过多出字段”的宽松认领。
 
 #### 演进记录
 

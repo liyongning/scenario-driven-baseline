@@ -1,4 +1,4 @@
-import { operationById, operations, type OpenApiOperationContract } from './contract.ts';
+import { engineContract, type OpenApiContract, type OpenApiOperationContract } from './contract.ts';
 import { validateResponse } from './schema.ts';
 
 type JsonObject = Record<string, unknown>;
@@ -96,8 +96,8 @@ function claims(manifest: unknown, document: unknown): Claim[] {
   return result;
 }
 
-function matchesAnyOperation(body: unknown): string[] {
-  return operations.flatMap((operation) =>
+function matchesAnyOperation(body: unknown, contract: OpenApiContract): string[] {
+  return contract.operations.flatMap((operation) =>
     validateResponse(operation, body, 200).length === 0 ? [operation.id] : [],
   );
 }
@@ -106,10 +106,11 @@ function validateClaim(
   claim: Claim,
   body: unknown,
   operation: OpenApiOperationContract | undefined,
+  contract: OpenApiContract,
 ): string[] {
   if (claim.malformed) {
     if (claim.malformed.reason.trim() === '') return [`${claim.path}: malformed reason 不得为空`];
-    const matches = matchesAnyOperation(body);
+    const matches = matchesAnyOperation(body, contract);
     return matches.length === 0
       ? []
       : [`${claim.path}: malformed 实际符合接口 ${matches.join(', ')}`];
@@ -135,6 +136,7 @@ function parseDocuments(files: Readonly<Record<string, unknown>>) {
 export function checkOpenApiFixture(
   manifest: unknown,
   files: Readonly<Record<string, unknown>>,
+  contract: OpenApiContract = engineContract,
 ): string[] {
   const issues: string[] = [];
   for (const document of parseDocuments(files)) {
@@ -153,9 +155,12 @@ export function checkOpenApiFixture(
         continue;
       }
       issues.push(
-        ...validateClaim(claim, body, operationById(claim.contract)).map(
-          (issue) => `${document.name}: ${issue}`,
-        ),
+        ...validateClaim(
+          claim,
+          body,
+          contract.operations.find((operation) => operation.id === claim.contract),
+          contract,
+        ).map((issue) => `${document.name}: ${issue}`),
       );
     }
   }

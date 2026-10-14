@@ -1,4 +1,4 @@
-import { getTrade, listTrades } from '@daqian/template-openapi/generated/operations';
+import { getTrade, listTrades } from '../../../openapi/testing/engine/generated/operations.ts';
 import { vi } from 'vitest';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { createProtocolHost } from '../../src/hosts/protocol-host.ts';
@@ -77,6 +77,7 @@ defineCase(
             gatewayBaseUrl: `${firstHost.url.replace(/\/$/, '')}/__shadow`,
             securitySchemes,
             identity: accessIdentity,
+            operations: { getTrade, listTrades },
           },
         );
         const alternate = await runBrowserPlan(
@@ -87,6 +88,7 @@ defineCase(
             gatewayBaseUrl: `${secondHost.url.replace(/\/$/, '')}/__shadow`,
             securitySchemes,
             identity: accessIdentity,
+            operations: { getTrade, listTrades },
           },
         );
         const unscripted = await runBrowserPlan(
@@ -97,6 +99,7 @@ defineCase(
             gatewayBaseUrl: `${firstHost.url.replace(/\/$/, '')}/__shadow`,
             securitySchemes,
             identity: accessIdentity,
+            operations: { getTrade, listTrades },
           },
         );
         const unregistered = await page.evaluate(

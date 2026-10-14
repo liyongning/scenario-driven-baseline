@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 import { errorMessage, loadProjectManifest, type ManifestPackage } from './lib/project-manifest.ts';
 import {
   checkContractConsistency,
@@ -9,6 +10,7 @@ import {
   contractVersion,
   generateContractFiles,
   sha256,
+  type NormalizedContractConventions,
 } from './lib/openapi-contract-core.ts';
 
 export { checkContractConsistency, generateContractFiles } from './lib/openapi-contract-core.ts';
@@ -23,6 +25,40 @@ const generatedPaths = [
   'src/generated/operations.ts',
   'src/generated/codes.ts',
 ] as const;
+type ContractConventionsModule = Readonly<{
+  normalizeContractConventions(value: unknown): NormalizedContractConventions;
+}>;
+
+async function conventionsModuleFor(
+  root: string,
+  contractFile: string,
+): Promise<ContractConventionsModule> {
+  const modulePath = join(dirname(resolve(root, contractFile)), 'conventions.ts');
+  let module: Partial<ContractConventionsModule>;
+  try {
+    module = (await import(pathToFileURL(modulePath).href)) as Partial<ContractConventionsModule>;
+  } catch (error) {
+    const wrapped = new Error(
+      `无法加载契约约定模块 ${modulePath}: ${errorMessage(error)}`,
+    ) as Error & {
+      cause: unknown;
+    };
+    wrapped.cause = error;
+    throw wrapped;
+  }
+  if (typeof module.normalizeContractConventions !== 'function')
+    throw new Error(`契约约定模块 ${modulePath} 缺少 normalizeContractConventions`);
+  return module as ContractConventionsModule;
+}
+
+async function conventionsFor(
+  root: string,
+  contractFile: string,
+  source: string,
+): Promise<NormalizedContractConventions> {
+  const module = await conventionsModuleFor(root, contractFile);
+  return module.normalizeContractConventions(parseYaml(source));
+}
 
 function object(value: unknown): JsonObject | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -40,6 +76,13 @@ function packagePath(root: string, pkg: ManifestPackage, path: string): string {
   return resolve(root, 'packages', pkg.directory, path);
 }
 
+function engineContractPaths(root: string, pkg: ManifestPackage) {
+  return {
+    contract: packagePath(root, pkg, 'testing/engine/trade-v1.yaml'),
+    config: packagePath(root, pkg, 'testing/engine/redocly.yaml'),
+  };
+}
+
 function writeAtomic(path: string, content: string | Buffer) {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}`;
@@ -55,12 +98,12 @@ function redocly(root: string, args: ReadonlyArray<string>) {
   });
 }
 
-function lintIssues(root: string, contractPath: string): string[] {
+function lintIssues(root: string, contractPath: string, configPath = 'redocly.yaml'): string[] {
   const result = redocly(root, [
     'lint',
     contractPath,
     '--config',
-    resolve(root, 'redocly.yaml'),
+    resolve(root, configPath),
     '--format',
     'json',
   ]);
@@ -79,14 +122,19 @@ function lintIssues(root: string, contractPath: string): string[] {
   ];
 }
 
-async function bundleContract(root: string, contractPath: string, output: string): Promise<void> {
+async function bundleContract(
+  root: string,
+  contractPath: string,
+  output: string,
+  configPath = 'redocly.yaml',
+): Promise<void> {
   mkdirSync(dirname(output), { recursive: true });
   const temporary = `${output}.tmp-${process.pid}.json`;
   const result = redocly(root, [
     'bundle',
     contractPath,
     '--config',
-    resolve(root, 'redocly.yaml'),
+    resolve(root, configPath),
     '--dereferenced',
     '--ext',
     'json',
@@ -108,8 +156,16 @@ export async function validateContract(root: string): Promise<ContractResult> {
   for (const pkg of openapiPackages(root)) {
     const contractPath = pkg.contract!.file;
     const source = readFileSync(resolve(root, contractPath), 'utf8');
-    issues.push(...checkContractConsistency(source).issues);
+    const conventions = await conventionsFor(root, contractPath, source);
+    issues.push(...checkContractConsistency(source, conventions).issues);
     issues.push(...lintIssues(root, contractPath));
+    const engine = engineContractPaths(root, pkg);
+    if (existsSync(engine.contract)) {
+      const engineSource = readFileSync(engine.contract, 'utf8');
+      const engineConventions = await conventionsFor(root, engine.contract, engineSource);
+      issues.push(...checkContractConsistency(engineSource, engineConventions).issues);
+      issues.push(...lintIssues(root, engine.contract, engine.config));
+    }
   }
   return { issues, exitCode: Math.min(1, issues.length) };
 }
@@ -121,9 +177,10 @@ export async function syncContract(root: string, source: string): Promise<void> 
     const contract = pkg.contract!;
     const contractPath = resolve(root, contract.file);
     const sourceText = readFileSync(contractPath, 'utf8');
-    const consistency = checkContractConsistency(sourceText);
+    const conventions = await conventionsFor(root, contract.file, sourceText);
+    const consistency = checkContractConsistency(sourceText, conventions);
     if (consistency.issues.length > 0) throw new Error(consistency.issues.join('\n'));
-    const generated = await generateContractFiles(sourceText);
+    const generated = await generateContractFiles(sourceText, conventions);
     const bundleOutput = packagePath(root, pkg, 'testing/contract.bundle.json');
     await bundleContract(root, contract.file, bundleOutput);
     for (const path of generatedPaths) writeAtomic(packagePath(root, pkg, path), generated[path]!);
@@ -144,13 +201,14 @@ export async function statusContract(root: string): Promise<string[]> {
   for (const pkg of openapiPackages(root)) {
     const contract = pkg.contract!;
     const source = readFileSync(resolve(root, contract.file), 'utf8');
+    const conventions = await conventionsFor(root, contract.file, source);
     const lockPath = resolve(root, contract.lock);
     const lock = object(JSON.parse(readFileSync(lockPath, 'utf8'))) ?? {};
     const version = contractVersion(source);
     if (lock.version !== version)
       issues.push(`${contract.lock}: version ${String(lock.version)} != ${version}`);
     if (lock.sha256 !== sha256(source)) issues.push(`${contract.file}: sha256 differs from lock`);
-    const generated = await generateContractFiles(source);
+    const generated = await generateContractFiles(source, conventions);
     const lockedGenerated = object(lock.generated) ?? {};
     const expectedPaths = [...generatedPaths].sort();
     const lockedPaths = Object.keys(lockedGenerated).sort();

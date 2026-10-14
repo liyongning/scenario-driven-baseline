@@ -1,6 +1,6 @@
 import { createFetchHttp } from '@daqian/template-openapi';
 import type { Cancellation, HttpPort, RestResult } from '@daqian/template-openapi';
-import { createTrade } from '@daqian/template-openapi/generated/operations';
+import { createTrade } from '../../../openapi/testing/engine/generated/operations.ts';
 import { createShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { clientFor, routesFor } from './openapi-wire.ts';

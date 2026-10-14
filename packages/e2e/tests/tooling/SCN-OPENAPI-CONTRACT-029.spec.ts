@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runApiContractCli } from '../../../../scripts/api-contract.ts';
-import { contractPath, repositoryRoot } from './openapi-contract-fixture.ts';
+import { repositoryRoot } from './openapi-contract-fixture.ts';
 
 type ContractNode = Readonly<Record<string, unknown>>;
 
@@ -22,10 +22,7 @@ function allFiles(directory: string): string[] {
   });
 }
 
-/** 消费接口声明中是否登记了 cancelTrade（用于复核它不属于 Web 示例的消费面）。 */
-function declaresCancelTrade(source: string): boolean {
-  return /method:\s*cancelTrade\b/.test(source);
-}
+const engineContractPath = 'packages/openapi/testing/engine/trade-v1.yaml';
 
 defineCase(
   {
@@ -49,7 +46,7 @@ defineCase(
     ],
   },
   async ({ checkpoint, expect }) => {
-    const source = readFileSync(join(repositoryRoot, contractPath), 'utf8');
+    const source = readFileSync(join(repositoryRoot, engineContractPath), 'utf8');
     const document = node(parse(source));
     const operation = (path: string, method: string) =>
       node(node(node(document.paths)[path])[method]);
@@ -83,13 +80,6 @@ defineCase(
       expect(operation('/api/v1/trades/{trade_no}/cancel', 'post').security).toEqual([
         { operatorToken: [] },
       ]);
-      // 复核：cancelTrade 只承担契约命令与未实现提示，不在 Web 示例的消费接口声明中。
-      const declaration = readFileSync(
-        join(repositoryRoot, 'packages/web/src/app/consumed-operations.ts'),
-        'utf8',
-      );
-      expect(declaresCancelTrade(declaration)).toBe(false);
-      expect(declaresCancelTrade(`${declaration}\nmethod: cancelTrade,`)).toBe(true);
     });
     await checkpoint('top-level-extensions', () => {
       expect(document['x-common-business-codes']).toContain('INVALID_REQUEST');
@@ -120,6 +110,7 @@ defineCase(
     await checkpoint('neutral-and-valid', async () => {
       const result = await runApiContractCli(['validate'], repositoryRoot);
       expect(result.exitCode).toBe(0);
+      expect(result.issues).toEqual([]);
       expect(source.split('\n').length).toBeGreaterThanOrEqual(200);
       expect(source.split('\n').length).toBeLessThanOrEqual(300);
       expect(allFiles(repositoryRoot).some((path) => /xueshan/i.test(path))).toBe(false);

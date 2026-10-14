@@ -1,5 +1,5 @@
 import { expect, test, type TestContext } from 'vitest';
-import { createTrade, getTrade, listTrades } from '../generated/operations';
+import { createTrade, getTrade, listTrades } from '../../testing/engine/generated/operations';
 import type { HttpPort, HttpRequest } from '../ports/http';
 import { createRestClient, defaultEnvelopeConvention, type RestClientOptions } from './client';
 
@@ -248,7 +248,7 @@ evidence(
     await checkpoint('header-name-from-scheme', async () => {
       await request(required.client, getTrade, { path: { trade_no: 'T-1' } });
       const cancel = setup({ identity: { scheme: 'operatorToken', token: 'operator' } });
-      const { cancelTrade } = await import('../generated/operations');
+      const { cancelTrade } = await import('../../testing/engine/generated/operations');
       await request(cancel.client, cancelTrade, { path: { trade_no: 'T-1' }, body: {} });
       context.expect(required.requests[0]!.headers['X-Access-Token']).toBe('fixture-token');
       context.expect(cancel.requests[0]!.headers['X-Operator-Token']).toBe('operator');
@@ -356,7 +356,12 @@ evidence(
     await checkpoint('test-data-still-strict', async () => {
       const adapter = (await import('../../testing/adapter')).default;
       context
-        .expect(adapter.responseValidator(getTrade)!(JSON.parse(body) as unknown, 200).join('\n'))
+        .expect(
+          adapter.responseValidator(getTrade, { manifest: { contractCarrier: 'engine' } })!(
+            JSON.parse(body) as unknown,
+            200,
+          ).join('\n'),
+        )
         .toMatch(/future/);
     });
   },

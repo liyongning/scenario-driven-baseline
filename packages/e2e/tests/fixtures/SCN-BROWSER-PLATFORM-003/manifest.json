@@ -2,9 +2,10 @@
   "formatVersion": 1,
   "ownerId": "SCN-BROWSER-PLATFORM-003",
   "protocol": "openapi",
+  "contractCarrier": "engine",
   "sources": {
     "spec": {
-      "requirementDigest": "588b19bc498ea1699988e32854ddc1bb8ec0dbdf58dd912ded7359b14edc4572"
+      "requirementDigest": "d24239c95f0218428e1866e9c9d03cb77caa3d76fef96d32d7d3846793965142"
     }
   },
   "cases": {

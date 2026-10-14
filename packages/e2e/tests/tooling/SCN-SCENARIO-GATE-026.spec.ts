@@ -43,10 +43,15 @@ function git(root: string, args: ReadonlyArray<string>) {
 }
 
 /** 在副本中运行命令：副本自带 node_modules 与固定版本工具链，不读调用方环境。 */
-function run(copy: RepositoryCopy, command: string, args: ReadonlyArray<string>) {
+function run(
+  copy: RepositoryCopy,
+  command: string,
+  args: ReadonlyArray<string>,
+  extraEnv: Readonly<Record<string, string>> = {},
+) {
   const result = spawnSync(command, [...args], {
     cwd: copy.root,
-    env: copy.env,
+    env: { ...copy.env, ...extraEnv },
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
   });
@@ -148,7 +153,7 @@ defineCase(
       removeFlowRegistrations(copy);
       addDefectChange(copy, probe.defectChange);
       const build = run(copy, 'pnpm', ['build']);
-      const unit = run(copy, 'pnpm', ['test:unit']);
+      const unit = run(copy, 'pnpm', ['test:unit'], { TEMPLATE_UNIT_MAX_WORKERS: '1' });
       const gate = run(copy, 'pnpm', [
         'exec',
         'vitest',

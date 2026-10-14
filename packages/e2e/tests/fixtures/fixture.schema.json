@@ -23,6 +23,10 @@
       "type": "string",
       "minLength": 1
     },
+    "contractCarrier": {
+      "description": "Fixture 使用的契约载体；缺省为 product。",
+      "enum": ["product", "engine"]
+    },
     "sources": {
       "type": "object",
       "minProperties": 1,

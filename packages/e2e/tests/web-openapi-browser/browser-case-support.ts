@@ -15,6 +15,7 @@ export type BrowserPlan = ReadonlyArray<
     input: Readonly<Record<string, unknown>>;
     timeoutMs?: number;
     cancel?: 'before-send' | 'in-flight';
+    operation?: import('@daqian/template-openapi').RestOperation;
   }>
 >;
 

@@ -59,6 +59,15 @@ test(
     });
     context.expect(platform).toHaveBeenCalledTimes(3);
     context.expect(calls.every((call) => call.url === CreateTrade.meta.path)).toBe(true);
+    context
+      .expect(
+        calls.every(
+          (call) =>
+            (call.init.headers as Record<string, string> | undefined)?.['Authorization'] ===
+            'Bearer browser-fixture-token',
+        ),
+      )
+      .toBe(true);
     for (const result of results) context.expect(structuredClone(result)).toEqual(result);
 
     const source = readFileSync(new URL('./browser-runner.ts', import.meta.url), 'utf8');
@@ -80,6 +89,40 @@ test(
     );
   },
 );
+
+test('浏览器执行器接收网关、令牌与请求上下文选项', async () => {
+  const calls: Array<Readonly<{ url: string; init: RequestInit }>> = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(new Response('{"tradeNo":"trade-browser"}'));
+    }),
+  );
+
+  const { run } = await import('./browser-runner');
+  await expect(
+    run([{ method: CreateTrade.meta.name, input: {} }], {
+      gatewayBaseUrl: 'https://fixture-gateway.invalid/',
+      getAccessToken: () => 'fixture-option-token',
+      requestContext: { productId: 'fixture-product', lane: 'fixture-lane', appVersion: '1.2.3' },
+    }),
+  ).resolves.toEqual([
+    expect.objectContaining({
+      ok: true,
+      value: expect.objectContaining({ http: expect.objectContaining({ status: 200 }) }),
+    }),
+  ]);
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0]!.url).toBe(`https://fixture-gateway.invalid${CreateTrade.meta.path}`);
+  expect(calls[0]!.init.headers).toMatchObject({
+    Authorization: 'Bearer fixture-option-token',
+    'X-Product-ID': 'fixture-product',
+    lane: 'fixture-lane',
+    app_version: '1.2.3',
+  });
+});
 
 test('浏览器执行器覆盖序列化、取消、超时与错误入参分支', async () => {
   const { browserSerializable, run } = await import('./browser-runner');

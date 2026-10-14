@@ -7,6 +7,7 @@ import {
 } from '@daqian/template-openapi';
 import { createShadowServer } from '@template-test/shadow';
 import { routesFromOpenApiOperations } from '../../../openapi/testing/shadow-routes.ts';
+import type { OpenApiContract } from '../../../openapi/testing/contract.ts';
 
 export type OpenApiMatrixPlan = Readonly<{
   input?: Readonly<{
@@ -24,6 +25,8 @@ export type OpenApiMatrixOptions = Readonly<{
   plans: Readonly<Record<string, OpenApiMatrixPlan>>;
   securitySchemes: Readonly<Record<string, SecurityScheme>>;
   identity?: Identity;
+  contract?: OpenApiContract;
+  contractCarrier?: 'product' | 'engine';
 }>;
 
 function operationMap(operations: ReadonlyArray<RestOperation>) {
@@ -38,7 +41,10 @@ export async function runOpenApiMatrix(options: OpenApiMatrixOptions) {
     if (!operation) throw new Error(`generated operation ${method.name} is missing`);
     return operation;
   });
-  const routes = routesFromOpenApiOperations(selected, options.operations);
+  const routes = routesFromOpenApiOperations(selected, options.operations, {
+    ...(options.contract ? { contract: options.contract } : {}),
+    ...(options.contractCarrier ? { contractCarrier: options.contractCarrier } : {}),
+  });
   const plans = new Map(
     selected.map((operation) => {
       const plan = options.plans[operation.meta.id];

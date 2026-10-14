@@ -6,7 +6,11 @@ export default mergeConfig(
   defineProject({
     test: {
       name: 'openapi-unit',
-      include: ['packages/openapi/src/**/*.test.ts', 'packages/openapi/testing/**/*.test.ts'],
+      include: [
+        'packages/openapi/src/**/*.test.ts',
+        'packages/openapi/contracts/**/*.test.ts',
+        'packages/openapi/testing/**/*.test.ts',
+      ],
     },
   }),
 );

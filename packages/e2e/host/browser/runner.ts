@@ -5,6 +5,7 @@ type BrowserPlanStep = Readonly<{
   input: Readonly<Record<string, unknown>>;
   timeoutMs?: number;
   cancel?: 'before-send' | 'in-flight';
+  operation?: Readonly<{ meta: Readonly<Record<string, unknown>> }>;
 }>;
 
 type BrowserRunner = Readonly<{

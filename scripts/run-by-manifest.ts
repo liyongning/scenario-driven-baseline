@@ -39,12 +39,18 @@ function reportFile(root: string, name: string): string {
 function vitestStep(
   root: string,
   projects: ReadonlyArray<string>,
-  options: Readonly<{ coverage?: boolean; passWithNoTests?: boolean; report: string }>,
+  options: Readonly<{
+    coverage?: boolean;
+    passWithNoTests?: boolean;
+    maxWorkers?: number;
+    report: string;
+  }>,
 ): PlannedCommand {
   const args = ['run'];
   for (const name of projects) args.push('--project', name);
   if (options.coverage) args.push('--coverage');
   if (options.passWithNoTests) args.push('--passWithNoTests');
+  if (options.maxWorkers) args.push(`--maxWorkers=${options.maxWorkers}`);
   return {
     command: 'vitest',
     args,
@@ -93,7 +99,14 @@ export function planCommand(root: string, commandName: string): PlannedCommand[]
   }
   if (commandName === 'test:unit')
     return [
-      vitestStep(root, testProjectsByClass(manifest, ['unit']), { coverage: true, report: 'unit' }),
+      vitestStep(root, testProjectsByClass(manifest, ['unit']), {
+        coverage: true,
+        report: 'unit',
+        // 资源受限的副本门禁可显式限制 worker，避免嵌套 unit 因竞争造成无关单测超时。
+        ...(process.env.TEMPLATE_UNIT_MAX_WORKERS
+          ? { maxWorkers: Number(process.env.TEMPLATE_UNIT_MAX_WORKERS) }
+          : {}),
+      }),
     ];
   if (commandName === 'test:integration')
     return testProjectsByClass(manifest, ['integration']).map((name) => {

@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -16,7 +17,7 @@ import { cliEvidence } from './scenario-gate-helpers.ts';
 
 const repositoryRoot = resolve(import.meta.dirname, '../../../..');
 
-function dependencyRoot() {
+function dependencyRoot(protocols: ReturnType<typeof packagesByRole>) {
   const root = mkdtempSync(join(tmpdir(), 'protocol-adapter-boundary-'));
   for (const file of [
     'package.json',
@@ -25,23 +26,21 @@ function dependencyRoot() {
     '.dependency-cruiser.cjs',
   ])
     cpSync(resolve(repositoryRoot, file), join(root, file));
-  mkdirSync(join(root, 'scripts/lib'), { recursive: true });
-  cpSync(
-    resolve(repositoryRoot, 'scripts/lib/dependency-rules.cjs'),
-    join(root, 'scripts/lib/dependency-rules.cjs'),
-  );
-  mkdirSync(join(root, 'packages/protocol'), { recursive: true });
-  for (const directory of ['src', 'testing']) {
+  cpSync(resolve(repositoryRoot, 'scripts/lib'), join(root, 'scripts/lib'), { recursive: true });
+  for (const protocol of protocols) {
+    const packageRoot = join(root, 'packages', protocol.directory);
+    mkdirSync(packageRoot, { recursive: true });
+    for (const directory of [
+      ...new Set([...(protocol.moduleRoots ?? ['src']), 'testing', 'contracts']),
+    ]) {
+      const source = resolve(repositoryRoot, 'packages', protocol.directory, directory);
+      if (existsSync(source)) cpSync(source, join(packageRoot, directory), { recursive: true });
+    }
     cpSync(
-      resolve(repositoryRoot, 'packages/protocol', directory),
-      join(root, 'packages/protocol', directory),
-      { recursive: true },
+      resolve(repositoryRoot, 'packages', protocol.directory, 'package.json'),
+      join(packageRoot, 'package.json'),
     );
   }
-  cpSync(
-    resolve(repositoryRoot, 'packages/protocol/package.json'),
-    join(root, 'packages/protocol/package.json'),
-  );
   symlinkSync(resolve(repositoryRoot, 'node_modules'), join(root, 'node_modules'), 'dir');
   return root;
 }
@@ -60,9 +59,10 @@ cliEvidence(
   ['adapter-not-in-dist', 'production-import-blocked', 'adapter-boundary-restorable'],
   async (context, check) => {
     const manifest = loadProjectManifest(repositoryRoot);
+    const protocols = packagesByRole(manifest, 'protocol');
 
     await check('adapter-not-in-dist', () => {
-      for (const protocol of packagesByRole(manifest, 'protocol')) {
+      for (const protocol of protocols) {
         const built = spawnSync('pnpm', ['--filter', protocol.name, 'build'], {
           cwd: repositoryRoot,
           encoding: 'utf8',
@@ -78,23 +78,30 @@ cliEvidence(
     });
 
     await check('production-import-blocked', () => {
-      const root = dependencyRoot();
+      const root = dependencyRoot(protocols);
       try {
-        const entry = join(root, 'packages/protocol/src/index.ts');
-        writeFileSync(entry, `${readFileSync(entry, 'utf8')}\nimport '../testing/adapter.ts';\n`);
-        const result = depcruise(root, 'packages/protocol/src/index.ts');
-        context.expect(result.status).not.toBe(0);
-        context.expect(`${result.stdout}${result.stderr}`).toContain('production-no-test');
+        for (const protocol of protocols) {
+          const source = protocol.moduleRoots?.[0] ?? 'src';
+          const entry = join(root, 'packages', protocol.directory, source, 'index.ts');
+          if (!existsSync(entry)) continue;
+          writeFileSync(entry, `${readFileSync(entry, 'utf8')}\nimport '../testing/adapter.ts';\n`);
+          const result = depcruise(root, `packages/${protocol.directory}/${source}/index.ts`);
+          context.expect(result.status).not.toBe(0);
+          context.expect(`${result.stdout}${result.stderr}`).toContain('production-no-test');
+        }
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
     });
 
     await check('adapter-boundary-restorable', () => {
-      const root = dependencyRoot();
+      const root = dependencyRoot(protocols);
       try {
-        const result = depcruise(root, 'packages/protocol/src');
-        context.expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+        for (const protocol of protocols) {
+          const source = protocol.moduleRoots?.[0] ?? 'src';
+          const result = depcruise(root, `packages/${protocol.directory}/${source}`);
+          context.expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+        }
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
