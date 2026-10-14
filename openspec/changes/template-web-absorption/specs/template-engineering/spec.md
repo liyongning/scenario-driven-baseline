@@ -278,7 +278,7 @@
 - **能力地图**：每项能力的承载文件与验证方式，与技术架构文档的章节一一对应；除已有能力外 SHALL 包含组合绑定、协议适配器、Web 应用包（含前端架构规范）、产物边界、OpenAPI 协议包、浏览器平台点位、本地预览、Web 示例各一项（"Web 示例"一项以 `web-example` 标记包裹，随 Web 示例白名单删除）；
 - **从方案到验收**：Task 期间运行 `pnpm test:affected`，Apply 交回前与 Verify 前运行 `pnpm verify`；验收结论以 Change 内的 verify 记录为准，`artifacts/` 只作为本地运行产物目录，指南与根 AGENTS.md MUST NOT 再要求把验收索引写入 `artifacts/<run-id>/tasks/`；
 - **初始化方式**：先做只读模板的适配评估，再复制；使用方在自己仓库中以第一个 Change 完成删改增，并以同一套门禁验收；
-- **移除模板示例**：给出下文"删除白名单"，并给出 WEX-08 规定的 Web 示例删除白名单；时机为项目自己的第一个 Scenario 通过完整门禁之后；方式为直接提交删除，不写 REMOVED delta、不走归档；只适用于白名单内容且只在初始化阶段使用，项目后期退役自己的能力仍走正常 Change；
+- **移除模板示例**：给出下文"删除白名单"，并给出 WEX-08 规定的 Web 示例删除白名单；时机为项目自己的第一个 Scenario 通过完整门禁之后（例外：第一个 Web 业务原地替换 OpenAPI 产品契约时，须在同一次提交中删除 Web 示例，见 OAS-01、WEX-08）；方式为直接提交删除，不写 REMOVED delta、不走归档；只适用于白名单内容且只在初始化阶段使用，项目后期退役自己的能力仍走正常 Change；
 - **归档已知限制**：整份能力退役时归档被拒绝的手工步骤；保留 ID 只改 Scenario 标题时先在主 Spec 同步标题再归档；
 - **版本对齐**：接入官方脚手架时按 peer 依赖与 `engines` 统一版本，模板版本过旧时可以升级并在反馈日志中记录；
 - **使用方约定**：反馈日志只记录实际遇到并已核实的问题，每条注明问题出在模板代码还是项目代码；
@@ -296,7 +296,7 @@
 - JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`），删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。共用接口例外：使用方仍在调用的示例接口（与示例共用同一 IDL 接口）不删除其矩阵键；它在声明中的条目 MUST 在同一次删除中移到标记外、成为使用方条目（标记内外不得同时声明同一接口，否则义务会重复登记）。没有被使用方使用的示例接口照常删除。
 - 同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目。
 
-Web 示例的删除白名单由 WEX-08 规定（含 `openspec/specs/web-example/` 与全部 `web-example:begin/end` 片段，不含 OpenAPI 示例契约）；两份白名单可以分别删除，也可以同时删除。
+Web 示例的删除白名单由 WEX-08 规定（含 `openspec/specs/web-example/` 与全部 `web-example:begin/end` 片段，不含 OpenAPI 产品契约与引擎测试契约；产品契约按 OAS-01 原地替换）；两份白名单可以分别删除，也可以同时删除。
 
 **片段标记**：共享文件中只属于示例的片段 MUST 用成对注释包裹：代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`；只属于 Web 示例的片段以同样写法使用 `web-example:begin` 与 `web-example:end`。架构检查 MUST 对两种标记分别校验成对出现、不嵌套（两种标记之间同样不得嵌套），未闭合、多余的结束标记或嵌套时非零退出并指出文件与行号；`web-example` 标记自身成对的证据由 WEX-08 承担，本要求承担 `template-example` 标记与两种标记互相嵌套的证据。共享文件中引用示例、但未被标记包裹的内容视为门禁依赖示例，会在下述删除验收中暴露。
 
@@ -309,7 +309,7 @@ Web 示例的删除白名单由 WEX-08 规定（含 `openspec/specs/web-example/
 
 运行约定：仓库存在正在交付的 active Change 时，任何可能触发副本用例的运行（全量运行与 `pnpm test:affected`）SHALL 以该 Change 为作用域，即 `pnpm verify --change <name>`，单独运行 `check:fast` 或 `test:affected` 时设置 `SCENARIO_GATE_CHANGES=<name>`，副本据此归档该 Change；没有 active Change 时（作用域为空），副本无需归档。该约定同样适用于复刻验收的演练副本：演练 Agent 的工作仍在 active Change 中时，演练副本的验收命令为 `pnpm verify --change <该 Change>`，只有副本中没有 active Change 时才不带作用域。
 
-防止递归：副本中 SHALL 设置环境变量 `TEMPLATE_COPY=1`：根 `vitest.config.ts` 在该变量存在时排除所有会创建副本的用例（示例删除验收、SCN-TEMPLATE-ENGINEERING-001 的临时构建、SCN-SCENARIO-GATE-026 中运行副本的 case），创建副本的 helper 在该变量已设置时 MUST 拒绝创建，防止递归。
+防止递归：副本中 SHALL 设置环境变量 `TEMPLATE_COPY=1`：集成测试配置（`packages/e2e/vitest.config.integration.ts` 的会创建副本的用例列表）在该变量存在时排除所有会创建副本的用例（示例删除验收、示例替换演示 SCN-WEB-EXAMPLE-015、SCN-TEMPLATE-ENGINEERING-001 的临时构建、SCN-SCENARIO-GATE-026 中运行副本的 case），创建副本的 helper 在该变量已设置时 MUST 拒绝创建，防止递归。
 
 #### Scenario: SCN-TEMPLATE-ENGINEERING-006 使用指南缺失或不完整
 - **WHEN** 在临时副本中分别删除指南、删除根 AGENTS.md 或 README.md 中指向指南的链接、删除某个规定章节（含移除模板示例、归档已知限制、版本对齐、使用方约定、复刻验收、移除一条绑定）、删除跨源部署一节、删除替换点地图中产品形态、协议来源、运行平台或本地预览点位、在指南中加入无法解析的相对链接、引用未登记的 Scenario ID、引用不存在的 `pnpm` 命令、引用不存在的清单字段（例如已删除的 `manifest.fingerprints.hostRoots`）、让指南的删除白名单缺少本要求列出的某一项；另分别在代码文件与 Markdown 文件中放入只有 `template-example:begin` 没有结束标记、多余的 `template-example:end`、两对嵌套的 `template-example` 标记、`web-example` 标记嵌套在 `template-example` 标记内

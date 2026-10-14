@@ -2,7 +2,7 @@
 
 **Goal:** 在核心加固之上，把 Web 应用 + OpenAPI + 浏览器作为第二套具体实现并列放进模板，同时让门禁、清单与 Shadow 对产品形态、协议种类、运行平台无写死；以三个复刻演练加 xueshan 反馈核对完成本轮迭代的最终验收。最终验收：`pnpm verify --change template-web-absorption` 全部步骤退出码 0，场景门禁问题数 0；示例删除演练、三个复刻演练与"移除一条绑定"演练通过。
 
-**Architecture:** 按 Design"实施顺序"的 15 步执行。先建两个共享契约：清单多包与组合绑定（任务 1，只登记现有 `sdk-idl-weapp`），协议适配器与 IDL 适配器迁移（任务 2，临时根中用桩协议包验证两种 `protocolKind`，同时把 Shadow 引擎迁到测试包 `packages/e2e/src/shadow/`）；再做按形态区分的工程检查骨架并引入 Vue 工具链依赖（任务 3）；然后依次落地 IDL `fetch` 适配器与浏览器步骤执行器（任务 4）、OpenAPI 协议包（任务 5）、OpenAPI 执行器与适配器（任务 6）、Shadow 扩展（任务 7）、Web 应用包骨架与绑定 `web-openapi-browser`（任务 8，`platforms` 为空）、Web 产物边界（任务 9）、浏览器平台点位并把 browser 加入绑定（任务 10）、Web 示例（任务 11）、本地预览与开发代理（任务 12）、文档（任务 13），最后做示例删除验证（任务 14）以及三个复刻演练、"移除一条绑定"演练加最终验收（任务 15）；单组合承诺由受控临时根证据（SCN-TEMPLATE-ENGINEERING-014）与"移除一条绑定"演练共同验证，不另设真实副本 Scenario。依赖后续任务产物的"模板自身事实"类 checkpoint 按 Design 由产物就绪的任务交付，各任务中逐项写明"推迟到任务 N / 承接自任务 M"；推迟期间该 checkpoint 的门禁问题归属到承接任务。
+**Architecture:** 按 Design"实施顺序"的 16 步执行。先建两个共享契约：清单多包与组合绑定（任务 1，只登记现有 `sdk-idl-weapp`），协议适配器与 IDL 适配器迁移（任务 2，临时根中用桩协议包验证两种 `protocolKind`，同时把 Shadow 引擎迁到测试包 `packages/e2e/src/shadow/`）；再做按形态区分的工程检查骨架并引入 Vue 工具链依赖（任务 3）；然后依次落地 IDL `fetch` 适配器与浏览器步骤执行器（任务 4）、OpenAPI 协议包（任务 5）、OpenAPI 执行器与适配器（任务 6）、Shadow 扩展（任务 7）、Web 应用包骨架与绑定 `web-openapi-browser`（任务 8，`platforms` 为空）、Web 产物边界（任务 9）、浏览器平台点位并把 browser 加入绑定（任务 10）、Web 示例（任务 11）、本地预览与开发代理（任务 12）、文档（任务 13）、OpenAPI 引擎证据与产品契约分离（任务 14），最后做示例删除验证（任务 15）以及三个复刻演练、"移除一条绑定"演练加最终验收（任务 16）；单组合承诺由受控临时根证据（SCN-TEMPLATE-ENGINEERING-014）与"移除一条绑定"演练共同验证，不另设真实副本 Scenario。依赖后续任务产物的"模板自身事实"类 checkpoint 按 Design 由产物就绪的任务交付，各任务中逐项写明"推迟到任务 N / 承接自任务 M"；推迟期间该 checkpoint 的门禁问题归属到承接任务。
 
 **Tech Stack:** 核心 Change 交付后的工具链；新增依赖见 Design"依赖版本"。
 
@@ -13,7 +13,7 @@
 - **前提与衔接**：核心 Change `template-core-hardening` 已归档并合回主线。Apply 开始前，本分支 rebase 到该主线，按 Design"实施顺序"中的衔接一段（OI-WA-03）逐条判定，三条全部满足才开始任务 1：
   1. `openspec validate template-web-absorption --strict` 通过；
   2. 本 Change 每个 MODIFIED 块的基准部分（被修改前的原文）与归档后主 Spec 中对应 Requirement 逐块一致；不一致说明核心 Change 实施中改过 Spec，停止，先同步并返回 Plan Review 重新评审受影响部分；
-  3. 先单独运行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fixtures` 判定（a），任务 1 刷新摘要后再运行完整 `check:fast` 判定其余步骤（串联命令在第一个失败步骤后停止，不能一次观察全部结果）。预期失败只有两类：（a）"Fixture 来源摘要过期，且 owner 属于本 Change MODIFIED 的 Requirement"（按 GATE-10，本 Change 修改了这些 Requirement 块，其 Fixture 摘要必然变化），记录实际检出的 owner 列表，交任务 1 处理；（b）核心 Change 交付的 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios` 失败，且失败输出中的问题只能是以下两种：（i）本 Change 新增或修改的 Scenario 缺少绑定；（ii）本 Change 的 Scenario 的 `requiredIn` 引用了尚未登记的测试项目（`openapi-unit` 在任务 5 登记、`app-unit` 在任务 8 登记、`browser` 在任务 10 登记，登记之后该项目不再允许出现在这类问题中）（副本归档本 Change 后，尚未实现的 Scenario 必然未绑定，见 Design"实施顺序"中"中途运行时的示例删除用例"），记录原始输出，归属任务 14。出现其他任何失败（包括 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-fast`）都按衔接失败处理，停止并返回 Plan Review。
+  3. 先单独运行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fixtures` 判定（a），任务 1 刷新摘要后再运行完整 `check:fast` 判定其余步骤（串联命令在第一个失败步骤后停止，不能一次观察全部结果）。预期失败只有两类：（a）"Fixture 来源摘要过期，且 owner 属于本 Change MODIFIED 的 Requirement"（按 GATE-10，本 Change 修改了这些 Requirement 块，其 Fixture 摘要必然变化），记录实际检出的 owner 列表，交任务 1 处理；（b）核心 Change 交付的 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios` 失败，且失败输出中的问题只能是以下两种：（i）本 Change 新增或修改的 Scenario 缺少绑定；（ii）本 Change 的 Scenario 的 `requiredIn` 引用了尚未登记的测试项目（`openapi-unit` 在任务 5 登记、`app-unit` 在任务 8 登记、`browser` 在任务 10 登记，登记之后该项目不再允许出现在这类问题中）（副本归档本 Change 后，尚未实现的 Scenario 必然未绑定，见 Design"实施顺序"中"中途运行时的示例删除用例"），记录原始输出，归属任务 15。出现其他任何失败（包括 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-fast`）都按衔接失败处理，停止并返回 Plan Review。
 - 手写代码四项覆盖率保持 100%；覆盖率排除只允许 Design 列出的类别并登记理由；组件命名例外与行数豁免只经清单登记。
 - 不修改已归档 Change、ProtoGen Consumer 登记与 IDL。
 - 已有用例的断言语义不变，除非本 Change Spec 改写了对应 checkpoint（以本 Change Spec 为准）；新行为只通过本 Change Spec 中的新 case 或新 checkpoint 验证。
@@ -28,13 +28,13 @@
 ## 每个任务的共同完成条件
 
 1. Files 中的产物齐全，行为与所列 Requirement/Scenario 及 Design 决定一致。
-2. 任务结束时运行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected` 并记录选择结果；至少每 3 个任务运行一次全量 `pnpm verify --change template-web-absorption`，浏览器平台任务（任务 10）、Web 示例任务（任务 11）与最终任务（任务 15）结束时必须全量。
+2. 任务结束时运行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected` 并记录选择结果；至少每 3 个任务运行一次全量 `pnpm verify --change template-web-absorption`，浏览器平台任务（任务 10）、Web 示例任务（任务 11）与最终任务（任务 16）结束时必须全量。
 3. RED 已先失败、GREEN 后通过；Verification 中的命令与反例符合预期。
-4. 实际运行一次 `pnpm check:scenarios --change template-web-absorption`，每个问题写明归属的后续任务（含各任务"推迟到任务 N"所列项），无法归属即为回归。中途任务的全量 verify 只要求第 1、2 步退出码 0，第 3 步问题须全部可归属；"全部步骤通过"只用于最终任务（任务 15）。
+4. 实际运行一次 `pnpm check:scenarios --change template-web-absorption`，每个问题写明归属的后续任务（含各任务"推迟到任务 N"所列项），无法归属即为回归。中途任务的全量 verify 只要求第 1、2 步退出码 0，第 3 步问题须全部可归属；"全部步骤通过"只用于最终任务（任务 16）。
 5. 验收记录写入本 Change 的 `verify.md` 草稿章节"逐任务记录"：实际命令与退出码、报告路径、方案与实际的差异、预期失败的反例、weapp 与浏览器重跑记录、按需选择结果、推迟项与承接项的状态。
 6. 任务改动了 Requirement 块或 Fixture 时（含因 Spec 修订导致 Fixture 来源摘要变化），对受影响的 owner 运行 `pnpm fixtures:refresh <owner...>`，并在验收记录中写明 owner 列表与原因。
 7. 任务评审确认职责边界、断言与 Spec 一致后才勾选。
-8. 中途运行时的示例删除用例（Design"实施顺序"中"中途运行时的示例删除用例"）：任务 1–13 的 `check:fast` 中，只允许 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios` 失败，且失败输出中的问题只能是以下两种：（i）本 Change 新增或修改的 Scenario 缺少绑定；（ii）本 Change 的 Scenario 的 `requiredIn` 引用了尚未登记的测试项目（`openapi-unit` 在任务 5 登记、`app-unit` 在任务 8 登记、`browser` 在任务 10 登记，登记之后该项目不再允许出现在这类问题中）；该失败归属任务 14，验收记录附原始输出并逐条核对每个问题都属于这两种且涉及的 Scenario 都属于本 Change。其他任何失败（包括 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-fast`，以及输出中出现非本 Change 的 Scenario）按回归处理。任务 14 起该项必须通过。SCN-SCENARIO-GATE-026 中运行副本的 case 不归档作用域内的 Change，不适用本条。各任务 Verification 中"`check:fast` 通过"均按本条理解。
+8. 中途运行时的示例删除用例（Design"实施顺序"中"中途运行时的示例删除用例"）：任务 1–14 的 `check:fast` 中，只允许 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios` 失败，且失败输出中的问题只能是以下两种：（i）本 Change 新增或修改的 Scenario 缺少绑定；（ii）本 Change 的 Scenario 的 `requiredIn` 引用了尚未登记的测试项目（`openapi-unit` 在任务 5 登记、`app-unit` 在任务 8 登记、`browser` 在任务 10 登记，登记之后该项目不再允许出现在这类问题中）；该失败归属任务 15，验收记录附原始输出并逐条核对每个问题都属于这两种且涉及的 Scenario 都属于本 Change。其他任何失败（包括 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-fast`，以及输出中出现非本 Change 的 Scenario）按回归处理。任务 15 起该项必须通过。SCN-SCENARIO-GATE-026 中运行副本的 case 不归档作用域内的 Change，不适用本条。各任务 Verification 中"`check:fast` 通过"均按本条理解。
 
 ## Implementation Tasks
 
@@ -499,13 +499,50 @@
   **Commit**
   - `docs(template): document web capabilities, bindings and replacement points`
 
-- [ ] 14. 示例删除验证
+- [ ] 14. OpenAPI 引擎证据与产品契约分离
+
+  **Files**
+  - Create：`packages/openapi/testing/engine/`（引擎测试契约 `trade-v1.yaml`，内容取自当前 `contracts/trade-v1.yaml`；约定模块 `conventions.ts`；由同一生成器产出并提交的 `generated/` 与 bundle）；`packages/openapi/contracts/conventions.ts`（产品侧约定模块，初始与引擎侧相同）；SCN-WEB-EXAMPLE-015 的中立替换契约 Fixture（文件名与接口都不同、码表为 `{code, meaning, message}` 数组、单一身份方案）及其约定模块与同目录单测，列入 WEX-08 白名单；不属于任何白名单的删除辅助模块（从 `example-removal-support.ts` 移出标记剥离、整目录与整文件删除、JSON 键删除），并把 Web 示例的删除清单从 `SCN-TEMPLATE-ENGINEERING-008/example-removal.json` 移到 Web 示例自己的 Fixture（008 在其不存在时只删 `template-example`；修正 008 中 OpenAPI 义务为空的断言，与 EX-10 同口径：Web 示例删除清单不存在时（使用方已替换契约并删除 Web 示例）不断言 OpenAPI 义务为空，存在时按 Web 消费声明中标记外的条目判定（与现有 `outsideMethodsBefore` 的 IDL 逻辑一致），契约名前缀从清单契约读取）；通用删除辅助模块的标记剥离按标记种类参数化（SCN-WEB-EXAMPLE-015 只剥离 `web-example`）；引擎侧 lint 配置 `testing/engine/redocly.yaml`，SCN-OPENAPI-CONTRACT-004 改为通用的"每条调整有理由注释"断言并以引擎侧配置 lint 引擎测试契约；删除任务 6 遗留、不在 lock 中的 `src/generated/declarations.ts`；`contracts/` 若因新增 `conventions.ts` 被项目地图视为模块，补 AGENTS.md 与 CLAUDE.md；`contracts/conventions.test.ts`、`testing/engine/conventions.test.ts`；白名单门禁 `scripts/lib/example-whitelist.ts` 及其单测、`check-architecture-fixture.ts` 与 SCN-TEMPLATE-ENGINEERING-006 中引用 `example-removal.json` 的位置：两份白名单分别从各自示例的删除清单派生（不再以 `isWebExamplePath` 从 008 清单中拆分），任一份删除清单不存在时只跳过那一份；去掉对 `example-removal-support.ts` 的硬编码；新的通用删除辅助模块不出现在任何一份白名单中，指南"移除模板示例"的白名单段同步；指南与各级 AGENTS 只链接 `packages/openapi/contracts/` 目录或引用清单字段，不链接具体契约文件名（产品契约文件名可被替换）；确认 `contracts/*.ts` 进入 typecheck 与 lint 的覆盖范围；`testing/engine/` 的 AGENTS.md 与 CLAUDE.md。
+  - Modify：`scripts/api-contract.ts`、`scripts/lib/openapi-contract-core.ts`、生成器与 `packages/openapi/testing/`（`contract.ts`、`adapter.ts`、`fixture-check.ts`、`shadow-routes.ts`、`browser-runner.ts`）：业务码约定只经约定模块读取；契约加载、路由构造、响应校验与浏览器步骤执行器以参数接收契约来源与描述常量，不以模块位置绑死契约。
+  - Modify：OAS 引擎用例与平台用例改以引擎测试契约为载体（OAS-08"证据载体"所列；含 `packages/openapi/**` 单测、`scripts/openapi-*.test.ts`、`scripts/api-contract*.test.ts`、`packages/e2e/tests/web-openapi-browser/` 中的 OAS 与 BRW 用例、`packages/e2e/tests/tooling/` 中的 OAS 用例、平台数据集 `_datasets/platform-openapi-*` 与 `preview-launcher.test.ts`）；以产品契约为载体的用例（015 模板事实、017 门禁部分、021）改为从清单、契约与声明派生，不写死接口名、契约名与码值。
+  - Modify：Fixture 与数据集的契约载体：`fixture.schema.json` 与数据集 schema（`packages/e2e/tests/fixtures/dataset.schema.json`）声明可选 `contractCarrier`（枚举 `product`、`engine`）；PC-07 `responseValidator(op, options?)` 增加可选 `options.manifest`，`scripts/lib/dataset-fixtures.ts` 与 `packages/e2e/src/preview/preview-launcher.ts` 原样传入数据集 manifest，IDL 适配器忽略；OpenAPI 适配器在 `checkFixture` 与 `responseValidator` 中解释它；SCN-SCENARIO-GATE-028 的桩适配器记录收到的 manifest；以引擎测试契约为载体的 Fixture 与平台数据集声明 `contractCarrier: "engine"` 并刷新摘要。
+  - Modify：清单 `fingerprints.protocolInputs` 以 `packages/openapi/testing/engine/**` 登记引擎测试契约目录并登记两个约定模块；`packages/openapi/contracts` 加入 `fingerprints.sourceRoots`，`openapi-unit` 收集 `contracts/**/*.test.ts`，两个约定模块计入手写代码覆盖率；lint 与格式化忽略 `testing/engine/generated/`；指南替换点地图（OpenAPI 一行的替换步骤与通用基线、"协议约定"点位、IDL 一行列出以共用 IDL 具体接口为载体的引擎用例并注明后续 Change OI-WA-04）、"移除模板示例"中产品契约的表述、技术架构文档 OpenAPI 一节、`packages/openapi/AGENTS.md`。
+  - Create：SCN-WEB-EXAMPLE-015 用例（会创建副本，登记到 `integration-heavy` 与 `TEMPLATE_COPY=1` 排除列表，复用 008 的副本 helper 与期望集合推导），列入 WEX-08 白名单，在 `copyCreatingSpecs` 与 `heavyIntegrationSpecs` 中的登记条目以 `web-example` 标记包裹；ENG-06 的递归排除说明与 008 期望集合随之包含它。
+
+  **Requirements / Scenarios**
+  - openapi-contract：OAS-01 / SCN-OPENAPI-CONTRACT-001、004；OAS-02 / 005；OAS-03 / 007～014；OAS-04 / 015；OAS-05 / 017～020；OAS-06 / 022～026；OAS-08 / 029
+  - browser-platform：SCN-BROWSER-PLATFORM-003、006 与 012 中改以引擎测试契约为载体的部分；web-example：WEX-08、WEX-09 / SCN-WEB-EXAMPLE-015；protocol-contract：PC-07 `responseValidator` 可选参数（IDL 适配器回归）；scenario-gate：GATE-16 / SCN-SCENARIO-GATE-028；template-example：EX-10 / SCN-TEMPLATE-ENGINEERING-008（删除逻辑迁移、两份清单、`whitelist-only-removal` 表述）；template-engineering：ENG-06 中 Web 白名单、示例删除时机例外与递归排除的表述
+
+  **Design Decisions**
+  - Decision: OpenAPI 协议包（协议约定模块）；Decision: Web 示例与示例契约（通用基础与可替换契约、证据载体规则、IDL 侧）；Decision: 文档与地图
+
+  **Interfaces**
+  - Consumes: 任务 5、6 的生成器、执行器与适配器；任务 10 的协议宿主与浏览器步骤执行器；任务 12 的预览启动器；核心 Change 的仓库副本 helper（经 008）。
+  - Produces: 引擎测试契约与约定模块；以参数接收契约来源的 `testing/` 工具；可替换性回归证据。
+
+  **RED**
+  - 先写 SCN-WEB-EXAMPLE-015：在副本中替换产品契约并删除 Web 示例后，记录失败的门禁与被迫改动的引擎用例（预期与 xueshan 纵切片演练第 2 轮一致）；001 的"替换约定模块"反例在约定模块落地前失败。
+
+  **GREEN**
+  - SCN-WEB-EXAMPLE-015 通过：改动只落在 WEX-09 允许的范围内；全部 OAS 与 BRW 用例在引擎测试契约上通过；按导入来源核对：`openapi-contract` 引擎用例与平台用例不从 `@daqian/template-openapi` 导入生成常量、不读取 `contracts/` 与 `src/generated/`，engine 载体的 Fixture 与平台数据集都声明 `contractCarrier: "engine"`（核对清单写入验收记录）。
+
+  **Verification**
+  - `pnpm verify --change template-web-absorption` 全量，含 browser；对受影响 owner 运行 `fixtures:refresh` 并记录 owner 列表。
+  - 载体迁移的完整文件清单以 SCN-WEB-EXAMPLE-015 的 RED 输出为准补全（已知还包括 `openapi-obligation-matrix.ts`、`openapi-matrix-temporary.spec.ts`、`openapi-fixture.ts`、`openapi-contract-fixture.ts`、`declaration-fixture.ts`、`SCN-BROWSER-PLATFORM-015.spec.ts`），写入验收记录。
+
+  **Review / Acceptance**
+  - 逐条核对 OAS-08"证据载体"所列 Scenario 的用例载体；确认 `src/generated/` 只含三个生成物且与 lock 一致。
+
+  **Commit**
+  - `refactor(template): separate OpenAPI engine evidence from the replaceable product contract`
+
+- [ ] 15. 示例删除验证
 
   **Files**
   - Modify：`SCN-TEMPLATE-ENGINEERING-008.spec.ts` 及 Fixture（同时删除 template-example 与 web-example，副本内 `check:fast` 与 `check:scenarios --inventory`，核对两个产品包依赖在副本内）。
 
   **Requirements / Scenarios**
-  - template-engineering：ENG-06（删除保证与副本构造）；template-example：EX-10 / SCN-TEMPLATE-ENGINEERING-008（`example-removal-scenarios` 承接自任务 1–13 的中途预期失败，见共同完成条件第 8 条）
+  - template-engineering：ENG-06（删除保证与副本构造）；template-example：EX-10 / SCN-TEMPLATE-ENGINEERING-008（`example-removal-scenarios` 承接自任务 1–14 的中途预期失败，见共同完成条件第 8 条）
 
   **Design Decisions**
   - Decision: Web 示例与示例契约（删除白名单）；Decision: 实施顺序（中途运行时的示例删除用例）
@@ -529,7 +566,7 @@
   **Commit**
   - `test(template): prove gates stay green after removing both examples`
 
-- [ ] 15. 复刻演练、"移除一条绑定"演练与最终验收
+- [ ] 16. 复刻演练、"移除一条绑定"演练与最终验收
 
   **Files**
   - 无仓库内代码产物（演练在隔离副本中进行，副本不提交）；按演练发现修订的指南、AGENTS 或门禁随本任务提交。

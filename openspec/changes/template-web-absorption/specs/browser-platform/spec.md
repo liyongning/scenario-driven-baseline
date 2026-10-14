@@ -64,7 +64,7 @@
 - **宿主配置**：占位资源域名的本地兑现规则、`dev:remote` 的代理前缀列表与默认预览数据集 SHALL 登记在 `packages/e2e/host/web.config.json`，格式由同目录的 `web.config.schema.json` 定义，schema 的每个属性（含嵌套属性）带非空中文 `description`；宿主、驱动与预览启动器 MUST 只从该文件读取这些配置，配置不符合 schema 时启动失败并指出字段。
 
 #### Scenario: SCN-BROWSER-PLATFORM-003 协议宿主按绑定加载执行器，只加载协议包产物并执行下发的计划步骤
-- **WHEN** 在 OpenAPI 协议包已构建的前提下，`browser` 项目中 `web-openapi-browser` 绑定的用例启动协议宿主与当次 Shadow，向页面下发一个 `getTrade` 成功的计划步骤并等待页面回传结果；另检查宿主页面实际加载的协议模块来源；另在单测中以两条绑定（协议包分别为 `protocolKind: openapi` 与 `idl`）调用协议宿主启动器，再让其中一个协议包缺少 `testing/browser-runner.ts`，并检查宿主与启动器的非测试源码
+- **WHEN** 在 OpenAPI 协议包已构建的前提下，`browser` 项目中 `web-openapi-browser` 绑定的用例启动协议宿主与当次 Shadow，向页面下发一个引擎测试契约（OAS-08）中 `getTrade` 成功的计划步骤（步骤携带描述常量）并等待页面回传结果；另检查宿主页面实际加载的协议模块来源；另在单测中以两条绑定（协议包分别为 `protocolKind: openapi` 与 `idl`）调用协议宿主启动器，再让其中一个协议包缺少 `testing/browser-runner.ts`，并检查宿主与启动器的非测试源码
 - **THEN** 请求由真实 Chromium 中的 `createFetchHttp` 发出、经同源代理到达 Shadow，页面把执行结果回传给用例；`verify()` 无问题；页面加载的协议模块全部解析到协议包 `dist`，没有任何模块来自协议包 `src`；启动器为每条绑定加载该绑定协议包的 `testing/browser-runner.ts`，缺少执行器时启动失败并指出协议包目录；宿主与启动器源码中不存在按 `protocolKind` 取值的分支。
 
 ```json verification
@@ -160,7 +160,7 @@ Chromium 在复用连接被零字节断开时会静默重发 POST，该重发不
 ```
 
 #### Scenario: SCN-BROWSER-PLATFORM-006 浏览器网络错误的两道防线与对照证据
-- **WHEN** 在 `browser` 项目中，协议宿主页面经 OpenAPI 协议包产物在已复用的连接上发送一次 `createTrade` POST，分三种情况：主防线——经共用代理中间件，Shadow 对该请求使用 `partial-then-disconnect`；兜底——经共用代理中间件，Shadow 对该请求误用零字节 `disconnect`；对照——经用例内构造的、不带防透明重发处理的普通转发代理，Shadow 对该请求使用零字节 `disconnect`
+- **WHEN** 在 `browser` 项目中，协议宿主页面经 OpenAPI 协议包产物在已复用的连接上发送一次引擎测试契约中的 `createTrade` POST，分三种情况：主防线——经共用代理中间件，Shadow 对该请求使用 `partial-then-disconnect`；兜底——经共用代理中间件，Shadow 对该请求误用零字节 `disconnect`；对照——经用例内构造的、不带防透明重发处理的普通转发代理，Shadow 对该请求使用零字节 `disconnect`
 - **THEN** 主防线与兜底两种情况下页面都得到网络错误结果，Shadow 记录中该 POST 恰好到达一次；对照情况下 Shadow 记录到同一 POST 两次（Chromium 传输层的透明重发），证明共用代理中间件的防护是必要的。网络错误结果本身的协议义务证据由 OAS-03 承担，本场景只证明到达次数。
 
 ```json verification
@@ -314,8 +314,8 @@ Chromium 在复用连接被零字节断开时会静默重发 POST，该重发不
 - `preview:local` MUST 登记在清单 `requiredCommands` 中（见 BRW-06）。
 
 #### Scenario: SCN-BROWSER-PLATFORM-012 预览模式经共用代理把数据集交付给浏览器
-- **WHEN** `browser` 项目的用例经预览启动器（`packages/e2e/src/preview/`）的 API，以浏览器平台自带的数据集（基于 OpenAPI 协议包当前契约，不依赖 Web 示例）启动预览模式 Shadow 与协议宿主的最小页面，在浏览器中按序多次请求同一接口；切换到另一个平台数据集重复；再请求一个数据集中未登记的接口与一个未注册的路径
-- **THEN** 页面收到的响应由所选数据集决定，按序返回、用完后重复最后一条；请求经同源代理到达预览模式 Shadow；未登记与未注册的请求被记录并在控制台打印，预览继续运行、不判错；用例只经启动器取得预览模式 Shadow（启动器经 `createPreviewShadowServer` 构造）、不直接构造，断言只针对页面收到的响应与控制台输出，不以预览模式的请求记录断言请求次数；删除 Web 示例后该证据仍然成立。
+- **WHEN** `browser` 项目的用例经预览启动器（`packages/e2e/src/preview/`）的 API，以浏览器平台自带的数据集（基于 OpenAPI 引擎测试契约、manifest 声明 `contractCarrier: "engine"`，不依赖 Web 示例与产品契约）启动预览模式 Shadow 与协议宿主的最小页面，在浏览器中按序多次请求同一接口；切换到另一个平台数据集重复；再请求一个数据集中未登记的接口与一个未注册的路径
+- **THEN** 页面收到的响应由所选数据集决定，按序返回、用完后重复最后一条；请求经同源代理到达预览模式 Shadow；未登记与未注册的请求被记录并在控制台打印，预览继续运行、不判错；用例只经启动器取得预览模式 Shadow（启动器经 `createPreviewShadowServer` 构造）、不直接构造，断言只针对页面收到的响应与控制台输出，不以预览模式的请求记录断言请求次数；删除 Web 示例或替换产品契约后该证据仍然成立。
 
 ```json verification
 {

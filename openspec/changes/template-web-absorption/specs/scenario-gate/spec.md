@@ -7,13 +7,13 @@ Fixture `manifest.json` 与预览数据集 manifest SHALL 新增可选字段 `pr
 - **协议声明**：`protocol` MUST 是清单中 protocol 角色包的目录，否则报错。包含协议响应的 Fixture MUST 声明 `protocol`；未声明 `protocol` 的 Fixture 不调用任何适配器的 `checkFixture`。
 - **Fixture 检查**：对每个以 owner ID 命名且声明了 `protocol` 的 Fixture 目录，在 GATE-10 的来源检查之外，SHALL 以其 `manifest.json` 与 case 文件只调用该协议包适配器的 `checkFixture(manifest, files)`，MUST NOT 调用其他协议包的适配器。IDL 适配器不做额外检查；OpenAPI 适配器的信封认领与业务码核对见 OAS-06。
 - **owner 协议一致性**：门禁 SHALL 按用例归属绑定（见 GATE-17）找出绑定某个 owner 的用例所属的绑定，取这些绑定的协议包。该集合非空时，owner 的 Fixture MUST 声明 `protocol` 且等于该协议包：未声明（漏声明会绕过信封认领）、声明了其他协议包、或绑定该 owner 的用例分属协议不同的绑定时，均报错并指出 owner、声明值与期望值。只被不属于任何绑定的用例绑定的 owner 不做此项核对。
-- **预览数据集**：`packages/e2e/tests/fixtures/_datasets/<name>/` 下的每个数据集 MUST 在 manifest 中声明 `protocol`，条目 MUST 是显式结构 `[{ operationId, pathParams?, responses: [{ status?, body }] }]`：`responses` 非空；`status` 缺省为 200；`pathParams` 缺省时匹配该接口的任意路径参数，声明时精确匹配（匹配语义见 PC-06）；MUST NOT 使用 `op:后缀` 一类的复合键。每个条目的 `operationId` MUST 能被 `protocol` 指向的协议包适配器识别（以 `operationId` 调用 `responseValidator` 能取得校验函数），否则报错并指出数据集、条目与 `operationId`；每条响应 SHALL 经该校验函数按其 `status` 做与 Fixture 相同的严格同形校验，并以数据集文件调用同一适配器的 `checkFixture` 做业务码等协议检查。数据集不参与 GATE-10 的 owner 解析与来源摘要。
+- **预览数据集**：`packages/e2e/tests/fixtures/_datasets/<name>/` 下的每个数据集 MUST 在 manifest 中声明 `protocol`，条目 MUST 是显式结构 `[{ operationId, pathParams?, responses: [{ status?, body }] }]`：`responses` 非空；`status` 缺省为 200；`pathParams` 缺省时匹配该接口的任意路径参数，声明时精确匹配（匹配语义见 PC-06）；MUST NOT 使用 `op:后缀` 一类的复合键。每个条目的 `operationId` MUST 能被 `protocol` 指向的协议包适配器识别（以 `operationId` 与 `{ manifest: 数据集 manifest }` 调用 `responseValidator` 能取得校验函数；manifest 原样传入，由适配器解释，门禁不读取其中的协议专有字段），否则报错并指出数据集、条目与 `operationId`；每条响应 SHALL 经该校验函数按其 `status` 做与 Fixture 相同的严格同形校验，并以数据集文件调用同一适配器的 `checkFixture` 做业务码等协议检查。数据集不参与 GATE-10 的 owner 解析与来源摘要。
 
 问题 SHALL 逐项列出 Fixture owner 或数据集名、文件与原因，非零退出。
 
 #### Scenario: SCN-SCENARIO-GATE-028 check:fixtures 按声明的协议委托适配器检查 Fixture 与预览数据集
 - **WHEN** 在受控临时根中登记两个协议包 A、B，其 `testing/adapter.ts` 为记录调用、可配置返回问题的桩适配器；放入一个声明 `protocol: A` 的合法 Fixture、一个不声明 `protocol` 的 Fixture 与一个声明 `protocol: A` 的合法数据集（含不带 `status` 与不带 `pathParams` 的条目），运行 `check:fixtures`；随后分别：让 A 的 `checkFixture` 对该 Fixture 返回一个问题；让 Fixture 声明清单中不存在的协议包目录；放入不声明 `protocol` 的数据集；放入使用 `op:后缀` 复合键或 `responses` 为空的数据集；放入 `operationId` 不被 A 识别的数据集；放入某条响应不同形的数据集；让 A 的 `checkFixture` 对数据集文件返回一个问题；检查 `check:fixtures` 的非测试源码
-- **THEN** 合法输入通过；声明 `protocol: A` 的 Fixture 只调用了 A 的 `checkFixture`，B 的适配器未被调用；未声明 `protocol` 的 Fixture 不调用任何 `checkFixture`；合法数据集的每条响应都经 A 的校验函数按其状态码（缺省 200）校验；其余输入逐项报出 owner 或数据集名、文件与原因并非零退出；`check:fixtures` 源码中不存在按 `protocolKind` 取值的分支。
+- **THEN** 合法输入通过；声明 `protocol: A` 的 Fixture 只调用了 A 的 `checkFixture`，B 的适配器未被调用；未声明 `protocol` 的 Fixture 不调用任何 `checkFixture`；合法数据集的每条响应都经 A 的校验函数按其状态码（缺省 200）校验，且 A 的 `responseValidator` 收到的 `options.manifest` 与数据集 manifest 相同；其余输入逐项报出 owner 或数据集名、文件与原因并非零退出；`check:fixtures` 源码中不存在按 `protocolKind` 取值的分支。
 
 ```json verification
 {

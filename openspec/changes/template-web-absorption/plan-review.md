@@ -6,14 +6,14 @@
 - Schema: openspec-workflow
 - Reviewer: 独立只读 general-purpose subagent（每次审查派发一个全新实例，共 4 次；第 4 次经用户裁决授权）；最终放行依据为用户裁决（2026-10-10，确认 R4-I1 修正 diff 后通过）
 - Prompt provenance: skill/change/references/plan-reviewer-prompt.md；finding 准入按 skill/change/references/review-finding-admission.md
-- Reviewed at: 2026-10-11T00:00:00Z
+- Reviewed at: 2026-10-14T00:00:00Z（Apply 中途修订：OpenAPI 引擎证据与产品契约分离；首轮 2026-10-11）
 
 ## Input Manifest
 
-- Reviewed input paths: proposal.md, specs/browser-platform/spec.md, specs/openapi-contract/spec.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, specs/web-app/spec.md, specs/web-example/spec.md, design.md, tasks.md
+- Reviewed input paths: proposal.md, specs/browser-platform/spec.md, specs/openapi-contract/spec.md, specs/protocol-contract/spec.md, specs/scenario-gate/spec.md, specs/template-engineering/spec.md, specs/template-example/spec.md, specs/web-app/spec.md, specs/web-example/spec.md, design.md, tasks.md
 - Canonicalization version: 1
-- Reviewed digest: 2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3
-- Current digest: 2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3
+- Reviewed digest: 3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0
+- Current digest: 3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0
 
 ## Review Summary
 
@@ -60,13 +60,18 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
 | 4 | 38eeee6f0fb75de68e8388a2754737ade17595536250b7f917ddd13824e578f9 | Issues Found | 0 | 1 | 7 | 用户授权的额外审查；R3-I1、R3-I3 确认解决；R3-I2 的允许范围需细化（R4-I1），修正只涉及 design 与 tasks 的三处表述 |
 | 用户裁决 | 106601c8184cff00759ae13748ead222175bc4b8916c974a5f98884806054288 | Approved（用户裁决） | 0 | 0 | 7 | 用户确认 R4-I1（含 R4-M2）修正 diff 后放行；`openspec validate --strict` 通过 |
 | 5（衔接对齐） | 2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3 | Approved | 0 | 0 | 5 | 核心 Change 归档后按 OI-WA-03 衔接：PC-05 吸收 A1，ENG-06 吸收 A3/A6/A7 并移出 SCN-008，新增 template-example delta 修改 EX-10；独立 Reviewer 逐块核对 14 个 MODIFIED 块均以归档后主 Spec 为底，试归档后 A1~A7 均保留；Minor R5-M1~M5 为措辞与导航，记为 advisory |
+| M1（修订第 1 次） | 097ef9339a825faea4fa9ca1ac4ce6f1bb8ab94e49c228970442791cbdf23a9a | Issues Found | 0 | 5 | 5 | Apply 中途修订（xueshan 纵切片演练第 2 轮引入，用户 2026-10-14 确认"通用基础 + 可替换契约"，本 Change 只拆 OpenAPI 侧）。I：引擎载体 Fixture/数据集按哪份契约校验、原 030 判定口径与副本机制冲突、030 归属永久能力会在使用方仓库误失败、约定模块摘要/覆盖率登记、规范化输出形状；全部修正（contractCarrier、移至 WEX-09 / SCN-WEB-EXAMPLE-015、码名） |
+| M2 | 11800cb79f6ddb408bbb6e7f0de673ba6104a1812ce431798b09b350d4aab6a0 | Issues Found | 0 | 3 | 8 | M1 主体确认解决。I：SCN-015 依赖 template-example 白名单内辅助模块、contractCarrier 传不到数据集逐条校验、产品约定模块单测位置与覆盖率；修正（通用删除辅助模块与两份清单、PC-07 `responseValidator(op, options?)`、单测同目录与 sourceRoots） |
+| M3 | 9727a5efaf6ec045a5fd9c8c28e3b2c489e97f5e3b84e6e768267d4fc314089f | Issues Found | 0 | 2 | 6 | 已达三次上限。I：白名单门禁仍只从 008 清单拆分（迁移后静默失效）、defaultDataset 后果表述；修正 |
+| M4（用户授权） | 8b4ef3664ca9936b3aafffb288b7e1b22cf1acdac36c7cf89671f77ed67b3e5c | Issues Found | 0 | 3 | 7 | 方案完整可行、5 项用户核对基本通过。I（均为文字级）：预览后果表述与代码不符（改为如实"启动失败并报出未知 operationId"）、008 OpenAPI 断言修正方向（改为与 EX-10 同口径）、SCN-004 与 redocly.yaml 替换点冲突（引擎侧固定配置 + 通用断言）；评审员建议只核对这三处、不再做完整审查 |
+| 用户裁决（修订） | 3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0 | Approved（用户裁决） | 0 | 0 | 7 | 用户 2026-10-14 确认 M4 三处修正后放行；`openspec validate --strict` 通过，场景门禁清单模式非绑定类问题 0 |
 
 ## Gate Decision
 
 - Decision: PASS
-- Blocking reason: None。第 4 次审查后的 R4-I1 已按最小修正改完（design 与 tasks 三处表述），用户确认 diff 后放行；放行依据为用户裁决，而非第 5 次独立审查。2026-10-11 核心 Change 归档后做衔接对齐（第 5 次审查，Approved），digest 随之更新。
+- Blocking reason: None。2026-10-14 Apply 中途修订（新增 Task 14：OpenAPI 引擎证据与产品契约分离，原 14、15 顺延）经 4 次独立审查（第 4 次经用户授权），M4 的 3 条文字级问题修正后由用户裁决放行，digest 更新为 3610b85…。此前：第 4 次审查后的 R4-I1 已按最小修正改完（design 与 tasks 三处表述），用户确认 diff 后放行；放行依据为用户裁决，而非第 5 次独立审查。2026-10-11 核心 Change 归档后做衔接对齐（第 5 次审查，Approved），digest 随之更新。
 - Apply 前提：`template-core-hardening` 归档并合并之后才进入 Apply。核心 Change 在 Apply 期间经用户裁决修订了请求 ID 的随机源（A1，改为 `Math.random`）和 SCN-TEMPLATE-ENGINEERING-008 的副本门禁口径（A2，精确扣除防递归排除项）。衔接时，本 Change 中途允许的两类预期失败，叠加在 A2 已扣除的排除项之上判定。
-- Accepted Minor findings: 第 2 次 M-1~M-7、M-9，第 3 次 M-1~M-6，第 4 次 M-1、M-3~M-7（M-2 已随 R4-I1 修正），第 5 次 R5-M1~M5（中途允许失败叠加在 A2 期望集合之上判定、任务 14 GREEN 以 EX-10 精确口径为准、tasks 导航补 template-example、任务 1 刷新 owner 含 SCN-008、EX-10 分步删除措辞），不阻塞 Apply。
+- Accepted Minor findings: 第 2 次 M-1~M-7、M-9，第 3 次 M-1~M-6，第 4 次 M-1、M-3~M-7（M-2 已随 R4-I1 修正），修订轮 M1~M4 的 Minor（未采纳者为措辞与可在 RED 中收敛的清单补全），第 5 次 R5-M1~M5（中途允许失败叠加在 A2 期望集合之上判定、任务 14 GREEN 以 EX-10 精确口径为准、tasks 导航补 template-example、任务 1 刷新 owner 含 SCN-008、EX-10 分步删除措辞），不阻塞 Apply。
 - Freshness check command: `/Users/liyongning/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-web-absorption --check-review openspec/changes/template-web-absorption/plan-review.md`
 
 ## Machine Record
@@ -76,12 +81,12 @@ PASS requires Approved, Critical=0, Important=0, and Current digest == Reviewed 
   "version": 1,
   "change": "template-web-absorption",
   "schema": "openspec-workflow",
-  "reviewer": "user decision after independent review attempt 4",
+  "reviewer": "user decision after independent revision review attempt M4",
   "prompt_provenance": "skill/change/references/plan-reviewer-prompt.md",
-  "reviewed_at": "2026-10-11T00:00:00Z",
+  "reviewed_at": "2026-10-14T00:00:00Z",
   "canonicalization_version": 1,
-  "reviewed_sha256": "2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3",
-  "current_sha256": "2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3",
+  "reviewed_sha256": "3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0",
+  "current_sha256": "3610b85a4dc7f8073bfc84bc5061a1fcc717c3e9ae05ea7de31e690e01d62ed0",
   "reviewer_status": "Approved",
   "gate": "PASS",
   "critical": 0,

@@ -10,7 +10,7 @@
 |---|---|
 | `resolveDeclaration(element)` | 把消费接口声明中的一个元素解析为 `{ key, prefix, meta }`；非法元素报错 |
 | `deriveObligations(op, requestFields)` | 派生该接口的协议义务 |
-| `responseValidator(op)` | 返回 `(body, status) => issues`，由协议侧路由构造器注入 Shadow 路由（见 PC-04） |
+| `responseValidator(op, options?)` | 返回 `(body, status) => issues`，由协议侧路由构造器注入 Shadow 路由（见 PC-04）；可选的 `options.manifest` 为调用方所校验的 Fixture 或预览数据集的 manifest，由适配器自行解释其中与本协议相关的字段（例如 OpenAPI 的 `contractCarrier`，见 OAS-04），不需要的适配器忽略它 |
 | `checkFixture(manifest, files)` | 协议相关的 Fixture 检查，供 `check:fixtures` 对声明了该协议包的 Fixture 与预览数据集调用（见 GATE-16） |
 | `scanCalls(sourceFiles)` | 静态扫描产品源码中的实际调用，用于声明与调用的双向检查 |
 

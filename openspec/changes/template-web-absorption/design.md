@@ -289,10 +289,12 @@ src/
 **契约与同步**（来源 xueshan `scripts/api-contract.ts`）：
 
 - 契约文件与 lock 登记在协议包的清单条目中：`packages[].contract: { file, lock }`，写入 `fingerprints.protocolInputs`。
-- `api:validate`：`redocly lint` 无 error；契约自洽：信封 `code` 的枚举等于码表；`x-common-business-codes` 与各接口的 `x-business-codes` 都是 `x-business-code-table` 的子集。
+- `api:validate`：`redocly lint` 无 error（通用基线，任何契约都适用）；再按该契约的**协议约定模块**做约定自洽检查。模板默认约定为：信封 `code` 的枚举等于码表；`x-common-business-codes` 与各接口的 `x-business-codes` 都是 `x-business-code-table`（名称 → 码值）的子集。码表、通用码、接口码的读取方式与自洽规则属于团队约定，不是 OpenAPI 标准，因此是替换点（见下文"协议约定模块"），不写死在门禁里。
 - `api:sync <契约来源>`：来源（本地路径、或仓库/分支/commit 信息）由参数传入并原样写进 lock，不在脚本中写死；模板自带示例的来源记为"本仓库"。
 - `api:status`：lock 中的契约版本与 sha256 与当前契约一致；lock 中登记的生成物路径集合与 sha256 与重新生成的结果逐一一致（修正 xueshan lock 漏登 `codes.ts` 且不校验生成物集合的问题）。
-- `redocly.yaml` 只保留有理由的规则调整（例如"HTTP 恒 200"约定下关闭 `operation-4xx-response`）；模板示例契约 lint 零告警，不继承 xueshan 针对 33 处契约缺陷的降级。
+- `redocly.yaml` 只保留有理由的规则调整（例如"HTTP 恒 200"约定下关闭 `operation-4xx-response`）；引擎测试契约与模板初始的产品契约 lint 零告警，不继承 xueshan 针对 33 处契约缺陷的降级。`api:validate` 对产品契约同样要求零告警零 error（沿用现有实现）；根 `redocly.yaml` 属于协议约定替换点（只作用于产品契约），使用方需要调整规则时写明理由，不视为修改门禁配置；引擎测试契约使用固定的引擎侧配置 `testing/engine/redocly.yaml`，不受使用方调整影响。
+
+**协议约定模块**（替换点）：码表、通用码与接口码的读取，以及约定自洽检查，收拢到与契约同目录的一个约定模块，`api:validate`、生成器（`codes.ts`、`meta.codes`）与 OpenAPI 适配器（业务码义务、Fixture 业务码核对）都只经它读取，不在 `scripts/` 门禁代码或适配器中直接读取 `x-business-code-table` 等扩展。模块把契约中的约定规范化为固定输出（码表为"码名 → 码值"映射，通用码与接口码列表的元素是码表中的码名，外加自洽问题列表），生成物（`codes.ts`、`meta.codes`、`OperationCodes<Id>`）、`business-code#<码>` 义务 ID 与派生规则只依赖这份规范化输出；契约中没有码名时（如数组码表）由约定模块决定码名（例如 `CODE_40001`）。两个约定模块是手写代码，由 `openapi-unit` 覆盖并计入手写代码覆盖率，并登记在 `fingerprints.protocolInputs`。产品契约的约定模块为 `packages/openapi/contracts/conventions.ts`，引擎测试契约的为 `packages/openapi/testing/engine/conventions.ts`，两者具名导出同一函数 `normalizeContractConventions(document)`（入参为 bundle 后的契约对象，返回 `{ codeTable, commonCodes, operationCodes, issues }`），模板初始内容相同（模板默认约定）。各自的单测与模块同目录；`packages/openapi/contracts` 登记在 `fingerprints.sourceRoots`，`openapi-unit` 收集 `contracts/**/*.test.ts`，使用方改写约定模块时连同同目录单测一起改写，覆盖率仍按 100% 要求。使用方的服务端约定不同（例如码表为 `{code, meaning, message}` 数组）时，只改写产品侧的约定模块；契约没有业务码约定时，约定模块返回空码表，业务码义务随之为空。信封形状仍由 REST 执行器的信封约定配置承担（见下文），两者一起列入替换点地图的"协议约定"。
 
 **生成物**（统一放 `src/generated/`，与核心 Change 的源码清单排除规则对齐）：
 
@@ -341,7 +343,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
   - `envelopes`：按路径逐个登记所属接口；
   - `contract`：整个文件属于一个接口；
   - 故意的非法信封：使用核心 Change 的 `malformed: { reason }`，并由门禁反证它确实不符合任何接口，防止被当作放行口子。
-- **业务码核对**：每个被认领信封的 `code` 必须属于该接口的 `x-business-codes` 与通用码的并集。
+- **业务码核对**：每个被认领信封的 `code` 必须属于约定模块给出的该接口码与通用码的并集。
 
 **包形态**：与 IDL 包一致，构建 ESM、CommonJS 双格式产物与类型声明；集成用例与宿主都消费产物。根入口具名导出 `createFetchHttp`（平台网络工厂），符合根 AGENTS 执行规则 7。
 
@@ -364,7 +366,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 
 | 宿主 | 用途 | 方式 |
 |---|---|---|
-| `host/browser/`（协议宿主） | 协议矩阵的浏览器证据 | Vite 托管最小页面，页面内用协议包**产物**（不是源码）的公共客户端与 `fetch` 适配器执行计划步骤。宿主对协议种类通用：每个协议包在 `testing/browser-runner.ts` 提供页面内的步骤执行器，宿主按绑定加载对应协议包的执行器；模板为 OpenAPI 与 IDL 两个协议包都提供执行器（IDL 执行器由 protocol-unit 单测覆盖，在交叉复刻中产生浏览器证据）。执行器接口：`run(plan)`，`plan` 为可序列化的步骤数组 `{ method, input, timeoutMs?, cancel?: 'before-send' \| 'in-flight' }`，`method` 为接口名；返回与步骤一一对应的可序列化结果（协议客户端的结果原样序列化），无法解析的接口名返回错误结果而不抛出 |
+| `host/browser/`（协议宿主） | 协议矩阵的浏览器证据 | Vite 托管最小页面，页面内用协议包**产物**（不是源码）的公共客户端与 `fetch` 适配器执行计划步骤。宿主对协议种类通用：每个协议包在 `testing/browser-runner.ts` 提供页面内的步骤执行器，宿主按绑定加载对应协议包的执行器；模板为 OpenAPI 与 IDL 两个协议包都提供执行器（IDL 执行器由 protocol-unit 单测覆盖，在交叉复刻中产生浏览器证据）。执行器接口：`run(plan)`，`plan` 为可序列化的步骤数组 `{ method, input, timeoutMs?, cancel?: 'before-send' \| 'in-flight' }`，`method` 为接口名，或可序列化的描述常量（OpenAPI 引擎用例用它传入引擎测试契约的接口，见 OAS-04）；返回与步骤一一对应的可序列化结果（协议客户端的结果原样序列化），无法解析的接口名返回错误结果而不抛出 |
 | `host/app/`（应用宿主） | Web 应用用例 | `vite preview` 托管产品 `dist`，`--host 127.0.0.1 --port 0`，以打印出的 URL 访问（修正 xueshan #57 的多余 `--` 与未指定 host） |
 
 两个宿主**共用同一个代理中间件**，把同源 `/api`（或协议宿主的 `/__shadow/...`）转发到当次 Shadow。中间件采用 xueshan 的防透明重发写法：先发响应头再转发；上游在响应前断开时，返回 `502` 加 `content-length: 2` 后立即销毁连接，使浏览器判为"响应不完整"而不是"空响应可重试"。
@@ -398,7 +400,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 - 位置 `packages/e2e/tests/fixtures/_datasets/<name>/`，结构为显式的 `[{ operationId, pathParams?, responses: [{ status?, body }] }]`：`status` 缺省为 200；`pathParams` 缺省时匹配该接口的任意路径参数，声明时精确匹配；不使用 xueshan 自造的 `op:后缀` 键。数据集 manifest 声明 `protocol`，不参与 owner 解析与来源摘要。
 - 文件布局：`_datasets/<name>/manifest.json`（`formatVersion`、`protocol`、说明）与 `_datasets/<name>/entries.json`（条目数组）。
 - 匹配优先级：同一接口同时存在声明了 `pathParams` 的条目与未声明的条目时，精确匹配的条目优先；每个条目按"条目 + 实际路径参数"分别维护序列游标。
-- 浏览器平台自身的预览证据不依赖 Web 示例：使用协议宿主的最小页面、预览模式 Shadow 与一个平台自带的数据集（基于 OpenAPI 协议包当前契约），验证"预览模式经共用代理把数据集交付给浏览器"；示例删除后该证据仍然成立。使用方替换协议来源时，该数据集与协议矩阵 Fixture 一样随之更新。
+- 浏览器平台自身的预览证据不依赖 Web 示例：使用协议宿主的最小页面、预览模式 Shadow 与平台自带的数据集（基于 OpenAPI 引擎测试契约），验证"预览模式经共用代理把数据集交付给浏览器"；示例删除与产品契约替换后该证据仍然成立，平台数据集不随产品契约更新。
 - 与 Fixture 一样做契约严格同形与业务码校验（`check:fixtures` 对 `_datasets` 走同一协议适配器）。
 - 禁止在宿主代码中修补数据（xueshan 临时预览脚本在代码里补玩家状态、重算链接，导致数据不经校验）。唯一允许的变换是资源占位域名替换为本地资源地址，在校验之后进行，替换规则登记在配置中。
 
@@ -422,7 +424,23 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 
 ### Decision: Web 示例与示例契约
 
-**示例契约**：中立化重写，与 IDL 示例同为"交易"领域，约 200–300 行，放 `contracts/trade-v1.yaml`。xueshan 契约只在 xueshan 纵切片复刻演练中使用，不提交进模板。
+**通用基础与可替换契约**：模板的通用基础是技术架构、质量基线，以及以 Scenario ID 串联用例、FLOW、Fixture、Shadow 与门禁的链路；契约与协议约定是替换点，使用方换成自己的契约后，通用基础及其证据不受影响。OpenAPI 侧据此把"证明协议引擎可用的证据"与"产品实际消费的契约"分开（xueshan 纵切片演练第 2 轮发现：两者共用 `contracts/trade-v1.yaml` 时，使用方一换契约，约 45 个引擎用例与本能力的 Spec 证据随之失效）：
+
+| 层 | 位置 | 内容 | 使用方是否替换 |
+|---|---|---|---|
+| 引擎测试契约 | `packages/openapi/testing/engine/`（契约 `trade-v1.yaml`、约定模块 `conventions.ts`、由同一生成器产出的 `generated/` 与 bundle） | 下表四个接口与顶层结构，专供 `openapi-contract` 引擎证据使用 | 否。只有整条 OpenAPI 绑定被删除时随协议包删除 |
+| 产品契约 | `packages/openapi/contracts/`（清单 `packages[].contract` 登记的契约与 lock、约定模块 `conventions.ts`；生成物在 `src/generated/`，bundle 在 `testing/`） | 模板初始内容与引擎测试契约相同，供 Web 示例消费 | 是。第一个 Web 业务原地替换契约与约定模块，并必须在同一次提交中删除 Web 示例（示例依赖初始契约的生成常量；指南"移除模板示例"的例外） |
+| 协议约定 | 两处 `conventions.ts` 与 REST 执行器的信封约定配置 | 码表、通用码、接口码的读取与自洽规则；信封形状 | 产品侧按服务端约定改写 |
+
+- **证据载体规则**：`openapi-contract` 中验证引擎行为的 Scenario（命令的反例、生成器、执行器线上行为、presence 派生、未实现提示、业务码类型工具、响应校验、Fixture 认领、示例契约结构）一律以引擎测试契约为载体；只有"把通用基线作用在产品契约上"的证据以产品契约为载体：`api:validate`/`api:sync`/`api:status` 对清单契约的运行、门禁按清单加载适配器、对产品声明的义务派生与 OpenAPI 协议矩阵（SCN-OPENAPI-CONTRACT-021）。以产品契约为载体的用例 MUST NOT 写死产品契约中的接口名、契约名与码值，一律从清单、契约与声明派生。
+- **线上证据如何用引擎契约**：集成用例与浏览器宿主仍只消费协议包产物中的公共客户端与 `createFetchHttp`（产物中的生成常量来自产品契约）；引擎用例把引擎测试契约生成的描述常量与身份方案作为数据传给公共客户端（客户端本就以参数接收描述常量与 `securitySchemes`），Shadow 路由由引擎测试契约的 bundle 构造。`testing/` 下的契约加载、路由构造器、响应校验与浏览器步骤执行器 MUST 以参数接收契约来源与描述常量，不以模块位置绑死某一份契约（顺带消除"测试适配器只能服务自己那份 bundle"的限制）；浏览器步骤执行器的计划步骤可直接携带描述常量。
+- **引擎测试契约的防漂移**：其生成物与 bundle 由同一生成器产出并提交；`openapi-unit` 在临时目录重新生成并逐文件比对，不一致即失败。引擎测试契约不登记清单 `packages[].contract`、不参与 `api:sync`；其目录以通配形式（`packages/openapi/testing/engine/**`）纳入 `fingerprints.protocolInputs`，变化时验收报告的协议摘要过期并触发全量（Fixture 来源摘要只由 Requirement 与 case 决定，不受影响）。目录按项目地图规则配齐 AGENTS.md 与 CLAUDE.md，其 `generated/` 与 `src/generated/` 一样排除在 lint 与格式化之外。
+- **Fixture 与数据集的契约载体**：门禁按 GATE-16 只按 `protocol` 找到唯一适配器，而 OpenAPI 适配器默认按清单加载产品契约。以引擎测试契约为载体的 Fixture 与平台预览数据集在 manifest 中声明 `contractCarrier: "engine"`（缺省 `"product"`），由 OpenAPI 适配器在 `checkFixture(manifest, files)` 与 `responseValidator(op, { manifest })` 中解释（PC-07 的 `responseValidator` 增加可选的 `options.manifest`，IDL 适配器忽略）；`check:fixtures` 的 Fixture 检查与数据集逐条校验、预览启动器的启动前校验都原样传入 manifest，不按协议种类分支。`fixture.schema.json` 与数据集 schema 都声明该字段（枚举 `product`、`engine`），适配器拒绝其他取值。Web 应用本地预览的默认数据集（`web.config.json` 的 `defaultDataset`）属于产品侧替换点：模板初始值仍为引擎载体的 `platform-openapi-primary`（两份契约内容相同时可用），替换产品契约时应改指使用方自己的产品侧数据集；不改指时 `preview:local` 启动失败并报出数据集中产品契约不存在的 operationId（预览路由取自产品契约；门禁不检查），指南写明这一步。
+- **删除逻辑的归属**：按白名单删除的通用逻辑（标记剥离、整目录与整文件删除、JSON 键删除）从 `template-example` 白名单内的 `example-removal-support.ts` 移到不属于任何白名单的测试辅助模块；两份删除清单分属各自示例（`template-example` 的留在 SCN-TEMPLATE-ENGINEERING-008 的 Fixture，Web 示例的移到 Web 示例自己的 Fixture）。008 在 Web 示例清单不存在时只删 `template-example`，SCN-WEB-EXAMPLE-015 不依赖 `template-example` 白名单内的任何文件，两份白名单可以按任意顺序分别删除。
+- **可替换性的回归证据**：新增 WEX-09 / SCN-WEB-EXAMPLE-015（放在 web-example 能力、列入 Web 示例白名单，随示例删除，与 SCN-TEMPLATE-ENGINEERING-008 随 `template-example` 删除同理；若放在永久保留的能力中，使用方换掉契约后它会把使用方契约再替换一次而必然失败）。在受控副本中把产品契约换成一份结构与约定都不同的中立契约（不同接口、数组形式码表、单一身份方案），改写产品侧约定模块，同时删除 Web 示例并声明新契约中的一个接口（含调用的单测）、补齐其矩阵 Fixture 键，`api:validate`、`api:status`、副本内 `check:fast` 通过，场景门禁清单模式的问题集合恰为 008 同口径推导的集合，改动只落在 WEX-09 列出的范围内，引擎测试契约目录、engine 载体的 Fixture 与数据集、`openapi-contract` 引擎用例与 `scripts/` 均未被修改。该中立契约作为 Fixture 提交，不使用 xueshan 契约。
+- **IDL 侧**：IDL 引擎证据目前以公司共用 IDL 的具体接口为载体（约 20 个文件），使用方共用该 IDL 时不受影响，换成其他 IDL 来源时会遇到同类问题。本 Change 只在指南替换点地图"协议来源（IDL）"一行列出这些用例并说明随 IDL 来源改写；IDL 侧的同类拆分登记为后续 Change（OI-WA-04），不在本 Change 实施。
+
+**示例契约**（即引擎测试契约的结构，模板初始的产品契约与它相同）：中立化重写，与 IDL 示例同为"交易"领域，约 200–300 行。xueshan 契约只在 xueshan 纵切片复刻演练中使用，不提交进模板。
 
 | 接口 | 用途 | 覆盖的特性 |
 |---|---|---|
@@ -433,7 +451,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 
 顶层包含：信封（allOf 加 nullable data）、`x-common-business-codes`、`x-business-code-table`、至少一个 `x-implemented: false` 接口、两个 apiKey 头的 securitySchemes（证明身份头名不写死）、X-Request-Id 请求参数与响应头。
 
-**证据归属**：OpenAPI 协议矩阵（每条接口义务在 integration 与 browser 中的运行证据）属于 `openapi-contract`；生成的 `OperationCodes` 类型工具的类型测试属于 `openapi-contract`（openapi-unit）；示例页面行为与示例产品中的业务码完备性对账属于 `web-example`。
+**证据归属**：OpenAPI 协议矩阵（产品声明的每条接口义务在 integration 与 browser 中的运行证据）属于 `openapi-contract`；生成的 `OperationCodes` 类型工具的类型测试属于 `openapi-contract`（openapi-unit）；示例页面行为与示例产品中的业务码完备性对账属于 `web-example`。
 
 **示例页面**（能力 `web-example`）：
 
@@ -446,7 +464,7 @@ bundle 后的完整契约只给门禁、Shadow 与适配器使用，放在协议
 - 必备测试：入口覆盖、store 写入审计、假时钟驱动的轮询、业务码完备性、一个"不可达分支改写"的正例。
 - 本地预览：至少两个数据集（进行中、已完成），演示"看某个状态下的 UI"；示例只要求数据集通过 `check:fixtures` 的契约校验，预览页面能打开的证据由 `browser-platform` 承担，不在示例中重复启动 dev server。
 
-**删除白名单**：按核心 Change 的机制（整目录、`template-example` 风格的片段标记）新增 `web-example` 标记与白名单，包括 Web 应用包中的示例模块、store、预览数据集、示例用例与 Fixture。OpenAPI 示例契约属于协议来源，不在白名单内：使用方按替换点地图替换协议来源，与 IDL 示例的处理一致。两个示例同时删除后门禁仍全绿的证据由示例删除 Scenario（SCN-TEMPLATE-ENGINEERING-008）统一承担，`web-example` 只校验标记成对。核心 Change 归档后，该 Scenario 登记在 template-example 的 EX-10，随 `template-example` 一起删除（核心 A3）；本 Change 以 template-example delta 修改 EX-10，使它同时删除两个示例。另外，核心 Change 归档时的修订 A1（请求 ID 随机源改为 `Math.random`）、A3、A6、A7（删除白名单）已经合入主 Spec，本 Change 的 PC-05 与 ENG-06 MODIFIED 块以归档后的主 Spec 为底，只叠加本 Change 自己的改动。
+**删除白名单**：按核心 Change 的机制（整目录、`template-example` 风格的片段标记）新增 `web-example` 标记与白名单，包括 Web 应用包中的示例模块、store、预览数据集、示例用例与 Fixture。产品契约（`contracts/` 下的契约、lock 与约定模块）不在白名单内：它是替换点，由使用方原地替换而不是删除；引擎测试契约属于 OpenAPI 协议包的引擎证据，也不在白名单内。两个示例同时删除后门禁仍全绿的证据由示例删除 Scenario（SCN-TEMPLATE-ENGINEERING-008）统一承担，`web-example` 只校验标记成对。核心 Change 归档后，该 Scenario 登记在 template-example 的 EX-10，随 `template-example` 一起删除（核心 A3）；本 Change 以 template-example delta 修改 EX-10，使它同时删除两个示例。另外，核心 Change 归档时的修订 A1（请求 ID 随机源改为 `Math.random`）、A3、A6、A7（删除白名单）已经合入主 Spec，本 Change 的 PC-05 与 ENG-06 MODIFIED 块以归档后的主 Spec 为底，只叠加本 Change 自己的改动。
 
 ### Decision: 依赖版本
 
@@ -473,7 +491,7 @@ create-vue 3.24.0 的 engines（`^22.18.0 || >=24.12.0`）比模板更严，只�
 ### Decision: 文档与地图
 
 - 能力地图新增：组合绑定、协议适配器、Web 应用包（含前端架构规范）、产物边界、OpenAPI 协议包、浏览器平台点位、本地预览、Web 示例；每项写承载文件与验证方式。
-- 替换点地图：产品（sdk / web 应用）、协议（IDL / OpenAPI）、平台（小程序 / 浏览器）三个点位各两种选项，加"本地预览"点位；每项列出涉及文件、清单项、示例 Scenario 与门禁。注明"Web 应用 + IDL + 浏览器"已经交叉复刻验证，其余未验证的组合标明未验证。
+- 替换点地图：产品（sdk / web 应用）、协议（IDL / OpenAPI）、平台（小程序 / 浏览器）三个点位各两种选项，加"本地预览"与"协议约定"点位；每项列出涉及文件、清单项、示例 Scenario 与门禁。OpenAPI 一行写明"替换产品契约 = 替换 `contracts/` 下的契约、lock 与约定模块，运行 `api:sync`，更新消费声明与矩阵 Fixture 键；引擎测试契约与引擎用例不动"，并写明 OpenAPI 契约须满足的通用基线（lint 无 error、`nullable` 旁带 `type` 等由 redocly 推荐规则报出的问题）。IDL 一行列出以公司共用 IDL 具体接口为载体的引擎用例，说明换 IDL 来源时随之改写（后续 Change OI-WA-04 拆分）。注明"Web 应用 + IDL + 浏览器"已经交叉复刻验证，其余未验证的组合标明未验证。
 - 技术架构文档按核心 Change 的结构补齐上述能力章节。
 - 新包与模块按核心 Change 的项目地图规则配齐 AGENTS.md 与 CLAUDE.md；包级 AGENTS 写入状态分层、组件树、协议包生成物边界与信封约定。
 - 指南"移除模板示例"一节加入 `web-example` 白名单；"跨源部署"说明网关需放行的预检请求头与 `Access-Control-Expose-Headers`，以及带下划线请求头（如 `app_version`）在常见代理上被丢弃的风险。
@@ -513,8 +531,9 @@ create-vue 3.24.0 的 engines（`^22.18.0 || >=24.12.0`）比模板更严，只�
 11. Web 示例（消费接口声明、页面、预览数据集、OpenAPI 协议矩阵的产品侧证据）；
 12. 本地预览命令与开发代理；
 13. 文档、地图、AGENTS；
-14. 示例删除演练；
-15. 三个复刻演练与最终验收。
+14. OpenAPI 引擎证据与产品契约分离（引擎测试契约、协议约定模块、Fixture 与数据集的契约载体、WEX-09 可替换性回归），由 xueshan 纵切片演练第 2 轮的发现引入；
+15. 示例删除演练；
+16. 三个复刻演练与最终验收。
 
 **"模板自身事实"类 checkpoint 的交付时机**：依赖后续任务产物的事实核验（例如"模板清单含两条绑定"、"OpenAPI 协议矩阵对 Web 示例的声明有运行证据"），由产物就绪的任务交付；tasks 中逐项标明推迟到的任务，推迟期间该 checkpoint 的门禁问题归属到该任务。
 
@@ -524,7 +543,7 @@ create-vue 3.24.0 的 engines（`^22.18.0 || >=24.12.0`）比模板更严，只�
 2. 本 Change 每个 MODIFIED 块的基准部分（被修改前的原文）与归档后主 Spec 中对应 Requirement 逐块一致；不一致说明核心 Change 实施中改过 Spec，先同步并重新评审受影响部分；
 3. 先单独运行 `SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:fixtures`，再在刷新摘要后运行完整 `check:fast`（串联命令在第一个失败步骤后停止）。**预期失败**只有两类：（a）"Fixture 来源摘要过期，且 owner 属于本 Change MODIFIED 的 Requirement"（本 Change 修改了这些 Requirement 块，按 GATE-10 其 Fixture 摘要必然变化）；（b）下文"中途运行时的示例删除用例"所述 SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios` 失败。其他任何失败都按衔接失败处理，停止并返回 Plan Review。
 
-**中途运行时的示例删除用例**：核心 Change 交付的 SCN-TEMPLATE-ENGINEERING-008 会在副本中归档作用域内的 Change（即本 Change），而本 Change 的 Scenario 在任务 14 之前大多尚未实现，副本中的场景对账（`example-removal-scenarios`）必然报未绑定。任务 1–13 的 `check:fast` 中，**只允许这一项失败，且失败输出中的问题只能是两种**：（i）本 Change 新增或修改的 Scenario 缺少绑定；（ii）本 Change 的 Scenario 的 `requiredIn` 引用了尚未登记的测试项目（`openapi-unit` 在任务 5 登记、`app-unit` 在任务 8 登记、`browser` 在任务 10 登记，登记之后该项目不再允许出现在这类问题中）；它归属任务 14，任务 14 起必须通过。其他任何失败（包括 SCN-008 的 `example-removal-fast`）都按回归处理。SCN-SCENARIO-GATE-026 中运行副本的 case 不归档作用域内的 Change，不受影响。
+**中途运行时的示例删除用例**：核心 Change 交付的 SCN-TEMPLATE-ENGINEERING-008 会在副本中归档作用域内的 Change（即本 Change），而本 Change 的 Scenario 在任务 15 之前大多尚未实现，副本中的场景对账（`example-removal-scenarios`）必然报未绑定。任务 1–14 的 `check:fast` 中，**只允许这一项失败，且失败输出中的问题只能是两种**：（i）本 Change 新增或修改的 Scenario 缺少绑定；（ii）本 Change 的 Scenario 的 `requiredIn` 引用了尚未登记的测试项目（`openapi-unit` 在任务 5 登记、`app-unit` 在任务 8 登记、`browser` 在任务 10 登记，登记之后该项目不再允许出现在这类问题中）；它归属任务 15，任务 15 起必须通过。其他任何失败（包括 SCN-008 的 `example-removal-fast`）都按回归处理。SCN-SCENARIO-GATE-026 中运行副本的 case 不归档作用域内的 Change，不受影响。
 
 预期失败由第一个任务处理：对这些 owner 执行 `pnpm fixtures:refresh <owner...>`，与补写 Fixture 的 `protocol` 字段一并完成。此后任何任务改动了 Requirement 块或 Fixture，都要对受影响的 owner 运行 `fixtures:refresh`，并在验收记录中写明。
 
@@ -535,6 +554,7 @@ create-vue 3.24.0 的 engines（`^22.18.0 || >=24.12.0`）比模板更严，只�
 - **严格同形没有宽松口子**：契约滞后时测试无法先行 → 用户有意选择，把"先更新契约"作为强制顺序，暴露契约债务而不是累积。
 - **只覆盖 Chromium**：Safari 的重发与禁止头行为可能不同 → 写入已知限制；平台证据只代表 Chromium。
 - **两套 X-Request-Id 生成器实现** → 由同一组格式 Scenario 约束；若将来出现第三个协议包，再考虑抽共享包。
+- **引擎测试契约与产品契约内容重复**：模板初始时两份契约相同（约 250 行重复） → 有意为之：引擎证据需要不随业务替换的固定载体；两者从第一个 Web 业务起即分化，重复只存在于模板仓库。
 - **工作量大**：两个新包加一个平台点位 → 实施顺序先共享契约后具体实现，每步都有门禁回归。
 
 ### 未决事项
@@ -544,3 +564,4 @@ create-vue 3.24.0 的 engines（`^22.18.0 || >=24.12.0`）比模板更严，只�
 | OI-WA-01 | 已关闭 | 主 Agent | xueshan 纵切片复刻的具体 Scenario 子集 | 已在"验收"中固定 | 最终验收 |
 | OI-WA-02 | 开放 | 实施方 | @redocly/cli 的精确版本 | 实施时核对最新正式版本并与 V3 基线共存验证 | OpenAPI 协议包 |
 | OI-WA-03 | 开放 | 主 Agent | 核心 Change 实施中若修改了 Spec，本 Change 的 MODIFIED delta 需同步 | 衔接检查通过 | 全部 MODIFIED delta |
+| OI-WA-04 | 开放（后续 Change） | 用户 | IDL 侧同类拆分：IDL 引擎证据改用固定的测试 IDL 样本，与产品实际消费的 IDL 来源分开 | 用户 2026-10-14 决定本 Change 只补指南，另立 Change | `protocol-contract`、IDL 协议包 `testing/`、相关引擎用例 |
