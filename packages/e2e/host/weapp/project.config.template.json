@@ -3,7 +3,7 @@
   "compileType": "miniprogram",
   "libVersion": "3.10.3",
   "miniprogramRoot": "./",
-  "projectname": "sdk-template-test-host",
+  "projectname": "scenario-driven-baseline-test-host",
   "setting": {
     "es6": true,
     "minified": false,

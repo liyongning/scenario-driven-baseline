@@ -1,6 +1,6 @@
-# SDK 领域项目模板
+# Scenario 驱动的工程基线模板
 
-通用 TypeScript 多包工作区模板：并列提供“Headless SDK + IDL + 小程序”和“Web 应用 + OpenAPI + 浏览器”两套具体实现，并以组合绑定把它们接到同一套清单、证据和门禁上。工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，改包、命令、测试项目或发布设置时先改清单。
+清单驱动的 TypeScript monorepo 模板：提供可复用的技术架构，以及以 Spec Scenario 为唯一 ID、贯通用例、Fixture、Shadow 与门禁对账的质量体系。产品形态、协议与运行平台都是可替换点，当前并列提供“Headless SDK + IDL + 小程序”和“Web 应用 + OpenAPI + 浏览器”两套具体实现，并以组合绑定把它们接到同一套清单、证据和门禁上；后续可按同一方式扩展其他端。工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，改包、命令、测试项目或发布设置时先改清单。
 
 使用入口见 [模板使用指南](docs/template-guide.md)，设计理由见 [技术架构文档](docs/architecture.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
@@ -46,7 +46,7 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 
 ## 项目初始化（给 Agent 的内容）
 
-以 sdk-template 为基线初始化本项目：先按 docs/template-guide.md 的"初始化方式"做适配评估，产品方案与前后端方案在 <路径>。使用过程中的发现记入 docs/template-feedback.md。
+以 scenario-driven-baseline 为基线初始化本项目：先按 docs/template-guide.md 的"初始化方式"做适配评估，产品方案与前后端方案在 <路径>。使用过程中的发现记入 docs/template-feedback.md。
 
 ## 维护者说明
 

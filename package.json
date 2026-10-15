@@ -1,8 +1,8 @@
 {
-  "name": "sdk-template",
+  "name": "scenario-driven-baseline",
   "version": "0.0.0",
   "private": true,
-  "description": "SDK 领域项目模板：示例、质量门禁与工程工具链",
+  "description": "Scenario 驱动的工程基线模板：可复用的技术架构与质量体系",
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
