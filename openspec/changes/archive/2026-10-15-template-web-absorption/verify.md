@@ -32,7 +32,7 @@
 | Dimension | Status | Evidence |
 |---|---|---|
 | Completeness | PASS | 6 个 Artifact 均为 done，16/16 Task 完成；54 条 Requirement、113 个 Scenario 均有用例与门禁证据（见 Completeness） |
-| Correctness | PASS | V-1 全量 verify 各步退出码 0（weapp 经同 run id 续跑，原因为环境阻塞，见 V-1）；V-2 独立场景门禁 complete、0 问题；V-3 validate --strict 通过；V-4 规划摘要 PASS；V-5 归档演练合并无丢失 |
+| Correctness | PASS | V-1 全量 verify 各步退出码 0（weapp 经同 run id 续跑，原因为环境阻塞，见 V-1）；V-2 独立场景门禁 complete、0 问题；V-3 validate --strict 通过；V-4 规划摘要 PASS；V-5 归档演练合并无丢失；V-6 归档后无作用域全量 verify 通过 |
 | Coherence | WARNING | 各层与已批准规划（含 Apply 中途修订一、二）一致；保留风险为微信开发者工具挂起（V-1）与已登记的 Minor 与只登记项（见 Coherence、Unverified Areas） |
 
 ## Completeness
@@ -285,6 +285,17 @@
 - Result: PASS
 - Output reference: 日志随设备重启清除；结论：`Totals: + 39, ~ 15, - 0`，8 份主 Spec 严格校验通过
 - Key observations: 合并前主 Spec 61 个 Scenario ID 与本 Change 113 个 ID 的并集（149）与合并后完全一致，无丢失、无多余；与 V-2 的 149 一致
+
+#### V-6: 已归档、无作用域状态的全量验收（指南运行约定第 4 条）
+
+- Command: `pnpm verify --run-id template-web-absorption-archived-20261015`（不带 `--change`）
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-web-absorption-apply`，HEAD `90f7c04`（归档提交）
+- Executed at: 2026-10-15T06:09:44Z – 2026-10-15T06:28:47Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: 验收方会话临时日志 `scratchpad/final/v6.log`；报告目录 `artifacts/template-web-absorption-archived-20261015/reports/`
+- Key observations: check:fast 通过（799860ms）：unit 149/149 文件、608/608 用例，integration 92/92、152/152，integration-heavy 14/14、40/40；weapp 通过（306339ms，无重试）；browser 通过（33645ms）；check:scenarios 通过（complete，issues 0）。证明归档后的主 Spec 状态下门禁全绿。
 
 ### Behavioral Results
 
