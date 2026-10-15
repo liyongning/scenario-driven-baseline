@@ -74,9 +74,13 @@
 9. **归档**：`/change archive <change>`。归档前确认清单、绑定、报告与来源摘要仍然一致。
 10. **用例落位与覆盖率排除**：integration 用例放在 `packages/e2e/tests/{protocol,tooling,flows,sdk,web-openapi-browser}/**/*.spec.ts`（
     <!-- template-example:begin -->
+
     示例用例另在 `packages/e2e/tests/example/**`。
     <!-- template-example:end -->
-    ），weapp 用例放在 `packages/e2e/tests/weapp/**/*.spec.ts`；两组目录来自 [packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts) 与 [packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts) 的 `include`。同一测试环境内的 cover `caseKey` 必须跨 owner 唯一。消费接口声明的 `requestFields` 每项必须写成对象字面量并显式写 `authority`，不要用对象属性简写；联合类型的内联成员也要有中文 JSDoc。会派生构建、安装或完整 unit 的重型 integration 用例登记在 [packages/e2e/vitest.config.integration-heavy.ts](../packages/e2e/vitest.config.integration-heavy.ts) 并逐文件运行，其余 integration 用例继续并行；新增用例按类型落入对应配置，不要另建未登记的测试项目。新增 weapp 宿主 runner（`packages/e2e/host/weapp/` 下的文件）时，它只在微信开发者工具里执行、不计入手写代码覆盖率：要在 [project.manifest.json](../project.manifest.json) 的 `quality.coverageExclusions` 里登记该文件与理由，`pnpm check:coverage` 按清单核对，不要改门禁脚本；新增 runner 的接线点包括 [packages/e2e/host/weapp/app.js](../packages/e2e/host/weapp/app.js)、`setup.ts`、`vite.config.ts`、`packages/e2e/src/drivers/weapp-host.test.ts` 与覆盖率排除项。
+
+    ），weapp 用例放在 `packages/e2e/tests/weapp/**/*.spec.ts`；两组目录来自 [packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts) 与 [packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts) 的 `include`。同一测试环境内的 cover `caseKey` 必须跨 owner 唯一。消费接口声明的 `requestFields` 每项必须写成对象字面量并显式写 `authority`，不要用对象属性简写；联合类型的内联成员也要有中文 JSDoc。会派生构建、安装或完整 unit 的重型 integration 用例登记在 [packages/e2e/vitest.config.integration-heavy.ts](../packages/e2e/vitest.config.integration-heavy.ts) 并逐文件运行，其余 integration 用例继续并行；新增用例按类型落入对应配置，不要另建未登记的测试项目。新增 weapp 宿主 runner（`packages/e2e/host/weapp/` 下的文件）时，它只在微信开发者工具里执行、不计入手写代码覆盖率：要在 [project.manifest.json](../project.manifest.json) 的 `quality.coverageExclusions` 里登记该文件与理由，`pnpm check:coverage` 按清单核对，不要改门禁脚本；新增 runner 的接线点包括 [packages/e2e/host/weapp/app.js](../packages/e2e/host/weapp/app.js)、`setup.ts`、`vite.config.ts`、`packages/e2e/src/drivers/weapp-host.test.ts` 与覆盖率排除项。Web 应用的页面行为证据落在 browser（platform）项目，模块单测落在应用的 unit 项目。
+
+    资源受限时可用 `TEMPLATE_UNIT_MAX_WORKERS=<n> pnpm check:fast` 限制 unit 项目的 worker 数。若某个用例在默认并发下超时、同一文件单独重跑通过，先按负载类超时处理并记录；不要把单文件通过当作该步骤已通过，最终仍要取得该步骤完整退出码 0 的证据。
 
 证据位置：报告与覆盖率都在 `artifacts/<run-id>/`（`reports/`、`coverage/`）。`VERIFY_RUN_ID` 决定 `artifacts/<run-id>/reports/` 下各报告的文件名，生成报告与对账必须使用同一个 run-id；未设置时回退到 `local`。验收结论写在 Change 的 verify 记录里，不再写入 `artifacts/<run-id>/tasks/`。
 
@@ -135,6 +139,16 @@
 **片段标记**：共享文件中只属于示例的片段用成对注释包裹——代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。只有注释行里的标记才算标记：字符串字面量与 Spec 正文中出现的同名文字不参与裁剪，也不会被当成标记。架构检查会校验标记成对出现、不嵌套；共享文件中引用示例、但没有被标记包裹的内容会被视为门禁依赖示例，示例删除演练会把它暴露出来。
 
 删除后先运行 `pnpm format`（片段删除会留下空行与折行差异），再把改动 `git add -A` 或提交：源码清单取自 `git ls-files -co --exclude-standard`，未跟踪的新文件会进入清单，而工作区里已删除但尚未暂存删除的文件会在读取前被剔除——不 add 或提交，删除就不会反映到源码摘要，门禁会读到过期结论。然后运行 `pnpm check:fast` 与场景门禁清单模式（`pnpm check:scenarios --inventory`）：清单模式不要求平台报告，所以 `requiredIn` 含平台项目的用例会报 `missing binding`，这类问题在副本里预期存在、不代表删除有问题；除此之外应全绿。本节的删除发生在初始化阶段、副本里没有 active Change 时按运行约定不带作用域（仍在交付 active Change 时按「从方案到验收」第 4 条带作用域）。完整验收（含平台报告）由复刻验收的示例删除演练承担。
+
+## 新增一条绑定
+
+新增一条绑定按以下顺序完成，避免只补清单后留下无法发现的测试或文档缺口：
+
+1. 建立产品包与协议包骨架，按包的角色补齐入口、分层目录和 `package.json` 中的 workspace 依赖；不要复制示例业务目录。
+2. 在 [project.manifest.json](../project.manifest.json) 登记 `packages`、`bindings`（`product`、`protocol`、`platforms`）与对应 `testProjects`（至少产品 unit；有平台行为时登记对应 platform 项目），并同步 `requiredCommands`、`fingerprints.sourceRoots`、`fingerprints.protocolInputs` 和覆盖率排除项。
+3. 若新增 platform 项目，在两个测试配置的 `include` 中加入 `packages/e2e/tests/<绑定名>/**/*.spec.ts`：[packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts) 与 [packages/e2e/vitest.config.browser.ts](../packages/e2e/vitest.config.browser.ts)；weapp 项目按 [packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts) 的现有模式登记。
+4. 按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的规则补齐用例：platform 用例放在 `packages/e2e/tests/<绑定名>/`，并声明 `environment`；`binding` 可省略并由目录推断，但目录外用例必须显式声明。同步本指南能力地图、根 [AGENTS.md](../AGENTS.md) 项目地图、对应包级 `AGENTS.md`/`CLAUDE.md` 与测试项目的覆盖率/报告登记。
+5. 运行 `pnpm check:project-map`、`pnpm check:fast`、对应平台命令和 `pnpm check:scenarios`，确认新绑定的义务、报告与文档引用都已被门禁发现。
 
 ## 移除一条绑定
 
@@ -237,7 +251,16 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 - **OpenAPI 的清单**：`manifest.packages[].protocolKind: 'openapi'`、`packages[].contract` 与 `manifest.fingerprints.protocolInputs`；协议包以 workspace 依赖绑定 Web 产品包，API 命令由 `packages[].checks` 登记为 `api:validate`、`api:status`。
 - **OpenAPI 的门禁**：`SCN-OPENAPI-CONTRACT-001`、`SCN-OPENAPI-CONTRACT-006`、`SCN-OPENAPI-CONTRACT-007`、`SCN-OPENAPI-CONTRACT-021`、`SCN-OPENAPI-CONTRACT-028`，以及 `pnpm api:validate`、`pnpm api:sync`、`pnpm api:status` 与 `pnpm check:fast`。
 - **协议约定**：产品侧替换点是 [packages/openapi/contracts/conventions.ts](../packages/openapi/contracts/conventions.ts)，它把产品契约的码表、通用码与接口码规范化为生成器、`api:validate` 和适配器共用的输出。引擎侧 [packages/openapi/testing/engine/conventions.ts](../packages/openapi/testing/engine/conventions.ts) 与引擎测试契约绑定，不属于产品替换面；产品侧改契约或约定时同步改同目录测试、运行 `pnpm api:sync <契约来源>` 与 `pnpm api:validate`，不要修改引擎侧的用例、约定、生成物或 `scripts/` 门禁。
-- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。新契约放入 [packages/openapi/contracts](../packages/openapi/contracts) 前先运行 Prettier，避免 `format:check` 失败；OAS 3.0.3 中与 `allOf` 并列但没有同级 `type` 的 `nullable: true` 不作为引擎默认支持，先修正契约，确有理由时再在根 `redocly.yaml` 写明规则调整原因并在产品侧约定模块登记钩子。需要修正已知 schema 写法时，在产品侧约定模块具名导出 `schemaNormalizers`（`(schema) => schema` 函数数组），它只作用于响应校验，对响应 schema 根与每个 `$defs` 组件分别执行，引擎侧约定模块不要登记额外钩子。浏览器用例使用产品契约路由时直接按清单契约发现，不需要额外传契约对象；发布契约前确保 `api:validate` 通过。Web 侧第一个业务可以直接替换 [packages/openapi/contracts](../packages/openapi/contracts) 中清单登记的产品契约并在同一次提交中删除 Web 示例，顺序按“移除模板示例”的例外执行；替换完成后以新业务 Scenario 的完整门禁为准。原协议包整体删除；[packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、请求记录、Fixture 装载、报告器与预览启动器属于测试基础设施，不属于任何协议选项，必须保留。
+- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。新契约放入 [packages/openapi/contracts](../packages/openapi/contracts) 前先运行 Prettier，避免 `format:check` 失败；OAS 3.0.3 中与 `allOf` 并列但没有同级 `type` 的 `nullable: true` 不作为引擎默认支持，先修正契约，确有理由时再在根 `redocly.yaml` 写明规则调整原因并在产品侧约定模块登记钩子。需要修正已知 schema 写法时，在产品侧约定模块具名导出 `schemaNormalizers`（`(schema) => schema` 函数数组），它只作用于响应校验，对响应 schema 根与每个 `$defs` 组件分别执行，引擎侧约定模块不要登记额外钩子。**钩子收到的是内置规范化之后的 schema，OAS 3.0 的 `nullable` 已转换或移除，不能据此把某个 `allOf` 一刀切改成可空。** 应按 schema 名与字段名精确登记，只处理确认有合同缺陷的成员；下面是最小骨架，`normalizeTradeMemo` 应替换为针对目标组件的实际规则：
+
+```ts
+export const schemaNormalizers = [
+  (schema) =>
+    schema.title === 'Trade' && schema.properties?.memo ? normalizeTradeMemo(schema) : schema,
+];
+```
+
+除 `nullable-type-sibling` 外，`info-license`、`no-required-schema-properties-undefined`、`no-invalid-media-type-examples` 等其他 redocly 规则也按同一流程处理：先修契约；契约无法改动且理由成立时，才在根配置登记局部规则调整，并在产品侧约定模块用精确的 schema/字段规则登记钩子。浏览器用例使用产品契约路由时直接按清单契约发现，不需要额外传契约对象；发布契约前确保 `api:validate` 通过。Web 侧第一个业务可以直接替换 [packages/openapi/contracts](../packages/openapi/contracts) 中清单登记的产品契约并在同一次提交中删除 Web 示例，顺序按“移除模板示例”的例外执行；替换完成后以新业务 Scenario 的完整门禁为准。原协议包整体删除；[packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、请求记录、Fixture 装载、报告器与预览启动器属于测试基础设施，不属于任何协议选项，必须保留。
 
 ### 运行平台
 

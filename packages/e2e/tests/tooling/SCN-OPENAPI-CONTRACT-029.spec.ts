@@ -1,9 +1,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parse } from 'yaml';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runApiContractCli } from '../../../../scripts/api-contract.ts';
-import { repositoryRoot } from './openapi-contract-fixture.ts';
+import {
+  contractPath as engineContractPath,
+  repositoryRoot,
+  writeOpenApiRoot,
+} from './openapi-contract-fixture.ts';
 
 type ContractNode = Readonly<Record<string, unknown>>;
 
@@ -21,8 +25,6 @@ function allFiles(directory: string): string[] {
         : [path];
   });
 }
-
-const engineContractPath = 'packages/openapi/testing/engine/trade-v1.yaml';
 
 defineCase(
   {
@@ -108,12 +110,21 @@ defineCase(
       expect(node(node(node(components.headers).XRequestId).schema).type).toBe('string');
     });
     await checkpoint('neutral-and-valid', async () => {
-      const result = await runApiContractCli(['validate'], repositoryRoot);
-      expect(result.exitCode).toBe(0);
-      expect(result.issues).toEqual([]);
-      expect(source.split('\n').length).toBeGreaterThanOrEqual(200);
-      expect(source.split('\n').length).toBeLessThanOrEqual(300);
-      expect(allFiles(repositoryRoot).some((path) => /xueshan/i.test(path))).toBe(false);
+      const fixture = writeOpenApiRoot(source);
+      try {
+        const result = await runApiContractCli(['validate'], fixture.root);
+        expect(result.exitCode).toBe(0);
+        expect(result.issues).toEqual([]);
+        expect(source.split('\n').length).toBeGreaterThanOrEqual(200);
+        expect(source.split('\n').length).toBeLessThanOrEqual(300);
+        expect(
+          allFiles(join(repositoryRoot, dirname(engineContractPath))).some((path) =>
+            /xueshan/i.test(path),
+          ),
+        ).toBe(false);
+      } finally {
+        fixture.cleanup();
+      }
     });
   },
   { timeoutMs: 30_000 },

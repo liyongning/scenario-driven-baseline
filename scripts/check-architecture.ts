@@ -65,6 +65,7 @@ const pnpmBuiltins = new Set(['install', 'add', 'remove', 'exec', 'dlx']);
 const templateEnvironmentNames = new Set([
   'SCENARIO_GATE_CHANGES',
   'TEMPLATE_COPY',
+  'TEMPLATE_UNIT_MAX_WORKERS',
   'TEST_AFFECTED_PARTIAL',
   'VERIFY_REPORT_FILE',
   'VERIFY_RUN_ID',

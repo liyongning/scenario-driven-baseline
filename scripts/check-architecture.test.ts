@@ -391,7 +391,7 @@ evidence(
           '',
           '`pnpm check:fast`、`pnpm install`、`pnpm --filter x build`、`pnpm nope`',
           '',
-          '`VERIFY_RUN_ID=<run-id> pnpm check:fast`、`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`',
+          '`VERIFY_RUN_ID=<run-id> pnpm check:fast`、`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`、`TEMPLATE_UNIT_MAX_WORKERS=<n> pnpm check:fast`',
           '',
           '## 初始化方式',
           '',
@@ -421,6 +421,9 @@ evidence(
           ]),
         );
       context.expect(errors).not.toContain('unknown environment variable VERIFY_RUN_ID');
+      context
+        .expect(errors)
+        .not.toContain('unknown environment variable TEMPLATE_UNIT_MAX_WORKERS');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-001');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-998');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-997');

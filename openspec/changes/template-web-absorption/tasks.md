@@ -569,7 +569,7 @@
   **Commit**
   - `test(template): prove gates stay green after removing both examples`
 
-- [ ] 16. 复刻演练、"移除一条绑定"演练与最终验收
+- [x] 16. 复刻演练、"移除一条绑定"演练与最终验收
 
   **Files**
   - 无仓库内代码产物（演练在隔离副本中进行，副本不提交）；按演练发现修订的指南、AGENTS 或门禁随本任务提交。

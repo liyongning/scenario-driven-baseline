@@ -762,9 +762,9 @@
 **Review / Acceptance**
 
 - 本轮未修改 proposal、specs、design 或 tasks 语义，也未执行任务 16 的任何演练。
-- Task 15 checkbox 暂不勾选；需由验收方使用新隔离副本重跑“移除模板示例”演练后决定。
+- 验收方在新隔离副本中重跑“移除模板示例”演练后接受本节结果，Task 15 checkbox 已在 `f915e68` 勾选并提交。
 
-## Task 16 复刻演练阻塞修复（交回前）
+## Task 16 历史阻塞修复（保留）
 
 **规划与输入**
 
@@ -834,3 +834,149 @@
 **Commit**
 
 - `fix(template): unblock example removal and cross replication rehearsals`
+
+## Task 16 复刻演练、移除绑定与最终验收
+
+**规划与输入**
+
+- 本任务消费五份无上下文 Agent 演练记录与验收方补跑日志：
+  - 支付 SDK：`/private/tmp/claude-501/-Users-liyongning-Projects-workspace-sdk-template/f9f56b99-68ab-4be9-a947-7e43849bb047/scratchpad/drill-records/pay.md`，副本 `drill-r3-pay/repo`，全量日志 `final-pay.log`。
+  - xueshan 纵切片：第 3 轮 `xs-r3.md` 记录阻塞；第 4 轮 `xs-r4.md`、副本 `drill-r4-xs/repo`、全量日志 `final-xs.log`。
+  - 交叉复刻：`cross.md`、副本 `drill-r3-cross/repo`、全量日志 `final-cross.log`。
+  - 移除一条绑定：`unbind.md`、副本 `drill-r3-unbind/repo`、演练日志 `drill-r3-unbind/verify17.log`。
+  - 示例删除：`w14.md`、副本 `drill-r3-w14/repo`、全量日志 `final-w14.log`。
+- freshness 在修改前后均为 `PASS`，digest 为 `3a9dec29eb49f620a46db1644eb7e399ef94b14fa7f93e71e08039096e1dafa5`。未修改 proposal、specs、design、tasks 语义，未修改 `openspec/changes/archive/`。
+
+**五个隔离副本的完整验收**
+
+- 支付 SDK 任务（SDK + IDL + 小程序）在验收方补充 `removal-expected.ts` 的 `de25fbe..9e9eab5` 同文件修复后，`pnpm verify --change add-payment-sdk --run-id final-pay` 退出码 0：`check:fast` 652492ms、`test:e2e:weapp` 441563ms、`test:e2e:browser` 36173ms、`check:scenarios` 1971ms，场景问题 0。该补丁只用于让早于 `9e9eab5` 的演练提交具备后续模板的 `cliEvidence` 推导能力。
+- xueshan 第 3 轮在旧提交上因引擎与拓扑问题阻塞；暴露的问题已由 `2953a52`、`9e9eab5` 修复。第 4 轮基于 `2953a52`，替换产品契约后没有修改任何引擎或门禁代码，`pnpm verify --change game-slice --run-id final-xs` 退出码 0：`check:fast` 662577ms、`test:e2e:weapp` 380984ms、`test:e2e:browser` 53453ms、`check:scenarios` 2071ms，场景问题 0。`FLOW-TEMPLATE-EXAMPLE-001/weapp-normal` 首次 30009ms 超时，按逐文件重试重新 prepare 后 9584ms 通过，按通过计。
+- 交叉复刻（Web 应用 + IDL + 浏览器）`pnpm verify --change web-idl-trade --run-id final-cross` 退出码 0：`check:fast` 488300ms、`test:e2e:weapp` 127039ms、`test:e2e:browser` 12877ms、`check:scenarios` 2061ms，场景问题 0。
+- 移除 `sdk-idl-weapp` 绑定的演练 `pnpm verify --change remove-sdk-idl-weapp-binding --run-id drill-r3-v17` 退出码 0，无 weapp 步骤；`check:fast` 842315ms、`test:e2e:browser` 56803ms、`check:scenarios` 2338ms，场景问题 0。
+- 同时删除 `template-example` 与 `web-example` 的示例删除演练 `pnpm verify --run-id final-w14` 退出码 0：`check:fast` 447588ms、`test:e2e:weapp` 127166ms、`test:e2e:browser` 8895ms、`check:scenarios` 1619ms，场景问题 0。
+
+**猜测记录分类**
+
+| 演练 | 猜测 | 分类 | 处理 |
+|---|---|---|---|
+| 支付 SDK | 1–10、12：支付字段、错误码、结果形态、FLOW、替身注入等 | 合理的自主判断；其中 weapp 渠道替身限制属于已知风险 | 保留在演练记录；不改规划语义 |
+| 支付 SDK | 11：用 `TEMPLATE_UNIT_MAX_WORKERS` 控制嵌套 unit 并发 | 指南缺失需修订 | 已在本任务写入“从方案到验收” |
+| xueshan 第 4 轮 | 1、2、4、9、10、11：切片范围、身份存储、阶段语义、来源标签、文案与 Fixture 封装 | 合理的自主判断 | 不属于模板缺口 |
+| xueshan 第 4 轮 | 3：Web 页面行为应落 browser、模块逻辑落 unit | 指南缺失需修订 | 已在“从方案到验收”写明 |
+| xueshan 第 4 轮 | 5：`security[0]` 限制 | 模板限制/已知风险 | 已在下方风险登记，不在 Task 16 扩大范围 |
+| xueshan 第 4 轮 | 6、7：其他 Redocly 规则与 `schemaNormalizers` 精确登记 | 指南缺失需修订 | 已在“协议来源”补规则类别、执行顺序、精确登记警告与最小示例 |
+| xueshan 第 4 轮 | 8：从历史恢复被 Web 白名单删除的通用辅助 | 已知风险 | 已在下方风险登记 |
+| 交叉复刻 | 1–6：新增产品包、测试 include、矩阵、浏览器近似取证与 Spec 边界 | 合理的自主判断；IDL browser-runner 限制属于已知风险 | 保留在演练记录 |
+| 交叉复刻 | 7：`TEMPLATE_UNIT_MAX_WORKERS` 与 `openspec/config.yaml` | 前者为指南缺失、后者为工具已知风险 | 前者已修订；后者已登记 |
+| 移除绑定 | 1–10：IDL 独占文件、命令、发布入口、Spec 清理与 MODIFIED 顺序 | 多数为合理判断；遗漏项已转为指南修订或已知风险 | 指南删除清单和 OpenSpec 限制已同步；唯一 SDK 发布入口风险已登记 |
+| 示例删除 | 1–6：`scripts/` 标记、`.vue` 标记、Spec 正文、空矩阵、负载超时与等待节奏 | 1 已补指南“全仓库”；其余为已覆盖边界、合理判断或已知风险 | 不扩大范围 |
+
+**事实核验用例与指南缺口**
+
+- 移除绑定演练发现两处事实核验缺口：`SCN-TEMPLATE-ENGINEERING-005/digest-inputs-cli` 假定 `protocolInputs[0]` 一定在源码目录外；`removal-expected.ts` 不识别 `cliEvidence` 声明的用例。两者已分别在 `2953a52` 修复并把反例纳入自测。
+- `packages/protocol/testing/bootstrap.test.ts` 当前以 `existsSync` 探测可选的 weapp 驱动；删除 weapp 后不会因直接读取被删文件而失败。本任务复核无需再改。
+- 第 3 轮演练暴露的写死拓扑已由 Task 14 的派生改造修复：临时根按清单复制或使用受控清单，场景门禁不再要求固定 `sdk-idl-weapp`，OpenAPI/协议包自测遍历清单中的全部协议包。新增反例覆盖多一个 Web 产品包、OpenAPI 协议包和绑定，以及只保留 `web-openapi-browser` 的删除绑定状态。
+
+**本任务修订项**
+
+- `SCN-OPENAPI-CONTRACT-029/neutral-and-valid`：RED 在受控副本的产品侧路径加入 `products/xueshan/contract.yaml` 后，旧实现扫描整个仓库并稳定失败；GREEN 后只校验引擎契约并只扫描引擎测试契约目录，原仓库与反例副本均通过。定向 `pnpm exec vitest run --project integration packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-029.spec.ts` 为 1/1 文件、1/1 用例通过。
+- 指南“协议来源”已写明 `schemaNormalizers` 接收内置规范化后的 schema、不可按 `nullable` 一刀切、应精确按 schema/字段登记，并列出 `info-license`、`no-required-schema-properties-undefined`、`no-invalid-media-type-examples` 的处理流程和最小示例。
+- 指南“从方案到验收”已登记 `TEMPLATE_UNIT_MAX_WORKERS`、负载类超时的单文件复跑判定，以及 Web 页面行为落 browser、模块单测落 unit；新增“新增一条绑定”章节，覆盖包骨架、清单、两个 Vitest include、AGENTS、能力地图和 `tests/<绑定名>/` 目录推断。
+- `TEMPLATE_UNIT_MAX_WORKERS` 已加入指南环境变量白名单。先改测试加入允许变量，旧实现退出码 1 并报 `unknown environment variable TEMPLATE_UNIT_MAX_WORKERS`；加入白名单后定向 unit 10/10 通过，`pnpm check:architecture` 退出码 0（206 个模块、532 条依赖、issues 为空）。
+
+**xueshan 62 条反馈核对表**
+
+| # | 判定 | 证据或排除理由 |
+|---|---|---|
+| 1 | 未复现 | 五份演练均使用 `--change` 限定作用域，支付与 xueshan 的多 active Change 状态未污染对账。 |
+| 2 | 未复现 | 演练从既有 OpenSpec 根起步，Fixture 与归档来源均通过最终门禁。 |
+| 3 | 未复现 | 支付与 xueshan 修改协议输入、构建输入后 `check:fast` 全绿。 |
+| 4 | 未复现 | 交叉复刻新增 `web-idl-browser` 测试项目，未修改门禁平台名。 |
+| 5 | 排除 | IDL 网关头替换点问题已由核心 Change 去写死覆盖。 |
+| 6 | 未复现 | xueshan 第 4 轮 `.vue` 覆盖率四项均为 100%。 |
+| 7 | 排除 | 视觉验收按用户决定单独立项。 |
+| 8 | 未复现 | 版本对齐章节已形成约定，支付与 xueshan 搭包后门禁通过。 |
+| 9 | 未复现 | 脚手架与成熟方案优先规则已写入模板执行规则。 |
+| 10 | 未复现 | 初始化与适配评估顺序已在指南明确，演练按该顺序完成。 |
+| 11 | 未复现 | schema 忽略项已由指南说明；演练未因 schema 文件静默缺失失败。 |
+| 12 | 未复现 | 反馈日志要求已改为只登记实际遇到并核实的问题。 |
+| 13 | 未复现 | 支付与 xueshan 的 Shadow 请求记录、未注册路由与场景问题均为 0。 |
+| 14 | 未复现 | 协议义务 `requiredIn` 从清单测试项目派生，新增 browser 后门禁通过。 |
+| 15 | 未复现 | xueshan 路径参数按产品契约正确进入 Shadow 与矩阵。 |
+| 16 | 未复现 | 全量 `format:check` 在五个副本均通过。 |
+| 17 | 排除 | 项目自身把覆盖率 glob 挪进 scripts 引发，属项目代码。 |
+| 18 | 未复现 | 副本归档和来源路径变化后 `check:fixtures` 通过。 |
+| 19 | 未复现 | 交叉与移除绑定演练按清单处理自定义包，没有写死包名复制错误。 |
+| 20 | 未复现 | 门禁自测使用受控输入，不再依赖仓库中的未完成 Branch。 |
+| 21 | 未复现 | xueshan 的 Web 产物按模块检查测试设施，`check:bundle` 通过。 |
+| 22 | 未复现 | `.vue`、构建配置与 lock 变化均进入摘要，证据无假新鲜。 |
+| 23 | 未复现 | Web 资源与构建输入纳入摘要，产物模块对账通过。 |
+| 24 | 未复现 | 状态分层文档与全量格式化一致。 |
+| 25 | 未复现 | 示例删除后没有 FLOW 的覆盖率分支仍由受控输入覆盖，门禁全绿。 |
+| 26 | 未复现 | presence 联合分支判定已有正反例，xueshan 第 4 轮未出现待定或 TypeError。 |
+| 27 | 未复现 | 一个 Fixture 文件多个信封的声明与同形校验通过。 |
+| 28 | 未复现 | 联合类型内联成员与同名字段的注释锚点已被门禁覆盖。 |
+| 29 | 未复现 | 消费接口单一来源与依赖规则兼容，交叉复刻架构检查通过。 |
+| 30 | 排除 | 项目自身代码问题，不属于模板。 |
+| 31 | 未复现 | `SuccessData` 不再推导为 `never`，xueshan 产品适配器类型检查通过。 |
+| 32 | 排除 | 项目自身代码问题，不属于模板。 |
+| 33 | 排除 | 空 Fixture 目录报错可当场定位，摩擦可见，按筛选标准不吸收。 |
+| 34 | 未复现 | Vue ESLint 配置支持项目所需组件命名，xueshan lint 通过。 |
+| 35 | 排除 | 新增请求回填既有 Fixture 可在门禁当场暴露，按筛选标准不吸收。 |
+| 36 | 未复现 | 模块根装配方式已有明确规则，xueshan 依赖检查通过。 |
+| 37 | 未复现 | 不可达分支按可辨识联合与纯函数改写，覆盖率 100%。 |
+| 38 | 未复现 | 互斥条件已按反馈方式改写，组件分支覆盖通过。 |
+| 39 | 未复现 | `aria-disabled` 的真实交互行为已写入 browser AGENTS 并用于用例。 |
+| 40 | 排除 | 项目业务代码问题，不属于模板。 |
+| 41 | 排除 | 项目业务代码问题，不属于模板。 |
+| 42 | 未复现 | xueshan 的真实时间轮询由 Shadow 记录和门禁验证，未出现固定步数冲突。 |
+| 43 | 未复现 | 点击自动滚动的影响已写入 browser AGENTS，xueshan 滚动断言通过。 |
+| 44 | 排除 | 门禁能当场暴露缺断言，摩擦可见，按筛选标准不吸收。 |
+| 45 | 未复现 | `fill` 清空路径的真实按键行为已写入 browser AGENTS。 |
+| 46 | 未复现 | 非场景数据集使用 `_datasets/`，xueshan 数据集门禁通过。 |
+| 47 | 未复现 | 浏览器宿主校验 dist 新鲜度，过期产物会明确失败。 |
+| 48 | 未复现 | 多信封 Fixture 契约同形已支持，xueshan `check:fixtures` 通过。 |
+| 49 | 排除 | 使用方已撤回，不计入模板反馈。 |
+| 50 | 未复现 | 占位资源域名由驱动拦截并兑现本地资源，图片用例通过。 |
+| 51 | 排除 | 请求合并与等待窗口属用例时序判断，门禁能当场暴露，按筛选标准不吸收。 |
+| 52 | 未复现 | 编译 CSS 的 `:deep(` 残留会被 `check:bundle` 拦截，xueshan 通过。 |
+| 53 | 未复现 | 轮询形态由 Shadow 记录，xueshan 第 4 轮无 `unexpected request`。 |
+| 54 | 未复现 | ESLint 已忽略 `.local/`，xueshan lint 通过。 |
+| 55 | 未复现 | dist 新鲜度已在应用宿主校验，browser 用例未验旧产物。 |
+| 56 | 未复现 | scroll anchoring 已写入 browser AGENTS，xueshan 浏览器用例通过。 |
+| 57 | 未复现 | 宿主显式绑定 `127.0.0.1` 与随机端口，xueshan browser 全绿。 |
+| 58 | 未复现 | 执行但未声明的 checkpoint 会被门禁报出，最终场景问题为 0。 |
+| 59 | 未复现 | 示例替换后的文档引用已同步，架构与文档链接检查通过。 |
+| 60 | 未复现 | OpenSpec 归档限制已写入指南，示例删除与移除绑定演练完成。 |
+| 61 | 未复现 | 共享平台适配器的纯逻辑/装配分层已明确，依赖检查通过。 |
+| 62 | 未复现 | Fixture 来源与生效 Spec 的身份核验通过，归档路径无悬空来源。 |
+| FCR2-I1 | 未复现 | 产品新增消费接口会派生义务；支付演练的 `CreateTradePay` 证据通过。 |
+
+**只登记、不修的已知风险**
+
+- OpenAPI 执行器与矩阵身份只取 `security[0]`；多个 apiKey 方案二选一时仍需装配层映射，来源 xueshan 第 4 轮。
+- 响应信封校验的 `error_detail`、`extra` 等额外字段未改为从契约 `Envelope.properties` 派生，来源 xueshan 第 4 轮。
+- `preview-local.ts` 打印的示例 token/merchant 地址仍是固定提示，来源支付与 xueshan 演练。
+- Web 示例白名单会删除 `poller`、`generation`、`runtime` 等通用辅助；使用方需从历史恢复并自行补测，来源 xueshan 第 4 轮。
+- Fixture manifest 必须写 `protocol`，形似信封的字段会要求认领；错误可由 `check:fixtures` 当场发现，来源 xueshan 第 4 轮。
+- IDL 浏览器证据的 `provider-timeout`、`codec-error` 只能近似取证，来源交叉复刻。
+- lint 会把 `use` 开头的局部变量误报为组合式函数命名，来源交叉复刻。
+- `requestFields` 的 `authority` 对象字面量注意事项仍埋在使用说明长段落中，来源交叉复刻。
+- `openspec new change` 会生成 `openspec/config.yaml`，来源交叉与 xueshan 演练。
+- 仓库副本 helper 会剥离 `VITEST*`，`VITEST_MAX_WORKERS` 在副本内失效；`TEMPLATE_UNIT_MAX_WORKERS` 已补文档，但 integration-heavy 没有通用降并发开关。
+- 唯一 `sdk` 形态产品包删除后，发布模块如何处理仍未说明，来源移除绑定演练。
+- 高负载下重型 integration、副本内 `api:validate` 和 60 秒 unit 仍可能时败时过；按单文件复跑通过并与 OI 分开统计。
+
+**OI 与时败时过**
+
+- Task 16 新增“按需通过但全量失败”的 OI 为 0。本任务的最终全量结果为 exit 0；此前五份副本全量也均为 exit 0。
+- xueshan 第 4 轮 `FLOW-TEMPLATE-EXAMPLE-001/weapp-normal` 首次 30 秒超时、逐文件重试通过，登记 1 次“时败时过”，不计 OI。
+- Task 16 最终全量中 `packages/e2e/tests/weapp/example/SCN-TEMPLATE-EXAMPLE-002.spec.ts` 首次在 30.49s 后失败，按 verify 的 per-file-retry 机制重新 prepare 并执行，第二次以约 9.68s 通过；首次失败发生在 30s 单例预算边界附近，终端长输出截断了具体错误文本，重试结果和最终步骤结果均按通过计，登记 1 次“时败时过”，不计 OI。
+- 支付、交叉、移除绑定和示例删除演练中的超时均发生在外部副本与高负载时段，单独复跑或逐文件重试通过；作为演练执行噪声记录，不计 OI。
+
+**最终全量**
+
+- 在最终源码上执行 `pnpm verify --change template-web-absorption --run-id template-web-absorption-apply-task16-20261015T114035Z`：退出码 0。
+- 各步结果：`check:fast` 通过（989244ms）、`test:e2e:weapp` 通过（372361ms）、`test:e2e:browser` 通过（36659ms）、`check:scenarios` 通过（2091ms）。
+- 使用同一 run id 独立执行 `VERIFY_RUN_ID=template-web-absorption-apply-task16-20261015T114035Z pnpm check:scenarios --change template-web-absorption`：退出码 0，`issues` 为 0。
+- 该轮 `SCN-TEMPLATE-EXAMPLE-002` 的首次失败与 per-file retry 已在上节登记；最终没有步骤非零退出，不新增 OI。
