@@ -1,8 +1,356 @@
-# Template Web Absorption 验收记录
+# Verification
 
-## 逐任务记录
+## Metadata
 
-### Task 1 清单多包与组合绑定
+- Change: template-web-absorption
+- Schema: openspec-workflow
+- Verified Git revision: `264933a39d85c0712ae9589ab111dc7d759209c2`（worktree 分支 `template-web-absorption-apply`）
+- Verification input manifest digest: `13f5cae9139a6eb09d90ad0636aec208331a6fe1df2720418d1fd591f09bf535`（979 个路径）
+- Manifest includes: `git ls-files -co --exclude-standard` 的全部路径（代码、测试、配置、文档、proposal/specs/design/tasks/plan-review），按路径排序，逐个计入路径、类型、可执行位、内容或符号链接目标；排除 Verification Artifact 自身。算法：验收方会话临时目录 `scratchpad/final/manifest-digest.py`（sha256，路径\0类型\0可执行位\0 + 内容 sha256）
+- Plan Review verdict: PASS
+- Reviewed digest: `3a9dec29eb49f620a46db1644eb7e399ef94b14fa7f93e71e08039096e1dafa5`
+- Current digest: `3a9dec29eb49f620a46db1644eb7e399ef94b14fa7f93e71e08039096e1dafa5`
+- Plan Review digest match: yes
+- Unresolved Plan Review findings: Critical 0 / Important 0（Minor 7 条按 plan-review.md 记录为 advisory）
+- Untracked inputs included: None
+- Excluded lifecycle paths: `openspec/changes/template-web-absorption/verify.md`（本文件）；Sync 将改写的 `openspec/specs/**` 与 Archive 移动的 Change 目录属于后续阶段输出
+- Verified at: 2026-10-15T05:59:39Z（V-1 起于 2026-10-15T04:58:34Z，见 V-1 说明）
+- Verification environment: macOS（Darwin 25.2.0，arm64）、Node v22.21.1、pnpm 10.20.0、Vitest 5.0.3、OpenSpec CLI 1.6.0、微信开发者工具（正式版）2.01.2510290
+
+## Apply Gate
+
+- Fresh Apply state: all_done
+- Apply progress: 16/16
+- Unchecked tasks: 0
+- Final Code Review: PASS（首轮评审于 `6e4d0c2`，修复提交 `d88f788`；增量评审覆盖 `d88f788..2ecf5b9`，FCR2-1 Critical、FCR2-2/3 Important 已修复于 `264933a`，验收方逐条核对 RED/GREEN 证据，见附录"Final Code Review 第 2 轮（增量）"）
+- Unresolved Critical findings: 0
+- Unresolved Important findings: 0
+- Accepted Minor findings: 12（Plan Review Minor 7 条，见 plan-review.md；增量评审 M4–M8 共 5 条）
+
+## Verification Summary
+
+| Dimension | Status | Evidence |
+|---|---|---|
+| Completeness | PASS | 6 个 Artifact 均为 done，16/16 Task 完成；54 条 Requirement、113 个 Scenario 均有用例与门禁证据（见 Completeness） |
+| Correctness | PASS | V-1 全量 verify 各步退出码 0（weapp 经同 run id 续跑，原因为环境阻塞，见 V-1）；V-2 独立场景门禁 complete、0 问题；V-3 validate --strict 通过；V-4 规划摘要 PASS；V-5 归档演练合并无丢失 |
+| Coherence | WARNING | 各层与已批准规划（含 Apply 中途修订一、二）一致；保留风险为微信开发者工具挂起（V-1）与已登记的 Minor 与只登记项（见 Coherence、Unverified Areas） |
+
+## Completeness
+
+### Artifact and Task Completion
+
+| Item | Authority | Expected | Observed | Status |
+|---|---|---|---|---|
+| proposal | `openspec status --change template-web-absorption --json` | done | done | PASS |
+| specs | 同上 | done | done | PASS |
+| design | 同上 | done | done | PASS |
+| tasks | 同上 | done | done | PASS |
+| plan-review | 同上 | done | done | PASS |
+| verification | 同上 | done | done | PASS |
+| Tasks 1–16 | `openspec instructions apply --change template-web-absorption --json` | all_done，16/16 | all_done，16/16 | PASS |
+| Plan Review | `plan-review-digest.py --check-review` | freshness=PASS | freshness=PASS | PASS |
+
+### Requirement Coverage
+
+| Requirement | Spec Source | Implementation Evidence | Verification IDs | Status |
+|---|---|---|---|---|
+| BRW-01 浏览器驱动与执行约定 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:3`（ADDED） | `packages/e2e/src/drivers/browser.test.ts`；`packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` 等 3 个文件；Scenario SCN-BROWSER-PLATFORM-001, SCN-BROWSER-PLATFORM-002 | V-1, V-2 | PASS |
+| BRW-02 协议宿主与应用宿主 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:54`（ADDED） | `packages/e2e/src/hosts/protocol-host.test.ts`；`packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` 等 5 个文件；Scenario SCN-BROWSER-PLATFORM-003, SCN-BROWSER-PLATFORM-004, SCN-BROWSER-PLATFORM-016 | V-1, V-2 | PASS |
+| BRW-03 共用代理中间件与浏览器网络故障 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:130`（ADDED） | `packages/e2e/src/hosts/proxy.test.ts`；`packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts`；Scenario SCN-BROWSER-PLATFORM-005, SCN-BROWSER-PLATFORM-006 | V-1, V-2 | PASS |
+| BRW-04 dist 新鲜度校验 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:181`（ADDED） | `packages/e2e/src/hosts/freshness.test.ts`；`packages/e2e/tests/tooling/browser-engineering.spec.ts`；Scenario SCN-BROWSER-PLATFORM-007 | V-1, V-2 | PASS |
+| BRW-05 浏览器用例组织与驱动辅助 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:209`（ADDED） | `packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts`；`packages/e2e/src/harness.test.ts` 等 3 个文件；Scenario SCN-BROWSER-PLATFORM-008, SCN-BROWSER-PLATFORM-009, SCN-BROWSER-PLATFORM-010 | V-1, V-2 | PASS |
+| BRW-06 browser 测试项目与浏览器命令登记 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:276`（ADDED） | `packages/e2e/tests/tooling/browser-engineering.spec.ts`；Scenario SCN-BROWSER-PLATFORM-011 | V-1, V-2 | PASS |
+| BRW-07 本地预览 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:304`（ADDED） | `packages/e2e/tests/web-openapi-browser/SCN-BROWSER-PLATFORM-012.browser.spec.ts`；`packages/e2e/src/preview/preview-launcher.test.ts`；Scenario SCN-BROWSER-PLATFORM-012, SCN-BROWSER-PLATFORM-013 | V-1, V-2 | PASS |
+| BRW-08 开发代理与三种模式 | `openspec/changes/template-web-absorption/specs/browser-platform/spec.md:359`（ADDED） | `packages/e2e/src/preview/dev-remote.test.ts`；`packages/e2e/tests/tooling/SCN-BROWSER-PLATFORM-015.spec.ts`；Scenario SCN-BROWSER-PLATFORM-014, SCN-BROWSER-PLATFORM-015 | V-1, V-2 | PASS |
+| OAS-01 契约登记与同步命令 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:3`（ADDED） | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-001.spec.ts`；`scripts/api-contract.test.ts` 等 5 个文件；Scenario SCN-OPENAPI-CONTRACT-001, SCN-OPENAPI-CONTRACT-002, SCN-OPENAPI-CONTRACT-003, SCN-OPENAPI-CONTRACT-004 | V-1, V-2 | PASS |
+| OAS-02 生成物与生产导入图 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:94`（ADDED） | `scripts/api-contract.test.ts`；`packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-006.spec.ts`；Scenario SCN-OPENAPI-CONTRACT-005, SCN-OPENAPI-CONTRACT-006 | V-1, V-2 | PASS |
+| OAS-03 REST 执行器 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:151`（ADDED） | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-007.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 8 个文件；Scenario SCN-OPENAPI-CONTRACT-007, SCN-OPENAPI-CONTRACT-008, SCN-OPENAPI-CONTRACT-009, SCN-OPENAPI-CONTRACT-010, SCN-OPENAPI-CONTRACT-011, SCN-OPENAPI-CONTRACT-012, SCN-OPENAPI-CONTRACT-013, SCN-OPENAPI-CONTRACT-014 | V-1, V-2 | PASS |
+| OAS-04 OpenAPI 协议适配器 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:323`（ADDED） | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-015.spec.ts`；`scripts/openapi-adapter.test.ts` 等 6 个文件；Scenario SCN-OPENAPI-CONTRACT-015, SCN-OPENAPI-CONTRACT-016, SCN-OPENAPI-CONTRACT-030 | V-1, V-2 | PASS |
+| OAS-05 接口粒度的协议义务派生 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:405`（ADDED） | `packages/e2e/src/preview/openapi-obligation-matrix.test.ts`；`packages/e2e/tests/tooling/openapi-matrix-temporary.spec.ts` 等 8 个文件；Scenario SCN-OPENAPI-CONTRACT-017, SCN-OPENAPI-CONTRACT-018, SCN-OPENAPI-CONTRACT-019, SCN-OPENAPI-CONTRACT-020, SCN-OPENAPI-CONTRACT-021 | V-1, V-2 | PASS |
+| OAS-06 响应校验与 Fixture 认领 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:540`（ADDED） | `packages/openapi/testing/schema.test.ts`；`packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-023.spec.ts` 等 4 个文件；Scenario SCN-OPENAPI-CONTRACT-022, SCN-OPENAPI-CONTRACT-023, SCN-OPENAPI-CONTRACT-024, SCN-OPENAPI-CONTRACT-025, SCN-OPENAPI-CONTRACT-026 | V-1, V-2 | PASS |
+| OAS-07 OpenAPI 协议包形态与浏览器网络适配器 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:655`（ADDED） | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-027.spec.ts`；`packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-028.spec.ts` 等 4 个文件；Scenario SCN-OPENAPI-CONTRACT-027, SCN-OPENAPI-CONTRACT-028 | V-1, V-2 | PASS |
+| OAS-08 引擎测试契约与证据载体 | `openspec/changes/template-web-absorption/specs/openapi-contract/spec.md:708`（ADDED） | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-029.spec.ts`；`packages/openapi/testing/engine/generated.test.ts`；Scenario SCN-OPENAPI-CONTRACT-029 | V-1, V-2 | PASS |
+| PC-07 协议适配器 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:3`（ADDED） | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-014.spec.ts`；`scripts/lib/protocol-adapters.test.ts` 等 6 个文件；Scenario SCN-PROTOCOL-CONTRACT-014, SCN-PROTOCOL-CONTRACT-015, SCN-PROTOCOL-CONTRACT-016 | V-1, V-2 | PASS |
+| PC-08 IDL 协议包的浏览器网络适配器 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:85`（ADDED） | `packages/protocol/src/adapters/network/fetch.test.ts`；`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-018.spec.ts` 等 3 个文件；Scenario SCN-PROTOCOL-CONTRACT-017, SCN-PROTOCOL-CONTRACT-018, SCN-PROTOCOL-CONTRACT-021 | V-1, V-2 | PASS |
+| PC-01 基于 IDL 的协议义务派生 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:169`（MODIFIED） | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts`；`scripts/lib/contract-inventory.scan.test.ts` 等 8 个文件；Scenario SCN-PROTOCOL-CONTRACT-001, SCN-PROTOCOL-CONTRACT-002, SCN-PROTOCOL-CONTRACT-005 | V-1, V-2 | PASS |
+| PC-03 Shadow 路由使用中立描述 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:272`（MODIFIED） | `packages/e2e/src/shadow/routes.test.ts`；`packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts` 等 3 个文件；Scenario SCN-PROTOCOL-CONTRACT-004 | V-1, V-2 | PASS |
+| PC-04 Fixture 响应与协议同形 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:300`（MODIFIED） | `packages/e2e/src/shadow/response-shape.test.ts`；`packages/protocol/testing/response-shape.test.ts`；Scenario SCN-PROTOCOL-CONTRACT-006, SCN-PROTOCOL-CONTRACT-007 | V-1, V-2 | PASS |
+| PC-05 X-Request-Id 按公司规范生成 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:358`（MODIFIED） | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-008.spec.ts`；`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts` 等 8 个文件；Scenario SCN-PROTOCOL-CONTRACT-008, SCN-PROTOCOL-CONTRACT-009, SCN-PROTOCOL-CONTRACT-010 | V-1, V-2 | PASS |
+| PC-06 Shadow 请求记录、路径转换与有界轮询 | `openspec/changes/template-web-absorption/specs/protocol-contract/spec.md:438`（MODIFIED） | `packages/e2e/src/shadow/records-and-polling.test.ts`；`packages/e2e/src/preview/preview-server.test.ts` 等 4 个文件；Scenario SCN-PROTOCOL-CONTRACT-011, SCN-PROTOCOL-CONTRACT-012, SCN-PROTOCOL-CONTRACT-013, SCN-PROTOCOL-CONTRACT-019, SCN-PROTOCOL-CONTRACT-020 | V-1, V-2 | PASS |
+| GATE-16 Fixture 与预览数据集按声明的协议委托协议适配器检查 | `openspec/changes/template-web-absorption/specs/scenario-gate/spec.md:3`（ADDED） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-028.spec.ts`；`scripts/check-fixtures.protocol.test.ts` 等 4 个文件；Scenario SCN-SCENARIO-GATE-028, SCN-SCENARIO-GATE-030 | V-1, V-2 | PASS |
+| GATE-17 用例运行环境按组合绑定校验 | `openspec/changes/template-web-absorption/specs/scenario-gate/spec.md:59`（ADDED） | `packages/e2e/src/cases/define-case-binding.test.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-029.spec.ts`；Scenario SCN-SCENARIO-GATE-029 | V-1, V-2 | PASS |
+| GATE-07 覆盖清单由事实源生成且缺绑定被阻断 | `openspec/changes/template-web-absorption/specs/scenario-gate/spec.md:94`（MODIFIED） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-009.spec.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-027.spec.ts` 等 3 个文件；Scenario SCN-SCENARIO-GATE-009, SCN-SCENARIO-GATE-027 | V-1, V-2 | PASS |
+| GATE-10 Fixture 来源绑定以 owner ID 与 Requirement 块摘要为准 | `openspec/changes/template-web-absorption/specs/scenario-gate/spec.md:147`（MODIFIED） | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-012.spec.ts`；`scripts/check-fixtures.test.ts` 等 5 个文件；Scenario SCN-SCENARIO-GATE-012, SCN-SCENARIO-GATE-013, SCN-SCENARIO-GATE-014, SCN-SCENARIO-GATE-015 | V-1, V-2 | PASS |
+| ENG-11 清单多包与组合绑定 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:3`（ADDED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-013.spec.ts`；`scripts/lib/project-manifest-binding.test.ts` 等 4 个文件；Scenario SCN-TEMPLATE-ENGINEERING-013, SCN-TEMPLATE-ENGINEERING-014 | V-1, V-2 | PASS |
+| ENG-12 按产品形态区分的工程检查 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:79`（ADDED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-015.spec.ts`；`scripts/engineering-form.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-015 | V-1, V-2 | PASS |
+| ENG-01 三包边界与产品交付 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:122`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts`；Scenario SCN-TEMPLATE-ENGINEERING-001 | V-1, V-2 | PASS |
+| ENG-03 公共类型中文注释随双格式声明交付 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:161`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts`；`scripts/lib/public-doc.test.ts` 等 4 个文件；Scenario SCN-TEMPLATE-ENGINEERING-003, SCN-TEMPLATE-ENGINEERING-016 | V-1, V-2 | PASS |
+| ENG-05 项目清单驱动工程门禁 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:211`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts`；`scripts/lib/project-manifest.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-005 | V-1, V-2 | PASS |
+| ENG-06 使用指南与替换点地图 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:274`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`scripts/check-architecture.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-006 | V-1, V-2 | PASS |
+| ENG-07 覆盖率完整性 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:339`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-009.spec.ts`；`scripts/check-coverage.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-009 | V-1, V-2 | PASS |
+| ENG-08 代码风格与规模基线 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:382`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-010.spec.ts`；`scripts/lib/dependency-rules.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-010 | V-1, V-2 | PASS |
+| ENG-10 技术架构文档 | `openspec/changes/template-web-absorption/specs/template-engineering/spec.md:416`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-012.spec.ts`；`scripts/check-architecture-doc.test.ts`；Scenario SCN-TEMPLATE-ENGINEERING-012 | V-1, V-2 | PASS |
+| EX-10 示例删除的自动化验收 | `openspec/changes/template-web-absorption/specs/template-example/spec.md:3`（MODIFIED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 等 4 个文件；Scenario SCN-TEMPLATE-ENGINEERING-008 | V-1, V-2 | PASS |
+| WEB-01 Web 应用产品包的初始化与对齐 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:3`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-001.spec.ts`；`scripts/web-app.test.ts`；Scenario SCN-WEB-APP-001 | V-1, V-2 | PASS |
+| WEB-03 应用包目录结构与组件树 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:39`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-004.spec.ts`；`scripts/check-component-tree.test.ts`；Scenario SCN-WEB-APP-004 | V-1, V-2 | PASS |
+| WEB-04 状态分层与全局 store 约束 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:86`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-005.spec.ts`；`scripts/web-app.test.ts`；Scenario SCN-WEB-APP-005 | V-1, V-2 | PASS |
+| WEB-05 应用包依赖方向 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:124`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-006.spec.ts`；`scripts/web-app.test.ts`；Scenario SCN-WEB-APP-006 | V-1, V-2 | PASS |
+| WEB-06 核心层 DOM 禁令与部署配置读取 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:159`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-007.spec.ts`；`scripts/web-app.test.ts` 等 3 个文件；Scenario SCN-WEB-APP-007, SCN-WEB-APP-008 | V-1, V-2 | PASS |
+| WEB-07 应用包的 lint 配置与覆盖率纪律 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:205`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-009.spec.ts`；`scripts/web-app.test.ts`；Scenario SCN-WEB-APP-009 | V-1, V-2 | PASS |
+| WEB-08 应用包测试环境与覆盖完整性 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:232`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-010.spec.ts`；`packages/e2e/tests/tooling/removal-expected.spec.ts` 等 4 个文件；Scenario SCN-WEB-APP-010, SCN-WEB-APP-011 | V-1, V-2 | PASS |
+| WEB-09 Web 产物边界检查 | `openspec/changes/template-web-absorption/specs/web-app/spec.md:276`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-APP-012.spec.ts`；`packages/e2e/tests/tooling/removal-expected.spec.ts` 等 5 个文件；Scenario SCN-WEB-APP-012, SCN-WEB-APP-013, SCN-WEB-APP-014 | V-1, V-2 | PASS |
+| WEX-01 示例页面的交易功能 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:3`（ADDED） | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/trade-create/example.test.ts` 等 4 个文件；Scenario SCN-WEB-EXAMPLE-001, SCN-WEB-EXAMPLE-002, SCN-WEB-EXAMPLE-003, SCN-WEB-EXAMPLE-004, SCN-WEB-EXAMPLE-005 | V-1, V-2 | PASS |
+| WEX-02 示例的必需浏览器流程 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:118`（ADDED） | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/__tests__/support.test.ts`；Scenario SCN-WEB-EXAMPLE-006 | V-1, V-2 | PASS |
+| WEX-03 示例的状态分层示范 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:145`（ADDED） | `packages/web/src/store/example.test.ts`；`packages/web/src/trade-create/example.test.ts`；Scenario SCN-WEB-EXAMPLE-007 | V-1, V-2 | PASS |
+| WEX-04 示例的组件树与共享区 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:179`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`packages/web/src/shared/components/example.test.ts`；Scenario SCN-WEB-EXAMPLE-008 | V-1, V-2 | PASS |
+| WEX-05 示例的运行辅助 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:203`（ADDED） | `packages/web/src/runtime/__tests__/runtime.test.ts`；Scenario SCN-WEB-EXAMPLE-009 | V-1, V-2 | PASS |
+| WEX-06 示例的消费接口、业务码完备性与不可达分支写法 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:227`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`packages/web/src/trade-create/example.test.ts`；Scenario SCN-WEB-EXAMPLE-010, SCN-WEB-EXAMPLE-011 | V-1, V-2 | PASS |
+| WEX-07 示例的预览数据集 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:271`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；Scenario SCN-WEB-EXAMPLE-013 | V-1, V-2 | PASS |
+| WEX-08 Web 示例的删除白名单 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:294`（ADDED） | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`scripts/lib/example-markers.test.ts`；Scenario SCN-WEB-EXAMPLE-014 | V-1, V-2 | PASS |
+| WEX-09 示例替换演示：产品契约与协议约定可替换 | `openspec/changes/template-web-absorption/specs/web-example/spec.md:321`（ADDED） | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 等 4 个文件；Scenario SCN-WEB-EXAMPLE-015 | V-1, V-2 | PASS |
+
+### Scenario Coverage
+
+| Scenario ID | Scenario | Requirement | Test or Runtime Evidence | Verification IDs | Status |
+|---|---|---|---|---|---|
+| SCN-BROWSER-PLATFORM-001 | 驱动默认上下文参数与 case 隔离 | BRW-01 | `packages/e2e/src/drivers/browser.test.ts`；`packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-002 | 浏览器依赖版本与自动化边界登记 | BRW-01 | `packages/e2e/tests/tooling/browser-engineering.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-003 | 协议宿主按绑定加载执行器，只加载协议包产物并执行下发的计划步骤 | BRW-02 | `packages/e2e/src/hosts/protocol-host.test.ts`；`packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-004 | 应用宿主以本机回环地址与随机端口托管产物 | BRW-02 | `packages/e2e/src/hosts/app-host.test.ts`；`packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-016 | 宿主逻辑位于 e2e 源码目录，宿主配置由 schema 约束 | BRW-02 | `packages/e2e/src/hosts/web-config.test.ts`；`packages/e2e/tests/tooling/browser-engineering.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-005 | 代理中间件原样转发并在上游提前断开时返回不完整响应 | BRW-03 | `packages/e2e/src/hosts/proxy.test.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-006 | 浏览器网络错误的两道防线与对照证据 | BRW-03 | `packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-007 | 产物摘要不一致时宿主拒绝启动 | BRW-04 | `packages/e2e/src/hosts/freshness.test.ts`；`packages/e2e/tests/tooling/browser-engineering.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-008 | 占位资源域名由本地资源兑现 | BRW-05 | `packages/e2e/tests/web-openapi-browser/browser-platform.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-009 | waitForCalls 由 harness 统一提供 | BRW-05 | `packages/e2e/src/harness.test.ts`；`packages/e2e/tests/tooling/browser-engineering.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-010 | 浏览器用例目录与已知行为文档 | BRW-05 | `packages/e2e/tests/tooling/browser-engineering.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-011 | browser 项目按清单登记并被命令与门禁识别 | BRW-06 | `packages/e2e/tests/tooling/browser-engineering.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-012 | 预览模式经共用代理把数据集交付给浏览器 | BRW-07 | `packages/e2e/tests/web-openapi-browser/SCN-BROWSER-PLATFORM-012.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-013 | 预览启动前校验数据集、默认数据集与占位资源 | BRW-07 | `packages/e2e/src/preview/preview-launcher.test.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-014 | 开发代理目标只来自环境变量 | BRW-08 | `packages/e2e/src/preview/dev-remote.test.ts` | V-1, V-2 | PASS |
+| SCN-BROWSER-PLATFORM-015 | 三种模式只在宿主与代理层切换且无混合模式 | BRW-08 | `packages/e2e/tests/tooling/SCN-BROWSER-PLATFORM-015.spec.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-001 | api:validate 校验 lint 与契约自洽 | OAS-01 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-001.spec.ts`；`scripts/api-contract.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-002 | api:sync 由参数传入来源，lock 覆盖全部生成物 | OAS-01 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-002.spec.ts`；`scripts/api-contract.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-003 | api:status 检出契约与生成物漂移 | OAS-01 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-003.spec.ts`；`scripts/api-contract.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-004 | redocly 规则只保留有理由的调整，引擎测试契约零告警 | OAS-01 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-004.spec.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-005 | 生成物精简且由契约决定 | OAS-02 | `scripts/api-contract.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-006 | 完整契约不进入生产导入图与产物 | OAS-02 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-006.spec.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-007 | 结果为判别联合，信封按默认约定解析 | OAS-03 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-007.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-008 | 信封约定可由项目配置 | OAS-03 | `packages/openapi/src/rest/client.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-009 | 路径参数编码替换，缺参不发请求 | OAS-03 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-009.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-010 | 身份头按 securitySchemes 映射，匿名接口不发身份头 | OAS-03 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-010.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-011 | HTTP 方法按契约发送 | OAS-03 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-011.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-012 | X-Request-Id 遵守 PC-05 且不可覆盖 | OAS-03 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-012.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-013 | 运行时忽略成功响应中的未知字段 | OAS-03 | `packages/openapi/src/rest/client.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-014 | 传输失败按原因区分 | OAS-03 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-014.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-015 | resolveDeclaration 以契约名为前缀并拒绝非法元素 | OAS-04 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-015.spec.ts`；`scripts/openapi-adapter.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-016 | scanCalls 支撑声明与调用双向对账 | OAS-04 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-016.spec.ts`；`scripts/openapi-adapter.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-030 | 运行时契约按 OAS 3.0 继承顶层安全要求并合并 path item 级参数 | OAS-04 | `packages/e2e/src/preview/openapi-obligation-matrix.test.ts`；`packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-030.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-017 | 按接口粒度派生完整义务清单 | OAS-05 | `packages/e2e/src/preview/openapi-obligation-matrix.test.ts`；`packages/e2e/tests/tooling/openapi-matrix-temporary.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-018 | presence 派生对联合类型做包含判定，否则报待定 | OAS-05 | `scripts/openapi-adapter.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-019 | 未实现接口进入消费集合时提示不阻断 | OAS-05 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-019.spec.ts`；`scripts/openapi-adapter.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-020 | 业务码完备性在编译期穷尽并与契约对账 | OAS-05 | `packages/openapi/testing/engine/generated.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-021 | 声明接口的协议义务都有运行证据 | OAS-05 | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-015.spec.ts`；`packages/e2e/tests/tooling/openapi-matrix-temporary.spec.ts` 等 4 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-022 | 规范化钩子在校验前转换 3.0 写法 | OAS-06 | `packages/openapi/testing/schema.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-023 | Shadow 响应严格同形，不提供宽松认领 | OAS-06 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-023.spec.ts`；`packages/openapi/testing/schema.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-024 | Fixture 中每个信封必须被认领 | OAS-06 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-024.spec.ts`；`scripts/openapi-fixture-validation.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-025 | malformed 认领必须经反证 | OAS-06 | `scripts/openapi-fixture-validation.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-026 | 被认领信封的业务码必须属于该接口 | OAS-06 | `scripts/openapi-fixture-validation.test.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-027 | 双格式产物与根入口具名导出 createFetchHttp | OAS-07 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-027.spec.ts` | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-028 | createFetchHttp 行为义务与 IDL fetch 适配器一致 | OAS-07 | `packages/e2e/tests/web-openapi-browser/SCN-OPENAPI-CONTRACT-028.spec.ts`；`packages/e2e/tests/web-openapi-browser/openapi-wire.browser.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-OPENAPI-CONTRACT-029 | 引擎测试契约包含四个接口与必需的顶层结构 | OAS-08 | `packages/e2e/tests/tooling/SCN-OPENAPI-CONTRACT-029.spec.ts`；`packages/openapi/testing/engine/generated.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-014 | 门禁经清单与绑定加载协议适配器 | PC-07 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-014.spec.ts`；`scripts/lib/protocol-adapters.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-015 | IDL 适配器迁移后行为不变 | PC-07 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-015.spec.ts`；`packages/protocol/testing/adapter.test.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-016 | 协议适配器不进入生产产物 | PC-07 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-016.spec.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-017 | fetch 适配器遵守网络适配器行为义务 | PC-08 | `packages/protocol/src/adapters/network/fetch.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-018 | integration 经生产 fetch 实现访问 Shadow | PC-08 | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-018.spec.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-021 | IDL 浏览器步骤执行器按计划步骤执行并回传结果 | PC-08 | `packages/protocol/testing/browser-runner.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-001 | 义务清单只针对产品声明的消费接口 | PC-01 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-001.spec.ts`；`scripts/lib/contract-inventory.scan.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-002 | 声明接口的协议义务都有运行证据 | PC-01 | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`；`packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002.spec.ts` 等 5 个 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-005 | 消费接口声明与实际调用双向对账 | PC-01 | `packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-005.spec.ts`；`scripts/lib/contract-inventory.scan.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-004 | Shadow 引擎与协议来源解耦 | PC-03 | `packages/e2e/src/shadow/routes.test.ts`；`packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-004.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-006 | 同形响应被接受、不同形响应在构造时被拒绝 | PC-04 | `packages/e2e/src/shadow/response-shape.test.ts`；`packages/protocol/testing/response-shape.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-007 | 非法响应必须显式认领，动态类型报待定 | PC-04 | `packages/e2e/src/shadow/response-shape.test.ts`；`packages/protocol/testing/response-shape.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-008 | 每次请求携带规范格式的 X-Request-Id | PC-05 | `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-008.spec.ts`；`packages/e2e/tests/weapp/SCN-PROTOCOL-CONTRACT-008.spec.ts` 等 4 个 | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-009 | 标准生成器按北京时间生成且不依赖宿主时区 | PC-05 | `packages/openapi/src/transport/request-id.test.ts`；`packages/protocol/src/transport/request-id.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-010 | Shadow 与协议义务按头名和格式校验请求 ID | PC-05 | `packages/e2e/src/shadow/header-patterns.test.ts`；`scripts/lib/contract-inventory.scan.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-011 | 未编排与未注册的请求被记录并报出 | PC-06 | `packages/e2e/src/shadow/records-and-polling.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-012 | 路径参数模板转换为路由参数 | PC-06 | `packages/e2e/src/shadow/records-and-polling.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-013 | 有界轮询只在平台环境可用且次数有界 | PC-06 | `packages/e2e/src/shadow/records-and-polling.test.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-019 | 预览模式按序列返回响应且不判问题 | PC-06 | `packages/e2e/src/preview/preview-server.test.ts`；`packages/e2e/tests/tooling/SCN-PROTOCOL-CONTRACT-019.spec.ts` | V-1, V-2 | PASS |
+| SCN-PROTOCOL-CONTRACT-020 | 部分响应后断开故障 | PC-06 | `packages/e2e/src/shadow/partial-disconnect.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-028 | check:fixtures 按声明的协议委托适配器检查 Fixture 与预览数据集 | GATE-16 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-028.spec.ts`；`scripts/check-fixtures.protocol.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-030 | owner 的 Fixture 协议必须与绑定该 owner 的用例所属绑定一致 | GATE-16 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-030.spec.ts`；`scripts/check-fixtures.bindings.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-029 | defineCase 的环境必须属于所属绑定 | GATE-17 | `packages/e2e/src/cases/define-case-binding.test.ts`；`packages/e2e/tests/tooling/SCN-SCENARIO-GATE-029.spec.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-009 | 新增场景或协议义务未绑定测试 | GATE-07 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-009.spec.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-027 | 协议义务的运行环境按组合绑定取值 | GATE-07 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-027.spec.ts`；`scripts/lib/binding-environments.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-012 | 按 owner ID 解析当前生效 Requirement 并校验摘要 | GATE-10 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-012.spec.ts`；`scripts/check-fixtures.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-013 | fixtures:refresh 重算来源摘要 | GATE-10 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-013.spec.ts`；`scripts/check-fixtures.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-014 | 多个 active Change 修改同一 Requirement 时报歧义 | GATE-10 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-014.spec.ts`；`scripts/check-fixtures.test.ts` | V-1, V-2 | PASS |
+| SCN-SCENARIO-GATE-015 | 归档 Change 不需要改动 Fixture | GATE-10 | `packages/e2e/tests/tooling/SCN-SCENARIO-GATE-015.spec.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-013 | 清单多包字段与绑定约束被校验 | ENG-11 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-013.spec.ts`；`scripts/lib/project-manifest-binding.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-014 | 门禁按包与绑定遍历，不假定唯一包 | ENG-11 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-014.spec.ts`；`scripts/lib/binding-readers.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-015 | 工程检查按产品形态选择 | ENG-12 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-015.spec.ts`；`scripts/engineering-form.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-001 | 产品包与协议包的产物边界与消费 | ENG-01 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-001.spec.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-003 | 公共类型注释随源码与声明交付 | ENG-03 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-003.spec.ts`；`scripts/lib/public-doc.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-016 | web-app 形态按源码模式检查中文注释 | ENG-03 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-016.spec.ts`；`scripts/lib/public-doc-source.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-005 | 门禁按项目清单工作 | ENG-05 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-005.spec.ts`；`scripts/lib/project-manifest.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-006 | 使用指南缺失或不完整 | ENG-06 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`scripts/check-architecture.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-009 | 覆盖率报告缺席手写文件被拒绝 | ENG-07 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-009.spec.ts`；`scripts/check-coverage.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-010 | 格式与行数基线被门禁执行 | ENG-08 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-010.spec.ts`；`scripts/lib/dependency-rules.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-012 | 技术架构文档缺失或与能力地图不一致 | ENG-10 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-012.spec.ts`；`scripts/check-architecture-doc.test.ts` | V-1, V-2 | PASS |
+| SCN-TEMPLATE-ENGINEERING-008 | 按白名单删除模板示例后门禁仍全绿 | EX-10 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 等 4 个 | V-1, V-2 | PASS |
+| SCN-WEB-APP-001 | 应用包与模板对齐 | WEB-01 | `packages/e2e/tests/tooling/SCN-WEB-APP-001.spec.ts`；`scripts/web-app.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-004 | 组件树五条规则被机械执行 | WEB-03 | `packages/e2e/tests/tooling/SCN-WEB-APP-004.spec.ts`；`scripts/check-component-tree.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-005 | 组件写入全局 store 在类型与 lint 两层被拦截 | WEB-04 | `packages/e2e/tests/tooling/SCN-WEB-APP-005.spec.ts`；`scripts/web-app.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-006 | 依赖方向违规被拒绝 | WEB-05 | `packages/e2e/tests/tooling/SCN-WEB-APP-006.spec.ts`；`scripts/web-app.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-007 | 核心层使用 DOM 被类型与 lint 拒绝 | WEB-06 | `packages/e2e/tests/tooling/SCN-WEB-APP-007.spec.ts`；`scripts/web-app.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-008 | 部署配置只在装配入口整体读取 | WEB-06 | `packages/e2e/tests/tooling/SCN-WEB-APP-008.spec.ts`；`scripts/web-app.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-009 | 覆盖率忽略注释与未登记的组件命名例外被拒绝 | WEB-07 | `packages/e2e/tests/tooling/SCN-WEB-APP-009.spec.ts`；`scripts/web-app.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-010 | 未被测试导入的 .vue 被覆盖率门禁报出 | WEB-08 | `packages/e2e/tests/tooling/SCN-WEB-APP-010.spec.ts`；`packages/e2e/tests/tooling/removal-expected.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-WEB-APP-011 | 装配入口计入覆盖率 | WEB-08 | `packages/web/src/main.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-012 | 模块清单写在部署目录之外并与源码对账 | WEB-09 | `packages/e2e/tests/tooling/SCN-WEB-APP-012.spec.ts`；`packages/e2e/tests/tooling/removal-expected.spec.ts` 等 3 个 | V-1, V-2 | PASS |
+| SCN-WEB-APP-013 | 测试设施、契约与样式残留不得进入产物 | WEB-09 | `packages/e2e/tests/tooling/SCN-WEB-APP-013.spec.ts`；`scripts/lib/bundle-scenario.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-APP-014 | 产品摘要只随产物输入变化 | WEB-09 | `packages/e2e/tests/tooling/SCN-WEB-APP-014.spec.ts`；`scripts/lib/bundle-scenario.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-001 | 提交创建表单后展示当前交易 | WEX-01 | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/trade-create/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-002 | 交易状态轮询到终态后停止 | WEX-01 | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/trade-status/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-003 | 交易列表按 URL 中的商户加载 | WEX-01 | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/trade-list/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-004 | 业务失败按业务码呈现 | WEX-01 | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/trade-create/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-005 | 传输失败以共享加载失败组件呈现 | WEX-01 | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/trade-list/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-006 | 创建到列表可见的连续流程 | WEX-02 | `packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/__tests__/support.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-007 | 三层状态各在其位且 store 写入可审计 | WEX-03 | `packages/web/src/store/example.test.ts`；`packages/web/src/trade-create/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-008 | 示例组件树与共享组件 | WEX-04 | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`packages/web/src/shared/components/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-009 | 假时钟驱动的轮询与取消 | WEX-05 | `packages/web/src/runtime/__tests__/runtime.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-010 | 业务码映射与契约对账 | WEX-06 | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`packages/web/src/trade-create/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-011 | 不可达分支改写后完整覆盖 | WEX-06 | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`packages/web/src/trade-create/example.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-013 | 两个示例数据集通过契约校验 | WEX-07 | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-014 | web-example 标记成对校验 | WEX-08 | `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`scripts/lib/example-markers.test.ts` | V-1, V-2 | PASS |
+| SCN-WEB-EXAMPLE-015 | 替换产品契约与约定后通用基线仍全绿 | WEX-09 | `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-006.spec.ts`；`packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 等 4 个 | V-1, V-2 | PASS |
+
+## Correctness
+
+### Fresh Command Evidence
+
+#### V-1: 统一验收入口（全量）
+
+- Command: `pnpm verify --change template-web-absorption --run-id template-web-absorption-verify-20261015`；weapp 起续跑 `pnpm verify --from test:e2e:weapp --run-id template-web-absorption-verify-20261015 --change template-web-absorption`
+- Working directory: `/Users/liyongning/orca/workspaces/sdk-template/template-web-absorption-apply`
+- Executed at: 2026-10-15T04:58:34Z（首跑）；2026-10-15T05:58:12Z（重启后续跑，结束于 05:59:23Z）
+- Exit code: 首跑 1（weapp 步骤环境阻塞）；续跑 0
+- Failure count: 0（代码层面）；环境层面 2 次：weapp `SCN-PROTOCOL-CONTRACT-008` 首次 30s 超时、整文件重跑 10.1s 通过；随后 `weapp:prepare` 就绪探测超时（新启动的开发者工具主进程卡成 UE 状态、无法清除），重启设备后用同一 run id 续跑
+- Result: PASS
+- Output reference: 验收方会话临时日志 `scratchpad/final/v1.log`、`v1c.log`（设备重启已清除首跑日志）；报告目录 `artifacts/template-web-absorption-verify-20261015/reports/`（unit、integration、integration-heavy、weapp/ 5 个文件、browser）
+- Key observations: check:fast 通过（823965ms）：unit 149/149 文件、608/608 用例，integration 92/92 文件、152/152 用例，integration-heavy 14/14 文件、40/40 用例，覆盖率 100%；weapp 5 个文件全部通过（4 个在首跑、`SCN-TEMPLATE-EXAMPLE-004` 在续跑）；browser 4 个文件、20 个用例通过；check:scenarios 通过、issues 0
+
+#### V-2: 场景门禁（独立复核）
+
+- Command: `VERIFY_RUN_ID=template-web-absorption-verify-20261015 SCENARIO_GATE_CHANGES=template-web-absorption pnpm check:scenarios`
+- Working directory: 同 V-1
+- Executed at: 2026-10-15T05:59:33Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: `scratchpad/final/v2.log`
+- Key observations: mode=complete，Scenario 149，FLOW 2，契约字段 83，协议义务 232，issues 0
+
+#### V-3: OpenSpec 严格校验
+
+- Command: `openspec validate template-web-absorption --strict --json`
+- Working directory: 同 V-1
+- Executed at: 2026-10-15T05:59:39Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: 内联：`{"totals":{"items":1,"passed":1,"failed":0}}`
+- Key observations: Change 结构与 delta 合法
+
+#### V-4: 规划摘要新鲜度
+
+- Command: `python3 ~/.claude/skills/change/scripts/plan-review-digest.py openspec/changes/template-web-absorption --check-review openspec/changes/template-web-absorption/plan-review.md`
+- Working directory: 同 V-1
+- Executed at: 2026-10-15T05:59:39Z
+- Exit code: 0
+- Failure count: 0
+- Result: PASS
+- Output reference: 内联：`freshness=PASS`，reviewed=current=`3a9dec29…1dafa5`
+- Key observations: Apply 期间两次规划修订（修订一 `c6f8860`、修订二 `9942202`）均已重新评审并由用户裁决放行，之后规划未变
+
+#### V-5: 归档合并演练
+
+- Command: 在临时目录 `git archive 264933a` 展开后运行 `pnpm exec openspec archive template-web-absorption -y` 与 `openspec validate --specs --strict --json`
+- Working directory: 验收方会话临时目录 `scratchpad/archive-dryrun`（设备重启前）
+- Executed at: 2026-10-15T05:3x（设备重启前）
+- Exit code: 0 / 0
+- Failure count: 0
+- Result: PASS
+- Output reference: 日志随设备重启清除；结论：`Totals: + 39, ~ 15, - 0`，8 份主 Spec 严格校验通过
+- Key observations: 合并前主 Spec 61 个 Scenario ID 与本 Change 113 个 ID 的并集（149）与合并后完全一致，无丢失、无多余；与 V-2 的 149 一致
+
+### Behavioral Results
+
+| Behavior / Claim | Evidence | Result |
+|---|---|---|
+| 模板提供 SDK + IDL + 小程序与 Web 应用 + OpenAPI + 浏览器两套可运行实现 | ENG/WEX/BRW 各 Requirement；V-1（weapp 与 browser 均通过） | PASS |
+| 替换产品契约无需修改引擎代码与门禁（OAS-01） | SCN-WEB-EXAMPLE-015（5 个 checkpoint）；xueshan 第 4 轮演练（附录 Task 16）；V-1 | PASS |
+| 同时删除两个示例后门禁全绿 | SCN-TEMPLATE-ENGINEERING-008；示例删除演练（附录 Task 15/16）；V-1 | PASS |
+| 移除一条绑定后回到单组合工作（ENG-11） | SCN-TEMPLATE-ENGINEERING-014；"移除一条绑定"演练（附录 Task 16）；V-1 | PASS |
+| 三个复刻演练与 xueshan 反馈核对 | 附录 Task 16 演练记录与 62 条核对表 | PASS |
+
+## Coherence
+
+| Proposal / Design Decision | Source | Implementation Evidence | Status / Notes |
+|---|---|---|---|
+| 清单多包与组合绑定 | `design.md:77` | `project.manifest.json` bindings；GATE-17 按 binding 字段优先、目录推断（`packages/e2e/src/cases/define-case.ts`） | PASS |
+| 协议适配器、Shadow 引擎归属测试包 | `design.md:125`、`design.md:146` | `packages/*/testing/adapter.ts`；`packages/e2e/src/shadow/` | PASS |
+| Web 应用产品包与产物边界 | `design.md:178`、`design.md:274` | `packages/web`；`check:bundle`、`check:component-tree` | PASS |
+| OpenAPI 协议包与引擎证据/产品契约分离（Apply 修订一） | `design.md:287`；`specs/openapi-contract` OAS-01/04/08 | `packages/openapi/contracts/`、`packages/openapi/testing/engine/`；SCN-OPENAPI-CONTRACT-029（范围收窄到引擎契约目录） | PASS |
+| OAS-06 钩子由约定模块登记、运行时契约继承规则（Apply 修订二） | `specs/openapi-contract` OAS-04/05/06；SCN-OPENAPI-CONTRACT-030 | `packages/openapi/testing/{contract,schema,adapter}.ts`；`packages/e2e/src/preview/openapi-obligation-matrix*.ts` | PASS（M4–M8 已接受） |
+| 浏览器平台点位与本地预览 | `design.md:357`、`design.md:390` | `packages/e2e/host/browser`、`scripts/preview-local.ts` | WARNING：预览打印的示例地址写死 token/merchant（只登记） |
+| IDL 侧同类拆分为后续 Change | `design.md:441`、OI-WA-04 | 指南替换点地图"协议来源（IDL）"一行 | PASS（本 Change 不实施） |
+| 验收（三个复刻、示例删除、移除绑定、反馈核对） | `design.md:500` | 附录 Task 16；五个演练副本的完整 `pnpm verify` 均全绿 | PASS |
+
+## Review Findings and Resolutions
+
+| Finding ID | Severity | Finding | Resolution | Re-verification IDs | Status |
+|---|---|---|---|---|---|
+| FCR-1~ | Important/Minor | 首轮 Final Code Review（`6e4d0c2`） | 修复于 `d88f788`，见附录"Final Code Review 第 1 轮修复" | V-1, V-2 | resolved |
+| FCR2-1 | Critical | 响应校验器缓存按 operationId 串用产品/引擎契约 | `WeakMap` 以运行时接口对象为键（`264933a`） | V-1, V-2 | resolved |
+| FCR2-2 | Important | 解引用 bundle 上按组件登记的钩子不生效、指南骨架无效 | 指南改为递归遍历骨架；SCN-OPENAPI-CONTRACT-022 用真实 bundle 证明（`264933a`） | V-1, V-2 | resolved |
+| FCR2-3 | Important | 义务矩阵无条件编排 `data:null` | 按成功响应 data schema 条件编排（`264933a`） | V-1, V-2 | resolved |
+| FCR2-M4~M8 | Minor | 引擎约定包装、直接接口对象缺钩子、缺省载体、钩子调用范围、hook-extensible 加载链 | 接受：当前生产路径不触发，见附录 | — | accepted |
+
+## Unverified Areas and Remaining Risks
+
+- 微信开发者工具挂起：本次 V-1 中新启动的主进程卡成 UE 状态，需重启设备才能清除；属本机环境，按运行约定以同一 run id 续跑。
+- 演练副本、各副本完整 `pnpm verify` 日志与演练报告摘录位于验收方会话临时目录，设备重启后已清除；附录 Task 16 记录中引用的这些路径不再可访问，结论以附录记录为准。
+- 只登记项（附录 Task 16"只登记、不修的已知风险"）：OpenAPI 执行器与矩阵身份只取 `security[0]`；信封额外字段写死；预览示例地址写死；Web 示例白名单删除通用辅助；IDL 浏览器证据两项为近似取证等。
+- IDL 侧引擎证据与产品 IDL 来源未拆分，换 IDL 来源时需改写相关引擎用例（后续 Change OI-WA-04）。
+
+## Archive Readiness
+
+- Decision: READY WITH WARNINGS
+- Plan Review verdict: PASS
+- Plan Review freshness: PASS（reviewed = current）
+- Fresh Apply state: all_done
+- Completed tasks: 16/16
+- Failed required commands: 0
+- Unresolved Critical findings: 0
+- Unresolved Important findings: 0
+- Accepted Minor findings: 12（Plan Review 7；FCR2-M4~M8）
+- Verification input manifest matches current inputs: yes（`13f5cae9…bf535`，979 个路径）
+- Requirements without evidence: 0
+- Warnings and rationale: 微信开发者工具环境挂起（不影响代码结论）；只登记项与后续 Change OI-WA-04 已记录影响与保留理由
+- Blockers: None
+
+---
+
+> 以下为 Apply 期间的原始记录（执行方逐任务记录、Final Code Review 与各轮修复、演练），标题已下调一级。
+
+## Template Web Absorption 验收记录
+
+### 逐任务记录
+
+#### Task 1 清单多包与组合绑定
 
 **规划与输入**
 
@@ -53,7 +401,7 @@
 
 - `feat(template): support multiple packages per role with product bindings`
 
-### Task 2 协议适配器接口、IDL 适配器迁移与 Shadow 引擎迁入测试包
+#### Task 2 协议适配器接口、IDL 适配器迁移与 Shadow 引擎迁入测试包
 
 **规划与输入**
 
@@ -110,7 +458,7 @@
 
 - `refactor(template): extract protocol adapters and move the shadow engine into the test package`
 
-### Task 3 按产品形态区分的工程检查骨架
+#### Task 3 按产品形态区分的工程检查骨架
 
 **规划与输入**
 
@@ -161,7 +509,7 @@
 
 - `feat(template): select engineering checks by product form`
 
-### Task 4 IDL 浏览器网络适配器、浏览器步骤执行器与生产实现集成
+#### Task 4 IDL 浏览器网络适配器、浏览器步骤执行器与生产实现集成
 
 **规划与输入**
 
@@ -207,7 +555,7 @@
 
 - `feat(template): add fetch network adapter and browser runner to the IDL protocol package`
 
-### Task 5 OpenAPI 协议包与契约命令
+#### Task 5 OpenAPI 协议包与契约命令
 
 **规划与输入**
 
@@ -252,7 +600,7 @@
 
 - `feat(template): add OpenAPI protocol package with contract commands and generators`
 
-### Task 6 OpenAPI 执行器与协议适配器
+#### Task 6 OpenAPI 执行器与协议适配器
 
 **规划与输入**
 
@@ -294,7 +642,7 @@
 
 - `feat(template): add OpenAPI REST executor and protocol adapter`
 
-### Task 7 Shadow 扩展：预览模式与部分响应后断开
+#### Task 7 Shadow 扩展：预览模式与部分响应后断开
 
 **规划与输入**
 
@@ -330,7 +678,7 @@
 
 - `feat(template): add shadow preview mode and partial-then-disconnect fault`
 
-### Task 8 Web 应用包骨架、前端架构规则与绑定 `web-openapi-browser`
+#### Task 8 Web 应用包骨架、前端架构规则与绑定 `web-openapi-browser`
 
 **规划与输入**
 
@@ -366,7 +714,7 @@
 
 - `feat(template): add web app package skeleton with frontend architecture rules`
 
-### Task 9 Web 产物边界检查
+#### Task 9 Web 产物边界检查
 
 **规划与输入**
 
@@ -415,7 +763,7 @@
 
 - `feat(template): add web bundle boundary check`
 
-### Task 9 后置修复：默认并发稳定性
+#### Task 9 后置修复：默认并发稳定性
 
 **问题与根因**
 
@@ -447,7 +795,7 @@
 - 拆分首次落位曾把 `integration-heavy` 当作独立义务环境，导致 IDL 归一化摘要从 `46417e0f...` 变为 `fc5dbeb9...`；改为逻辑环境复用后摘要恢复原值，协议义务数量与内容未变。
 - 新增逻辑环境、回退与校验分支均有单测覆盖；完整 unit 恢复到 statements 5223/5223、branches 3448/3448、functions 1025/1025、lines 4587/4587。
 
-### Task 10 浏览器平台点位
+#### Task 10 浏览器平台点位
 
 **规划与输入**
 
@@ -482,7 +830,7 @@
 
 - `feat(template): add browser platform with playwright driver and shared proxy`
 
-### Task 11 Web 示例
+#### Task 11 Web 示例
 
 **规划与输入**
 
@@ -522,7 +870,7 @@
 - `SCENARIO_GATE_CHANGES=template-web-absorption pnpm test:affected`：退出码 0；计划因工具配置与构建输入变化触发完整 `check:fast`，未选择 weapp 步骤。
 - 最终 freshness 复核为 `PASS`，digest 仍为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。此前 run `template-web-absorption-apply-task11-20261013T170900Z` 及更早尝试中的 `weapp:prepare` 未就绪、正式版掉登录和副本内 `proto:status` SSH 瞬断均为环境问题，不计业务失败或 OI；本记录以 `172500Z` 的全量结果为准。
 
-### Task 12 本地预览与开发代理
+#### Task 12 本地预览与开发代理
 
 **规划与输入**
 
@@ -554,7 +902,7 @@
 
 - `feat(template): add local preview and remote dev proxy modes`
 
-### Task 13 文档与地图
+#### Task 13 文档与地图
 
 **规划与输入**
 
@@ -586,7 +934,7 @@
 
 - `docs(template): document web capabilities, bindings and replacement points`
 
-## Final Code Review 第 1 轮修复
+### Final Code Review 第 1 轮修复
 
 - 起点 HEAD 为 `6e4d0c2`；本轮只修代码与验收记录，未修改 proposal、specs、design、tasks 语义。开始时 freshness 为 `PASS`，digest 为 `2424baeafe3c4ac6e197e4c92feb8faf01eacdef2204aea49ad94cdb9e3a94e3`。
 
@@ -638,7 +986,7 @@
 - F7：`preview-local.ts` 写死示例接口，复用或替换产品时需要同步调整。
 - F8：`defineCase` 默认 5 秒覆盖项目级 `testTimeout`，并发负载下会让较慢的真实验证产生非业务超时。
 
-## Task 14 OpenAPI 引擎证据与产品契约分离
+### Task 14 OpenAPI 引擎证据与产品契约分离
 
 **规划与输入**
 
@@ -716,7 +1064,7 @@
 - 第 3 轮移除绑定演练登记：`TEMPLATE_UNIT_MAX_WORKERS` 未写入指南；场景门禁清单模式依赖已有的 unit/integration 报告；`openspec new change` 会额外生成 `openspec/config.yaml`。这些均按已知工具/文档缺口登记，不在本 Change 扩大范围。
 - 第 3 轮移除绑定演练登记：删除唯一 `sdk` 形态产品包后，`manifest.release` 等发布模块应如何退役尚未形成指南步骤。
 
-## Task 15 示例删除演练
+### Task 15 示例删除演练
 
 **规划与输入**
 
@@ -764,7 +1112,7 @@
 - 本轮未修改 proposal、specs、design 或 tasks 语义，也未执行任务 16 的任何演练。
 - 验收方在新隔离副本中重跑“移除模板示例”演练后接受本节结果，Task 15 checkbox 已在 `f915e68` 勾选并提交。
 
-## Task 16 历史阻塞修复（保留）
+### Task 16 历史阻塞修复（保留）
 
 **规划与输入**
 
@@ -835,7 +1183,7 @@
 
 - `fix(template): unblock example removal and cross replication rehearsals`
 
-## Task 16 复刻演练、移除绑定与最终验收
+### Task 16 复刻演练、移除绑定与最终验收
 
 **规划与输入**
 
@@ -981,7 +1329,7 @@
 - 使用同一 run id 独立执行 `VERIFY_RUN_ID=template-web-absorption-apply-task16-20261015T114035Z pnpm check:scenarios --change template-web-absorption`：退出码 0，`issues` 为 0。
 - 该轮 `SCN-TEMPLATE-EXAMPLE-002` 的首次失败与 per-file retry 已在上节登记；最终没有步骤非零退出，不新增 OI。
 
-## Final Code Review 第 2 轮（增量）
+### Final Code Review 第 2 轮（增量）
 
 Task 14 的 checkbox 已按评审结论重新取消勾选；本轮只修复已准入 blocker 与指南事实，不改 proposal、specs、design、tasks 的语义。初始 HEAD 为 `2ecf5b9`。
 
