@@ -1,6 +1,7 @@
 {
   "formatVersion": 1,
   "ownerId": "SCN-TEMPLATE-EXAMPLE-006",
+  "protocol": "protocol",
   "sources": {
     "spec": {
       "requirementDigest": "4ac26153613977a9b6c255ebc2ee8cc2b55af5542bc33b45da9461bb09ae9efe"

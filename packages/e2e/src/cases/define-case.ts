@@ -1,12 +1,18 @@
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { test, type TestContext } from 'vitest';
 import { loadFixtureCase } from './fixture-loader.ts';
-import { loadProjectManifest } from '../../../../scripts/lib/project-manifest.ts';
+import {
+  bindingByName,
+  loadProjectManifest,
+  testPackage,
+  type ProjectManifest,
+} from '../../../../scripts/lib/project-manifest.ts';
 
 export type CaseBinding = Readonly<{
   ownerId: string;
   caseId: string;
   environment: string;
+  binding?: string;
   fixtureCase: string;
   covers: ReadonlyArray<Readonly<{ id: string; caseKey: string; checks: ReadonlyArray<string> }>>;
   flowId?: string;
@@ -26,15 +32,60 @@ export function environmentClassOf(
   return project.class;
 }
 
-export function validateCaseBinding(binding: CaseBinding): string[] {
+/** 用例归属绑定：binding 字段优先，其次 tests/<绑定名>/ 目录，最后视为未绑定。 */
+export function bindingNameOfCase(
+  binding: CaseBinding,
+  manifest: ProjectManifest,
+  root: string,
+  testFile?: string,
+): string | undefined {
+  if (binding.binding) return binding.binding;
+  if (!testFile) return undefined;
+  const testsRoot = resolve(root, 'packages', testPackage(manifest).directory, 'tests');
+  const first = relative(testsRoot, testFile).split(/[\\/]/)[0];
+  return manifest.bindings.some((item) => item.name === first) ? first : undefined;
+}
+
+export function validateCaseBinding(
+  binding: CaseBinding,
+  options: Readonly<{
+    root?: string;
+    testFile?: string;
+    deferUnboundPlatform?: boolean;
+  }> = {},
+): string[] {
   const issues: string[] = [];
   if (!/^[A-Z][A-Z0-9-]*$/.test(binding.ownerId)) issues.push('ownerId is invalid');
   if (!binding.caseId) issues.push('caseId must not be empty');
   if (!binding.fixtureCase) issues.push('fixtureCase must not be empty');
-  if (!environmentClassOf(binding.environment))
+  if (!environmentClassOf(binding.environment, options.root))
     issues.push(
       `environment ${binding.environment} is not a registered integration or platform test project`,
     );
+  if (options.root) {
+    const manifest = loadProjectManifest(options.root);
+    const bindingName = bindingNameOfCase(binding, manifest, options.root, options.testFile);
+    const registeredBinding =
+      bindingName !== undefined && manifest.bindings.some((item) => item.name === bindingName);
+    if (binding.binding && !registeredBinding)
+      issues.push(`case ${binding.caseId} binding ${binding.binding} is not registered`);
+    const environment = manifest.testProjects.find((item) => item.name === binding.environment);
+    if (bindingName && registeredBinding) {
+      const topology = bindingByName(manifest, bindingName);
+      if (
+        environment &&
+        environment.class === 'platform' &&
+        !topology.platforms.includes(environment.name)
+      )
+        issues.push(
+          `case ${binding.caseId} environment ${binding.environment} is not in binding ${bindingName}`,
+        );
+    } else if (environment?.class === 'platform' && !options.deferUnboundPlatform) {
+      issues.push(
+        `case ${binding.caseId} environment ${binding.environment} is platform but case is not bound`,
+      );
+    }
+  }
   if (binding.covers.length === 0)
     issues.push('covers must contain at least one concrete case binding');
   binding.covers.forEach((cover, index) => {
@@ -59,15 +110,23 @@ type CaseContext = Readonly<{
 export function defineCase(
   binding: CaseBinding,
   body: (context: CaseContext) => void | Promise<void>,
-  options: Readonly<{ fixtureRoot?: string }> = {},
+  options: Readonly<{ fixtureRoot?: string; timeoutMs?: number }> = {},
 ) {
-  const issues = validateCaseBinding(binding);
+  const issues = validateCaseBinding(binding, {
+    root: process.cwd(),
+    deferUnboundPlatform: true,
+  });
   if (issues.length > 0) throw new Error(issues.join('; '));
   const environmentClass = environmentClassOf(binding.environment)!;
   test(
     `${binding.ownerId} ${binding.caseId}`,
-    { meta: { scenarioCase: binding } },
+    { meta: { scenarioCase: binding }, timeout: options.timeoutMs ?? 5_000 },
     async (context: TestContext) => {
+      const runtimeIssues = validateCaseBinding(binding, {
+        root: process.cwd(),
+        ...(context.task?.file?.filepath ? { testFile: context.task.file.filepath } : {}),
+      });
+      if (runtimeIssues.length > 0) throw new Error(runtimeIssues.join('; '));
       const before = context.expect.getState().assertionCalls;
       const executed = new Set<string>();
       const loaded = await loadFixtureCase({

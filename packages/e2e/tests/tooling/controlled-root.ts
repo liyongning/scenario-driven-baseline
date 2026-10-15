@@ -1,7 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { createOpenSpecStub } from './openspec-stub.ts';
 
 const repositoryRoot = resolve(import.meta.dirname, '../../../..');
@@ -13,6 +14,7 @@ export const minimalManifest = (): Record<string, unknown> => ({
       directory: 'sample-product',
       name: '@sample/product',
       role: 'product',
+      form: 'sdk',
       private: false,
       allowedDirectories: ['src'],
       moduleRoots: ['src'],
@@ -21,6 +23,7 @@ export const minimalManifest = (): Record<string, unknown> => ({
       directory: 'sample-protocol',
       name: '@sample/protocol',
       role: 'protocol',
+      protocolKind: 'idl',
       private: false,
       allowedDirectories: ['src', 'testing'],
       moduleRoots: ['src', 'testing'],
@@ -32,6 +35,14 @@ export const minimalManifest = (): Record<string, unknown> => ({
       private: true,
       allowedDirectories: ['src', 'host', 'tests'],
       moduleRoots: ['src', 'host', 'tests'],
+    },
+  ],
+  bindings: [
+    {
+      name: 'sample-product-protocol',
+      product: 'sample-product',
+      protocol: 'sample-protocol',
+      platforms: [],
     },
   ],
   requiredCommands: ['check:fast'],
@@ -54,6 +65,8 @@ export type ControlledRootOptions = Readonly<{
   openspec?: 'stub' | 'real';
   /** 是否创建初始提交；默认 true，源码清单要求 git 工作区。 */
   commit?: boolean;
+  /** 是否为 IDL 协议包写入可加载的适配器替身；缺省 true。 */
+  protocolAdapters?: boolean;
   prefix?: string;
 }>;
 
@@ -83,6 +96,57 @@ function stubEnvironment(stub: ReturnType<typeof createOpenSpecStub>): NodeJS.Pr
   return stub.env;
 }
 
+/** 自包含协议适配器替身；目标协议包被绑定移除后，通用门禁自测仍可运行。 */
+export function genericProtocolAdapterSource(): string {
+  return [
+    'const adapter = {',
+    '  resolveDeclaration() {',
+    '    return undefined;',
+    '  },',
+    '  deriveObligations({ operation, requiredIn, integrationOnly }) {',
+    "    const scope = operation ? `sample.${operation.methodName}` : 'sample.binding';",
+    '    return {',
+    '      obligations: [',
+    "        { id: `${scope}#result#$`, cases: ['normal'], requiredIn: [...requiredIn] },",
+    '        {',
+    "          id: 'idl.error-contract#business-error#$',",
+    '          cases: [],',
+    '          requiredIn: [...integrationOnly],',
+    '        },',
+    '      ],',
+    '      discoveries: [],',
+    '    };',
+    '  },',
+    '  responseValidator() {',
+    '    return undefined;',
+    '  },',
+    '  checkFixture() {',
+    '    return [];',
+    '  },',
+    '  scanCalls() {',
+    '    return [];',
+    '  },',
+    '};',
+    '',
+    'export default adapter;',
+    '',
+  ].join('\n');
+}
+
+/** 写协议包适配器：仓库存在同名实现时转导出，否则使用与真实协议解耦的替身。 */
+export function protocolAdapterFixtureSource(protocolDirectory: string): string {
+  const repositoryAdapter = join(
+    repositoryRoot,
+    'packages',
+    protocolDirectory,
+    'testing',
+    'adapter.ts',
+  );
+  return existsSync(repositoryAdapter)
+    ? `export { default } from '${pathToFileURL(repositoryAdapter).href}';\n`
+    : genericProtocolAdapterSource();
+}
+
 /**
  * 统一的受控临时根：`git init` + 最小 OpenSpec 结构 + 清单 + 额外文件 + 初始提交。
  * `openspec` 默认用替身，需要真实 CLI 时把仓库 node_modules/.bin 放到 PATH 前。
@@ -93,6 +157,62 @@ export function createControlledRoot(options: ControlledRootOptions = {}): Contr
   mkdirSync(join(root, 'openspec/changes'), { recursive: true });
   for (const directory of options.directories ?? [])
     mkdirSync(join(root, directory), { recursive: true });
+  const manifest = (options.manifest ?? minimalManifest()) as
+    | {
+        packages?: ReadonlyArray<{
+          directory: string;
+          name: string;
+          private: boolean;
+          role: string;
+          protocolKind?: string;
+        }>;
+        bindings?: ReadonlyArray<{
+          product: string;
+          protocol: string;
+        }>;
+      }
+    | undefined;
+  if (options.manifest !== null) {
+    for (const pkg of manifest?.packages ?? []) {
+      const path = join(root, 'packages', pkg.directory, 'package.json');
+      mkdirSync(dirname(path), { recursive: true });
+      if (existsSync(path)) continue;
+      writeFileSync(
+        path,
+        JSON.stringify(
+          {
+            name: pkg.name,
+            version: '0.0.0',
+            private: pkg.private,
+            ...(pkg.role === 'product'
+              ? {
+                  dependencies: Object.fromEntries(
+                    (manifest?.bindings ?? [])
+                      .filter((binding) => binding.product === pkg.directory)
+                      .flatMap((binding) => {
+                        const protocol = manifest?.packages?.find(
+                          (candidate) => candidate.directory === binding.protocol,
+                        );
+                        return protocol ? [[protocol.name, 'workspace:*']] : [];
+                      }),
+                  ),
+                }
+              : {}),
+          },
+          null,
+          2,
+        ),
+      );
+    }
+  }
+  if (options.protocolAdapters !== false) {
+    for (const pkg of manifest?.packages ?? []) {
+      if (pkg.role !== 'protocol' || pkg.protocolKind !== 'idl') continue;
+      const path = join(root, 'packages', pkg.directory, 'testing/adapter.ts');
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, protocolAdapterFixtureSource(pkg.directory));
+    }
+  }
   for (const [relative, content] of Object.entries(options.files ?? {})) {
     const path = join(root, relative);
     mkdirSync(dirname(path), { recursive: true });

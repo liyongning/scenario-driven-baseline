@@ -1,15 +1,15 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, expect, test, type TestContext } from 'vitest';
+import { afterEach, test, type TestContext } from 'vitest';
 import type {} from '../../packages/e2e/src/vitest.d.ts';
 import { createControlledRoot } from '../../packages/e2e/tests/tooling/controlled-root.ts';
 import {
   declarationRoot,
-  exampleCallerSource,
-  exampleDeclarationSource,
-  repositoryProtocolSource,
+  defaultCallerSource,
+  defaultDeclarationSource,
+  syntheticBusinessErrorSource,
 } from '../../packages/e2e/tests/tooling/declaration-fixture.ts';
 import { environmentClassOf } from '../../packages/e2e/src/cases/define-case.ts';
 import { buildContractInventory } from './contract-inventory.ts';
@@ -19,20 +19,23 @@ import { checkSchemaDocumentation } from './schema-docs.ts';
 import {
   errorMessage,
   loadProjectManifest,
+  bindingForProduct,
   coverageExclusions,
   defaultReportPaths,
   defaultReportNames,
   maxLinesExemptions,
-  packageByRole,
+  packagesByRole,
   projectManifestFile,
-  reportNameFor,
   testProjectConfigs,
   testProjectsByClass,
   validateManifest,
-  type ManifestPackage,
   type ProjectManifest,
-  type TestProject,
 } from './project-manifest.ts';
+import {
+  baseManifest,
+  type MutableManifest,
+} from '../../packages/e2e/tests/tooling/project-manifest-fixture.ts';
+import { testEnvironmentsByClass } from './test-environments.ts';
 
 const roots: string[] = [];
 
@@ -43,63 +46,41 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-type MutableManifest = {
-  packages: ManifestPackage[];
-  requiredCommands: string[];
-  testProjects: TestProject[];
-  fingerprints: { sourceRoots: string[]; buildInputs: string[]; protocolInputs: string[] };
-  quality?: { coverageExclusions: Array<{ path: string; reason: string }>; maxLinesExemptions: [] };
-  release?: { registry: string; tagPrefix: string };
-};
-
-const baseManifest = (): MutableManifest => ({
-  packages: [
-    {
-      directory: 'sample-product',
-      name: '@sample/product',
-      role: 'product',
-      private: false,
-      allowedDirectories: ['src'],
-      moduleRoots: ['src'],
-    },
-    {
-      directory: 'sample-protocol',
-      name: '@sample/protocol',
-      role: 'protocol',
-      private: false,
-      allowedDirectories: ['src', 'testing'],
-      moduleRoots: ['src', 'testing'],
-    },
-    {
-      directory: 'sample-test',
-      name: '@sample/test',
-      role: 'test',
-      private: true,
-      allowedDirectories: ['src', 'host', 'tests'],
-      moduleRoots: ['src', 'host', 'tests'],
-    },
-  ],
-  requiredCommands: ['check:fast'],
-  testProjects: [
-    { name: 'product-unit', class: 'unit', config: 'packages/sample-product/vitest.config.ts' },
-    { name: 'protocol-unit', class: 'unit', config: 'packages/sample-protocol/vitest.config.ts' },
-    { name: 'integration', class: 'integration', config: 'packages/sample-test/vitest.config.ts' },
-    { name: 'platform', class: 'platform', config: 'packages/sample-test/vitest.config.weapp.ts' },
-  ],
-  fingerprints: {
-    sourceRoots: ['sample-src'],
-    buildInputs: ['build.config.ts'],
-    protocolInputs: ['proto-gen.lock'],
-  },
-  quality: { coverageExclusions: [], maxLinesExemptions: [] },
-});
-
 function writeManifest(root: string, manifest: unknown) {
   mkdirSync(root, { recursive: true });
   writeFileSync(
     join(root, projectManifestFile),
     typeof manifest === 'string' ? manifest : JSON.stringify(manifest),
   );
+  if (typeof manifest !== 'object' || manifest === null) return;
+  const packages =
+    (manifest as { packages?: ReadonlyArray<Record<string, unknown>> }).packages ?? [];
+  const protocols = packages.filter((item) => item.role === 'protocol');
+  for (const pkg of packages) {
+    if (typeof pkg.directory !== 'string' || typeof pkg.name !== 'string') continue;
+    const directory = join(root, 'packages', pkg.directory);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({
+        name: pkg.name,
+        version: '0.0.0',
+        private: pkg.private,
+        ...(pkg.role === 'product'
+          ? {
+              dependencies: Object.fromEntries(
+                protocols
+                  .filter(
+                    (protocol): protocol is Record<string, unknown> & { name: string } =>
+                      typeof protocol.name === 'string',
+                  )
+                  .map((protocol) => [protocol.name, 'workspace:*']),
+              ),
+            }
+          : {}),
+      }),
+    );
+  }
 }
 
 function temporaryRoot(prefix = 'project-manifest-') {
@@ -166,7 +147,17 @@ evidence(
   async (context, check) => {
     await check('manifest-schema', () => {
       // 仓库清单通过 schema 校验，且 schema 的每个属性都有中文说明。
-      context.expect(loadProjectManifest(repositoryRoot).packages).toHaveLength(3);
+      const repository = loadProjectManifest(repositoryRoot);
+      context
+        .expect(repository.packages.map((pkg) => pkg.directory))
+        .toEqual([...new Set(repository.packages.map((pkg) => pkg.directory))]);
+      context
+        .expect(
+          repository.packages.every((pkg) =>
+            existsSync(join(repositoryRoot, 'packages', pkg.directory)),
+          ),
+        )
+        .toBe(true);
       context
         .expect(
           checkSchemaDocumentation(repositoryRoot).filter((issue) =>
@@ -174,6 +165,41 @@ evidence(
           ),
         )
         .toEqual([]);
+      const expanded = structuredClone(repository) as MutableManifest;
+      let suffix = 1;
+      while (
+        repository.packages.some(
+          (pkg) =>
+            pkg.directory === `web-idl-${suffix}` || pkg.name === `@sample/web-idl-${suffix}`,
+        )
+      )
+        suffix += 1;
+      const sampleDirectory = `web-idl-${suffix}`;
+      expanded.packages.push({
+        directory: sampleDirectory,
+        name: `@sample/${sampleDirectory}`,
+        role: 'product',
+        form: 'web-app',
+        private: true,
+        allowedDirectories: ['src'],
+        moduleRoots: ['src'],
+        globalStore: 'src/store/index.ts',
+        consumedOperations: ['src/app/consumed-operations.ts'],
+      });
+      expanded.bindings.push({
+        name: `${sampleDirectory}-browser`,
+        product: sampleDirectory,
+        protocol: repository.packages.find((pkg) => pkg.role === 'protocol')!.directory,
+        platforms: ['browser'],
+      });
+      const expandedRoot = createControlledRoot({ manifest: expanded });
+      try {
+        context
+          .expect(loadProjectManifest(expandedRoot.root).packages)
+          .toHaveLength(repository.packages.length + 1);
+      } finally {
+        expandedRoot.cleanup();
+      }
       const root = temporaryRoot();
       writeManifest(root, baseManifest());
       context.expect(loadProjectManifest(root).packages).toHaveLength(3);
@@ -193,6 +219,45 @@ evidence(
         ),
       });
       context.expect(() => loadProjectManifest(wrongRole)).toThrow(/does not match/);
+
+      const missingContract = baseManifest();
+      missingContract.packages[1] = {
+        ...missingContract.packages[1]!,
+        protocolKind: 'openapi',
+      };
+      const missingContractRoot = temporaryRoot();
+      writeManifest(missingContractRoot, missingContract);
+      context.expect(() => loadProjectManifest(missingContractRoot)).toThrow(/contract/);
+
+      const contractOnIdl = baseManifest();
+      contractOnIdl.packages[1] = {
+        ...contractOnIdl.packages[1]!,
+        contract: { file: 'packages/sample-protocol/contracts/api.yaml', lock: 'contracts.lock' },
+      };
+      contractOnIdl.fingerprints.protocolInputs.push(
+        'packages/sample-protocol/contracts/api.yaml',
+        'contracts.lock',
+      );
+      const contractOnIdlRoot = temporaryRoot();
+      writeManifest(contractOnIdlRoot, contractOnIdl);
+      context.expect(() => loadProjectManifest(contractOnIdlRoot)).toThrow(/does not match/);
+
+      const openapiContract = baseManifest();
+      openapiContract.packages[1] = {
+        ...openapiContract.packages[1]!,
+        protocolKind: 'openapi',
+        contract: { file: 'packages/sample-protocol/contracts/api.yaml', lock: 'contracts.lock' },
+      };
+      openapiContract.fingerprints.protocolInputs = ['contracts.lock'];
+      context
+        .expect(validateManifest(openapiContract as unknown as ProjectManifest).join('\n'))
+        .toContain('contract file packages/sample-protocol/contracts/api.yaml');
+
+      openapiContract.fingerprints.protocolInputs = ['packages/sample-protocol/contracts/api.yaml'];
+      context
+        .expect(validateManifest(openapiContract as unknown as ProjectManifest).join('\n'))
+        .toContain('contract lock contracts.lock');
+
       const missingReason = temporaryRoot();
       writeManifest(missingReason, {
         ...baseManifest(),
@@ -218,7 +283,7 @@ evidence(
         .expect(testProjectsByClass(manifest, ['integration', 'platform']))
         .toEqual(['integration', 'platform']);
       context.expect(testProjectsByClass(manifest, ['integration'])).toEqual(['integration']);
-      context.expect(packageByRole(manifest, 'protocol').directory).toBe('sample-protocol');
+      context.expect(packagesByRole(manifest, 'protocol')[0]!.directory).toBe('sample-protocol');
       context.expect(validateManifest(manifest)).toEqual([]);
       context
         .expect(testProjectConfigs(manifest))
@@ -254,18 +319,18 @@ evidence(
           },
         ],
       });
-      context.expect(() => loadProjectManifest(semantic)).toThrow(/is invalid/);
+      context.expect(() => loadProjectManifest(semantic)).toThrow(/does not match|is invalid/);
 
       // 语义校验：角色、目录/包名唯一、测试包私有、测试项目名唯一与类别覆盖。
       const cases: Array<[string, (value: MutableManifest) => void]> = [
         [
-          'expected exactly one product package',
+          'expected at least one product package',
           (value) => {
             value.packages = [value.packages[1]!, value.packages[2]!];
           },
         ],
         [
-          'expected exactly one protocol package',
+          'expected at least one protocol package',
           (value) => {
             value.packages = [value.packages[0]!, value.packages[2]!];
           },
@@ -305,6 +370,28 @@ evidence(
           },
         ],
         [
+          'must reference a project of the same class',
+          (value) => {
+            value.testProjects.push({
+              name: 'integration-heavy',
+              class: 'integration',
+              config: 'packages/sample-test/vitest.config.integration-heavy.ts',
+              environment: 'missing',
+            });
+          },
+        ],
+        [
+          'must reference a project of the same class',
+          (value) => {
+            value.testProjects.push({
+              name: 'integration-heavy',
+              class: 'integration',
+              config: 'packages/sample-test/vitest.config.integration-heavy.ts',
+              environment: 'platform',
+            });
+          },
+        ],
+        [
           'consumedOperations is only allowed for the product package',
           (value) => {
             value.packages[1] = { ...value.packages[1]!, consumedOperations: ['src/ops.ts'] };
@@ -323,25 +410,26 @@ evidence(
         context.expect(validateManifest(value as ProjectManifest).join('\n')).toContain(message);
       }
       const noProduct = { ...baseManifest(), packages: baseManifest().packages.slice(1) };
-      context
-        .expect(() => packageByRole(noProduct as unknown as ProjectManifest, 'product'))
-        .toThrow(/no product package/);
+      context.expect(packagesByRole(noProduct as ProjectManifest, 'product')).toEqual([]);
     });
 
     await check('obligation-environments', async () => {
-      const manifest = loadProjectManifest(repositoryRoot);
-      const integrationAndPlatform = testProjectsByClass(manifest, ['integration', 'platform']);
-      const integrationOnly = testProjectsByClass(manifest, ['integration']);
-      // 义务运行环境由清单派生；声明取自受控输入，示例删除后仍能复核同一事实（ENG-06）。
+      // 义务运行环境由受控清单派生；不读取真实仓库当前的 SDK/IDL 拓扑。
       const root = declarationRoot({
-        generatedFromRepository: true,
-        declaration: exampleDeclarationSource,
-        caller: exampleCallerSource,
+        declaration: defaultDeclarationSource,
+        caller: defaultCallerSource,
         protocolFiles: {
-          'errors/business-codes.ts': repositoryProtocolSource('errors/business-codes.ts'),
+          'errors/business-codes.ts': syntheticBusinessErrorSource,
         },
         prefix: 'template-manifest-005-',
       });
+      const manifest = loadProjectManifest(root.root);
+      const sdkProduct = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk')!;
+      const integrationAndPlatform = [
+        ...testEnvironmentsByClass(manifest, ['integration']),
+        ...bindingForProduct(manifest, sdkProduct.directory).platforms,
+      ];
+      const integrationOnly = testEnvironmentsByClass(manifest, ['integration']);
       const inventory = await buildContractInventory(root.root);
       root.cleanup();
       const obligationEnvironments = new Set(
@@ -424,11 +512,46 @@ evidence(
     });
 
     await check('environments-by-manifest', () => {
-      const manifest = loadProjectManifest(repositoryRoot);
-      context.expect(environmentClassOf('integration')).toBe('integration');
-      context.expect(environmentClassOf('weapp')).toBe('platform');
-      context.expect(environmentClassOf('not-registered')).toBeUndefined();
-      context.expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
+      const manifest = baseManifest();
+      manifest.testProjects = [
+        { name: 'sample-unit', class: 'unit', config: 'packages/sample-product/vitest.config.ts' },
+        {
+          name: 'integration',
+          class: 'integration',
+          config: 'packages/sample-test/vitest.config.ts',
+        },
+        {
+          name: 'integration-heavy',
+          class: 'integration',
+          config: 'packages/sample-test/vitest.config.integration.ts',
+        },
+        {
+          name: 'platform',
+          class: 'platform',
+          config: 'packages/sample-test/vitest.config.platform.ts',
+        },
+        {
+          name: 'browser',
+          class: 'platform',
+          config: 'packages/sample-test/vitest.config.browser.ts',
+        },
+      ];
+      const environmentRoot = createControlledRoot({
+        manifest,
+        prefix: 'project-manifest-environments-',
+      });
+      context.expect(environmentClassOf('integration', environmentRoot.root)).toBe('integration');
+      context.expect(environmentClassOf('platform', environmentRoot.root)).toBe('platform');
+      context.expect(environmentClassOf('not-registered', environmentRoot.root)).toBeUndefined();
+      environmentRoot.cleanup();
+      context
+        .expect(
+          defaultReportNames({
+            ...manifest,
+            testProjects: manifest.testProjects,
+          } as ProjectManifest),
+        )
+        .toEqual(['unit', 'integration', 'integration-heavy', 'platform', 'browser']);
       // 默认报告由清单测试项目派生：unit 合并为一份，perFile 项目取目录下的全部报告文件。
       const root = temporaryRoot('project-manifest-reports-');
       const perFileManifest = baseManifest();
@@ -477,8 +600,8 @@ evidence(
       context
         .expect(planCommand(root, 'build').map((step) => step.args[1]))
         .toEqual([
-          packageByRole(manifest, 'protocol').name,
-          packageByRole(manifest, 'product').name,
+          ...packagesByRole(manifest, 'protocol').map((item) => item.name),
+          ...packagesByRole(manifest, 'product').map((item) => item.name),
         ]);
       context
         .expect(planCommand(root, 'test:unit')[0]!.args)
@@ -486,16 +609,10 @@ evidence(
           'run',
           ...testProjectsByClass(manifest, ['unit']).flatMap((name) => ['--project', name]),
           '--coverage',
+          ...(process.env.TEMPLATE_UNIT_MAX_WORKERS
+            ? [`--maxWorkers=${process.env.TEMPLATE_UNIT_MAX_WORKERS}`]
+            : []),
         ]);
     });
   },
 );
-
-test('derives default report names from the registered test projects', () => {
-  const manifest = loadProjectManifest(repositoryRoot);
-  expect(defaultReportNames(manifest)).toEqual(['unit', 'integration', 'weapp']);
-  expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'weapp')!)).toBe('weapp');
-  expect(reportNameFor(manifest.testProjects.find((item) => item.name === 'sdk-unit')!)).toBe(
-    'unit',
-  );
-});

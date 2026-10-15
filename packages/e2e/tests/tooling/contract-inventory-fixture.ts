@@ -6,23 +6,37 @@ import {
   declarationRoot,
   exampleCallerSource,
   exampleDeclarationSource,
-  repositoryProtocolSource,
+  syntheticBusinessErrorSource,
 } from './declaration-fixture.ts';
 import {
+  bindingForProduct,
   loadProjectManifest,
-  packageByRole,
-  testProjectsByClass,
+  packageByDirectory,
+  packagesByRole,
 } from '../../../../scripts/lib/project-manifest.ts';
+import { testEnvironmentsByClass } from '../../../../scripts/lib/test-environments.ts';
 
 /** 模板自身事实核验：只读真实仓库已提交的协议产物与清单，不依赖调用方工作目录。 */
 export const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
-export const generated = join(repositoryRoot, 'packages/protocol/src/generated');
+const repositoryManifest = loadProjectManifest(repositoryRoot);
+const repositoryIdlProtocol = packagesByRole(repositoryManifest, 'protocol').find(
+  (item) => item.protocolKind === 'idl',
+);
+const repositorySdkProduct = packagesByRole(repositoryManifest, 'product').find(
+  (item) => item.form === 'sdk',
+);
+export const hasRepositoryIdl = repositoryIdlProtocol !== undefined;
+export const generated = repositoryIdlProtocol
+  ? join(repositoryRoot, 'packages', repositoryIdlProtocol.directory, 'src/generated')
+  : '';
 export const tradeFile = 'generated/idl/infra/trade/v1/trade.ts';
-/** 义务运行环境由清单派生：路由、字段与共享方法要求全部 integration 与 platform 项目。 */
-export const requiredIn = testProjectsByClass(loadProjectManifest(repositoryRoot), [
-  'integration',
-  'platform',
-]);
+/** 义务运行环境由 SDK 产品绑定派生：integration 加上该绑定声明的平台。 */
+export const requiredIn = [
+  ...testEnvironmentsByClass(repositoryManifest, ['integration']),
+  ...(repositorySdkProduct
+    ? bindingForProduct(repositoryManifest, repositorySdkProduct.directory).platforms
+    : []),
+];
 export const businessErrorNames = [
   'ErrGatewayProxyInvalidParameter',
   'ErrGatewayProxyUnauthorized',
@@ -34,6 +48,7 @@ export const businessErrorNames = [
 ];
 
 export async function copyGenerated(prefix: string) {
+  if (!hasRepositoryIdl) throw new Error('repository has no IDL protocol package');
   const root = await mkdtemp(join(tmpdir(), prefix));
   await cp(generated, join(root, 'generated'), { recursive: true });
   return { root, file: join(root, tradeFile) };
@@ -42,8 +57,12 @@ export async function copyGenerated(prefix: string) {
 /** 受控临时根中的包目录由清单推导，测试不写死包名与目录。 */
 export function controlled(root: string) {
   const manifest = loadProjectManifest(root);
-  const product = packageByRole(manifest, 'product');
-  const protocol = packageByRole(manifest, 'protocol');
+  const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+  if (!product) throw new Error('fixture has no sdk product package');
+  const protocol = packageByDirectory(
+    manifest,
+    bindingForProduct(manifest, product.directory).protocol,
+  );
   return {
     declaration: `packages/${product.directory}/src/consumed-operations.ts`,
     caller: `packages/${product.directory}/src/caller.ts`,
@@ -57,12 +76,13 @@ export function controlled(root: string) {
  * （不在示例删除白名单内），因此示例删除后仍能派生同样的义务（ENG-06）。
  */
 export function exampleInventoryRoot(prefix = 'template-example-contract-') {
+  if (!hasRepositoryIdl) throw new Error('repository has no IDL protocol package');
   return declarationRoot({
     generatedFromRepository: true,
     declaration: exampleDeclarationSource,
     caller: exampleCallerSource,
     protocolFiles: {
-      'errors/business-codes.ts': repositoryProtocolSource('errors/business-codes.ts'),
+      'errors/business-codes.ts': syntheticBusinessErrorSource,
     },
     prefix,
   });

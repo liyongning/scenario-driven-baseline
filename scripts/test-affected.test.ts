@@ -17,6 +17,7 @@ import {
   spawnAffectedStep,
 } from './test-affected.ts';
 import { loadProjectManifest } from './lib/project-manifest.ts';
+import { baseManifest } from '../packages/e2e/tests/tooling/project-manifest-fixture.ts';
 
 const specPath = 'openspec/specs/sample/spec.md';
 const productSource = 'packages/sample-product/src/core.ts';
@@ -120,12 +121,24 @@ describe('test:affected 依赖分析与执行路径', () => {
   });
 
   it('平台文件按清单登记先执行 prepare，同一项目的文件合成一份报告', () => {
-    const manifest = loadProjectManifest(process.cwd());
+    const manifest = baseManifest();
+    manifest.testProjects = manifest.testProjects.map((item) =>
+      item.class === 'platform' ? { ...item, perFile: true, prepare: 'platform:prepare' } : item,
+    );
+    manifest.testProjects.push({
+      name: 'integration-heavy',
+      class: 'integration',
+      config: 'packages/sample-test/vitest.config.integration-heavy.ts',
+    });
     const runId = 'affected-20260101T000000Z';
     const commands = affectedCommands(process.cwd(), manifest, {
       runId,
       files: [
-        { project: 'weapp', className: 'platform', file: 'packages/e2e/tests/weapp/a.spec.ts' },
+        {
+          project: 'platform',
+          className: 'platform',
+          file: 'packages/e2e/tests/platform/a.spec.ts',
+        },
         {
           project: 'integration',
           className: 'integration',
@@ -141,18 +154,20 @@ describe('test:affected 依赖分析与执行路径', () => {
       build: false,
     });
     // prepare 由清单 `testProjects[].prepare` 派生，不写死命令名；它排在平台文件步骤之前。
-    expect(commands[0]).toEqual({ command: 'pnpm', args: ['run', 'weapp:prepare'] });
+    expect(commands[0]).toEqual({ command: 'pnpm', args: ['run', 'platform:prepare'] });
     expect(commands[1]?.args).toEqual([
       'run',
       '--project',
-      'weapp',
-      'packages/e2e/tests/weapp/a.spec.ts',
+      'platform',
+      'packages/e2e/tests/platform/a.spec.ts',
     ]);
     // 非 perFile 项目一次跑完该项目选中的全部文件，只写一份报告，不互相覆盖。
     expect(commands[2]?.args).toEqual([
       'run',
       '--project',
       'integration',
+      '--project',
+      'integration-heavy',
       'packages/e2e/tests/protocol/b.spec.ts',
       'packages/e2e/tests/protocol/c.spec.ts',
     ]);
@@ -160,10 +175,43 @@ describe('test:affected 依赖分析与执行路径', () => {
       .filter((step) => step.command === 'vitest')
       .map((step) => step.env?.VERIFY_REPORT_FILE);
     expect(reports).toEqual([
-      join(process.cwd(), 'artifacts', runId, 'reports', 'weapp', 'a.json'),
+      join(process.cwd(), 'artifacts', runId, 'reports', 'platform', 'a.json'),
       join(process.cwd(), 'artifacts', runId, 'reports', 'integration.json'),
     ]);
     expect(new Set(reports).size).toBe(reports.length);
+  });
+
+  it('perFile 项目未登记 prepare 时不生成预热步骤', () => {
+    const manifest = baseManifest();
+    manifest.testProjects = [
+      {
+        name: 'platform',
+        class: 'platform',
+        config: 'packages/sample-test/vitest.config.platform.ts',
+        perFile: true,
+      },
+    ];
+    const commands = affectedCommands(process.cwd(), manifest, {
+      runId: 'affected-20260101T000000Z',
+      files: [
+        {
+          project: 'platform',
+          className: 'platform',
+          file: 'packages/e2e/tests/platform/a.spec.ts',
+        },
+      ],
+      related: [],
+      build: false,
+    });
+
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.command).toBe('vitest');
+    expect(commands[0]?.args).toEqual([
+      'run',
+      '--project',
+      'platform',
+      'packages/e2e/tests/platform/a.spec.ts',
+    ]);
   });
 
   it('unit related 命中却零用例时判失败，报告缺失或没有 related 时不误报', () => {
@@ -312,10 +360,37 @@ describe('test:affected 依赖分析与执行路径', () => {
 it('scanCaseBindings 读取受控根里的全部绑定', { timeout: 30_000 }, () => {
   const fixture = createAffectedFixture();
   try {
+    fixture.write(
+      'packages/e2e/tests/sample-product-idl/directory.spec.ts',
+      [
+        "import { defineCase } from '../../src/cases/define-case.ts';",
+        "defineCase({ ownerId: 'SCN-SAMPLE-DIR-001', caseId: 'normal', environment: 'integration', fixtureCase: 'normal', covers: [] }, () => {});",
+        '',
+      ].join('\n'),
+    );
+    fixture.write(
+      'packages/e2e/tests/other/unbound.spec.ts',
+      [
+        "import { defineCase } from '../../src/cases/define-case.ts';",
+        "defineCase({ ownerId: 'SCN-SAMPLE-OTHER-001', caseId: 'normal', environment: 'integration', fixtureCase: 'normal', covers: [] }, () => {});",
+        '',
+      ].join('\n'),
+    );
     const bindings = scanCaseBindings(fixture.root, loadProjectManifest(fixture.root));
     expect(bindings.map((item) => item.file).sort()).toEqual(
-      [integrationSpec, platformSpec, toolingSpec, flowSpec].sort(),
+      [
+        integrationSpec,
+        platformSpec,
+        toolingSpec,
+        flowSpec,
+        'packages/e2e/tests/sample-product-idl/directory.spec.ts',
+        'packages/e2e/tests/other/unbound.spec.ts',
+      ].sort(),
     );
+    expect(bindings.find((item) => item.file.endsWith('directory.spec.ts'))?.binding).toBe(
+      'sample-product-idl',
+    );
+    expect(bindings.find((item) => item.file.endsWith('unbound.spec.ts'))?.binding).toBeUndefined();
   } finally {
     fixture.cleanup();
   }

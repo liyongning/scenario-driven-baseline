@@ -1,0 +1,22 @@
+{
+  "token": "fixture-token",
+  "merchantId": 1001,
+  "amount": 25,
+  "trade": {
+    "trade_no": "T-FLOW-1",
+    "status": "CREATED",
+    "amount": 25,
+    "merchant_id": 1001,
+    "failure_reason": null
+  },
+  "statuses": ["PROCESSING", "SUCCEEDED"],
+  "list": [
+    {
+      "trade_no": "T-FLOW-1",
+      "status": "SUCCEEDED",
+      "amount": 25,
+      "merchant_id": 1001,
+      "failure_reason": null
+    }
+  ]
+}

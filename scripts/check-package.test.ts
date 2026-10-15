@@ -1,32 +1,38 @@
-import { readFileSync } from 'node:fs';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createControlledRoot } from '../packages/e2e/tests/tooling/controlled-root.ts';
-import { packageByRole, type ProjectManifest } from './lib/project-manifest.ts';
+import { baseManifest } from '../packages/e2e/tests/tooling/project-manifest-fixture.ts';
+import {
+  packagesByRole,
+  packageByDirectory,
+  type ProjectManifest,
+} from './lib/project-manifest.ts';
 import { checkPackageArtifacts, runPackageCli } from './check-package.ts';
 
-const repositoryManifest = JSON.parse(
-  readFileSync(new URL('../project.manifest.json', import.meta.url), 'utf8'),
-) as ProjectManifest;
+const repositoryManifest = baseManifest() as ProjectManifest;
+const repositoryProduct = packagesByRole(repositoryManifest, 'product').find(
+  (item) => item.form === 'sdk',
+)!;
+const repositoryProtocol = packageByDirectory(
+  repositoryManifest,
+  repositoryManifest.bindings.find((item) => item.product === repositoryProduct.directory)!
+    .protocol,
+);
 /** 门禁逻辑自测的受控根：清单是模板契约输入，测试包清单用测试输入补齐，不读取仓库实时状态。 */
 const packageRoot = createControlledRoot({
   manifest: repositoryManifest,
-  files: {
-    [`packages/${packageByRole(repositoryManifest, 'test').directory}/package.json`]:
-      JSON.stringify({ name: 'fixture-e2e', private: true }),
-  },
   prefix: 'package-cli-root-',
 });
 afterAll(() => packageRoot.cleanup());
 
-const protocol = { name: '@daqian/template-protocol', version: '0.1.0', files: ['dist'] };
+const protocol = { name: repositoryProtocol.name, version: '0.1.0', files: ['dist'] };
 const sdk = {
-  name: '@daqian/template-sdk',
+  name: repositoryProduct.name,
   version: '0.2.0',
   files: ['dist'],
-  dependencies: { '@daqian/template-protocol': '0.1.0' },
+  dependencies: { [repositoryProtocol.name]: '0.1.0' },
 };
 
 describe('checkPackageArtifacts', () => {
@@ -92,12 +98,13 @@ describe('checkPackageArtifacts', () => {
 
     const spawn = vi.fn((command: string, args: ReadonlyArray<string>) => {
       if (command === 'pnpm') {
-        const name = args[1]!.endsWith('protocol')
-          ? 'daqian-template-protocol-0.1.0.tgz'
-          : 'daqian-template-sdk-0.2.0.tgz';
+        const name =
+          args[1] === repositoryProtocol.name
+            ? `${repositoryProtocol.name.replace(/^@/, '').replace('/', '-')}-0.1.0.tgz`
+            : `${repositoryProduct.name.replace(/^@/, '').replace('/', '-')}-0.2.0.tgz`;
         return { status: 0, stdout: `${name}\n`, stderr: '' };
       }
-      const isProtocol = args[1]!.includes('protocol');
+      const isProtocol = args[1]!.includes(repositoryProtocol.directory);
       if (args[0] === '-tf')
         return { status: 0, stdout: 'package/package.json\npackage/dist/index.js\n', stderr: '' };
       return { status: 0, stdout: JSON.stringify(isProtocol ? protocol : sdk), stderr: '' };
@@ -108,8 +115,8 @@ describe('checkPackageArtifacts', () => {
       issues: [],
       exitCode: 0,
       commands: [
-        { command: expect.stringContaining('@daqian/template-protocol'), exitCode: 0 },
-        { command: expect.stringContaining('@daqian/template-sdk'), exitCode: 0 },
+        { command: expect.stringContaining(repositoryProtocol.name), exitCode: 0 },
+        { command: expect.stringContaining(repositoryProduct.name), exitCode: 0 },
       ],
     });
   });

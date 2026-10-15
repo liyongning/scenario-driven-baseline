@@ -54,6 +54,7 @@ function workspace() {
           directory: 'sdk',
           name: '@daqian/template-sdk',
           role: 'product',
+          form: 'sdk',
           private: false,
           allowedDirectories: ['src'],
         },
@@ -61,6 +62,7 @@ function workspace() {
           directory: 'protocol',
           name: '@daqian/template-protocol',
           role: 'protocol',
+          protocolKind: 'idl',
           private: false,
           allowedDirectories: ['src'],
         },
@@ -70,6 +72,14 @@ function workspace() {
           role: 'test',
           private: true,
           allowedDirectories: ['src'],
+        },
+      ],
+      bindings: [
+        {
+          name: 'sdk-idl',
+          product: 'sdk',
+          protocol: 'protocol',
+          platforms: [],
         },
       ],
       requiredCommands: ['check:fast'],
@@ -219,7 +229,7 @@ describe('formal release record checker', () => {
         version: '0.1.0-alpha.1',
       }),
     );
-    expect((await readReleaseWorkspaceFacts(root)).sdk.protocolDependency).toBe('');
+    await expect(readReleaseWorkspaceFacts(root)).rejects.toThrow(/workspace dependency/);
   });
 
   it('runs the CLI with only a release record and current workspace manifests', async () => {

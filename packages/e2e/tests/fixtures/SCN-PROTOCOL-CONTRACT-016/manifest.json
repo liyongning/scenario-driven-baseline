@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-016",
+  "protocol": "protocol",
+  "sources": {
+    "spec": {
+      "requirementDigest": "b0f62fe33ff99e2874cd163a62012c63e70d8986a21f7cb779c60c218a797ab7"
+    }
+  },
+  "cases": {
+    "adapter-artifact-boundary": "adapter-artifact-boundary.json"
+  },
+  "sha256": {
+    "adapter-artifact-boundary.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

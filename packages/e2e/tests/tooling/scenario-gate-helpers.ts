@@ -11,9 +11,10 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test, type TestContext } from 'vitest';
 import { createOpenSpecStub } from './openspec-stub.ts';
-import { createControlledRoot } from './controlled-root.ts';
+import { createControlledRoot, protocolAdapterFixtureSource } from './controlled-root.ts';
 import { writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import { coreTsconfigInclude } from '../../../../scripts/lib/web-app-checks.ts';
+import type { ManifestBinding, ManifestPackage } from '../../../../scripts/lib/project-manifest.ts';
 
 /** 仓库根由模块位置推导，门禁自测不依赖调用方的工作目录。 */
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
@@ -71,18 +72,63 @@ export function writeSpec(
 }
 
 /** 按仓库清单复制每个包的最小目录（AGENTS.md 与 package.json），用例不写死包目录名。 */
-export function writeRepositoryPackages(root: string) {
-  const manifest = JSON.parse(
-    readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
-  ) as { packages: Array<{ directory: string }> };
+export function writeRepositoryPackages(
+  root: string,
+  suppliedManifest?: Readonly<{
+    packages: ManifestPackage[];
+    bindings: ManifestBinding[];
+  }>,
+) {
+  const manifest: Readonly<{ packages: ManifestPackage[]; bindings: ManifestBinding[] }> =
+    suppliedManifest ??
+    (JSON.parse(readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8')) as {
+      packages: ManifestPackage[];
+      bindings: ManifestBinding[];
+    });
   for (const pkg of manifest.packages) {
     const directory = join(root, 'packages', pkg.directory);
     mkdirSync(directory, { recursive: true });
     writeFileSync(join(directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
     writeFileSync(
       join(directory, 'package.json'),
-      readFileSync(join(repositoryRoot, 'packages', pkg.directory, 'package.json')),
+      suppliedManifest
+        ? JSON.stringify({
+            name: pkg.name,
+            version: '0.0.0',
+            private: pkg.private,
+            ...(pkg.role === 'product'
+              ? {
+                  dependencies: {
+                    ...Object.fromEntries(
+                      manifest.bindings
+                        .filter((binding) => binding.product === pkg.directory)
+                        .flatMap((binding) => {
+                          const protocol = manifest.packages.find(
+                            (candidate) => candidate.directory === binding.protocol,
+                          );
+                          return protocol ? [[protocol.name, 'workspace:*']] : [];
+                        }),
+                    ),
+                    ...(pkg.form === 'web-app' ? { '@vue/devtools-api': '1.0.0' } : {}),
+                  },
+                }
+              : {}),
+          })
+        : readFileSync(join(repositoryRoot, 'packages', pkg.directory, 'package.json')),
     );
+    if (pkg.form === 'web-app') {
+      writeFileSync(
+        join(directory, 'tsconfig.core.json'),
+        JSON.stringify(
+          {
+            compilerOptions: { composite: true, lib: ['ES2022'], types: [] },
+            include: coreTsconfigInclude(pkg),
+          },
+          null,
+          2,
+        ),
+      );
+    }
   }
   writeProjectMapFixture(root);
 }
@@ -110,9 +156,18 @@ function mirrorSources(source: string, target: string): void {
 }
 
 export function enableInventory(root: string, options: InventoryOptions = {}) {
-  const manifest = loadProjectManifest(root);
-  const protocol = packageByRole(manifest, 'protocol');
+  const manifest = JSON.parse(readFileSync(join(root, 'project.manifest.json'), 'utf8')) as {
+    packages: ReadonlyArray<{ directory: string; role: string; protocolKind?: string }>;
+  };
   writeFileSync(join(root, 'proto-gen.lock'), 'fixture');
+  for (const protocol of manifest.packages.filter((pkg) => pkg.role === 'protocol')) {
+    const adapter = join(root, 'packages', protocol.directory, 'testing/adapter.ts');
+    if (!existsSync(adapter)) {
+      mkdirSync(dirname(adapter), { recursive: true });
+      writeFileSync(adapter, protocolAdapterFixtureSource(protocol.directory));
+    }
+  }
+  const protocol = manifest.packages.find((pkg) => pkg.role === 'protocol');
   if (options.realSources) {
     for (const pkg of manifest.packages) {
       const source = resolve(repositoryRoot, 'packages', pkg.directory, 'src');
@@ -120,14 +175,12 @@ export function enableInventory(root: string, options: InventoryOptions = {}) {
       if (!existsSync(source) || existsSync(target)) continue;
       mirrorSources(source, target);
     }
-  } else {
+  } else if (protocol) {
     const generated = join(root, 'packages', protocol.directory, 'src/generated');
+    const source = resolve(repositoryRoot, 'packages', protocol.directory, 'src/generated');
     mkdirSync(dirname(generated), { recursive: true });
-    symlinkSync(
-      resolve(repositoryRoot, 'packages', protocol.directory, 'src/generated'),
-      generated,
-      'dir',
-    );
+    if (existsSync(source)) symlinkSync(source, generated, 'dir');
+    else mkdirSync(generated, { recursive: true });
   }
   for (const [relative, source] of [
     [
@@ -136,8 +189,10 @@ export function enableInventory(root: string, options: InventoryOptions = {}) {
     ],
   ] as const) {
     const target = join(root, relative);
+    const repositorySource = resolve(repositoryRoot, source);
+    if (!existsSync(repositorySource)) continue;
     mkdirSync(dirname(target), { recursive: true });
-    symlinkSync(resolve(repositoryRoot, source), target);
+    symlinkSync(repositorySource, target);
   }
 }
 
@@ -163,6 +218,7 @@ export function runGate(
             issues: string[];
             scenarios?: unknown[];
             flows?: unknown[];
+            contracts?: Array<{ id: string; requiredIn: string[]; cases: string[] }>;
             summaries?: unknown;
             digests?: unknown;
             help?: string;
@@ -218,7 +274,7 @@ export function cliEvidence(
     context: TestContext,
     check: (name: string, assertion: () => void | Promise<void>) => Promise<void>,
   ) => void | Promise<void>,
-  options: Readonly<{ timeoutMs?: number }> = {},
+  options: Readonly<{ timeoutMs?: number; binding?: string }> = {},
 ) {
   test(
     `${id} ${caseId}`,
@@ -231,6 +287,7 @@ export function cliEvidence(
           caseId,
           fixtureCase: caseId,
           environment: 'integration',
+          ...(options.binding ? { binding: options.binding } : {}),
           covers: [{ id, caseKey: caseId, checks }],
         },
       },

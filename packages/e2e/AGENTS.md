@@ -39,7 +39,8 @@
 
 凡 SDK 需要与外部交互的地方，测试都在仓库内用替身闭环：
 
-- 服务端接口由 Shadow 网关承载：路由从 generated metadata 发现，按 Fixture 编排响应与故障。Shadow 维护在协议包 `testing/`，只服务测试，不进入产品产物。
+- 服务端接口由 Shadow 网关承载：路由从 generated metadata 发现，按 Fixture 编排响应与故障。Shadow 引擎维护在 `packages/e2e/src/shadow/`，服务测试与本地预览，均不进入产品产物。
+- 测试、本地预览与开发代理是三种独立模式，只在宿主或代理层切换；不提供按接口混合 Shadow 与真实服务端的模式。
 - 平台或第三方能力（例如小程序收银台、系统能力）由平台能力替身承载：在产品包中定义端口，适配器调用真实平台 API，替身放在 `packages/e2e/src/drivers/`，经用例注入。
 - 不提供“真实服务端 + 替身”或“替身服务端 + 真实平台能力”的混合模式；真实外部验收由真实消费方项目承担，不在本仓库进行。
 - weapp 用例仍通过真实 `wx.request` 访问 Shadow，证明平台网络适配的真实性。
@@ -59,12 +60,28 @@
 
 本模板不追求在小程序生态下建设完整通用的自动化流程，因此暂不修改 driver。如需彻底消除，可在后续 Change 中让 driver 在每次 launch 前退出主进程，或让同一文件内的 case 复用一次启动。
 
+### 浏览器自动化的注意事项
+
+首次运行前执行 `pnpm exec playwright install chromium`。浏览器用例由 Vitest 驱动 Playwright，每个测试文件启动一次浏览器，每个 case 创建并关闭独立 context；平台证据只代表本机 Chromium。
+
+已在 Chromium 中确认的交互行为：
+
+- `aria-disabled` 不会阻止点击。
+- 点击目标不在视口内时会先自动滚动到目标。
+- `fill` 会触发真实按键事件。
+- 页面内容变化时浏览器可能触发 scroll anchoring，断言滚动位置前要先把 DOM 更新等待完。
+
 ### 子模块
 
 - `packages/e2e/src/cases`：用例绑定、Fixture 装载与协议结果核对。
 - `packages/e2e/src/drivers`：外部交互替身驱动，替换端侧平台 API。
+- `packages/e2e/src/preview`：本地预览启动器与预览数据集接线，是唯一允许导入预览构造函数的目录。
+- `packages/e2e/src/hosts`：协议宿主、应用宿主、共用代理与宿主配置加载。
 - `packages/e2e/src/reporters`：报告收集与场景门禁汇总。
+- `packages/e2e/src/shadow`：协议无关的测试用 Shadow 引擎。
 - `packages/e2e/host/weapp`：最小微信小程序测试宿主。
+- `packages/e2e/host/browser`：最小浏览器协议宿主。
+- `packages/e2e/host/app`：应用宿主说明。
 
 <!-- template-example:begin -->
 
@@ -74,4 +91,5 @@
 
 - `packages/e2e/tests/protocol`：协议集成用例。
 - `packages/e2e/tests/tooling`：CLI 门禁正向与反例验证。
+- `packages/e2e/tests/web-openapi-browser`：Web/OpenAPI 协议集成与浏览器用例。
 - `packages/e2e/tests/weapp`：小程序用例，经真实 `wx.request` 访问 Shadow。

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "src/runtime/**/*.ts",
+    "src/*/core/**/*.ts",
+    "src/*/ports/**/*.ts",
+    "src/store/index.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"],
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ES2022"],
+    "types": [],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.core.tsbuildinfo"
+  }
+}

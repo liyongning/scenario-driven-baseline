@@ -1,0 +1,12 @@
+{
+  "token": "fixture-token",
+  "merchantId": 1001,
+  "amount": 25,
+  "trade": {
+    "trade_no": "T-CREATE-1",
+    "status": "CREATED",
+    "amount": 25,
+    "merchant_id": 1001,
+    "failure_reason": null
+  }
+}

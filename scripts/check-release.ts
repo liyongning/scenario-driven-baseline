@@ -2,8 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
+  bindingForProduct,
   loadProjectManifest,
-  packageByRole,
+  packageByDirectory,
+  sdkProduct,
   type ReleaseSettings,
 } from './lib/project-manifest.ts';
 
@@ -143,8 +145,11 @@ export async function readReleaseWorkspaceFacts(
   root = process.cwd(),
 ): Promise<ReleaseWorkspaceFacts> {
   const manifest = loadProjectManifest(root);
-  const product = packageByRole(manifest, 'product');
-  const protocol = packageByRole(manifest, 'protocol');
+  const product = sdkProduct(manifest);
+  const protocol = packageByDirectory(
+    manifest,
+    bindingForProduct(manifest, product.directory).protocol,
+  );
   const [sdk, protocolJson] = await Promise.all([
     readFile(resolve(root, 'packages', product.directory, 'package.json'), 'utf8').then(
       JSON.parse,
@@ -157,9 +162,7 @@ export async function readReleaseWorkspaceFacts(
     sdk: {
       name: String(sdk.name),
       version: String(sdk.version),
-      protocolDependency: String(
-        (sdk.dependencies as Record<string, unknown> | undefined)?.[protocol.name] ?? '',
-      ),
+      protocolDependency: String((sdk.dependencies as Record<string, unknown>)[protocol.name]),
     },
     protocol: { name: String(protocolJson.name), version: String(protocolJson.version) },
   };

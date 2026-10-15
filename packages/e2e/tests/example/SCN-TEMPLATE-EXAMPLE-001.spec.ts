@@ -13,6 +13,7 @@ defineCase(
     caseId: 'node-import',
     fixtureCase: 'node-import',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-001',

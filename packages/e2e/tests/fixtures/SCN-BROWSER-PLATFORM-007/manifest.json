@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-BROWSER-PLATFORM-007",
+  "sources": {
+    "spec": {
+      "requirementDigest": "2e0a6b15366f0418beedabdb8f7656a80482f5f7d2335e227eb82c7ad22de4fd"
+    }
+  },
+  "cases": {
+    "freshness-host-start": "freshness-host-start.json"
+  },
+  "sha256": {
+    "freshness-host-start.json": "f27412034ae000f2bbf67396b065a86bba1feb27f9f43d822357b90ca2524af8"
+  }
+}

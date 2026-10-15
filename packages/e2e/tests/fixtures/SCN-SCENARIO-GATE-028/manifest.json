@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-SCENARIO-GATE-028",
+  "sources": {
+    "spec": {
+      "requirementDigest": "c1b0421cf7cd8540455de44a21a8d0b95eca606f43b75229f5bc8b7dde913a5b"
+    }
+  },
+  "cases": {
+    "protocol-adapter-fixtures": "protocol-adapter-fixtures.json"
+  },
+  "sha256": {
+    "protocol-adapter-fixtures.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

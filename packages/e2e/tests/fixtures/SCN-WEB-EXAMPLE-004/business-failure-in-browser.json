@@ -1,0 +1,26 @@
+{
+  "token": "fixture-token",
+  "merchantId": 1001,
+  "amount": 25,
+  "responses": [
+    {
+      "code": 42201,
+      "message": "amount limit exceeded",
+      "data": {}
+    },
+    {
+      "code": 40901,
+      "message": "conflict",
+      "data": {
+        "trade_no": "T-CONFLICT-1",
+        "conflict_code": "STATE_CHANGED"
+      }
+    },
+    {
+      "code": 40001,
+      "message": "invalid",
+      "data": {}
+    }
+  ],
+  "expected": ["金额超限", "交易冲突", "请求无效"]
+}

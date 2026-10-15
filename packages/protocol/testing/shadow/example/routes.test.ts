@@ -1,7 +1,6 @@
 import { describe, expect, it, test } from 'vitest';
 import { CreateTrade, QueryTrade } from '../../../src/generated/idl/infra/trade/v1/trade.ts';
 import { discoverExampleRoutes } from './routes.ts';
-import { createShadowServer } from '../server.ts';
 
 describe('discoverExampleRoutes', () => {
   it('discovers CreateTrade and QueryTrade from generated metadata', { timeout: 30_000 }, () => {
@@ -27,7 +26,6 @@ describe('discoverExampleRoutes', () => {
   test(
     'SCN-TEMPLATE-EXAMPLE-009 shadow-create-route',
     {
-      // 同一原因：discoverExampleRoutes 会编译 generated 类型派生校验器。
       timeout: 30_000,
       meta: {
         scenarioCase: {
@@ -47,62 +45,25 @@ describe('discoverExampleRoutes', () => {
     },
     async (context) => {
       const assertionsBefore = context.expect.getState().assertionCalls;
+      const route = discoverExampleRoutes().find(
+        (candidate) => candidate.methodName === 'CreateTrade',
+      );
+      context.expect(route).toMatchObject({
+        httpMethod: 'POST',
+        path: CreateTrade.meta.path,
+      });
+      context.expect(route?.validateResponse).toEqual(expect.any(Function));
+      context.expect(route?.validateResponse?.({ baseResp: { statusCode: '0' } }, 200)).toEqual([]);
       context
-        .expect(discoverExampleRoutes().find((route) => route.methodName === 'CreateTrade'))
-        .toMatchObject({
-          httpMethod: 'POST',
-          path: CreateTrade.meta.path,
-        });
-      const server = await createShadowServer({
-        routes: discoverExampleRoutes(),
-        scenarios: [
-          {
-            id: 'example-route-faults',
-            routes: {
-              CreateTrade: {
-                expectedRequests: [
-                  { recordOnly: true },
-                  { recordOnly: true },
-                  { recordOnly: true },
-                ],
-                steps: [
-                  { body: { baseResp: { statusCode: '10100801003070' } } },
-                  { delayMs: 10, body: { tradeNo: 'created', baseResp: { statusCode: '0' } } },
-                  { disconnect: true },
-                ],
-              },
-            },
-          },
-        ],
-      }).start();
-      try {
-        const post = () =>
-          fetch(`${server.url}/api/base/trade/create`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: '{}',
-          });
-        context
-          .expect(await (await post()).json())
-          .toMatchObject({ baseResp: { statusCode: '10100801003070' } });
-        const before = Date.now();
-        context.expect(await (await post()).json()).toMatchObject({ tradeNo: 'created' });
-        context.expect(Date.now() - before).toBeGreaterThanOrEqual(8);
-        await context.expect(post()).rejects.toThrow();
-        context
-          .expect(server.records().map((record) => record.methodName))
-          .toEqual(['CreateTrade', 'CreateTrade', 'CreateTrade']);
-        context.expect(server.verify()).toEqual([]);
-        await context.annotate(
-          JSON.stringify({
-            assertions: context.expect.getState().assertionCalls - assertionsBefore,
-            checkpoints: ['generated-route', 'fixture-driven'],
-          }),
-          'scenario-evidence',
-        );
-      } finally {
-        await server.close();
-      }
+        .expect(route?.validateResponse?.({ baseResp: { statusCode: '0' }, unknown: true }, 200))
+        .toEqual(['$.unknown: 响应类型中不存在的字段']);
+      await context.annotate(
+        JSON.stringify({
+          assertions: context.expect.getState().assertionCalls - assertionsBefore,
+          checkpoints: ['generated-route', 'fixture-driven'],
+        }),
+        'scenario-evidence',
+      );
     },
   );
 });

@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-BROWSER-PLATFORM-010",
+  "sources": {
+    "spec": {
+      "requirementDigest": "e733bce89bc5be18a166c1db452c35266ab8b1bbee2cc3619656c3db973a5a72"
+    }
+  },
+  "cases": {
+    "browser-case-layout": "browser-case-layout.json"
+  },
+  "sha256": {
+    "browser-case-layout.json": "58f0867ecbf1c43d0b344c03470e2c7895ac262c9c88193b2868af48ffeac78a"
+  }
+}

@@ -18,6 +18,15 @@
       "pattern": "^[A-Z][A-Z0-9-]*$",
       "description": "ownerId 的基础形态；项目允许的具体格式由 scenario-gate.config.json 校验。"
     },
+    "protocol": {
+      "description": "该 Fixture 的协议响应所属协议包目录；包含协议响应时必须声明。",
+      "type": "string",
+      "minLength": 1
+    },
+    "contractCarrier": {
+      "description": "Fixture 使用的契约载体；缺省为 product。",
+      "enum": ["product", "engine"]
+    },
     "sources": {
       "type": "object",
       "minProperties": 1,

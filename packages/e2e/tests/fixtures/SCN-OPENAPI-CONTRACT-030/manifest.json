@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-030",
+  "protocol": "openapi",
+  "sources": {
+    "spec": {
+      "requirementDigest": "e9b8d55a704a1426e3868f16d7bbe51f243e7b85af72a431d246d98342f6811f"
+    }
+  },
+  "cases": {
+    "inheritance-wire": "inheritance-wire.json"
+  },
+  "sha256": {
+    "inheritance-wire.json": "452ce547d93961841ee748f71787e8ffe599ab02683b5f5bd10de536a8b9738f"
+  }
+}

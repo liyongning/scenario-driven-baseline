@@ -4,6 +4,7 @@
       "directory": "sdk",
       "name": "@daqian/template-sdk",
       "role": "product",
+      "form": "sdk",
       "private": false,
       "allowedDirectories": ["src", "dist", "node_modules"],
       "moduleRoots": ["src"],
@@ -13,9 +14,36 @@
       "directory": "protocol",
       "name": "@daqian/template-protocol",
       "role": "protocol",
+      "protocolKind": "idl",
+      "checks": ["proto:validate", "proto:status"],
       "private": false,
       "allowedDirectories": ["src", "testing", "dist", "node_modules"],
       "moduleRoots": ["src", "testing"]
+    },
+    {
+      "directory": "openapi",
+      "name": "@daqian/template-openapi",
+      "role": "protocol",
+      "protocolKind": "openapi",
+      "checks": ["api:validate", "api:status"],
+      "private": false,
+      "allowedDirectories": ["src", "testing", "contracts", "dist", "node_modules"],
+      "moduleRoots": ["src", "testing"],
+      "contract": {
+        "file": "packages/openapi/contracts/trade-v1.yaml",
+        "lock": "packages/openapi/contracts/trade-v1.lock.json"
+      }
+    },
+    {
+      "directory": "web",
+      "name": "@daqian/template-web",
+      "role": "product",
+      "form": "web-app",
+      "private": true,
+      "allowedDirectories": ["src", "dist", "node_modules"],
+      "moduleRoots": ["src"],
+      "globalStore": "src/store/index.ts",
+      "consumedOperations": ["packages/web/src/app/consumed-operations.ts"]
     },
     {
       "directory": "e2e",
@@ -26,11 +54,28 @@
       "moduleRoots": ["src", "host", "tests"]
     }
   ],
+  "bindings": [
+    {
+      "name": "sdk-idl-weapp",
+      "product": "sdk",
+      "protocol": "protocol",
+      "platforms": ["weapp"]
+    },
+    {
+      "name": "web-openapi-browser",
+      "product": "web",
+      "protocol": "openapi",
+      "platforms": ["browser"]
+    }
+  ],
   "requiredCommands": [
     "proto:version",
     "proto:validate",
     "proto:status",
     "proto:sync",
+    "api:validate",
+    "api:sync",
+    "api:status",
     "lint",
     "typecheck",
     "build",
@@ -40,12 +85,17 @@
     "test:integration",
     "test:affected",
     "test:e2e:weapp",
+    "test:e2e:browser",
+    "preview:local",
+    "dev:remote",
     "check:architecture",
     "check:coverage",
     "check:fixtures",
     "fixtures:refresh",
     "check:scenarios",
     "check:package",
+    "check:bundle",
+    "check:component-tree",
     "check:fast",
     "weapp:prepare",
     "verify",
@@ -64,6 +114,16 @@
       "config": "packages/protocol/vitest.config.ts"
     },
     {
+      "name": "openapi-unit",
+      "class": "unit",
+      "config": "packages/openapi/vitest.config.ts"
+    },
+    {
+      "name": "app-unit",
+      "class": "unit",
+      "config": "packages/web/vitest.config.ts"
+    },
+    {
       "name": "test-tools-unit",
       "class": "unit",
       "config": "packages/e2e/vitest.config.unit.ts"
@@ -74,11 +134,23 @@
       "config": "packages/e2e/vitest.config.integration.ts"
     },
     {
+      "name": "integration-heavy",
+      "class": "integration",
+      "config": "packages/e2e/vitest.config.integration-heavy.ts",
+      "environment": "integration",
+      "passWithNoTests": true
+    },
+    {
       "name": "weapp",
       "class": "platform",
       "config": "packages/e2e/vitest.config.weapp.ts",
       "perFile": true,
       "prepare": "weapp:prepare"
+    },
+    {
+      "name": "browser",
+      "class": "platform",
+      "config": "packages/e2e/vitest.config.browser.ts"
     }
   ],
   "fingerprints": {
@@ -86,6 +158,10 @@
       "packages/sdk/src",
       "packages/protocol/src",
       "packages/protocol/testing",
+      "packages/openapi/src",
+      "packages/openapi/testing",
+      "packages/openapi/contracts",
+      "packages/web/src",
       "packages/e2e/src",
       "packages/e2e/host",
       "packages/e2e/tests",
@@ -106,7 +182,13 @@
       "packages/*/vite.config.ts",
       "packages/*/vitest.config*.ts"
     ],
-    "protocolInputs": ["proto-gen.lock"]
+    "protocolInputs": [
+      "proto-gen.lock",
+      "packages/openapi/contracts/trade-v1.yaml",
+      "packages/openapi/contracts/trade-v1.lock.json",
+      "packages/openapi/contracts/conventions.ts",
+      "packages/openapi/testing/engine/**"
+    ]
   },
   "quality": {
     "coverageExclusions": [
@@ -125,9 +207,14 @@
       {
         "path": "packages/e2e/host/weapp/example-runner.ts",
         "reason": "只在微信开发者工具宿主中执行，行为证据由 weapp 用例承担"
+      },
+      {
+        "path": "packages/e2e/host/browser/runner.ts",
+        "reason": "只在浏览器宿主页面中执行，行为证据由 browser 用例承担"
       }
     ],
-    "maxLinesExemptions": []
+    "maxLinesExemptions": [],
+    "componentNameExemptions": []
   },
   "release": {
     "registry": "https://gitlab.daqian369.com/api/v4/projects/<PROJECT_ID>/packages/npm/",

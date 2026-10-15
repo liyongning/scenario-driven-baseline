@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-021",
+  "protocol": "openapi",
+  "sources": {
+    "spec": {
+      "requirementDigest": "70adee76e13eb6411a9ca52edaa8976bba550657705d33d96f7eda23ab09ebcf"
+    }
+  },
+  "cases": {
+    "openapi-matrix": "openapi-matrix.json"
+  },
+  "sha256": {
+    "openapi-matrix.json": "5640c6cd98ae7525ba03da966cd8dcd88c810a65ae1f0cc04a882008a5fa0cb1"
+  }
+}

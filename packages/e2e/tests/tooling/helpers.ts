@@ -13,6 +13,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 import type { CoverageInput } from '../../../../scripts/check-scenarios.ts';
+import { exampleWhitelistEntries } from '../../../../scripts/lib/example-whitelist.ts';
+import { loadProjectManifest } from '../../../../scripts/lib/project-manifest.ts';
 import { minimalManifest } from './controlled-root.ts';
 
 /** 仓库根由模块位置推导，helper 不依赖调用方的工作目录。 */
@@ -115,6 +117,17 @@ function linkRootDocument(root: string, link: string) {
 /** 临时架构根的合法技术架构文档：与指南能力地图同名，四部分齐全。 */
 export function writeArchitectureFixture(root: string) {
   const sections = ['解决的问题', '实现机制与关键文件', '关键设计决策与被否决的方案', '演进记录'];
+  const capabilityNames = [
+    '临时能力',
+    '组合绑定',
+    '协议适配器',
+    'Web 应用包（含前端架构规范）',
+    '产物边界',
+    'OpenAPI 协议包',
+    '浏览器平台点位',
+    '本地预览',
+    'Web 示例',
+  ];
   const document = [
     '# 技术架构',
     '',
@@ -124,9 +137,11 @@ export function writeArchitectureFixture(root: string) {
     '',
     '## 细节层',
     '',
-    '### 临时能力',
-    '',
-    ...sections.flatMap((name) => [`#### ${name}`, '', '（临时根占位）', '']),
+    ...capabilityNames.flatMap((capability) => [
+      `### ${capability}`,
+      '',
+      ...sections.flatMap((name) => [`#### ${name}`, '', '（临时根占位）', '']),
+    ]),
   ].join('\n');
   mkdirSync(join(root, 'docs'), { recursive: true });
   writeFileSync(join(root, 'docs/architecture.md'), document);
@@ -137,15 +152,8 @@ export function writeArchitectureFixture(root: string) {
  * 临时架构根的合法使用指南：规定章节齐全、删除白名单完整、能力地图与架构文档同名，
  * 且不含 Scenario ID、pnpm 命令与清单字段引用。
  */
-export function writeTemplateGuideFixture(
-  root: string,
-  directories: { product: string; protocol: string; test: string } = {
-    product: 'sdk',
-    protocol: 'protocol',
-    test: 'e2e',
-  },
-) {
-  const { product, protocol, test } = directories;
+export function writeTemplateGuideFixture(root: string) {
+  const entries = exampleWhitelistEntries(root, loadProjectManifest(root));
   const guide = [
     '# 模板使用指南',
     '',
@@ -154,6 +162,21 @@ export function writeTemplateGuideFixture(
     '| 能力 | 承载文件 | 验证方式 |',
     '| --- | --- | --- |',
     '| 临时能力 | 临时根占位 | 无 |',
+    '| 组合绑定 | 临时根占位 | 无 |',
+    '| 协议适配器 | 临时根占位 | 无 |',
+    '| Web 应用包（含前端架构规范） | 临时根占位 | 无 |',
+    '| 产物边界 | 临时根占位 | 无 |',
+    '| OpenAPI 协议包 | 临时根占位 | 无 |',
+    '| 浏览器平台点位 | 临时根占位 | 无 |',
+    '| 本地预览 | 临时根占位 | 无 |',
+    '',
+    '<!-- web-example:begin -->',
+    '',
+    '| 能力 | 承载文件 | 验证方式 |',
+    '| --- | --- | --- |',
+    '| Web 示例 | 临时根占位 | 无 |',
+    '',
+    '<!-- web-example:end -->',
     '',
     '## 从方案到验收',
     '',
@@ -165,19 +188,8 @@ export function writeTemplateGuideFixture(
     '',
     '## 移除模板示例',
     '',
-    `删除白名单：\`packages/${product}/src/example/\`、\`packages/${protocol}/testing/shadow/example/\`、`,
-    `\`packages/${test}/tests/example/\`、\`packages/${test}/tests/weapp/example/\`、`,
-    `\`packages/${test}/host/weapp/example-runner.ts\`、\`packages/${test}/tests/fixtures/\` 下的`,
-    '`SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`、',
-    `\`packages/${test}/tests/tooling/SCN-TEMPLATE-EXAMPLE-*\`、\`openspec/specs/template-example/\`、`,
-    `\`packages/${test}/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts\` 与`,
-    `\`packages/${test}/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/\`、`,
-    `\`packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts\`；`,
-    '片段从 `template-example:begin` 到 `template-example:end`；',
-    `\`packages/${product}/src/index.ts\` 的示例导出、\`consumed-operations.ts\` 的示例条目、`,
-    `\`packages/${test}/host/weapp/app.js\`、\`packages/${test}/src/drivers/weapp-host.test.ts\` 中的示例运行器片段；`,
-    '`protocol-matrix.json` 中的示例键删除后用 fixtures:refresh 重算摘要；',
-    '同步 `coverageExclusions`。',
+    `删除白名单：${entries.templateExample.map((entry) => `\`${entry}\``).join('、')}。`,
+    `Web 示例白名单包含 ${entries.webExample.map((entry) => `\`${entry}\``).join('、')}。`,
     '',
     '## 归档已知限制',
     '',
@@ -195,13 +207,29 @@ export function writeTemplateGuideFixture(
     '',
     '（临时根占位）',
     '',
+    '## 移除一条绑定',
+    '',
+    '（临时根占位）',
+    '',
+    '## 跨源部署',
+    '',
+    '（临时根占位）',
+    '',
     '## 替换点地图',
+    '',
+    '### 产品形态',
+    '',
+    '（临时根占位）',
     '',
     '### 协议来源',
     '',
     '（临时根占位）',
     '',
     '### 运行平台',
+    '',
+    '（临时根占位）',
+    '',
+    '### 本地预览',
     '',
     '（临时根占位）',
     '',

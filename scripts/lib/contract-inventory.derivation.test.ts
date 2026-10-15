@@ -7,10 +7,11 @@ import {
 import {
   controlled,
   customMethodFile,
+  hasRepositoryIdl,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 
-describe('buildContractInventory', () => {
+describe.skipIf(!hasRepositoryIdl)('buildContractInventory', () => {
   it(
     'reports each invalid declaration instead of deriving silently',
     { timeout: 60_000 },

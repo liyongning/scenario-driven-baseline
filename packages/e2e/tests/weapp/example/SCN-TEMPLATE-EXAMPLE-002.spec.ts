@@ -1,10 +1,7 @@
 import automator from 'miniprogram-automator';
 import { afterEach } from 'vitest';
-import {
-  createShadowServer,
-  discoverExampleRoutes,
-  type RunningShadowServer,
-} from '@template-test/protocol';
+import { discoverExampleRoutes } from '@template-test/protocol';
+import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../../src/drivers/weapp.ts';
 
@@ -24,6 +21,7 @@ defineCase(
     caseId: 'weapp-create-success',
     fixtureCase: 'create-success',
     environment: 'weapp',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-002',
@@ -85,5 +83,5 @@ defineCase(
       }),
     );
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 30_000 },
 );

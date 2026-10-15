@@ -11,7 +11,6 @@ describe('ScenarioReporter', () => {
     const reporter = new ScenarioReporter({
       outputFile,
       runId: 'run-1',
-      project: 'integration',
       fingerprints: {
         sourceDigest: 's',
         specDigest: 'p',
@@ -24,6 +23,7 @@ describe('ScenarioReporter', () => {
       name: 'omitted',
       fullName: 'SCN-SAMPLE-CONTRACT-023 > omitted',
       module: { moduleId: '/repo/test.spec.ts' },
+      project: { name: 'integration' },
       options: {
         meta: {
           scenarioCase: {
@@ -71,7 +71,6 @@ describe('ScenarioReporter', () => {
     const reporter = new ScenarioReporter({
       outputFile: '/dev/null',
       runId: 'r',
-      project: 'weapp',
       fingerprints: {
         sourceDigest: 's',
         specDigest: 'p',
@@ -84,6 +83,7 @@ describe('ScenarioReporter', () => {
       name: 'x',
       fullName: 'x',
       module: { moduleId: 'x.ts' },
+      project: { name: 'weapp' },
       options: { meta: { scenarioCase: { caseId: state } } },
       result: () => ({ state }),
       annotations: () => [],
@@ -100,7 +100,6 @@ describe('ScenarioReporter', () => {
     const reporter = new ScenarioReporter({
       outputFile: '/dev/null',
       runId: 'r',
-      project: 'sdk-unit',
       fingerprints: {
         sourceDigest: 's',
         specDigest: 'p',
@@ -113,6 +112,7 @@ describe('ScenarioReporter', () => {
       name: 'internal',
       fullName: 'SCN-SAMPLE-CORE-001 headless-core-import-and-run',
       module: { moduleId: 'core.test.ts' },
+      project: { name: 'sdk-unit' },
       options: {
         meta: {
           scenarioCase: {
@@ -177,11 +177,119 @@ describe('ScenarioReporter', () => {
     ]);
   });
 
+  it('records the logical integration environment for a physically split heavy project', () => {
+    const reporter = new ScenarioReporter({
+      outputFile: '/dev/null',
+      runId: 'r',
+      projectEnvironments: { 'integration-heavy': 'integration' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
+    });
+    reporter.onTestCaseResult!({
+      name: 'heavy',
+      fullName: 'SCN-SAMPLE-CONTRACT-023 heavy',
+      module: { moduleId: 'heavy.spec.ts' },
+      project: { name: 'integration-heavy' },
+      options: {},
+      meta: () => ({
+        scenarioCase: {
+          ownerId: 'SCN-SAMPLE-CONTRACT-023',
+          caseId: 'heavy',
+          environment: 'integration',
+          fixtureCase: 'heavy',
+          covers: [],
+        },
+      }),
+      result: () => ({ state: 'passed' }),
+      annotations: () => [],
+    } as never);
+    expect(reporter.records()).toEqual([expect.objectContaining({ project: 'integration' })]);
+  });
+
+  it('rejects a declared environment that does not match the physical project mapping', () => {
+    const reporter = new ScenarioReporter({
+      outputFile: '/dev/null',
+      runId: 'r',
+      projectEnvironments: { integration: 'integration', weapp: 'weapp' },
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
+    });
+    reporter.onTestCaseResult!({
+      name: 'mismatched',
+      fullName: 'SCN-SAMPLE-CONTRACT-023 mismatched',
+      module: { moduleId: 'mismatched.spec.ts' },
+      project: { name: 'integration' },
+      options: {},
+      meta: () => ({
+        scenarioCase: {
+          ownerId: 'SCN-SAMPLE-CONTRACT-023',
+          caseId: 'mismatched',
+          environment: 'weapp',
+          fixtureCase: null,
+          covers: [],
+        },
+      }),
+      result: () => ({ state: 'passed' }),
+      annotations: () => [],
+    } as never);
+
+    const [record] = reporter.records();
+    expect(record).toEqual(
+      expect.objectContaining({
+        project: 'integration',
+        status: 'failed',
+        error: expect.stringContaining('integration'),
+      }),
+    );
+    expect((record as unknown as { error: string }).error).toContain('weapp');
+  });
+
+  it('falls back to the physical project when binding metadata has no environment', () => {
+    const reporter = new ScenarioReporter({
+      outputFile: '/dev/null',
+      runId: 'r',
+      fingerprints: {
+        sourceDigest: 's',
+        specDigest: 'p',
+        protocolDigest: 'i',
+        fixtureDigest: 'f',
+        files: {},
+      },
+    });
+    reporter.onTestCaseResult!({
+      name: 'legacy',
+      fullName: 'SCN-SAMPLE-CONTRACT-023 legacy',
+      module: { moduleId: 'legacy.spec.ts' },
+      project: { name: 'integration' },
+      options: {},
+      meta: () => ({
+        scenarioCase: {
+          ownerId: 'SCN-SAMPLE-CONTRACT-023',
+          caseId: 'legacy',
+          fixtureCase: 'legacy',
+          covers: [],
+        },
+      }),
+      result: () => ({ state: 'passed' }),
+      annotations: () => [],
+    } as never);
+    expect(reporter.records()).toEqual([expect.objectContaining({ project: 'integration' })]);
+  });
+
   it('ignores unbound tests and preserves invalid evidence as zero assertions', () => {
     const reporter = new ScenarioReporter({
       outputFile: '/dev/null',
       runId: 'r',
-      project: 'integration',
       fingerprints: {
         sourceDigest: 's',
         specDigest: 'p',

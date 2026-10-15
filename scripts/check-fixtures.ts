@@ -3,6 +3,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
+import { scanCaseBindings } from './lib/affected-bindings.ts';
+import { checkDatasets } from './lib/dataset-fixtures.ts';
+import { loadProjectManifest } from './lib/project-manifest.ts';
+import { loadProtocolAdapter, type ProtocolAdapter } from './lib/protocol-adapters.ts';
 import { loadScenarioConfig } from './lib/scenario-config.ts';
 import {
   activeChangeNames,
@@ -18,6 +22,7 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
 type Manifest = Readonly<{
   formatVersion: number;
   ownerId: string;
+  protocol?: string;
   sources: Readonly<{ spec: Readonly<{ requirementDigest: string }> }> &
     Readonly<Record<string, unknown>>;
   cases: Readonly<Record<string, string>>;
@@ -47,6 +52,20 @@ export async function checkFixtures(
   ) as object;
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
+  const datasetSchema = JSON.parse(
+    await readFile(
+      new URL('../packages/e2e/tests/fixtures/dataset.schema.json', import.meta.url),
+      'utf8',
+    ),
+  ) as object;
+  const validateDataset = ajv.compile(datasetSchema);
+  const projectManifest = loadProjectManifest(options.repositoryRoot);
+  const protocols = new Set(
+    projectManifest.packages
+      .filter((item) => item.role === 'protocol')
+      .map((item) => item.directory),
+  );
+  const staticBindings = scanCaseBindings(options.repositoryRoot, projectManifest);
   const config = await loadScenarioConfig(options.repositoryRoot);
   const ownerPattern = new RegExp(config.ownerIdPattern);
   const projection = await projectEffectiveSpecs(options.repositoryRoot, {
@@ -54,9 +73,22 @@ export async function checkFixtures(
   });
   const scoped = options.changes !== undefined;
   const issues: string[] = [...projection.issues];
+  const adapterCache = new Map<string, Promise<ProtocolAdapter>>();
+  const adapterFor = (protocolDirectory: string) => {
+    let adapter = adapterCache.get(protocolDirectory);
+    if (!adapter) {
+      adapter = loadProtocolAdapter(projectManifest, protocolDirectory, {
+        root: options.repositoryRoot,
+      });
+      adapterCache.set(protocolDirectory, adapter);
+    }
+    return adapter;
+  };
   const entries = await readdir(options.fixtureRoot, { withFileTypes: true });
   let manifests = 0;
   for (const entry of entries.filter((item) => item.isDirectory())) {
+    // 预览数据集位于 _datasets 下，由专属 schema 与协议适配器检查，不参与 owner 解析。
+    if (entry.name === '_datasets') continue;
     const directory = join(options.fixtureRoot, entry.name);
     let manifestText: string;
     try {
@@ -79,6 +111,30 @@ export async function checkFixtures(
       issues.push(`${entry.name}: manifest schema ${ajv.errorsText(validate.errors)}`);
       continue;
     }
+    if (manifest.protocol && !protocols.has(manifest.protocol))
+      issues.push(
+        `${entry.name}: protocol ${manifest.protocol} is not a registered protocol package`,
+      );
+    const ownerBindings = staticBindings.filter(
+      (item) =>
+        item.ownerId === entry.name ||
+        item.covers.includes(entry.name) ||
+        item.flowId === entry.name,
+    );
+    const requiredBindings = new Set(
+      ownerBindings.map((item) => item.binding).filter((item): item is string => Boolean(item)),
+    );
+    const expectedProtocols = new Set(
+      [...requiredBindings].map(
+        (name) => projectManifest.bindings.find((item) => item.name === name)?.protocol,
+      ),
+    );
+    if (expectedProtocols.size > 1)
+      issues.push(`${entry.name}: bound by cases from multiple protocols`);
+    else if (expectedProtocols.size === 1 && manifest.protocol !== [...expectedProtocols][0])
+      issues.push(
+        `${entry.name}: protocol ${manifest.protocol ?? 'missing'} does not match bound protocol ${[...expectedProtocols][0]}`,
+      );
     if (manifest.ownerId !== entry.name)
       issues.push(`${entry.name}: ownerId ${manifest.ownerId} does not match directory`);
     // 每个 Fixture 都按目录名解析 owner：sources.spec 由 schema 保证存在，
@@ -98,10 +154,12 @@ export async function checkFixtures(
       ...Object.values(manifest.cases),
       ...Object.values(manifest.supportingFiles ?? {}),
     ]);
+    const protocolFiles: Record<string, unknown> = {};
     for (const file of declared) {
       if (file === 'manifest.json') continue;
       try {
         const contents = await readFile(join(directory, file), 'utf8');
+        protocolFiles[file] = contents;
         if (manifest.sha256[file] !== sha256(contents))
           issues.push(`${entry.name}: sha256 mismatch for ${file}`);
       } catch {
@@ -113,7 +171,26 @@ export async function checkFixtures(
       if (file.isFile() && file.name.endsWith('.json') && !declared.has(file.name))
         issues.push(`${entry.name}: undeclared fixture file ${file.name}`);
     }
+    if (manifest.protocol && protocols.has(manifest.protocol)) {
+      try {
+        const adapter = await adapterFor(manifest.protocol);
+        const delegated = await adapter.checkFixture(manifest, protocolFiles);
+        issues.push(...delegated.map((issue) => `${entry.name}: ${issue}`));
+      } catch (error) {
+        issues.push(
+          `${entry.name}: protocol adapter ${manifest.protocol} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
+  await checkDatasets({
+    fixtureRoot: options.fixtureRoot,
+    protocols,
+    validate: validateDataset,
+    ajv,
+    adapterFor,
+    issues,
+  });
   return { manifests, issues };
 }
 

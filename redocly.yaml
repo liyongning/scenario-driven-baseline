@@ -1,0 +1,6 @@
+extends:
+  - recommended
+
+rules:
+  # 该协议统一以 HTTP 200 业务信封表达失败，不把业务错误展开为 4xx 状态码。
+  operation-4xx-response: off

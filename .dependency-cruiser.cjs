@@ -1,7 +1,11 @@
 /** @type {import('dependency-cruiser').IConfiguration} */
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
-const { dependencyRules } = require('./scripts/lib/dependency-rules.cjs');
+const {
+  dependencyRules,
+  escapeRegExp,
+  testPackage,
+} = require('./scripts/lib/dependency-rules.cjs');
 
 // 拓扑规则由清单按角色生成；清单从当前工作目录读取，副本门禁因此指向副本自身的包。
 const manifest = JSON.parse(readFileSync(resolve(process.cwd(), 'project.manifest.json'), 'utf8'));
@@ -130,9 +134,9 @@ module.exports = {
         'from.pathNot re of the not-to-dev-dep rule in the dependency-cruiser configuration',
       from: {
         path: '^(packages)',
-        // `testing/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
+        // `testing/` 与 `__tests__/` 只供测试使用（生产代码导入测试设施已由 `production-no-test` 禁止），
         // 因此允许它使用根 devDependency，如 express。
-        pathNot: '[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/',
+        pathNot: `[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$|/testing/|/__tests__/|^packages/${escapeRegExp(testPackage(manifest).directory)}/`,
       },
       to: {
         dependencyTypes: ['npm-dev'],
@@ -299,7 +303,7 @@ module.exports = {
       // the webpack [resolve.alias](https://webpack.js.org/configuration/resolve/#resolvealiasfields)
       // documentation.
       // Defaults to an empty array (= don't use alias fields).
-      // aliasFields: ['browser'],
+      // aliasFields: [browser field selector],
     },
 
     // skipAnalysisNotInRules will make dependency-cruiser execute

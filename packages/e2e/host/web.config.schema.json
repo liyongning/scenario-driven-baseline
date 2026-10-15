@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "模板浏览器宿主配置",
+  "description": "登记浏览器用例、应用宿主与本地预览共用的平台配置。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["placeholderAssets", "proxyPrefixes", "defaultDataset"],
+  "properties": {
+    "placeholderAssets": {
+      "description": "占位资源域名到仓库内本地文件的兑现规则。",
+      "type": "array",
+      "items": {
+        "description": "一条占位资源兑现规则。",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["host", "path", "file", "contentType"],
+        "properties": {
+          "host": {
+            "description": "需要由本地文件兑现的占位资源域名。",
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "description": "占位资源域名下需要兑现的路径。",
+            "type": "string",
+            "pattern": "^/"
+          },
+          "file": {
+            "description": "相对仓库根、用于兑现该请求的本地文件。",
+            "type": "string",
+            "minLength": 1
+          },
+          "contentType": {
+            "description": "兑现本地文件时返回的 Content-Type。",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "proxyPrefixes": {
+      "description": "开发代理连接真实服务端时允许转发的同源路径前缀。",
+      "type": "array",
+      "items": {
+        "description": "一个以斜杠开头的同源请求路径前缀。",
+        "type": "string",
+        "pattern": "^/"
+      }
+    },
+    "defaultDataset": {
+      "description": "本地预览未显式指定数据集时使用的默认数据集目录名。",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

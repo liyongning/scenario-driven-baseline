@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "FLOW-WEB-EXAMPLE-001",
+  "protocol": "openapi",
+  "sources": {
+    "spec": {
+      "requirementDigest": "9a8271b078eb977a146fdeb99dcd11ea291c07c60b6c823e453c694f161087c8"
+    }
+  },
+  "cases": {
+    "normal": "normal.json"
+  },
+  "sha256": {
+    "normal.json": "c9d69696871e183160833eb22d407041bd25f2e39c40b0c27d1047cd97b54031"
+  }
+}

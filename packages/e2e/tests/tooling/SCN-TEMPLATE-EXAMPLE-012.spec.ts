@@ -3,14 +3,15 @@ import { resolve } from 'node:path';
 import { test } from 'vitest';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
 import { lineInRanges, markedLineRanges } from '../../../../scripts/lib/example-markers.ts';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import { loadProjectManifest, packagesByRole } from '../../../../scripts/lib/project-manifest.ts';
 // 消费接口声明不经 SDK 根入口导出：按源码读取（清单登记该模块路径，门禁同样读源码）。
 import { consumedOperations } from '../../../../packages/sdk/src/consumed-operations.ts';
 import { repositoryRoot } from './helpers.ts';
 
 /** 声明模块由清单登记；用例不写死示例导出名（EX-09）。 */
 const manifest = loadProjectManifest(repositoryRoot);
-const product = packageByRole(manifest, 'product');
+const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+if (!product) throw new Error('template has no sdk product package');
 const declarationModules = product.consumedOperations ?? [];
 
 test(
@@ -22,6 +23,7 @@ test(
         ownerId: 'SCN-TEMPLATE-EXAMPLE-012',
         caseId: 'declared-obligations',
         environment: 'integration',
+        binding: 'sdk-idl-weapp',
         fixtureCase: 'declared-obligations',
         covers: [
           {
@@ -103,7 +105,8 @@ test(
     context.expect(ends.length).toBe(begins.length);
 
     // declaration-matches-calls：声明与实际调用的双向检查为 0 问题。
-    const inventory = await buildContractInventory(repositoryRoot);
+    // 本 Scenario 只派生 SDK 包的声明义务；多包模板里其它产品包的消费接口不属于此处。
+    const inventory = await buildContractInventory(repositoryRoot, { product: product.directory });
     context.expect(inventory.issues).toEqual([]);
     context
       .expect(inventory.methods.map((method) => method.name).sort())

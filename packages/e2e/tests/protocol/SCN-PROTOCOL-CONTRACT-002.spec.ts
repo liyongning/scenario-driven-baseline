@@ -2,8 +2,10 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
 import { consumedOperations } from '../../../../packages/sdk/src/consumed-operations.ts';
-import { discoverDeclaredRoutes, type RunningShadowServer } from '@template-test/protocol';
+import { discoverDeclaredRoutes } from '@template-test/protocol';
+import type { RunningShadowServer } from '@template-test/shadow';
 import { buildContractInventory } from '../../../../scripts/lib/contract-inventory.ts';
+import { loadProjectManifest, sdkProduct } from '../../../../scripts/lib/project-manifest.ts';
 import { defineCase } from '../../src/cases/define-case.ts';
 import {
   declaredObligationCases,
@@ -21,7 +23,10 @@ import {
 
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
-const inventory = await buildContractInventory(repositoryRoot);
+// 本 Scenario 只核对 SDK 包的消费接口声明（PC-05）；多包模板里其它产品包的义务不属于本矩阵。
+const inventory = await buildContractInventory(repositoryRoot, {
+  product: sdkProduct(loadProjectManifest(repositoryRoot)).directory,
+});
 
 /** 矩阵用例遍历产品包声明的消费接口，不写死任何接口名（PC-01）。 */
 const operations: ReadonlyArray<(typeof consumedOperations)[number]> = consumedOperations;
@@ -40,6 +45,7 @@ defineCase(
     caseId: 'protocol-matrix',
     fixtureCase: 'protocol-matrix',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-PROTOCOL-CONTRACT-002',

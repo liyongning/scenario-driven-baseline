@@ -47,7 +47,7 @@ cliEvidence(
 
       await check('default-run-id', () => {
         // 夹具分支为 feat/scope：分支名中的 `/` 替换为 -，时间戳为 UTC 的 YYYYMMDDTHHmmssZ。
-        context.expect(runId).toMatch(/^feat-scope-\d{8}T\d{6}Z$/);
+        context.expect(runId, scoped.output).toMatch(/^feat-scope-\d{8}T\d{6}Z$/);
         context.expect(pinnedInvocations[0]?.runId).toBe('x');
       });
 

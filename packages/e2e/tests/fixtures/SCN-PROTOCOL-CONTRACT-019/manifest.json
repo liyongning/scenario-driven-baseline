@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-PROTOCOL-CONTRACT-019",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "b7058409418d28b2e9f3266edf7e5340f48ace5d831de6fc3c9c4eed4515b6ed"
+    }
+  },
+  "cases": {
+    "preview-entry-boundary": "preview-entry-boundary.json"
+  },
+  "sha256": {
+    "preview-entry-boundary.json": "7a5f9cd98590333d6f357fd7fa73a9601a8c95e232685c962e3361f8ad24a3fa"
+  }
+}

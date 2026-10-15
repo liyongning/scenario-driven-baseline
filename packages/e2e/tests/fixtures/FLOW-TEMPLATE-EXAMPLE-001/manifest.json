@@ -1,6 +1,7 @@
 {
   "formatVersion": 1,
   "ownerId": "FLOW-TEMPLATE-EXAMPLE-001",
+  "protocol": "protocol",
   "sources": {
     "spec": {
       "requirementDigest": "3405b761ffb8668c9c42f18e38fe00ee6d9731ba02e582178d047f2fa91046cb"

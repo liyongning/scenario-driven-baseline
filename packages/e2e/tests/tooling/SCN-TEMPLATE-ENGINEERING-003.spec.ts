@@ -2,29 +2,26 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defineCase } from '../../src/cases/define-case.ts';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import { loadProjectManifest, packagesByRole } from '../../../../scripts/lib/project-manifest.ts';
 import { discoverEntryExports, publicDocIssues, type DocRequirement } from './public-doc.ts';
 
 const root = resolve(import.meta.dirname, '../../../..');
 const fixtureRoot = new URL('../fixtures', import.meta.url).pathname;
-const product = packageByRole(loadProjectManifest(root), 'product');
-const productRoot = resolve(root, 'packages', product.directory, 'src');
-const declarationFiles = ['index.d.ts', 'index.d.cts'].map((file) =>
-  resolve(root, 'packages', product.directory, 'dist', file),
-);
+const manifest = loadProjectManifest(root);
+const sdkProduct = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
 
 /** 入口发现的公共类型要求：检查对象由根入口决定，删除示例后随入口变化（ENG-03）。 */
-function entryRequirements(entry: string) {
-  return discoverEntryExports({ root, entry }).types;
+function entryRequirements(entry: string, workspaceRoot = root) {
+  return discoverEntryExports({ root: workspaceRoot, entry }).types;
 }
 
 /** 逐文件检查入口追溯到的全部手写声明；类型不出现在某文件时不在该文件报缺。 */
-function sourceIssues(entry: string): string[] {
-  const requirements = entryRequirements(entry);
+function sourceIssues(entry: string, workspaceRoot = root): string[] {
+  const requirements = entryRequirements(entry, workspaceRoot);
   const files = [...new Set(requirements.map((item) => item.file))];
   return files.flatMap((file) =>
     publicDocIssues(
-      readFileSync(join(root, file), 'utf8'),
+      readFileSync(join(workspaceRoot, file), 'utf8'),
       requirements.filter((item) => item.file === file),
     ),
   );
@@ -93,15 +90,9 @@ const controlledContracts = [
 ].join('\n');
 
 /** 受控构建声明文本：与源码同形，用于核对产物声明的注释要求。 */
-const controlledDeclaration = [
-  '/** 示例状态。 */',
-  'export declare type ExampleState =',
-  '  /** 尚未到达终态。 */',
-  "  | 'pending'",
-  '  /** 服务端返回未识别的状态。 */',
-  "  | 'unknown';",
-  '',
-].join('\n');
+const controlledDeclaration = controlledContracts
+  .replace(/export type /g, 'export declare type ')
+  .replace('export interface ', 'export declare interface ');
 
 /** 把受控声明源写进临时包并按其根入口发现注释要求。 */
 function controlledEntry() {
@@ -134,13 +125,27 @@ defineCase(
     ],
   },
   async ({ fixture: value, checkpoint, expect }) => {
-    const entry = resolve(productRoot, (value as { entry: string }).entry);
-    const requirements = entryRequirements(entry);
-    await checkpoint('source-comment-structure', () => expect(sourceIssues(entry)).toEqual([]));
-    const declarations = declarationFiles.map((file) => readFileSync(file, 'utf8'));
-    await checkpoint('dual-declaration-structure', () =>
-      expect(declarations.map((text) => publicDocIssues(text, requirements))).toEqual([[], []]),
-    );
+    const controlled = sdkProduct ? undefined : controlledEntry();
+    const workspaceRoot = sdkProduct ? root : controlled!.directory;
+    const entry = sdkProduct
+      ? resolve(root, 'packages', sdkProduct.directory, 'src', (value as { entry: string }).entry)
+      : join(controlled!.directory, 'pkg/index.ts');
+    const declarations = sdkProduct
+      ? ['index.d.ts', 'index.d.cts'].map((file) =>
+          readFileSync(resolve(root, 'packages', sdkProduct.directory, 'dist', file), 'utf8'),
+        )
+      : [controlledDeclaration, controlledDeclaration];
+    try {
+      const requirements = entryRequirements(entry, workspaceRoot);
+      await checkpoint('source-comment-structure', () =>
+        expect(sourceIssues(entry, workspaceRoot)).toEqual([]),
+      );
+      await checkpoint('dual-declaration-structure', () =>
+        expect(declarations.map((text) => publicDocIssues(text, requirements))).toEqual([[], []]),
+      );
+    } finally {
+      if (controlled) rmSync(controlled.directory, { recursive: true, force: true });
+    }
   },
   { fixtureRoot },
 );

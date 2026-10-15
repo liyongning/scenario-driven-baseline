@@ -23,7 +23,7 @@
 | 可配置 ID 格式                                                                 | `scenario-gate` GATE-09、[scenario-gate.config.json](../scenario-gate.config.json)                                                                                                                                                                                                                 | `SCN-SCENARIO-GATE-011`                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Scenario/case/FLOW 绑定、Fixture 来源绑定与报告器                              | [define-case.ts](../packages/e2e/src/cases/define-case.ts)、[fixture-loader.ts](../packages/e2e/src/cases/fixture-loader.ts)、[scenario-reporter.ts](../packages/e2e/src/reporters/scenario-reporter.ts)、[scripts/check-fixtures.ts](../scripts/check-fixtures.ts)                                | `pnpm check:fixtures`、`pnpm test:integration`、`SCN-SCENARIO-GATE-012`                                                                                                                                                                                                                                                                                                                                                                        |
 | 手写代码 100% 覆盖与覆盖率完整性                                               | [vitest.config.ts](../vitest.config.ts)、[scripts/check-coverage.ts](../scripts/check-coverage.ts)                                                                                                                                                                                                 | `pnpm test:unit`、`pnpm check:coverage`、`SCN-TEMPLATE-ENGINEERING-009`                                                                                                                                                                                                                                                                                                                                                                        |
-| Shadow 网关与外部交互替身标准（请求记录、路径转换、有界轮询、响应同形）        | [packages/protocol/testing](../packages/protocol/testing)、[packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md)                                                                                                                                                                                     | `SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-006`、`SCN-PROTOCOL-CONTRACT-013`                                                                                                                                                                                                                                                                                                                                                          |
+| Shadow 网关与外部交互替身标准（请求记录、路径转换、有界轮询、响应同形）        | [packages/e2e/src/shadow](../packages/e2e/src/shadow)、[packages/protocol/testing](../packages/protocol/testing)、[packages/openapi/testing](../packages/openapi/testing)、[packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md)                                                                     | `SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-006`、`SCN-PROTOCOL-CONTRACT-013`                                                                                                                                                                                                                                                                                                                                                          |
 | 微信开发者工具自动化与执行约定                                                 | [packages/e2e/src/drivers](../packages/e2e/src/drivers)、[packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md)                                                                                                                                                                                       | `SCN-PROTOCOL-CONTRACT-008`、`pnpm test:e2e:weapp`                                                                                                                                                                                                                                                                                                                                                                                             |
 | 统一发布入口与版本策略                                                         | `template-engineering` ENG-04、[scripts/sdk-release.ts](../scripts/sdk-release.ts)、[scripts/check-release.ts](../scripts/check-release.ts)                                                                                                                                                        | `SCN-TEMPLATE-ENGINEERING-004`                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | OpenSpec 工作流与长期约定载体                                                  | 各级 `AGENTS.md` 与 `CLAUDE.md`、本指南、[docs/engineering/bootstrap.md](engineering/bootstrap.md)                                                                                                                                                                                                 | 本模板 Change 的生命周期                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -35,6 +35,21 @@
 | 按需测试与统一验收入口                                                         | [scripts/test-affected.ts](../scripts/test-affected.ts)、[scripts/verify.ts](../scripts/verify.ts)                                                                                                                                                                                                 | `SCN-SCENARIO-GATE-021`、`SCN-SCENARIO-GATE-023`                                                                                                                                                                                                                                                                                                                                                                                               |
 | X-Request-Id 按公司规范                                                        | [packages/protocol/src/transport/request-id.ts](../packages/protocol/src/transport/request-id.ts)                                                                                                                                                                                                  | `SCN-PROTOCOL-CONTRACT-008`、`SCN-PROTOCOL-CONTRACT-009`、`SCN-PROTOCOL-CONTRACT-010`；删除 `runtime.nextRequestId` 是协议包与产品包公共 API 的破坏性变更（双格式类型声明随之变化），宿主无法再覆盖或注入请求 ID                                                                                                                                                                                                                               |
 | 复刻验收方法                                                                   | [本指南](template-guide.md)「复刻验收」、[技术架构文档](architecture.md)                                                                                                                                                                                                                           | 复刻验收演练（示例删除与支付 SDK 复刻）                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 组合绑定                                                                       | [project.manifest.json](../project.manifest.json) 的 `bindings`、`template-engineering` ENG-11、[scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts)                                                                                                                              | `SCN-TEMPLATE-ENGINEERING-014`、模板复刻验收                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 协议适配器                                                                     | [packages/protocol/src/adapters](../packages/protocol/src/adapters)、[packages/openapi/src/adapters](../packages/openapi/src/adapters)、[scripts/lib/protocol-adapters.ts](../scripts/lib/protocol-adapters.ts)                                                                                    | `SCN-PROTOCOL-CONTRACT-015`、`SCN-OPENAPI-CONTRACT-006`、`pnpm check:fast`                                                                                                                                                                                                                                                                                                                                                                     |
+| Web 应用包（含前端架构规范）                                                   | [packages/web](../packages/web)、[packages/web/AGENTS.md](../packages/web/AGENTS.md)、[scripts/check-component-tree.ts](../scripts/check-component-tree.ts)、[.dependency-cruiser.cjs](../.dependency-cruiser.cjs)                                                                                 | `pnpm check:component-tree`、`SCN-WEB-APP-001`、`SCN-WEB-APP-010`                                                                                                                                                                                                                                                                                                                                                                              |
+| 产物边界                                                                       | [scripts/check-bundle.ts](../scripts/check-bundle.ts)、[scripts/lib/bundle.ts](../scripts/lib/bundle.ts)、[packages/web/vite.config.ts](../packages/web/vite.config.ts)                                                                                                                            | `SCN-WEB-APP-012`、`pnpm check:bundle`                                                                                                                                                                                                                                                                                                                                                                                                         |
+| OpenAPI 协议包                                                                 | [packages/openapi](../packages/openapi)、[packages/openapi/contracts](../packages/openapi/contracts)、[packages/openapi/testing](../packages/openapi/testing)                                                                                                                                      | `pnpm api:validate`、`pnpm api:status`、`SCN-OPENAPI-CONTRACT-001`、`SCN-OPENAPI-CONTRACT-029`                                                                                                                                                                                                                                                                                                                                                 |
+| 浏览器平台点位                                                                 | [packages/e2e/src/drivers/browser.ts](../packages/e2e/src/drivers/browser.ts)、[packages/e2e/host/browser](../packages/e2e/host/browser)、[packages/e2e/host/app](../packages/e2e/host/app)、[packages/e2e/vitest.config.browser.ts](../packages/e2e/vitest.config.browser.ts)                     | `pnpm test:e2e:browser`、`SCN-BROWSER-PLATFORM-001`、`SCN-BROWSER-PLATFORM-003`、`SCN-BROWSER-PLATFORM-012`                                                                                                                                                                                                                                                                                                                                    |
+| 本地预览                                                                       | [packages/e2e/src/preview](../packages/e2e/src/preview)、[scripts/preview-local.ts](../scripts/preview-local.ts)、[scripts/dev-remote.ts](../scripts/dev-remote.ts)、[packages/e2e/host/web.config.json](../packages/e2e/host/web.config.json)                                                     | `pnpm preview:local`、`pnpm dev:remote`、`SCN-BROWSER-PLATFORM-011`～`015`                                                                                                                                                                                                                                                                                                                                                                     |
+
+<!-- web-example:begin -->
+
+| 能力     | 承载文件                                                                                                                                                                                                                                                                   | 验证方式                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Web 示例 | [packages/web/src/app](../packages/web/src/app)、[packages/web/src/trade-create](../packages/web/src/trade-create)、[packages/web/src/trade-status](../packages/web/src/trade-status)、[packages/e2e/tests/web-openapi-browser](../packages/e2e/tests/web-openapi-browser) | `SCN-WEB-EXAMPLE-001`～`013`、`FLOW-WEB-EXAMPLE-001`、`pnpm test:e2e:browser` |
+
+<!-- web-example:end -->
 
 <!-- template-example:begin -->
 
@@ -57,7 +72,15 @@
 7. **平台用例**：按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的约定逐文件运行小程序用例，每个文件前退出开发者工具主进程并预热约 25 秒（`pnpm weapp:prepare` 会轮询到能读到版本号为止，就绪与否以该命令的退出码为准，不依赖固定等待）；每个文件一份报告，失败时整文件重跑。`pnpm verify` 在第一个失败的步骤就停止，之后的步骤不会执行；需要补平台证据时，可以按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 逐文件手工运行（每个文件前先 `pnpm weapp:prepare`），也可以按它打印的提示用 `pnpm verify --from test:e2e:<项目名> --run-id <run-id>` 续跑：跳过此前已通过的步骤、沿用同一 run id 重新生成该步及之后的报告，补齐平台与门禁证据，不必从头再跑。
 8. **场景门禁**：`VERIFY_RUN_ID=<run-id> pnpm check:scenarios`，用 unit、integration 与全部 weapp 报告对账 Spec、绑定与证据；退出码 0 且问题数为 0 才算通过。默认读取 `artifacts/<run-id>/reports/`，也可用 `--report` 逐个指定报告。
 9. **归档**：`/change archive <change>`。归档前确认清单、绑定、报告与来源摘要仍然一致。
-10. **用例落位与覆盖率排除**：integration 用例放在 `packages/e2e/tests/{protocol,tooling,flows,sdk}/**/*.spec.ts`（示例用例另在 `packages/e2e/tests/example/**`），weapp 用例放在 `packages/e2e/tests/weapp/**/*.spec.ts`；两组目录来自 [packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts) 与 [packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts) 的 `include`，新用例落在其中就会被对应项目执行，不要另建测试项目。新增 weapp 宿主 runner（`packages/e2e/host/weapp/` 下的文件）时，它只在微信开发者工具里执行、不计入手写代码覆盖率：要在 [project.manifest.json](../project.manifest.json) 的 `quality.coverageExclusions` 里登记该文件与理由，`pnpm check:coverage` 按清单核对，不要改门禁脚本。
+10. **用例落位与覆盖率排除**：integration 用例放在 `packages/e2e/tests/{protocol,tooling,flows,sdk,web-openapi-browser}/**/*.spec.ts`（
+    <!-- template-example:begin -->
+
+    示例用例另在 `packages/e2e/tests/example/**`。
+    <!-- template-example:end -->
+
+    ），weapp 用例放在 `packages/e2e/tests/weapp/**/*.spec.ts`；两组目录来自 [packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts) 与 [packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts) 的 `include`。同一测试环境内的 cover `caseKey` 必须跨 owner 唯一。消费接口声明的 `requestFields` 每项必须写成对象字面量并显式写 `authority`，不要用对象属性简写；联合类型的内联成员也要有中文 JSDoc。会派生构建、安装或完整 unit 的重型 integration 用例登记在 [packages/e2e/vitest.config.integration-heavy.ts](../packages/e2e/vitest.config.integration-heavy.ts) 并逐文件运行，其余 integration 用例继续并行；新增用例按类型落入对应配置，不要另建未登记的测试项目。新增 weapp 宿主 runner（`packages/e2e/host/weapp/` 下的文件）时，它只在微信开发者工具里执行、不计入手写代码覆盖率：要在 [project.manifest.json](../project.manifest.json) 的 `quality.coverageExclusions` 里登记该文件与理由，`pnpm check:coverage` 按清单核对，不要改门禁脚本；新增 runner 的接线点包括 [packages/e2e/host/weapp/app.js](../packages/e2e/host/weapp/app.js)、`setup.ts`、`vite.config.ts`、`packages/e2e/src/drivers/weapp-host.test.ts` 与覆盖率排除项。Web 应用的页面行为证据落在 browser（platform）项目，模块单测落在应用的 unit 项目。
+
+    资源受限时可用 `TEMPLATE_UNIT_MAX_WORKERS=<n> pnpm check:fast` 限制 unit 项目的 worker 数。若某个用例在默认并发下超时、同一文件单独重跑通过，先按负载类超时处理并记录；不要把单文件通过当作该步骤已通过，最终仍要取得该步骤完整退出码 0 的证据。
 
 证据位置：报告与覆盖率都在 `artifacts/<run-id>/`（`reports/`、`coverage/`）。`VERIFY_RUN_ID` 决定 `artifacts/<run-id>/reports/` 下各报告的文件名，生成报告与对账必须使用同一个 run-id；未设置时回退到 `local`。验收结论写在 Change 的 verify 记录里，不再写入 `artifacts/<run-id>/tasks/`。
 
@@ -77,6 +100,9 @@
    <!-- template-example:end -->
    - 分层守卫按目录模式自动覆盖 `src/` 下除 `runtime/` 外的全部业务模块，新增模块无需修改配置：[.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `domain-core-no-generated`（core/ports 不得导入 generated）、`core-no-platform-or-node`（不得依赖 Node 内置模块）、`domain-isolation`（业务模块互不导入），以及 [eslint.config.js](../eslint.config.js) 的 `no-restricted-globals: wx`。业务模块须使用 `core/`、`ports/` 目录名才受约束。需要对外时在 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 导出。
 6. **先加后删**：自己的业务覆盖到示例承担的能力后，再按下一节的删除白名单移除示例；删除时对应的 Scenario、FLOW、Fixture 与用例一并处理。
+   <!-- template-example:begin -->
+   模板自身的第一个 Change 实施中途，SCN-TEMPLATE-ENGINEERING-008 的 `example-removal-scenarios` 可能因尚未实现的 Scenario 报 `missing binding`；即使只删 Web 示例、暂时保留 `template-example`，副本也会归档作用域内的 active Change，并排除会再次创建副本的 integration 用例（例如 `SCN-WEB-APP-001/010/012`），这些 Scenario 的 integration 绑定因此会出现在清单问题里。把所需绑定补齐后该问题应消失，不要把这一中间态当成模板缺陷。
+   <!-- template-example:end -->
 7. **验收**：用统一入口收尾——`pnpm verify`（没有 active Change 时按运行约定不带作用域），它按运行约定把快速门禁、逐文件 weapp 与场景门禁对账串成一次运行；需要单独补证据时再按"从方案到验收"逐项运行。
 
 五条维护规则：
@@ -89,26 +115,64 @@
 
 **模板反馈日志**：使用方在使用方仓库的 `docs/template-feedback.md` 中持续记录使用模板时的发现，每条写明位置、现象、处理方式与类别：1 阻塞（不越过指南边界就无法完成，或门禁不稳定）、2 指引错误或误导（照字面执行会出错）、3 需要额外理解（指南未逐项列出，靠 `git grep`、读代码或门禁报错补全）、4 模板缺失能力（项目需要、模板没有）。第 1、2、4 类由模板维护者汇总回本模板，以新的 Change 迭代；第 3 类不要求修复。
 
-**扩展更多包**：清单 schema 与读取方当前认定 product、protocol、test 三种角色各一个包；角色、包数量与允许目录由 [project.manifest.schema.json](../project.manifest.schema.json) 与 [scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts) 共同约束，扩展时同步修改两处与对应门禁。
+**扩展更多包**：清单 schema 与读取方当前认定一个或多个 product 包、一个或多个 protocol 包，以及唯一的私有 test 包；角色、包数量与允许目录由 [project.manifest.schema.json](../project.manifest.schema.json) 与 [scripts/lib/project-manifest.ts](../scripts/lib/project-manifest.ts) 共同约束，扩展时同步修改两处与对应门禁。
 
 **已知限制**：小程序自动化仍不稳定，开发者工具在同一主进程上重复 `launch` 可能挂起，预热约 25 秒只能消除冷启动超时（`weapp:prepare` 的就绪探测读不到版本号会直接失败，不再让首个 case 随机超时）；平台能力替身目前只有文字标准（[packages/e2e/src/drivers](../packages/e2e/src/drivers)），且在小程序里只能用 `miniprogram-automator` 的 `mockWxMethod` 编排 `success` 路径（它不会把调用方的回调传给实现函数），失败路径由 integration 用例承担或经宿主 runner 注入，没有代码样例：替身按产品包里定义端口的适配器实现，放在 `packages/e2e/src/drivers/`，由用例在调用宿主 runner 前注入，宿主 runner 只按消费接口声明发真实 `wx.request` 并把原始结果交回用例，所以替换平台能力时改驱动与用例注入，不改宿主 runner 与断言；替换点地图列出主要接缝，完整影响范围以 `git grep` 与门禁报错为准（例如写死旧包名的测试、平台删除后失去覆盖来源的单测、依赖清单内容的单测），照着改即可；替换点地图只经过模拟演练，尚未在真实使用方验证，真实使用中的发现请记入上面的模板反馈日志。
 
 ## 移除模板示例
 
-初始化阶段（模板示例仍未被使用方自己的业务替换时）可以整块移除示例，不必为它写 Change、`REMOVED` delta 或走归档。**时机**：使用方自己的第一个 Scenario 通过完整门禁之后——此时示例承载的通用能力已被使用方业务覆盖。**方式**：直接提交删除；本节的适用范围只有下列白名单，超出白名单的内容（尤其是使用方自己的业务）退役时仍走正常的 Change。
+初始化阶段（模板示例仍未被使用方自己的业务替换时）可以整块移除示例，不必为它写 Change、`REMOVED` delta 或走归档。**时机**：使用方自己的第一个 Scenario 通过完整门禁之后——此时示例承载的通用能力已被使用方业务覆盖。Web 侧第一个业务直接替换 [packages/openapi/contracts](../packages/openapi/contracts) 中清单登记的契约时，允许在同一次提交中完成契约替换与 Web 示例删除，不要求改完契约后先单独跑通一次基于旧示例的完整门禁；这是“第一个 Scenario 通过完整门禁后再删示例”规则的例外。**方式**：直接提交删除；本节的适用范围只有下列白名单，超出白名单的内容（尤其是使用方自己的业务）退役时仍走正常的 Change。
 
 删除白名单：
 
-- 整目录或整文件：`packages/sdk/src/example/`；`packages/protocol/testing/shadow/example/`；`packages/e2e/tests/example/`、`packages/e2e/tests/weapp/example/`；`packages/e2e/host/weapp/example-runner.ts`；`packages/e2e/tests/fixtures/` 下的 `SCN-TEMPLATE-EXAMPLE-*` 与 `FLOW-TEMPLATE-EXAMPLE-*`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`；`openspec/specs/template-example/`；示例删除验收自身的用例 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 与 Fixture `packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`（这条保证只在示例存在时有意义，随示例一起删除）；证明"新增消费接口只需登记声明与补矩阵 Fixture 键"的回归用例 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`（它依赖模板自带 IDL 中的具体接口，只对模板仓库有意义，随示例一起删除）。
-- 片段：全仓库所有成对标记之间的内容（连同标记本身），包括 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 的示例导出、`consumed-operations.ts` 的示例条目及其单测中的示例断言、[packages/e2e/host/weapp/app.js](../packages/e2e/host/weapp/app.js)、`packages/e2e/host/weapp/setup.ts`、`packages/e2e/host/weapp/vite.config.ts` 与 [packages/e2e/src/drivers/weapp-host.test.ts](../packages/e2e/src/drivers/weapp-host.test.ts) 中注册与配置示例运行器的片段、本指南与各级 `AGENTS.md` 中指向示例文件或引用 `SCN-TEMPLATE-EXAMPLE-*` 的段落、包级 `AGENTS.md`「子模块」一节中列出的示例模块条目、会创建副本的用例排除列表（[packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts)）与集成测试配置中包含 `example` 的 `include` 条目中指向示例文件或示例删除验收的部分。
-- JSON 中的示例键：`SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`）；只删"示例接口中不再被标记外声明"的那些——使用方仍在调用的接口（见下）要在标记外保留同名条目，它对应的 Fixture 键必须保留，删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。
-- 同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目。
+- 整目录或整文件：`packages/sdk/src/example/`；`packages/protocol/testing/shadow/example/`；`packages/e2e/tests/example/`、`packages/e2e/tests/weapp/example/`；`packages/e2e/host/weapp/example-runner.ts`；`packages/e2e/tests/fixtures/SCN-TEMPLATE-EXAMPLE-*`、`packages/e2e/tests/fixtures/FLOW-TEMPLATE-EXAMPLE-*`；`packages/e2e/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`；`openspec/specs/template-example/`；示例删除验收自身的用例 `packages/e2e/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts` 与 Fixture `packages/e2e/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`（这条保证只在示例存在时有意义，随示例一起删除）；证明"新增消费接口只需登记声明与补矩阵 Fixture 键"的回归用例 `packages/e2e/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`（它依赖模板自带 IDL 中的具体接口，只对模板仓库有意义，随示例一起删除）；成对标记 `template-example:begin`、`template-example:end`。
+- 片段：全仓库所有成对标记之间的内容（连同标记本身）。这里的“全仓库”包括 `scripts/` 下的门禁测试，例如 [scripts/lib/example-markers.test.ts](../scripts/lib/example-markers.test.ts) 中带 `template-example` 或 `web-example` 标记的示例片段；删除示例时按标记裁剪这些测试，不要因为 `scripts/` 属于门禁代码就跳过。其他片段包括 [packages/sdk/src/index.ts](../packages/sdk/src/index.ts) 的示例导出、`consumed-operations.ts` 的示例条目及其单测中的示例断言、[packages/e2e/host/weapp/app.js](../packages/e2e/host/weapp/app.js)、`packages/e2e/host/weapp/setup.ts`、`packages/e2e/host/weapp/vite.config.ts` 与 [packages/e2e/src/drivers/weapp-host.test.ts](../packages/e2e/src/drivers/weapp-host.test.ts) 中注册与配置示例运行器的片段、本指南与各级 `AGENTS.md` 中指向示例文件或引用 `SCN-TEMPLATE-EXAMPLE-*` 的段落、包级 `AGENTS.md`「子模块」一节中列出的示例模块条目、会创建副本的用例排除列表（[packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts)）与集成测试配置中包含 `example` 的 `include` 条目中指向示例文件或示例删除验收的部分。
+- JSON 中的示例键：`packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json` 中示例接口的键（`CreateTrade`、`QueryTrade`）；只删"示例接口中不再被标记外声明"的那些——使用方仍在调用的接口（见下）要在标记外保留同名条目，它对应的 Fixture 键必须保留，删除后执行 `pnpm fixtures:refresh SCN-PROTOCOL-CONTRACT-002`。
+- 同步：`manifest.quality.coverageExclusions` 中指向已删除文件的条目；[技术架构文档](architecture.md) 中只描述示例的实现小节（包括 `template-example` / `web-example` 标记内外的示例叙事）也要随示例删除或改写。架构检查只校验标题与链接，不会发现这类正文漂移，必须人工核对。
 
-**共用接口**：示例与使用方都要调用的接口（例如示例的 `QueryTrade`），删除示例前先把它的条目改写到 `consumed-operations.ts` 的标记外（与示例条目同形：引用同一 generated 常量，`authority` 换成使用方自己的评审依据），并在同一次删除里移除标记内的那份与对应的示例标记；矩阵 Fixture 中它对应的键保留。不要长期并存标记内与标记外两份同名条目：示例断言要求标记内的示例条目恰好是示例的两个接口，重复声明还会让方法与义务重复登记。使用方自己的其他接口一律写在标记外，标记内只保留模板示例的两个条目。
+**Web 示例白名单**（可与 `template-example` 分别删除，也可同时删除）：`packages/web/src/__tests__/`、`packages/web/src/trade-create/`、`packages/web/src/trade-list/`、`packages/web/src/trade-status/`、`packages/web/src/runtime/__tests__/`、`packages/web/src/shared/components/LoadingFailure/`、`packages/web/src/shared/components/LoadingIndicator/`；`packages/e2e/tests/fixtures/_datasets/trade-in-progress/`、`packages/e2e/tests/fixtures/_datasets/trade-completed/`；`packages/e2e/tests/fixtures/SCN-WEB-EXAMPLE-*`、`packages/e2e/tests/fixtures/FLOW-WEB-EXAMPLE-*`，包括 `packages/e2e/tests/fixtures/SCN-WEB-EXAMPLE-015/`；`packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-*`，包括 `packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-015.spec.ts`；`packages/e2e/tests/tooling/SCN-WEB-EXAMPLE-facts.spec.ts`；`packages/e2e/tests/tooling/example-removal-expected.ts`；`packages/e2e/tests/web-openapi-browser/SCN-WEB-EXAMPLE.browser.spec.ts`；`packages/web/src/app/platform/openapi-ports.ts`、`packages/web/src/app/platform/runtime.test.ts`、`packages/web/src/app/platform/runtime.ts`、`packages/web/src/app/platform/url-context.test.ts`、`packages/web/src/app/platform/url-context.ts`、`packages/web/src/runtime/domain.ts`、`packages/web/src/runtime/generation.ts`、`packages/web/src/runtime/poller.ts`、`packages/web/src/shared/components/example.test.ts`、`packages/web/src/store/example.test.ts`；`openspec/specs/web-example/`；全仓库所有 `web-example:begin` 与 `web-example:end` 标记之间的片段（连同标记本身），包括全局 store 中的示例状态、消费接口声明中的示例条目、[packages/web/AGENTS.md](../packages/web/AGENTS.md)、本指南能力地图与[技术架构文档](architecture.md)中的“Web 示例”条目；以及 `manifest.quality.coverageExclusions` 中指向这些文件的条目。保留 Web 应用与 OpenAPI 协议包骨架（装配入口、空消费接口声明、门禁规则和示例契约），[packages/openapi/contracts](../packages/openapi/contracts) 中清单登记的产品契约属于协议来源，**不在 Web 示例白名单内**，应按“协议来源”替换点处理。
+
+- Web JSON 中的示例键：`packages/e2e/tests/fixtures/SCN-OPENAPI-CONTRACT-021/openapi-matrix.json` 中示例接口对应的 `plans` 与 `envelopes` 键；只删“示例接口中不再被标记外声明”的那些，使用方仍在调用的接口保留对应键，删除后执行 `pnpm fixtures:refresh SCN-OPENAPI-CONTRACT-021`。
+
+**共用接口**：示例与使用方都要调用的接口（例如示例的 `QueryTrade`），在接入该接口的同一项业务中把它的条目改写到 `consumed-operations.ts` 的标记外（与示例条目同形：引用同一 generated 常量，`authority` 换成使用方自己的评审依据），并在同一次提交里删除 `template-example` 或 `web-example` 中对应示例；矩阵 Fixture 中它对应的键保留。这也是“第一个 Scenario 通过完整门禁后再删示例”的例外：不要为了保留示例而把同一个接口在标记内外重复声明，示例断言要求标记内条目恰好是示例接口，重复声明还会让方法与义务重复登记。
 
 **片段标记**：共享文件中只属于示例的片段用成对注释包裹——代码文件写 `// template-example:begin` 与 `// template-example:end`，Markdown 写 `<!-- template-example:begin -->` 与 `<!-- template-example:end -->`。只有注释行里的标记才算标记：字符串字面量与 Spec 正文中出现的同名文字不参与裁剪，也不会被当成标记。架构检查会校验标记成对出现、不嵌套；共享文件中引用示例、但没有被标记包裹的内容会被视为门禁依赖示例，示例删除演练会把它暴露出来。
 
 删除后先运行 `pnpm format`（片段删除会留下空行与折行差异），再把改动 `git add -A` 或提交：源码清单取自 `git ls-files -co --exclude-standard`，未跟踪的新文件会进入清单，而工作区里已删除但尚未暂存删除的文件会在读取前被剔除——不 add 或提交，删除就不会反映到源码摘要，门禁会读到过期结论。然后运行 `pnpm check:fast` 与场景门禁清单模式（`pnpm check:scenarios --inventory`）：清单模式不要求平台报告，所以 `requiredIn` 含平台项目的用例会报 `missing binding`，这类问题在副本里预期存在、不代表删除有问题；除此之外应全绿。本节的删除发生在初始化阶段、副本里没有 active Change 时按运行约定不带作用域（仍在交付 active Change 时按「从方案到验收」第 4 条带作用域）。完整验收（含平台报告）由复刻验收的示例删除演练承担。
+
+## 新增一条绑定
+
+新增一条绑定按以下顺序完成，避免只补清单后留下无法发现的测试或文档缺口：
+
+1. 建立产品包与协议包骨架，按包的角色补齐入口、分层目录和 `package.json` 中的 workspace 依赖；不要复制示例业务目录。
+2. 在 [project.manifest.json](../project.manifest.json) 登记 `packages`、`bindings`（`product`、`protocol`、`platforms`）与对应 `testProjects`（至少产品 unit；有平台行为时登记对应 platform 项目），并同步 `requiredCommands`、`fingerprints.sourceRoots`、`fingerprints.protocolInputs` 和覆盖率排除项。
+3. 若新增 platform 项目，在两个测试配置的 `include` 中加入 `packages/e2e/tests/<绑定名>/**/*.spec.ts`：[packages/e2e/vitest.config.integration.ts](../packages/e2e/vitest.config.integration.ts) 与 [packages/e2e/vitest.config.browser.ts](../packages/e2e/vitest.config.browser.ts)；weapp 项目按 [packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts) 的现有模式登记。
+4. 按 [packages/e2e/AGENTS.md](../packages/e2e/AGENTS.md) 的规则补齐用例：platform 用例放在 `packages/e2e/tests/<绑定名>/`，并声明 `environment`；`binding` 可省略并由目录推断，但目录外用例必须显式声明。同步本指南能力地图、根 [AGENTS.md](../AGENTS.md) 项目地图、对应包级 `AGENTS.md`/`CLAUDE.md` 与测试项目的覆盖率/报告登记。
+5. 运行 `pnpm check:project-map`、`pnpm check:fast`、对应平台命令和 `pnpm check:scenarios`，确认新绑定的义务、报告与文档引用都已被门禁发现。
+
+## 移除一条绑定
+
+绑定与其独占内容由 [project.manifest.json](../project.manifest.json) 的 `bindings` 和相关包登记确定；不要按仓库名或目录名的字符串猜范围。按以下顺序删除一条不再使用的绑定：
+
+1. 删除绑定独占的产品包、协议包、平台测试项目与宿主，以及只声明该绑定的用例、FLOW 与 Fixture 来源。删除 IDL 绑定时同时处理 [proto-gen.yaml](../proto-gen.yaml)、[proto-gen.lock](../proto-gen.lock)、根 [package.json](../package.json) 的 `proto:*` 脚本与 `@daqian/proto-gen` devDependency、生成代码及只读该生成物的适配器和测试；[tsconfig.base.json](../tsconfig.base.json)、[tsconfig.test.json](../tsconfig.test.json) 的 `generated` 别名、[vitest.shared.ts](../vitest.shared.ts) 的对应别名、[eslint.config.js](../eslint.config.js) 的忽略项和 [.gitignore](../.gitignore) 的生成物项只删除属于该 IDL 来源的条目。删除 weapp 平台时同时删除 `packages/e2e/src/drivers/weapp*`、`packages/e2e/host/weapp/`、weapp 测试配置与宿主接线，以及根 `package.json` 的 `test:e2e:weapp`、`weapp:prepare` 和 `check` 串联；`miniprogram-automator` 仍被 `scripts/weapp-prepare.ts` 导入，只有连准备流程一起删除时才移除该依赖。
+2. 同步清单：删除 `manifest.bindings` 条目，并同步 `manifest.packages`、`manifest.testProjects`、`manifest.requiredCommands`、`manifest.fingerprints.sourceRoots`、`manifest.fingerprints.protocolInputs`、包 `allowedDirectories` 与 `consumedOperations` 等随绑定存在的登记。若仍有其他 IDL 协议包，保留它们仍使用的根脚本、依赖、别名与生成物忽略项。
+3. 同步文档：[本指南](template-guide.md)、[技术架构文档](architecture.md)、根与包级 `AGENTS.md`、[README.md](../README.md) 中指向已删除包、宿主或命令的内容，以及本指南能力地图和替换点地图对应行。
+4. 核验模板自身事实的用例按清单派生，例如断言“清单中的每条绑定都满足约束”，不要改成写死剩余绑定数量；按路径直接引用被删包的单测或 helper 改为受控临时根输入，或明确声明它只属于该绑定。当前 `SCN-PROTOCOL-CONTRACT-004` 的 `idl-route-source` case 随 IDL 删除，`engine-no-generated-cli` case 与 `SCN-PROTOCOL-CONTRACT-016` 按清单遍历协议包，删除 IDL 后应保留并通过。`SCN-PROTOCOL-CONTRACT-001`、`002`、`003`、`005`、`015` 及其 Fixture（尤其 `SCN-PROTOCOL-CONTRACT-015`）依赖 IDL generated 或适配器，删除 IDL 绑定时一并退役对应 case 与 Fixture；`scripts/lib/contract-inventory.scan.test.ts`、`contract-inventory.derivation.test.ts`、`idl-adapter-regression.test.ts` 同样属于 IDL 独占内容，删除时一并处理，避免跳过时仍登记 cover。保留 IDL 时应让这些用例按清单遍历协议包，不写死 `packages/protocol`。
+5. 删除 weapp 绑定时按第 1 步的平台清理范围同步删除驱动、宿主、测试项目、准备命令与根脚本。
+6. [packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、通用请求记录、Fixture 装载、报告器和预览启动器属于测试基础设施，不属于任何绑定的独占内容，不随绑定删除。
+7. 最后在使用方自己的 Change 中用 `REMOVED` 删除只适用于该绑定的 Requirement；同一 Requirement 还保留其他绑定的内容时，该 Requirement 改用 `MODIFIED`。若 `MODIFIED` 块要删除退役 Scenario，先在主 Spec 中直接删除该 Scenario 并单独提交，再归档只包含其余修改的 delta；对受影响的 owner 运行 `pnpm fixtures:refresh <owner>`，再完整运行场景门禁；整份能力退役按下一节“归档已知限制”处理。完成后运行 `pnpm check:fast`、`pnpm check:scenarios` 与完整 `pnpm verify`，确认没有残留的绑定、报告或来源摘要。
+
+<!-- web-example:begin -->
+
+**顺序要求**：清单删除测试项目后，旧 Spec 的 `requiredIn` 会立即指向不存在的项目。此时 `pnpm check:scenarios` 与依赖它的 `SCN-WEB-EXAMPLE-015` 会报 `invalid verification metadata: requiredIn project <name> is not registered in project.manifest.json`，`pnpm check:fast` 也会因此失败。这是预期的中间态：先建立并推进使用方自己的 Change，同步删除或迁移这些 Scenario、case、FLOW 与 Fixture，再以更新后的 Spec 跑 `check:fast`；不要为了暂时跑绿而在清单里保留待删测试项目。
+
+<!-- web-example:end -->
+
+## 跨源部署
+
+Web 产品与服务端不同源时，网关的预检响应至少允许契约实际使用的 `Content-Type`、`X-Access-Token`、`X-Operator-Token` 与 `X-Request-Id`；响应若回显 `X-Request-Id`，还要把它加入 `Access-Control-Expose-Headers`，否则浏览器脚本读不到。名称含下划线的头（例如 IDL 运行配置可能使用的 `app_version`）在部分代理或 CDN 上会被丢弃或改写，跨源前要在真实部署链路上核对；如果保留此类头，代理必须显式透传。开发代理只转发 [packages/e2e/host/web.config.json](../packages/e2e/host/web.config.json) 登记的 `proxyPrefixes`，生产网关不能依赖该配置。
+
+浏览器传输层自身不自动重放请求；Chromium 在复用连接被零字节断开时可能自行重发 POST。服务端不得把“请求只到达一次”当作浏览器传输层保证，POST 的幂等性由服务端按 `X-Request-Id` 去重或按业务请求号保证。
 
 ## 归档已知限制
 
@@ -116,12 +180,23 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 
 - **整份能力退役**：delta 用 `REMOVED Requirements` 删掉某个 Spec 的全部 Requirement 时，重建出的 Spec 没有任何 Requirement，归档会报 `Spec must have at least one requirement` 并中止（`Aborted. No files were changed.`），主 Spec 也不会被更新。手工步骤：删掉该 Change 的对应 delta 文件，直接在 Change 内删除主 Spec 的 Requirement 段落；整份 Spec 清空时连同 `openspec/specs/<spec>/spec.md` 一起删除，再运行 `openspec archive <change> -y`。归档后确认 `openspec/specs/` 已无该 Spec，且 `pnpm check:scenarios` 与 `pnpm check:fixtures` 没有指向已删能力的悬空引用。
 - **保留 ID、只改 Scenario 标题**：`MODIFIED` 块里换了 Scenario 标题、主 Spec 还是旧标题时会被拒绝，报 `current spec contains scenario(s) not present in the modified block`。手工步骤：先在主 Spec 中把标题改成最终标题（这一步单独提交），再归档只包含其余修改的 delta。
+- **MODIFIED 块删除 Scenario**：退役的 Scenario 仍存在于主 Spec、但 `MODIFIED` 块没有列出它时，归档会拒绝并报 `current spec contains scenario(s) not present in the modified block`。处理删除绑定或部分退役时，先在主 Spec 中直接删除该 Scenario 并单独提交；再让 delta 只包含其余修改，Requirement 仍保留的其他 Scenario 原样列回 `MODIFIED` 块，然后归档。
 
-这两条限制都来自 OpenSpec 自身的校验；升级 CLI 时先重跑上述两种情形，确认行为是否变化。
+这些限制都来自 OpenSpec 自身的校验；升级 CLI 时先重跑上述情形，确认行为是否变化。
 
 ## 版本对齐
 
 接入官方脚手架（例如 Vite、Vitest、ESLint 的初始化命令）时，按 peer 依赖与 `engines` 统一版本，不要按脚手架默认版本覆盖模板已有的约束；`typescript`、`@types/node` 与 `@fission-ai/openspec` 的版本在 Design 中固定，升级需要单独说明理由。模板版本过旧时可以升级，并在模板反馈日志中记录升级前后的差异与实际影响。
+
+| 项目             | 当前版本或约束                                     | 对齐方式                                                                               |
+| ---------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Node.js          | `^22.13.0                                          |                                                                                        | ^24.0.0 |     | >=26.0.0` | 使用根 `package.json` 的 `engines`；升级前核对 Vite、Vitest 与 Playwright |
+| pnpm             | `10.20.0`                                          | 使用根 `packageManager` 与锁文件，不混用 npm/yarn                                      |
+| OpenSpec CLI     | `1.6.0`                                            | 工作流 schema 由使用方安装；模板只依赖已实测的归档行为                                 |
+| TypeScript / Vue | `5.9.3` / `3.5.43`                                 | 使用 Vue 官方脚手架时先对齐根与 Web 包的精确版本                                       |
+| Vite / Vitest    | `8.3.4` / `5.0.3`                                  | peer 依赖统一后升级；不要只升级 Web 包                                                 |
+| Playwright       | `1.63.0`                                           | 与本机缓存的 Chromium build 对齐；首次运行执行 `pnpm exec playwright install chromium` |
+| OpenAPI 工具     | `@redocly/cli 2.62.1`、`openapi-typescript 7.13.0` | `api:sync` 生成后必须通过 `api:validate` 与 `api:status`                               |
 
 ## 使用方约定
 
@@ -130,6 +205,7 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 - 长期约定落在项目级载体（`AGENTS.md`、schema、清单、脚本、指南、[架构文档](architecture.md)）上，Change 文档不能是唯一出处。
 - Claude Code 版本要求不低于 v2.1.277；根与各级 `CLAUDE.md` 的首个非空行固定为 `@AGENTS.md`，本地的 `CLAUDE.local.md` 同样必须以 `@AGENTS.md` 开头，配对由 `pnpm check:project-map` 核对。
 - 遇到问题时先查官方文档与业界或社区的成熟方案，查不到再做实验，最后才考虑自研；自研通用能力要在 Design 中写明查过哪些方案、为何不采用。
+- xueshan 反馈 #6 关于 Vue 文件未计入覆盖率的描述已在当前 Vitest 5.0 工具链下复核：`app-unit` 能读取 Vue SFC 的覆盖率映射，旧描述不再适用；不要据此新增 `v8 ignore` 或覆盖率豁免。
 
 ## 复刻验收
 
@@ -144,28 +220,92 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 
 ## 替换点地图
 
-模板里有三类使用方通常需要改动的点：两个可替换实现点（协议来源、运行平台）与一个可删除模块（包发布）。每项列出涉及文件、清单中需要修改的项与验收门禁；项目内路径都写成相对链接，架构检查会保证它们存在。
+模板里有使用方通常需要改动的产品、协议、平台与发布点位，并提供本地预览这一独立运行模式。每项列出涉及文件、清单中需要修改的项、示例 Scenario 与验收门禁；项目内路径都写成相对链接，架构检查会保证它们存在。
+
+组合验证状态如下。模板门禁实际运行的是“`sdk` + IDL + 小程序”和“Web 应用 + OpenAPI + 浏览器”两条绑定；“Web 应用 + IDL + 浏览器”已由复刻演练验证，但不作为模板仓库的常驻门禁；其余组合未验证。
+
+| 产品形态 | 协议           | 平台   | 状态                             |
+| -------- | -------------- | ------ | -------------------------------- |
+| `sdk`    | IDL + ProtoGen | 小程序 | 模板门禁验证                     |
+| Web 应用 | OpenAPI        | 浏览器 | 模板门禁验证                     |
+| Web 应用 | IDL + ProtoGen | 浏览器 | 交叉复刻演练验证，不进入模板门禁 |
+| `sdk`    | OpenAPI        | 小程序 | 未验证                           |
+
+### 产品形态
+
+当前实现：`sdk` 与 Web 应用两种产品包并列。
+
+- **`sdk` 形态（当前）**：[packages/sdk](../packages/sdk) 是公共 Headless SDK，按工厂 → 核心 → 端口 → 适配器分层；清单以 `packages[].form: 'sdk'`、`consumedOperations` 与 `bindings` 登记，发布范围包含该产品包及其绑定协议包。产物与依赖边界由 [scripts/check-package.ts](../scripts/check-package.ts) 校验，示例证据见 `SCN-TEMPLATE-ENGINEERING-001`，绑定约束见 `SCN-TEMPLATE-ENGINEERING-014`。
+- **Web 应用（当前）**：[packages/web](../packages/web) 使用 Vue、Vite 与 Pinia，按 [packages/web/AGENTS.md](../packages/web/AGENTS.md) 的组件树、状态分层与依赖方向组织；清单以 `packages[].form: 'web-app'`、`globalStore` 与 `bindings` 登记。`pnpm check:component-tree` 校验组件树，`pnpm check:bundle` 校验产物边界，`pnpm test:e2e:browser` 提供浏览器证据；示例证据见 `SCN-WEB-APP-001`、`SCN-WEB-APP-004` 与 `SCN-WEB-APP-012`。
+- **清单需要修改的项**：`manifest.packages` 中新增、删除或替换产品的 `directory`、`name`、`form`、`private`、`allowedDirectories`、`moduleRoots`、`consumedOperations` 或 `globalStore`；同步 [project.manifest.schema.json](../project.manifest.schema.json)、`manifest.bindings`、`manifest.requiredCommands`、`manifest.testProjects`、`manifest.fingerprints.sourceRoots` 与发布范围。产品包必须以 workspace 依赖声明绑定的协议包。
+- **验收门禁**：`pnpm check:fast`、`pnpm check:component-tree`、`pnpm check:bundle`、`pnpm check:package`（只适用于 `sdk` 形态）与对应平台报告；产品替换后必须重跑场景门禁，确认新绑定的全部义务都有证据。
 
 ### 协议来源
 
-当前实现：IDL + ProtoGen。
+当前实现：IDL + ProtoGen 与 OpenAPI 两种协议包并列。
 
-- **涉及文件**：配置 [proto-gen.yaml](../proto-gen.yaml)、[proto-gen.lock](../proto-gen.lock) 与根 [package.json](../package.json) 的 `proto:*` 脚本/devDependency；生成代码 [packages/protocol/src/generated](../packages/protocol/src/generated) 及其消费方 [packages/protocol/src/client.ts](../packages/protocol/src/client.ts)（`RpcMethodMeta`）、[packages/protocol/testing/index.ts](../packages/protocol/testing/index.ts)、[packages/protocol/testing/shadow/idl-routes.ts](../packages/protocol/testing/shadow/idl-routes.ts)、[packages/protocol/testing/shadow/declared-routes.ts](../packages/protocol/testing/shadow/declared-routes.ts)、[scripts/lib/contract-inventory.ts](../scripts/lib/contract-inventory.ts)、[packages/sdk/src/consumed-operations.ts](../packages/sdk/src/consumed-operations.ts)、[packages/protocol/src/errors](../packages/protocol/src/errors)（Go 来源校验）、[packages/e2e/host/weapp/protocol-runner.ts](../packages/e2e/host/weapp/protocol-runner.ts)，以及引用生成类型的 e2e 用例（`SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-003`、`SCN-PROTOCOL-CONTRACT-004`）；工程接线 [packages/protocol/package.json](../packages/protocol/package.json) 的 `./generated/*` 导出、[packages/protocol/vite.config.ts](../packages/protocol/vite.config.ts)、[vitest.shared.ts](../vitest.shared.ts) 的 `generated` 别名、[vitest.config.ts](../vitest.config.ts) 的覆盖率排除、[eslint.config.js](../eslint.config.js) 的忽略与 [.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `sdk-cross-package-exports-only`/`*-no-generated` 规则；证据 [packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003](../packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003)：仅更换 IDL 或升级 Consumer 时刷新其中的来源摘要与 `provenance/`；换成非 IDL 来源（如 OpenAPI）时，整个目录（`extract.go`、`reproduce.sh`、`idl-errors.json`、`provenance/` 等）都与 IDL/Go 来源绑定，需要随 PC-02 一起整体替换或删除；Spec [openspec/specs/protocol-contract/spec.md](../openspec/specs/protocol-contract/spec.md) 与文档 [AGENTS.md](../AGENTS.md)、[packages/protocol/AGENTS.md](../packages/protocol/AGENTS.md)。
-- **清单需要修改的项**：`manifest.requiredCommands` 中的 `proto:validate`、`proto:status`、`proto:sync`；`manifest.fingerprints.protocolInputs`（登记新来源的指纹输入）；`manifest.fingerprints.sourceRoots`（覆盖新来源的源码目录）。换 IDL 时改 ProtoGen Consumer 登记（不在清单内）；换 OpenAPI 时新增路由来源，并替换协议义务派生与错误码来源校验，或明确不启用并修改 `protocol-contract` Spec。
-- **验收门禁**：`SCN-PROTOCOL-CONTRACT-001`、`SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-003`、`SCN-PROTOCOL-CONTRACT-004`，以及 `pnpm proto:validate`、`pnpm proto:status` 与 `pnpm check:fast`。
+- **IDL + ProtoGen（当前）**：配置 [proto-gen.yaml](../proto-gen.yaml)、[proto-gen.lock](../proto-gen.lock) 与根 [package.json](../package.json) 的 `proto:*` 脚本/devDependency；生成代码 [packages/protocol/src/generated](../packages/protocol/src/generated) 及其消费方 [packages/protocol/src/client.ts](../packages/protocol/src/client.ts)（`RpcMethodMeta`）、[packages/protocol/testing/index.ts](../packages/protocol/testing/index.ts)、[packages/protocol/testing/shadow/idl-routes.ts](../packages/protocol/testing/shadow/idl-routes.ts)、[packages/protocol/testing/shadow/declared-routes.ts](../packages/protocol/testing/shadow/declared-routes.ts)、[scripts/lib/contract-inventory.ts](../scripts/lib/contract-inventory.ts)、[packages/sdk/src/consumed-operations.ts](../packages/sdk/src/consumed-operations.ts)、[packages/protocol/src/errors](../packages/protocol/src/errors)（Go 来源校验）、[packages/e2e/host/weapp/protocol-runner.ts](../packages/e2e/host/weapp/protocol-runner.ts)，以及引用生成类型的 e2e 用例（`SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-003`、`SCN-PROTOCOL-CONTRACT-004`）；工程接线 [packages/protocol/package.json](../packages/protocol/package.json) 的 `./generated/*` 导出、[packages/protocol/vite.config.ts](../packages/protocol/vite.config.ts)、[vitest.shared.ts](../vitest.shared.ts) 的 `generated` 别名、[vitest.config.ts](../vitest.config.ts) 的覆盖率排除、[eslint.config.js](../eslint.config.js) 的忽略与 [.dependency-cruiser.cjs](../.dependency-cruiser.cjs) 的 `sdk-cross-package-exports-only`/`*-no-generated` 规则。模板当前仍以共用 IDL 的具体接口承载协议引擎证据；更换 IDL 来源时这些用例会随来源改写，IDL 侧与产品来源彻底分离登记为后续 Change OI-WA-04。仅更换 IDL 或升级 Consumer 时刷新 [packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003](../packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-003) 的来源摘要与 `provenance/`；Spec [openspec/specs/protocol-contract/spec.md](../openspec/specs/protocol-contract/spec.md) 与文档 [AGENTS.md](../AGENTS.md)、[packages/protocol/AGENTS.md](../packages/protocol/AGENTS.md)。
+- **IDL + ProtoGen 的清单**：`manifest.requiredCommands` 中的 `proto:validate`、`proto:status`、`proto:sync`；`manifest.fingerprints.protocolInputs`（登记来源指纹输入）；`manifest.fingerprints.sourceRoots`（覆盖源码目录）。更换 IDL 时改 ProtoGen Consumer 登记（不在清单内）。
+- **IDL + ProtoGen 的门禁**：`SCN-PROTOCOL-CONTRACT-001`、`SCN-PROTOCOL-CONTRACT-002`、`SCN-PROTOCOL-CONTRACT-003`、`SCN-PROTOCOL-CONTRACT-004`，以及 `pnpm proto:validate`、`pnpm proto:status` 与 `pnpm check:fast`。
+- **OpenAPI（当前）**：清单登记的产品契约、lock 与产品侧约定位于 [packages/openapi/contracts](../packages/openapi/contracts)，产品生成物在 [packages/openapi/src/generated](../packages/openapi/src/generated)；与产品来源分离的引擎测试契约、约定、bundle 与生成物在 [packages/openapi/testing/engine](../packages/openapi/testing/engine)。执行器位于 [packages/openapi/src/rest/client.ts](../packages/openapi/src/rest/client.ts)，浏览器网络工厂位于 [packages/openapi/src/adapters/network/fetch.ts](../packages/openapi/src/adapters/network/fetch.ts)，适配器 [packages/openapi/testing/adapter.ts](../packages/openapi/testing/adapter.ts) 与路由构造器 [packages/openapi/testing/shadow-routes.ts](../packages/openapi/testing/shadow-routes.ts) 按 `contractCarrier` 选择产品或引擎载体；Web 消费声明在 [packages/web/src/app/consumed-operations.ts](../packages/web/src/app/consumed-operations.ts)，产品契约义务运行证据见 `SCN-OPENAPI-CONTRACT-007`、`SCN-OPENAPI-CONTRACT-021` 与 `SCN-OPENAPI-CONTRACT-028`。
+- **OpenAPI 的清单**：`manifest.packages[].protocolKind: 'openapi'`、`packages[].contract` 与 `manifest.fingerprints.protocolInputs`；协议包以 workspace 依赖绑定 Web 产品包，API 命令由 `packages[].checks` 登记为 `api:validate`、`api:status`。
+- **OpenAPI 的门禁**：`SCN-OPENAPI-CONTRACT-001`、`SCN-OPENAPI-CONTRACT-006`、`SCN-OPENAPI-CONTRACT-007`、`SCN-OPENAPI-CONTRACT-021`、`SCN-OPENAPI-CONTRACT-028`，以及 `pnpm api:validate`、`pnpm api:sync`、`pnpm api:status` 与 `pnpm check:fast`。
+- **协议约定**：产品侧替换点是 [packages/openapi/contracts/conventions.ts](../packages/openapi/contracts/conventions.ts)，它把产品契约的码表、通用码与接口码规范化为生成器、`api:validate` 和适配器共用的输出。引擎侧 [packages/openapi/testing/engine/conventions.ts](../packages/openapi/testing/engine/conventions.ts) 与引擎测试契约绑定，不属于产品替换面；产品侧改契约或约定时同步改同目录测试、运行 `pnpm api:sync <契约来源>` 与 `pnpm api:validate`，不要修改引擎侧的用例、约定、生成物或 `scripts/` 门禁。
+- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。新契约放入 [packages/openapi/contracts](../packages/openapi/contracts) 前先运行 Prettier，避免 `format:check` 失败；OAS 3.0.3 中与 `allOf` 并列但没有同级 `type` 的 `nullable: true` 不作为引擎默认支持，先修正契约，确有理由时再在根 `redocly.yaml` 写明规则调整原因并在产品侧约定模块登记钩子。需要修正已知 schema 写法时，在产品侧约定模块具名导出 `schemaNormalizers`（`(schema) => schema` 函数数组），它只作用于响应校验，对响应 schema 根与每个 `$defs` 组件分别执行，引擎侧约定模块不要登记额外钩子。**钩子收到的是内置规范化之后的 schema，OAS 3.0 的 `nullable` 已转换或移除，不能据此把某个 `allOf` 一刀切改成可空。** `contract.bundle.json` 由 `api-contract.ts` 以 `--dereferenced` 生成，响应根中的组件通常已经内联，不能依赖组件名或 `title`；钩子在响应根上还要递归处理内联子 schema，并按稳定字段或 `x-` 标记精确定位，只处理确认有合同缺陷的成员。下面骨架只把 Trade 风格对象的 `amount` 从整数修为字符串，实际规则必须替换为对应字段：
+
+```ts
+function object(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function normalizeTradeAmount(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(normalizeTradeAmount);
+  const source = object(schema);
+  if (!source) return schema;
+  const properties = object(source.properties);
+  const amount = object(properties?.amount);
+  const normalized =
+    properties?.trade_no && amount
+      ? {
+          ...source,
+          properties: { ...properties, amount: { ...amount, type: 'string' } },
+        }
+      : source;
+  return Object.fromEntries(
+    Object.entries(normalized).map(([key, value]) => [key, normalizeTradeAmount(value)]),
+  );
+}
+
+export const schemaNormalizers = [normalizeTradeAmount];
+```
+
+除 `nullable-type-sibling` 外，`info-license`、`no-required-schema-properties-undefined`、`no-invalid-media-type-examples` 等其他 redocly 规则也按同一流程处理：先修契约；契约无法改动且理由成立时，才在根配置登记局部规则调整，并在产品侧约定模块用精确的 schema/字段规则登记钩子。浏览器用例使用产品契约路由时直接按清单契约发现，不需要额外传契约对象；发布契约前确保 `api:validate` 通过。Web 侧第一个业务可以直接替换 [packages/openapi/contracts](../packages/openapi/contracts) 中清单登记的产品契约并在同一次提交中删除 Web 示例，顺序按“移除模板示例”的例外执行；替换完成后以新业务 Scenario 的完整门禁为准。原协议包整体删除；[packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、请求记录、Fixture 装载、报告器与预览启动器属于测试基础设施，不属于任何协议选项，必须保留。
 
 ### 运行平台
 
-当前实现：微信小程序。
+当前实现：微信小程序与浏览器两种平台点位并列。
 
-- **涉及文件（测试侧）**：[packages/e2e/src/drivers](../packages/e2e/src/drivers) 中的 `weapp*.ts` 及其测试（`weapp.ts`、`weapp.test.ts`、`weapp-host.test.ts`；`node.ts` 是集成用例的驱动，必须保留）、[packages/e2e/host/weapp](../packages/e2e/host/weapp)、[packages/e2e/tests/weapp](../packages/e2e/tests/weapp)、[packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts)、根 [package.json](../package.json) 的 `test:e2e:weapp` 脚本与 `check` 串联、[vitest.config.ts](../vitest.config.ts) 的 projects 列表。
-- **涉及文件（生产侧）**：[packages/protocol/src/adapters/network/wechat-miniapp.ts](../packages/protocol/src/adapters/network/wechat-miniapp.ts) 与协议包根导出。生产网络工厂是 SDK 工厂与全部集成用例唯一的 `HttpPort`，根 `AGENTS.md` 硬规则 7 要求它具名导出；只去掉平台测试项目时保留它。替换或删除生产适配器属于更大的改动：要改公共 API、协议导出、Fixture 与多条 Spec（`SCN-TEMPLATE-ENGINEERING-001` 等），先决定目标再动手。
+- **微信小程序（当前）**：[packages/e2e/src/drivers](../packages/e2e/src/drivers) 中的 `weapp*.ts` 及其测试（`weapp.ts`、`weapp.test.ts`、`weapp-host.test.ts`）、[packages/e2e/host/weapp](../packages/e2e/host/weapp)、[packages/e2e/tests/weapp](../packages/e2e/tests/weapp)、[packages/e2e/vitest.config.weapp.ts](../packages/e2e/vitest.config.weapp.ts)、根 [package.json](../package.json) 的 `test:e2e:weapp` 脚本与 `check` 串联、[vitest.config.ts](../vitest.config.ts) 的 projects 列表。生产侧 [packages/protocol/src/adapters/network/wechat-miniapp.ts](../packages/protocol/src/adapters/network/wechat-miniapp.ts) 由协议包根导出；它是 SDK 工厂与小程序集成用例唯一的 `HttpPort`，根 `AGENTS.md` 硬规则 7 要求它具名导出。
 - **指南自身的链接**：本指南的能力地图与"协议来源"一节也链接了平台文件（例如 `packages/e2e/src/drivers`、`packages/e2e/host/weapp/protocol-runner.ts`）。删除或替换平台后要同步改这些链接，否则架构检查会报断链。
   <!-- template-example:begin -->
 - **涉及文件（示例的产品侧绑定）**：[packages/sdk/src/example/factory.ts](../packages/sdk/src/example/factory.ts)（导入 `createWechatMiniappHttp`，按 `runtime === 'wechat-miniapp'` 装配网络）、[packages/sdk/src/example/contracts.ts](../packages/sdk/src/example/contracts.ts) 的 `ExampleRuntime` 取值，以及 `SCN-TEMPLATE-ENGINEERING-003` Fixture 中 `ExampleRuntime` 的取值。换平台时同时调整这三处，以及在测试中写死 `runtime: 'wechat-miniapp'` 的位置（完整范围用 `git grep "wechat-miniapp'"` 查找）；只去掉平台测试项目时保持不变。
   <!-- template-example:end -->
-- **清单需要修改的项**：`manifest.testProjects`（删除 platform 类项目或替换为新平台项目）、`manifest.fingerprints.sourceRoots`（移除宿主目录）、`manifest.requiredCommands` 中的 `test:e2e:weapp`、e2e 包 `manifest.packages[].allowedDirectories` 中的 `host`；Spec 中 `requiredIn` 含 `weapp` 的 case 与正文表述随之调整。
-- **验收门禁**：`pnpm check:fast` 与替代平台项目的报告；保留小程序时按逐文件约定运行 weapp 用例。
+- **浏览器（当前）**：[packages/e2e/src/drivers/browser.ts](../packages/e2e/src/drivers/browser.ts)、[packages/e2e/host/browser](../packages/e2e/host/browser)（协议宿主）、[packages/e2e/host/app](../packages/e2e/host/app)（应用宿主）、[packages/e2e/src/hosts/proxy.ts](../packages/e2e/src/hosts/proxy.ts)（共用代理）与 [packages/e2e/vitest.config.browser.ts](../packages/e2e/vitest.config.browser.ts)；生产网络工厂由协议包各自导出，OpenAPI 为 [packages/openapi/src/adapters/network/fetch.ts](../packages/openapi/src/adapters/network/fetch.ts)，IDL 为 [packages/protocol/src/adapters/network/fetch.ts](../packages/protocol/src/adapters/network/fetch.ts)。首次运行前执行 `pnpm exec playwright install chromium`。
+- **清单需要修改的项**：`manifest.bindings[].platforms`（切换平台点位）、`manifest.testProjects`（删除或替换 platform 类项目）、`manifest.fingerprints.sourceRoots`（移除宿主目录）、`manifest.requiredCommands` 中的 `test:e2e:weapp` 或 `test:e2e:browser`、e2e 包 `manifest.packages[].allowedDirectories` 中的 `host`；Spec 中 `requiredIn` 含 `weapp` 或 `browser` 的 case 与正文表述随之调整。
+- **验收门禁**：`pnpm check:fast`、`pnpm test:e2e:browser` 或替代平台项目的报告；保留小程序时按逐文件约定运行 weapp 用例，保留浏览器时用默认并发运行 browser 项目。
+
+### 本地预览
+
+当前实现：保留，分为本地预览与开发代理两种可选模式。
+
+- **涉及文件**：[packages/e2e/src/preview/preview-launcher.ts](../packages/e2e/src/preview/preview-launcher.ts)、[packages/e2e/src/preview/dev-remote.ts](../packages/e2e/src/preview/dev-remote.ts)、[scripts/preview-local.ts](../scripts/preview-local.ts)、[scripts/dev-remote.ts](../scripts/dev-remote.ts) 与 [packages/e2e/host/web.config.json](../packages/e2e/host/web.config.json)；预览数据集位于 [packages/e2e/tests/fixtures/_datasets](../packages/e2e/tests/fixtures/_datasets)。
+- **用法**：`pnpm preview:local [--dataset <name>]` 用序列数据集查看指定状态的 UI；不传数据集时使用配置默认值，数据集不存在或契约校验失败会直接退出并列出可用值。`pnpm dev:remote` 连接真实服务端，目标地址只来自环境变量，不提供默认值；代理只转发配置登记的 `proxyPrefixes`。
+- **模式边界**：运行时有测试、本地预览、开发代理三种模式，只在宿主或代理层切换。产品代码统一请求同源 `/api` 或 `VITE_API_BASE`，不包含模式分支，也不提供“部分接口走 Shadow、部分走真实服务端”的混合模式。三种模式的证据见 `SCN-BROWSER-PLATFORM-012`、`SCN-BROWSER-PLATFORM-013`、`SCN-BROWSER-PLATFORM-014` 与 `SCN-BROWSER-PLATFORM-015`。
+- **未实现接口**：OpenAPI 契约中标记为 `x-implemented: false` 的接口进入消费集合时，派生器只输出提示，不阻断门禁；开发代理连接真实服务端时，这类接口会返回未实现错误，应改用 `pnpm preview:local` 查看契约已定义的 Fixture 状态。
+- **清单需要修改的项**：`manifest.requiredCommands` 中的 `preview:local`、`dev:remote`；数据集 manifest 的 `protocol` 必须指向实际提供响应校验的协议包。删除本地预览时同时删除命令、启动器、数据集与对应 Scenario，不把预览构造逻辑移入产品代码。
+- **验收门禁**：`pnpm preview:local`、`pnpm dev:remote`、`pnpm check:fast` 与 `SCN-BROWSER-PLATFORM-012`～`015`。
 
 ### 包发布
 

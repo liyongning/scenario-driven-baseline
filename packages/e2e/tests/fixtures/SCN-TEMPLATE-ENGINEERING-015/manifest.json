@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-015",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "53c3e30b783fbb46093369b14e3cb89f5fb553c906dbc2e8e63c3bdbef0cf26b"
+    }
+  },
+  "cases": {
+    "form-selection-rules": "form-selection-rules.json",
+    "form-typecheck-cli": "form-typecheck-cli.json",
+    "form-artifact-release-cli": "form-artifact-release-cli.json",
+    "form-checks-registered": "form-checks-registered.json"
+  },
+  "sha256": {
+    "form-selection-rules.json": "5bd8978351f3148d7ba45a7d9fd3f4eaf2c338395fadece6ea2f38acb5eb55c0",
+    "form-typecheck-cli.json": "bac9229b4c93a9440b5ec9f32c5c6f749a785c59f1be737507a389d29c311029",
+    "form-artifact-release-cli.json": "2caf4009e67ef9946925fe2504eb42e29d6245017da82a5b3082c9a7e4387c18",
+    "form-checks-registered.json": "316df5797567a566ce739428237a46714dfdbb1bec10bc54bbec8444df32ce83"
+  }
+}

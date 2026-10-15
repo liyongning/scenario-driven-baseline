@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,6 +22,31 @@ function manifestRoot(manifest: unknown): string {
   const root = mkdtempSync(join(tmpdir(), 'dependency-rules-'));
   roots.push(root);
   writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(manifest, null, 2));
+  const packages =
+    (manifest as { packages?: ReadonlyArray<Record<string, unknown>> }).packages ?? [];
+  const protocols = packages.filter(
+    (pkg): pkg is Record<string, unknown> & { name: string } =>
+      pkg.role === 'protocol' && typeof pkg.name === 'string',
+  );
+  for (const pkg of packages) {
+    if (typeof pkg.directory !== 'string' || typeof pkg.name !== 'string') continue;
+    const directory = join(root, 'packages', pkg.directory);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({
+        name: pkg.name,
+        private: pkg.private,
+        ...(pkg.role === 'product'
+          ? {
+              dependencies: Object.fromEntries(
+                protocols.map((protocol) => [protocol.name, 'workspace:*']),
+              ),
+            }
+          : {}),
+      }),
+    );
+  }
   return root;
 }
 
@@ -34,7 +59,7 @@ function blockAt(config: ReadonlyArray<MaxLinesBlock>, index: number): MaxLinesB
 
 /** 把清单里的测试包改名，用来证明测试文件模式随清单派生而不是写死。 */
 function renamedTestManifest(): ProjectManifest {
-  const manifest = loadProjectManifest(repositoryRoot);
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
   return {
     ...manifest,
     packages: manifest.packages.map((pkg) =>
@@ -44,10 +69,22 @@ function renamedTestManifest(): ProjectManifest {
 }
 
 /** 依赖规则生成函数在 CJS 中实现，供 dependency-cruiser 配置与 eslint 配置共用。 */
-type Rule = Readonly<{ name: string; from: { path: string; pathNot?: string } }>;
+type Rule = Readonly<{
+  name: string;
+  from: { path?: string; pathNot?: string };
+  to?: { path?: string };
+}>;
 type Rules = Readonly<{
   escapeRegExp(value: string): string;
-  packageByRole(manifest: ProjectManifest, role: string): { directory: string; name: string };
+  packagesByRole(
+    manifest: ProjectManifest,
+    role: string,
+  ): ReadonlyArray<{ directory: string; name: string }>;
+  testPackage(manifest: ProjectManifest): { directory: string; name: string };
+  bindingForProduct(
+    manifest: ProjectManifest,
+    productDirectory: string,
+  ): { name: string; product: string; protocol: string; platforms: ReadonlyArray<string> };
   moduleRoots(pkg: Readonly<{ moduleRoots?: ReadonlyArray<string> }>): string[];
   sourceRoot(pkg: Readonly<{ moduleRoots?: ReadonlyArray<string> }>): string;
   modulePath(
@@ -119,22 +156,65 @@ async function evidence(
 
 /** 把仓库清单改名成另一个包目录，用来证明规则随清单变化而不是写死。 */
 function renamedManifest(): ProjectManifest {
-  const manifest = loadProjectManifest(repositoryRoot);
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const names = new Map([['sample-product', 'renamed-sdk']]);
   return {
     ...manifest,
     packages: manifest.packages.map((pkg) =>
-      pkg.role === 'product'
-        ? { ...pkg, directory: 'renamed-sdk', name: '@sample/renamed-sdk' }
+      pkg.role === 'product' && names.has(pkg.directory)
+        ? {
+            ...pkg,
+            directory: names.get(pkg.directory)!,
+            name: `@sample/${names.get(pkg.directory)}`,
+          }
         : pkg,
+    ),
+    bindings: manifest.bindings.map((binding) =>
+      names.has(binding.product) ? { ...binding, product: names.get(binding.product)! } : binding,
     ),
   };
 }
 
 const ruleByName = (list: ReadonlyArray<Rule>, name: string): Rule => {
-  const found = list.find((item) => item.name === name);
+  const found = list.find((item) => item.name === name || item.name.startsWith(`${name}:`));
   if (!found) throw new Error(`missing rule ${name}`);
   return found;
 };
+
+function expectedCruiseTargets(manifest: ProjectManifest): string[] {
+  const test = manifest.packages.find((item) => item.role === 'test')!;
+  return manifest.packages
+    .filter((item) => item.role !== 'test')
+    .flatMap((item) => {
+      const roots = item.moduleRoots?.length ? item.moduleRoots : ['src'];
+      return roots.map((root) => `packages/${item.directory}/${root}`);
+    })
+    .concat(`packages/${test.directory}/src/shadow`);
+}
+
+function expectedRestrictedGlobalFiles(manifest: ProjectManifest): string[] {
+  return manifest.packages
+    .filter((item) => item.role === 'product')
+    .flatMap((item) => {
+      const root = item.moduleRoots?.[0] ?? 'src';
+      return [
+        `packages/${item.directory}/${root}/*/core/**/*.ts`,
+        `packages/${item.directory}/${root}/*/ports/**/*.ts`,
+      ];
+    });
+}
+
+function expectedRuntimeFiles(manifest: ProjectManifest): string[] {
+  return manifest.packages
+    .filter((item) => item.role === 'product')
+    .map(
+      (item) => `packages/${item.directory}/${item.moduleRoots?.[0] ?? 'src'}/runtime/default.ts`,
+    );
+}
+
+function matchingPath(path: string | undefined, value: string): boolean {
+  return path !== undefined && new RegExp(path).test(value);
+}
 
 evidence(
   'SCN-TEMPLATE-ENGINEERING-007',
@@ -142,18 +222,49 @@ evidence(
   ['rules-by-role'],
   async (context, check) => {
     await check('rules-by-role', () => {
-      const repository = loadProjectManifest(repositoryRoot);
+      const repository = structuredClone(minimalManifest()) as ProjectManifest & {
+        packages: Array<ProjectManifest['packages'][number]>;
+        bindings: Array<ProjectManifest['bindings'][number]>;
+      };
+      repository.packages.push({
+        directory: 'sample-web',
+        name: '@sample/web',
+        role: 'product',
+        form: 'web-app',
+        private: true,
+        allowedDirectories: ['src'],
+        moduleRoots: ['src'],
+      });
+      repository.bindings.push({
+        name: 'sample-web-protocol',
+        product: 'sample-web',
+        protocol: 'sample-protocol',
+        platforms: [],
+      });
       const repositoryRules = rules.dependencyRules(repository);
+      const sdk = repository.packages.find((pkg) => pkg.role === 'product' && pkg.form === 'sdk')!;
+      const sdkRoot = sdk.moduleRoots?.[0] ?? 'src';
+      const web = repository.packages.find(
+        (pkg) => pkg.role === 'product' && pkg.form === 'web-app',
+      )!;
+      const webRoot = web.moduleRoots?.[0] ?? 'src';
       context
         .expect(ruleByName(repositoryRules, 'domain-core-no-generated').from.path)
-        .toBe('^packages/sdk/src/[^/]+/(core|ports)/');
+        .toBe(`^packages/${sdk.directory}/${sdkRoot}/[^/]+/(core|ports)/`);
       context
-        .expect(ruleByName(repositoryRules, 'cross-workspace-no-direct-files').from.path)
-        .toBe('^packages/(sdk|protocol)/(?:src)/');
-      context
-        .expect(rules.cruiseTargets(repository))
-        .toEqual(['packages/sdk/src', 'packages/protocol/src', 'packages/protocol/testing']);
-      context.expect(rules.runtimeFile(repository)).toBe('packages/sdk/src/runtime/default.ts');
+        .expect(ruleByName(repositoryRules, `core-no-platform-or-node:${web.directory}`).from.path)
+        .toBe(`^packages/${web.directory}/${webRoot}/(runtime|[^/]+/(core|ports))/`);
+      const crossWorkspace = ruleByName(repositoryRules, 'cross-workspace-no-direct-files');
+      for (const pkg of repository.packages.filter((item) => item.role !== 'test')) {
+        const root = pkg.moduleRoots?.[0] ?? 'src';
+        context
+          .expect(
+            matchingPath(crossWorkspace.from.path, `packages/${pkg.directory}/${root}/entry.ts`),
+          )
+          .toBe(true);
+      }
+      context.expect(rules.cruiseTargets(repository)).toEqual(expectedCruiseTargets(repository));
+      context.expect(rules.runtimeFile(repository)).toEqual(expectedRuntimeFiles(repository));
 
       const renamed = renamedManifest();
       const renamedRules = rules.dependencyRules(renamed);
@@ -161,56 +272,171 @@ evidence(
         .expect(ruleByName(renamedRules, 'domain-core-no-generated').from.path)
         .toBe('^packages/renamed-sdk/src/[^/]+/(core|ports)/');
       context.expect(JSON.stringify(renamedRules)).not.toContain(['packages', 'sdk'].join('/'));
-      context
-        .expect(rules.cruiseTargets(renamed))
-        .toEqual([
-          'packages/renamed-sdk/src',
-          'packages/protocol/src',
-          'packages/protocol/testing',
-        ]);
+      context.expect(rules.cruiseTargets(renamed)).toEqual(expectedCruiseTargets(renamed));
       context
         .expect(rules.restrictedGlobalFiles(renamed))
-        .toEqual([
-          'packages/renamed-sdk/src/*/core/**/*.ts',
-          'packages/renamed-sdk/src/*/ports/**/*.ts',
-        ]);
+        .toEqual(expectedRestrictedGlobalFiles(renamed));
+      context.expect(rules.runtimeFile(renamed)).toEqual(expectedRuntimeFiles(renamed));
+
+      const expanded = structuredClone(repository) as ProjectManifest & {
+        packages: Array<ProjectManifest['packages'][number]>;
+        bindings: Array<ProjectManifest['bindings'][number]>;
+      };
+      expanded.packages.push(
+        {
+          directory: 'player-api',
+          name: '@sample/player-api',
+          role: 'protocol',
+          protocolKind: 'openapi',
+          private: false,
+          allowedDirectories: ['src', 'testing', 'contracts'],
+          moduleRoots: ['src', 'testing'],
+          contract: {
+            file: 'packages/player-api/contracts/player.yaml',
+            lock: 'packages/player-api/contracts/player.lock.json',
+          },
+        },
+        {
+          directory: 'player-web',
+          name: '@sample/player-web',
+          role: 'product',
+          form: 'web-app',
+          private: true,
+          allowedDirectories: ['src'],
+          moduleRoots: ['src'],
+          globalStore: 'src/store/index.ts',
+          consumedOperations: ['src/app/consumed-operations.ts'],
+        },
+      );
+      expanded.bindings.push({
+        name: 'player-web-browser',
+        product: 'player-web',
+        protocol: 'player-api',
+        platforms: ['browser'],
+      });
+      context.expect(rules.cruiseTargets(expanded)).toEqual(expectedCruiseTargets(expanded));
       context
-        .expect(rules.runtimeFile(renamed))
-        .toBe('packages/renamed-sdk/src/runtime/default.ts');
+        .expect(
+          matchingPath(
+            ruleByName(rules.dependencyRules(expanded), 'cross-workspace-no-direct-files').from
+              .path,
+            'packages/player-web/src/entry.ts',
+          ),
+        )
+        .toBe(true);
+      context
+        .expect(
+          matchingPath(
+            ruleByName(rules.dependencyRules(expanded), 'cross-workspace-no-direct-files').from
+              .path,
+            'packages/player-api/src/entry.ts',
+          ),
+        )
+        .toBe(true);
     });
   },
 );
 
 test('shadow engine rule covers engine files but not route sources', () => {
-  const rule = ruleByName(
-    rules.dependencyRules(loadProjectManifest(repositoryRoot)),
-    'shadow-engine-no-generated',
-  );
-  const path = new RegExp(rule.from.path);
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const rule = ruleByName(rules.dependencyRules(manifest), 'shadow-engine-no-generated');
+  const path = new RegExp(rule.from.path!);
   // pathNot 与 dependency-cruiser 同义：命中的引擎文件再被排除项减去。
   const pathNot = new RegExp(rule.from.pathNot!);
   const matched = (file: string) => path.test(file) && !pathNot.test(file);
   // 引擎文件（含后续新增的）受约束。
+  const testDirectory = rules.testPackage(manifest).directory;
+  const protocolDirectory = rules.packagesByRole(manifest, 'protocol')[0]!.directory;
   for (const engine of ['server', 'faults', 'requests', 'routes', 'synthetic-engine'])
-    expect(matched(`packages/protocol/testing/shadow/${engine}.ts`), engine).toBe(true);
-  // 路由来源不受限：IDL 路由来源、业务路由目录、示例目录与单测都不在约束内。
-  expect(matched('packages/protocol/testing/shadow/idl-routes.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/payment/routes.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/example/routes.ts')).toBe(false);
-  expect(matched('packages/protocol/testing/shadow/server.test.ts')).toBe(false);
+    expect(matched(`packages/${testDirectory}/src/shadow/${engine}.ts`), engine).toBe(true);
+  expect(matched(`packages/${testDirectory}/src/shadow/server.test.ts`)).toBe(false);
+  expect(matched(`packages/${protocolDirectory}/testing/shadow/idl-routes.ts`)).toBe(false);
+});
+
+test('preview constructor is importable only from the preview launcher directory', () => {
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  const rule = ruleByName(rules.dependencyRules(manifest), 'shadow-preview-constructor-restricted');
+  const testDirectory = rules.testPackage(manifest).directory;
+  const excludedFrom = new RegExp(rule.from.pathNot!);
+  const to = new RegExp(rule.to!.path!);
+  const rejected = (source: string) =>
+    !excludedFrom.test(source) && to.test(`packages/${testDirectory}/src/shadow/preview-server.ts`);
+  expect(rejected(`packages/${testDirectory}/src/preview/launcher.ts`)).toBe(false);
+  expect(rejected(`packages/${testDirectory}/src/preview/preview-server.test.ts`)).toBe(false);
+  expect(rejected(`packages/${testDirectory}/tests/tooling/preview.spec.ts`)).toBe(true);
+  expect(rejected(`packages/${testDirectory}/src/harness.ts`)).toBe(true);
+  expect(rejected(`packages/${testDirectory}/src/shadow/index.ts`)).toBe(true);
 });
 
 test('escapeRegExp escapes regular expression metacharacters', () => {
   expect(rules.escapeRegExp('a.b*c(d)')).toBe('a\\.b\\*c\\(d\\)');
 });
 
-test('packageByRole rejects missing roles and missing package lists', () => {
-  const manifest = loadProjectManifest(repositoryRoot);
-  expect(rules.packageByRole(manifest, 'product').name).toBe('@daqian/template-sdk');
-  expect(() => rules.packageByRole(manifest, 'unknown')).toThrow(/no unknown package/);
-  expect(() => rules.packageByRole({} as unknown as ProjectManifest, 'product')).toThrow(
-    /no product package/,
+test('package readers use manifest roles without assuming a unique package', () => {
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  expect(rules.packagesByRole(manifest, 'product').map((item) => item.name)).toEqual(
+    manifest.packages.filter((item) => item.role === 'product').map((item) => item.name),
   );
+  expect(rules.packagesByRole(manifest, 'unknown')).toEqual([]);
+  expect(rules.packagesByRole({ packages: [] } as unknown as ProjectManifest, 'product')).toEqual(
+    [],
+  );
+  expect(rules.packagesByRole({} as unknown as ProjectManifest, 'product')).toEqual([]);
+  expect(rules.testPackage(manifest).directory).toBe('sample-test');
+  expect(rules.bindingForProduct(manifest, 'sample-product')).toMatchObject({
+    name: 'sample-product-protocol',
+    protocol: 'sample-protocol',
+  });
+  expect(() => rules.testPackage({ packages: [] } as unknown as ProjectManifest)).toThrow(
+    /no test package/,
+  );
+  expect(() =>
+    rules.bindingForProduct({ bindings: [] } as unknown as ProjectManifest, 'missing'),
+  ).toThrow(/no binding for missing/);
+  expect(() => rules.bindingForProduct({} as unknown as ProjectManifest, 'missing')).toThrow(
+    /no binding for missing/,
+  );
+});
+
+test('dependency rules skip an absent bound protocol and reject unbound protocol imports', () => {
+  const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
+  expect(
+    rules
+      .dependencyRules(manifest)
+      .some((rule) => rule.name.startsWith('product-bound-protocol-only:')),
+  ).toBe(false);
+
+  const packages = [
+    ...manifest.packages,
+    {
+      directory: 'other-protocol',
+      name: '@sample/other-protocol',
+      role: 'protocol',
+      protocolKind: 'openapi',
+      private: false,
+      allowedDirectories: ['src'],
+      moduleRoots: ['src'],
+    },
+  ];
+  const withUnboundProtocol = {
+    ...manifest,
+    packages,
+  } as ProjectManifest;
+  expect(
+    rules
+      .dependencyRules(withUnboundProtocol)
+      .some((rule) => rule.name.startsWith('product-bound-protocol-only:')),
+  ).toBe(true);
+
+  const missingBinding = {
+    ...withUnboundProtocol,
+    bindings: [{ ...manifest.bindings[0]!, protocol: 'missing' }],
+  } as ProjectManifest;
+  expect(
+    rules
+      .dependencyRules(missingBinding)
+      .some((rule) => rule.name.startsWith('product-bound-protocol-exports-only:')),
+  ).toBe(false);
 });
 
 test('module roots default to src and cruise targets skip the test package', () => {
@@ -234,7 +460,7 @@ test('module roots default to src and cruise targets skip the test package', () 
         { directory: 'spec', name: '@x/spec', role: 'test', private: true, allowedDirectories: [] },
       ],
     } as unknown as ProjectManifest),
-  ).toEqual(['packages/prod/src']);
+  ).toEqual(['packages/prod/src', 'packages/spec/src/shadow']);
 });
 
 evidence(
@@ -245,12 +471,12 @@ evidence(
     await check('max-lines-enforced', () => {
       // 两档上限与开关：源文件 300、测试文件 600，空行与注释都不计入。
       context.expect([rules.SOURCE_MAX_LINES, rules.TEST_MAX_LINES]).toEqual([300, 600]);
-      const manifest = loadProjectManifest(repositoryRoot);
+      const manifest = structuredClone(minimalManifest()) as unknown as ProjectManifest;
       const config = rules.maxLinesConfig(manifest);
       const source = blockAt(config, 0);
       const tests = blockAt(config, 1);
       context.expect(config).toHaveLength(2);
-      context.expect(source.files).toEqual(['**/*.{js,mjs,cjs,ts,mts,cts}']);
+      context.expect(source.files).toEqual(['**/*.{js,mjs,cjs,ts,mts,cts,vue}']);
       context
         .expect(source.rules['max-lines'])
         .toEqual(['error', { max: 300, skipBlankLines: true, skipComments: true }]);
@@ -267,7 +493,7 @@ evidence(
         .toEqual([
           '**/*.test.{js,mjs,cjs,ts,mts,cts}',
           '**/*.spec.{js,mjs,cjs,ts,mts,cts}',
-          'packages/e2e/tests/**/*.{js,mjs,cjs,ts,mts,cts}',
+          'packages/sample-test/tests/**/*.{js,mjs,cjs,ts,mts,cts}',
         ]);
       context
         .expect(patterns.every((pattern) => pattern.endsWith('{js,mjs,cjs,ts,mts,cts}')))
@@ -279,7 +505,7 @@ evidence(
 
     await check('exemptions-by-manifest', () => {
       // 模板自身的豁免为空：拆分是唯一出路，没有整文件豁免。
-      const repository = loadProjectManifest(repositoryRoot);
+      const repository = structuredClone(minimalManifest()) as unknown as ProjectManifest;
       context.expect(rules.maxLinesExemptions(repository)).toEqual([]);
       context.expect(repository.quality?.maxLinesExemptions).toEqual([]);
       // 清单登记的豁免生成整文件关闭块，且只在源/测试两档之后追加。

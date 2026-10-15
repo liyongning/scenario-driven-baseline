@@ -5,6 +5,7 @@ import { format as formatCode } from 'prettier';
 import { cliEvidence } from './scenario-gate-helpers.ts';
 import { createControlledRoot, minimalManifest, type ControlledRoot } from './controlled-root.ts';
 import { repositoryRoot } from './helpers.ts';
+import { planCommand } from '../../../../scripts/run-by-manifest.ts';
 
 const prettier = resolve(repositoryRoot, 'node_modules/.bin/prettier');
 const eslint = resolve(repositoryRoot, 'node_modules/.bin/eslint');
@@ -30,6 +31,13 @@ async function baselineRoot(
     manifestPath,
     await formatCode(JSON.stringify(manifest, null, 2), { filepath: manifestPath }),
   );
+  for (const pkg of (manifest as { packages?: Array<{ directory: string }> }).packages ?? []) {
+    const packagePath = join(fixture.root, 'packages', pkg.directory, 'package.json');
+    writeFileSync(
+      packagePath,
+      await formatCode(readFileSync(packagePath, 'utf8'), { filepath: packagePath }),
+    );
+  }
   return fixture;
 }
 
@@ -44,6 +52,22 @@ const paddedLines = (): string => {
     index % 2 === 0 ? '' : `// 填充注释 ${index}`,
   );
   return `${[...body, ...padding].join('\n')}\n`;
+};
+
+/** 有效行数 301：template、script、style 三段都计入 max-lines。 */
+const vueLines = (): string => {
+  const template = Array.from({ length: 100 }, (_, index) => `<div>${index}</div>`);
+  const script = [
+    '<script setup lang="ts">',
+    ...Array.from({ length: 101 }, (_, index) => `const value${index} = ${index};`),
+    '</script>',
+  ];
+  const style = [
+    '<style scoped>',
+    ...Array.from({ length: 100 }, (_, index) => `.item-${index} { color: red; }`),
+    '</style>',
+  ];
+  return [...template, ...script, ...style, ''].join('\n');
 };
 
 function runPrettier(root: string, patterns: ReadonlyArray<string> = ['.']) {
@@ -71,12 +95,9 @@ cliEvidence(
         context.expect(result.status).not.toBe(0);
         context.expect(result.output).toContain('src/unformatted.ts');
         // check:fast 必须包含 format:check，否则格式基线不进快速门禁。
-        const root = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8')) as {
-          scripts: Record<string, string>;
-        };
         context
-          .expect((root.scripts['check:fast'] ?? '').split('&&').map((step) => step.trim()))
-          .toContain('pnpm format:check');
+          .expect(planCommand(repositoryRoot, 'check:fast'))
+          .toContainEqual({ command: 'pnpm', args: ['format:check'] });
       } finally {
         fixture.cleanup();
       }
@@ -98,7 +119,8 @@ cliEvidence(
         context.expect(result.output).toContain('src/unformatted.ts');
         context.expect(result.output).not.toContain('.local/unformatted.ts');
         context.expect(result.output).not.toContain('openspec/specs/unformatted.ts');
-        context.expect(runPrettier(ignoredOnly.root).status).toBe(0);
+        const ignoredOnlyResult = runPrettier(ignoredOnly.root);
+        context.expect(ignoredOnlyResult.status, ignoredOnlyResult.output).toBe(0);
       } finally {
         fixture.cleanup();
         ignoredOnly.cleanup();
@@ -132,6 +154,7 @@ cliEvidence(
         'src/over-301.ts': codeLines(301),
         'src/over-601.test.ts': codeLines(601),
         'src/at-600.test.ts': codeLines(600),
+        'src/over-301.vue': vueLines(),
       });
       try {
         const result = runEslint(fixture.root);
@@ -141,6 +164,7 @@ cliEvidence(
           .expect(result.output)
           .toContain('File has too many lines (301). Maximum allowed is 300');
         context.expect(result.output).toContain('src/over-601.test.ts');
+        context.expect(result.output).toContain('src/over-301.vue');
         context
           .expect(result.output)
           .toContain('File has too many lines (601). Maximum allowed is 600');

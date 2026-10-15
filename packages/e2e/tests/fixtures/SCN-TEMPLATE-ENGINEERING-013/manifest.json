@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-013",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "7225a248575976c1c43642c7e9eddd4f72a327d58696cfe7f34f5dd9cad79e1f"
+    }
+  },
+  "cases": {
+    "binding-schema-rules": "binding-schema-rules.json",
+    "binding-violations-cli": "binding-violations-cli.json",
+    "template-bindings-fact": "template-bindings-fact.json"
+  },
+  "sha256": {
+    "binding-schema-rules.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "binding-violations-cli.json": "bac7829cfd0968e600850141b30f55562df6a7c572f8e2e87194f0dee008456a",
+    "template-bindings-fact.json": "4838d4e5260c20537a08636ea46f330cdcb4f2d260bb667507814dc4884b96fc"
+  }
+}

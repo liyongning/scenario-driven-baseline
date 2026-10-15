@@ -11,18 +11,22 @@ import {
   guideRelativePath,
 } from './lib/architecture-doc.ts';
 import { checkExampleMarkers } from './lib/example-markers.ts';
+import { checkExampleWhitelist } from './lib/example-whitelist.ts';
 import { headingsOf, linkTarget, linksTo, markdown, relativeLinks } from './lib/markdown-docs.ts';
 import { checkSchemaDocumentation } from './lib/schema-docs.ts';
 import { unregisteredScenarioIds } from './lib/scenario-ids.ts';
 import { loadScenarioConfig } from './lib/scenario-config.ts';
+import { checkTestBindingDeclarations } from './lib/test-binding-checks.ts';
 import {
   errorMessage,
   loadProjectManifest,
-  packageByRole,
+  packagesByRole,
   projectManifestSchemaUrl,
+  testPackage,
   type ProjectManifest,
 } from './lib/project-manifest.ts';
 import { readEffectiveSpecs } from './lib/spec-sources.ts';
+import { checkCoreTsconfig, checkWebAppAlignment } from './lib/web-app-checks.ts';
 
 /** 依赖与平台规则的路径按清单角色生成；实现与 dependency-cruiser 配置共用同一份 CJS 模块。 */
 type DependencyRules = Readonly<{ cruiseTargets(manifest: ProjectManifest): string[] }>;
@@ -49,9 +53,11 @@ const guideSections = {
     '版本对齐',
     '使用方约定',
     '复刻验收',
+    '移除一条绑定',
+    '跨源部署',
     '替换点地图',
   ],
-  level3: ['协议来源', '运行平台', '包发布'],
+  level3: ['产品形态', '协议来源', '运行平台', '本地预览', '包发布'],
 } as const;
 /** pnpm 内置命令不作为根 package.json 的脚本核对。 */
 const pnpmBuiltins = new Set(['install', 'add', 'remove', 'exec', 'dlx']);
@@ -59,42 +65,12 @@ const pnpmBuiltins = new Set(['install', 'add', 'remove', 'exec', 'dlx']);
 const templateEnvironmentNames = new Set([
   'SCENARIO_GATE_CHANGES',
   'TEMPLATE_COPY',
+  'TEMPLATE_UNIT_MAX_WORKERS',
   'TEST_AFFECTED_PARTIAL',
   'VERIFY_REPORT_FILE',
   'VERIFY_RUN_ID',
   'WECHAT_DEVTOOLS_CLI',
 ]);
-/** 指南「移除模板示例」必须逐项写明的删除白名单；包路径按清单角色派生，与 ENG-06 的清单一致。 */
-function exampleWhitelistEntries(manifest: ProjectManifest): string[] {
-  const product = packageByRole(manifest, 'product').directory;
-  const protocol = packageByRole(manifest, 'protocol').directory;
-  const test = packageByRole(manifest, 'test').directory;
-  return [
-    `packages/${product}/src/example/`,
-    `packages/${protocol}/testing/shadow/example/`,
-    `packages/${test}/tests/example/`,
-    `packages/${test}/tests/weapp/example/`,
-    `packages/${test}/host/weapp/example-runner.ts`,
-    `packages/${test}/tests/fixtures/`,
-    'SCN-TEMPLATE-EXAMPLE-*',
-    'FLOW-TEMPLATE-EXAMPLE-*',
-    `packages/${test}/tests/tooling/SCN-TEMPLATE-EXAMPLE-*`,
-    'openspec/specs/template-example/',
-    `packages/${test}/tests/tooling/SCN-TEMPLATE-ENGINEERING-008.spec.ts`,
-    `packages/${test}/tests/fixtures/SCN-TEMPLATE-ENGINEERING-008/`,
-    `packages/${test}/tests/protocol/SCN-PROTOCOL-CONTRACT-002-extension.spec.ts`,
-    'template-example:begin',
-    'template-example:end',
-    `packages/${product}/src/index.ts`,
-    'consumed-operations.ts',
-    `packages/${test}/host/weapp/app.js`,
-    `packages/${test}/src/drivers/weapp-host.test.ts`,
-    'protocol-matrix.json',
-    'fixtures:refresh',
-    'coverageExclusions',
-  ];
-}
-
 /** 取行内代码中紧跟在 `pnpm`/`pnpm run` 之后、不以 `-` 开头的命令词。 */
 function pnpmCommands(code: string): string[] {
   const commands: string[] = [];
@@ -155,8 +131,7 @@ async function checkTemplateGuide(
     if (!headings.has(`2:${section}`)) errors.push(`missing guide section ## ${section}`);
   for (const section of guideSections.level3)
     if (!headings.has(`3:${section}`)) errors.push(`missing guide section ### ${section}`);
-  for (const entry of exampleWhitelistEntries(manifest))
-    if (!content.includes(entry)) errors.push(`missing removal whitelist entry ${entry}`);
+  errors.push(...checkExampleWhitelist(root, manifest, content));
   for (const url of relativeLinks(content)) {
     if (!existsSync(linkTarget(guideFile, url)))
       errors.push(`broken link ${guideRelativePath} -> ${url}`);
@@ -235,9 +210,7 @@ export async function checkArchitecture(
         errors.push(`broken link ${path} -> ${node.url}`);
     });
   }
-  const product = manifest.packages.find((item) => item.role === 'product')!;
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
-  const test = manifest.packages.find((item) => item.role === 'test')!;
+  const test = testPackage(manifest);
   for (const entry of manifest.packages) {
     const directory = join(root, 'packages', entry.directory);
     if (!existsSync(directory)) {
@@ -255,13 +228,19 @@ export async function checkArchitecture(
         errors.push(`unexpected directory packages/${entry.directory}/${child.name}`);
     }
   }
-  const protocolManifest = readManifest(`packages/${protocol.directory}/package.json`);
-  if (
-    Object.keys(protocolManifest.dependencies ?? {}).some((dep) =>
-      [product.name, test.name].includes(dep),
+  const productNames = packagesByRole(manifest, 'product').map((item) => item.name);
+  for (const protocol of packagesByRole(manifest, 'protocol')) {
+    const protocolManifest = readManifest(`packages/${protocol.directory}/package.json`);
+    if (
+      Object.keys(protocolManifest.dependencies ?? {}).some((dep) =>
+        [...productNames, test.name].includes(dep),
+      )
     )
-  )
-    errors.push('protocol cannot depend on SDK/E2E');
+      errors.push(`${protocol.directory} cannot depend on products or E2E`);
+  }
+  errors.push(...checkTestBindingDeclarations(root, manifest));
+  errors.push(...checkWebAppAlignment(root, manifest));
+  errors.push(...checkCoreTsconfig(root, manifest));
   errors.push(...checkSchemaDocumentation(root));
   errors.push(...checkExampleMarkers(root, manifest));
   errors.push(...checkProjectMap(root, manifest));

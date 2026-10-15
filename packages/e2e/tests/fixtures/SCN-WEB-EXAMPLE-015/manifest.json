@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-WEB-EXAMPLE-015",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "4000d3efa808acf861405aaa02ee3ff421acdc5f57a2d5f31c35974740aa6044"
+    }
+  },
+  "cases": {
+    "product-contract-replacement": "web-example-removal.json"
+  },
+  "sha256": {
+    "web-example-removal.json": "a1bc634039c2dbad8d7a2f58f167a1da915fbff4a3eaf70ebc1ab1ce19ee42f0"
+  }
+}

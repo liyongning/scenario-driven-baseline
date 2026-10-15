@@ -11,6 +11,9 @@ const runId = process.env.VERIFY_RUN_ID ?? 'local';
 const fingerprints = buildVerificationFingerprints(repositoryRoot);
 const coverage = coverageScope(repositoryRoot);
 const manifest = loadProjectManifest(repositoryRoot);
+const projectEnvironments = Object.fromEntries(
+  manifest.testProjects.map((project) => [project.name, project.environment ?? project.name]),
+);
 const reportFile = process.env.VERIFY_REPORT_FILE
   ? resolve(repositoryRoot, process.env.VERIFY_REPORT_FILE)
   : resolve(repositoryRoot, `artifacts/${runId}/reports/scenarios.json`);
@@ -23,6 +26,7 @@ export default defineConfig({
       new ScenarioReporter({
         outputFile: reportFile,
         runId,
+        projectEnvironments,
         fingerprints,
         // 按需运行经 TEST_AFFECTED_PARTIAL 标记报告，场景门禁据此拒收（GATE-13）。
         partial: process.env.TEST_AFFECTED_PARTIAL === '1',

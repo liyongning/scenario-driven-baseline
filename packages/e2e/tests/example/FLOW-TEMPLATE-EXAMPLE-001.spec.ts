@@ -19,6 +19,7 @@ defineCase(
     caseId: 'example-normal',
     fixtureCase: 'normal',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     flowId: 'FLOW-TEMPLATE-EXAMPLE-001',
     flowCase: 'normal',
     covers: [

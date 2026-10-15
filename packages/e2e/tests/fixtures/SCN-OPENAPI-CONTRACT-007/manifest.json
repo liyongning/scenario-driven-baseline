@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-OPENAPI-CONTRACT-007",
+  "protocol": "openapi",
+  "contractCarrier": "engine",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "ae21ed95db7a39375b77e47848903dd8e884b0ceb18f9ad605c799179ef8fd3a"
+    }
+  },
+  "cases": {
+    "envelope-results-wire": "envelope-results-wire.json"
+  },
+  "sha256": {
+    "envelope-results-wire.json": "9629c2ab7033a29f96a8b30bb99d1f7956999941ec007d5138e239a7844482d3"
+  }
+}

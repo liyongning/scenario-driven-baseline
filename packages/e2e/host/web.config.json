@@ -1,0 +1,12 @@
+{
+  "placeholderAssets": [
+    {
+      "host": "assets.template.invalid",
+      "path": "/fixture.svg",
+      "file": "packages/e2e/host/browser/fixture-image.svg",
+      "contentType": "image/svg+xml"
+    }
+  ],
+  "proxyPrefixes": ["/api"],
+  "defaultDataset": "platform-openapi-primary"
+}

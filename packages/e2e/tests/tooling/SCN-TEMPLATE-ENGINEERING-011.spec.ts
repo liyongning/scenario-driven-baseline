@@ -10,6 +10,7 @@ import {
   writeRepositoryPackages,
 } from './scenario-gate-helpers.ts';
 import { repositoryRoot, writeProjectMapFixture, writeTemplateGuideFixture } from './helpers.ts';
+import { loadProjectManifest, packagesByRole } from '../../../../scripts/lib/project-manifest.ts';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -30,6 +31,13 @@ function projectMapRoot() {
 }
 
 const issuesOf = (root: string) => runProjectMap(root).output?.issues.join('\n') ?? '';
+const directoriesOf = (root: string) => {
+  const manifest = loadProjectManifest(root);
+  return {
+    product: packagesByRole(manifest, 'product')[0]!.directory,
+    protocol: packagesByRole(manifest, 'protocol')[0]!.directory,
+  };
+};
 
 cliEvidence(
   'SCN-TEMPLATE-ENGINEERING-011',
@@ -45,14 +53,17 @@ cliEvidence(
   async (context, check) => {
     await check('agents-present', () => {
       const root = projectMapRoot();
-      mkdirSync(join(root, 'packages/sdk/src/sample-module'), { recursive: true });
+      const directories = directoriesOf(root);
+      const productModule = `packages/${directories.product}/src/sample-module`;
+      const protocolGenerated = `packages/${directories.protocol}/src/generated/sample`;
+      mkdirSync(join(root, productModule), { recursive: true });
       const result = runProjectMap(root);
       context.expect(result.status).not.toBe(0);
       context
         .expect(result.output?.issues.join('\n'))
-        .toContain('missing packages/sdk/src/sample-module/AGENTS.md');
+        .toContain(`missing ${productModule}/AGENTS.md`);
       // generated/ 与 tests/fixtures/ 下的目录不算模块，不要求 AGENTS.md。
-      mkdirSync(join(root, 'packages/protocol/src/generated/sample'), { recursive: true });
+      mkdirSync(join(root, protocolGenerated), { recursive: true });
       mkdirSync(join(root, 'packages/e2e/tests/fixtures/sample'), { recursive: true });
       const issues = issuesOf(root);
       context.expect(issues).not.toContain('generated/sample');
@@ -74,41 +85,49 @@ cliEvidence(
 
     await check('map-consistent', () => {
       const missing = projectMapRoot();
-      mkdirSync(join(missing, 'packages/sdk/src/sample-module'), { recursive: true });
+      const directories = directoriesOf(missing);
+      const productModule = `packages/${directories.product}/src/sample-module`;
+      mkdirSync(join(missing, productModule), { recursive: true });
       context
         .expect(issuesOf(missing))
-        .toContain('packages/sdk/AGENTS.md: 子模块 is missing packages/sdk/src/sample-module');
+        .toContain(`packages/${directories.product}/AGENTS.md: 子模块 is missing ${productModule}`);
 
       const unknown = projectMapRoot();
-      const path = join(unknown, 'packages/sdk/AGENTS.md');
-      writeFileSync(path, `${readFileSync(path, 'utf8')}- \`packages/sdk/src/nowhere\`\n`);
+      const unknownDirectories = directoriesOf(unknown);
+      const path = join(unknown, 'packages', unknownDirectories.product, 'AGENTS.md');
+      const unknownModule = `packages/${unknownDirectories.product}/src/nowhere`;
+      writeFileSync(path, `${readFileSync(path, 'utf8')}- \`${unknownModule}\`\n`);
       context
         .expect(issuesOf(unknown))
-        .toContain('packages/sdk/AGENTS.md: 子模块 lists unknown entry packages/sdk/src/nowhere');
+        .toContain(
+          `packages/${unknownDirectories.product}/AGENTS.md: 子模块 lists unknown entry ${unknownModule}`,
+        );
     });
 
     await check('claude-pairing', () => {
       const root = projectMapRoot();
-      mkdirSync(join(root, 'packages/sdk/src/sample-module'), { recursive: true });
+      const directories = directoriesOf(root);
+      const productModule = `packages/${directories.product}/src/sample-module`;
+      mkdirSync(join(root, productModule), { recursive: true });
       writeProjectMapFixture(root);
-      rmSync(join(root, 'packages/sdk/src/sample-module/CLAUDE.md'));
-      context.expect(issuesOf(root)).toContain('missing packages/sdk/src/sample-module/CLAUDE.md');
-      writeFileSync(join(root, 'packages/sdk/src/sample-module/CLAUDE.md'), '# wrong\n');
+      rmSync(join(root, productModule, 'CLAUDE.md'));
+      context.expect(issuesOf(root)).toContain(`missing ${productModule}/CLAUDE.md`);
+      writeFileSync(join(root, productModule, 'CLAUDE.md'), '# wrong\n');
       context
         .expect(issuesOf(root))
-        .toContain(
-          'packages/sdk/src/sample-module/CLAUDE.md: first non-empty line must be @AGENTS.md',
-        );
+        .toContain(`${productModule}/CLAUDE.md: first non-empty line must be @AGENTS.md`);
     });
 
     await check('wired-into-architecture', () => {
       const root = projectMapRoot();
-      mkdirSync(join(root, 'packages/sdk/src/sample-module'), { recursive: true });
+      const directories = directoriesOf(root);
+      const productModule = `packages/${directories.product}/src/sample-module`;
+      mkdirSync(join(root, productModule), { recursive: true });
       const result = runArchitecture(root);
       context.expect(result.status).not.toBe(0);
       context
         .expect(result.output?.issues.join('\n'))
-        .toContain('missing packages/sdk/src/sample-module/AGENTS.md');
+        .toContain(`missing ${productModule}/AGENTS.md`);
     });
 
     await check('map-restorable', () => {

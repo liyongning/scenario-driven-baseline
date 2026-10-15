@@ -2,13 +2,22 @@ import { rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterAll, beforeAll, test } from 'vitest';
-import { loadProjectManifest, packageByRole } from '../../../../scripts/lib/project-manifest.ts';
+import {
+  bindingForProduct,
+  loadProjectManifest,
+  packageByDirectory,
+  packagesByRole,
+} from '../../../../scripts/lib/project-manifest.ts';
 import { createBuildCopy, type RepositoryCopy } from './repository-copy.ts';
 import { repositoryRoot } from './helpers.ts';
 
 const manifest = loadProjectManifest(repositoryRoot);
-const productPackage = packageByRole(manifest, 'product');
-const protocolPackage = packageByRole(manifest, 'protocol');
+const productPackage = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+if (!productPackage) throw new Error('template has no sdk product package');
+const protocolPackage = packageByDirectory(
+  manifest,
+  bindingForProduct(manifest, productPackage.directory).protocol,
+);
 const exampleCore = `packages/${productPackage.directory}/src/example/core`;
 
 let copy: RepositoryCopy;

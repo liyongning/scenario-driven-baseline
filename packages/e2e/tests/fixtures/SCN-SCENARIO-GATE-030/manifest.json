@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-SCENARIO-GATE-030",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "c1b0421cf7cd8540455de44a21a8d0b95eca606f43b75229f5bc8b7dde913a5b"
+    }
+  },
+  "cases": {
+    "owner-protocol-rules": "owner-protocol-rules.json",
+    "owner-protocol-cli": "owner-protocol-cli.json"
+  },
+  "sha256": {
+    "owner-protocol-rules.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "owner-protocol-cli.json": "8a848ff7dd7b7b12c65755b5f62150083234eb1b274939700f07603a5861cce6"
+  }
+}

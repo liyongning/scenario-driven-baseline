@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: accounts.v2
+  version: 2.0.0
+  description: Neutral account contract used to verify replacement of the product contract.
+  license:
+    name: UNLICENSED
+    url: https://example.invalid/license
+servers:
+  - url: https://accounts.example.invalid
+security:
+  - accountToken: []
+tags:
+  - name: accounts
+    description: Account queries.
+paths:
+  /api/v2/accounts/{account_ref}:
+    parameters:
+      - $ref: '#/components/parameters/AccountRef'
+      - $ref: '#/components/parameters/XRequestId'
+    get:
+      operationId: retrieveAccount
+      summary: Retrieve one account
+      description: Returns one account through the configured business envelope.
+      tags: [accounts]
+      x-business-codes: [ACCOUNT_NOT_FOUND]
+      responses:
+        '200':
+          description: Account query result.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountEnvelope'
+components:
+  parameters:
+    AccountRef:
+      name: account_ref
+      in: path
+      required: true
+      description: Stable account reference.
+      schema:
+        type: string
+        minLength: 1
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      required: true
+      description: Request correlation identifier.
+      schema:
+        type: string
+        minLength: 1
+  headers:
+    XRequestId:
+      description: Echoed request correlation identifier.
+      schema:
+        type: string
+        minLength: 1
+  securitySchemes:
+    accountToken:
+      type: apiKey
+      in: header
+      name: X-Account-Token
+      description: Single account identity scheme.
+  schemas:
+    AccountEnvelope:
+      allOf:
+        - type: object
+          required: [code, message]
+          properties:
+            code:
+              type: integer
+              enum: [0, 40001, 40401]
+            message:
+              type: string
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              nullable: true
+              oneOf:
+                - $ref: '#/components/schemas/Account'
+                - $ref: '#/components/schemas/EmptyData'
+    Account:
+      type: object
+      additionalProperties: false
+      required: [account_ref, display_name, balance]
+      properties:
+        account_ref:
+          type: string
+        display_name:
+          type: string
+        balance:
+          type: integer
+        note:
+          type: string
+          minLength: 1
+    EmptyData:
+      type: object
+      additionalProperties: false
+x-common-business-codes: [40001]
+x-business-code-table:
+  - code: 0
+    meaning: Request succeeded
+    message: OK
+  - code: 40001
+    meaning: Request is invalid
+    message: INVALID_REQUEST
+  - code: 40401
+    meaning: Account does not exist
+    message: ACCOUNT_NOT_FOUND

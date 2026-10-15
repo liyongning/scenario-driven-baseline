@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-TEMPLATE-ENGINEERING-016",
+  "sources": {
+    "kind": "reviewed-engineering-input",
+    "spec": {
+      "requirementDigest": "043f06023a8070f9ffc09ed0f511231d84ca02d4c28f129b61e63e33e5aad0d4"
+    }
+  },
+  "cases": {
+    "source-mode-rules": "source-mode-rules.json",
+    "source-mode-cli": "source-mode-cli.json"
+  },
+  "sha256": {
+    "source-mode-rules.json": "c062cd37fbceed21a0eef0702242a9b2b5911a2b409dbd18668325d29baff9b3",
+    "source-mode-cli.json": "bc34cdb8604c39e6b4a64918b820e4b46e880d070c8ffa242acab2a0ddb44ea9"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-WEB-EXAMPLE-005",
+  "protocol": "openapi",
+  "sources": {
+    "spec": {
+      "requirementDigest": "2926f1ac61fa61c5a71813245119d4756ef5a975eaae57d02b2fbf9accea3ab4"
+    }
+  },
+  "cases": {
+    "transport-failure-in-browser": "transport-failure-in-browser.json"
+  },
+  "sha256": {
+    "transport-failure-in-browser.json": "c10d7e2ae6d70c46ef77c17f7b2d1a33535d400b197f2f7480e8ed01d3e53a23"
+  }
+}

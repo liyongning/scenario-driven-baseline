@@ -1,0 +1,1 @@
+{"checks":["contract-not-in-import-graph","contract-not-in-dist","bundle-in-testing-only","violation-blocked"]}

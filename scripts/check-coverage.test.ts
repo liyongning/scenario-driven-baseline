@@ -24,13 +24,19 @@ function manifestWithQuality(
   };
 }
 
-function writeReport(root: string, paths: ReadonlyArray<string>): string {
+function writeReport(
+  root: string,
+  paths: ReadonlyArray<string>,
+  entries: Readonly<Record<string, unknown>> = {},
+): string {
   const directory = join(root, 'coverage');
   mkdirSync(directory, { recursive: true });
   const report = join(directory, 'coverage-final.json');
   writeFileSync(
     report,
-    JSON.stringify(Object.fromEntries(paths.map((path) => [join(root, path), {}]))),
+    JSON.stringify(
+      Object.fromEntries(paths.map((path) => [join(root, path), entries[path] ?? {}])),
+    ),
   );
   return report;
 }
@@ -48,6 +54,37 @@ function fixtureWith(
 function expectIssues(result: CoverageCheckResult, needle: string) {
   expect(result.issues.join('\n')).toContain(needle);
 }
+
+test('untested Vue components are reported even when present in the coverage report', () => {
+  const fixture = fixtureWith({ 'scripts/Untested.vue': '<template><p>untested</p></template>' });
+  try {
+    const report = writeReport(
+      fixture.root,
+      ['scripts/a.ts', 'scripts/b.ts', 'scripts/Untested.vue'],
+      {
+        'scripts/a.ts': { s: { '0': 1 } },
+        'scripts/b.ts': { s: { '0': 1 } },
+        'scripts/Untested.vue': { s: { '0': 0 } },
+      },
+    );
+    const result = checkCoverage(fixture.root, report);
+    expect(result.missing).toEqual([]);
+    expectIssues(result, 'untested Vue component in coverage report: scripts/Untested.vue');
+
+    const withoutStatements = writeReport(
+      fixture.root,
+      ['scripts/a.ts', 'scripts/b.ts', 'scripts/Untested.vue'],
+      {
+        'scripts/a.ts': { s: { '0': 1 } },
+        'scripts/b.ts': { s: { '0': 1 } },
+        'scripts/Untested.vue': {},
+      },
+    );
+    expect(checkCoverage(fixture.root, withoutStatements).issues).toEqual([]);
+  } finally {
+    fixture.cleanup();
+  }
+});
 
 test(
   'SCN-TEMPLATE-ENGINEERING-009 coverage-completeness-rules',

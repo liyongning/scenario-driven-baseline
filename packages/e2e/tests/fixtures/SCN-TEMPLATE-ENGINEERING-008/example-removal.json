@@ -23,7 +23,13 @@
         "prefixes": ["SCN-TEMPLATE-EXAMPLE-"]
       }
     ],
-    "matrixFixture": "packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json",
-    "matrixOwner": "SCN-PROTOCOL-CONTRACT-002"
+    "matrices": [
+      {
+        "fixture": "packages/e2e/tests/fixtures/SCN-PROTOCOL-CONTRACT-002/protocol-matrix.json",
+        "owner": "SCN-PROTOCOL-CONTRACT-002",
+        "kind": "declaration-keys",
+        "declaration": "packages/sdk/src/consumed-operations.ts"
+      }
+    ]
   }
 }

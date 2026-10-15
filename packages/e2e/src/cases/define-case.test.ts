@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createControlledRoot } from '../../tests/tooling/controlled-root.ts';
+import { baseManifest } from '../../tests/tooling/project-manifest-fixture.ts';
 import { environmentClassOf, validateCaseBinding } from './define-case.ts';
 
 const valid = {
@@ -54,9 +56,16 @@ describe('validateCaseBinding', () => {
   });
 
   it('resolves the environment class from the project manifest', () => {
-    const root = process.cwd();
-    expect(environmentClassOf('integration', root)).toBe('integration');
-    expect(environmentClassOf('weapp')).toBe('platform');
-    expect(environmentClassOf('missing-project')).toBeUndefined();
+    const root = createControlledRoot({
+      manifest: baseManifest(),
+      prefix: 'define-case-environment-',
+    });
+    try {
+      expect(environmentClassOf('integration', root.root)).toBe('integration');
+      expect(environmentClassOf('platform', root.root)).toBe('platform');
+      expect(environmentClassOf('missing-project', root.root)).toBeUndefined();
+    } finally {
+      root.cleanup();
+    }
   });
 });

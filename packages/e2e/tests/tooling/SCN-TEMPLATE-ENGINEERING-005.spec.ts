@@ -13,7 +13,6 @@ import { join, relative, resolve } from 'node:path';
 import { afterEach } from 'vitest';
 import {
   loadProjectManifest,
-  packageByRole,
   type TestProjectClass,
 } from '../../../../scripts/lib/project-manifest.ts';
 import {
@@ -38,6 +37,8 @@ type FixturePackage = {
   directory: string;
   name: string;
   role: 'product' | 'protocol' | 'test';
+  form?: 'sdk' | 'web-app';
+  protocolKind?: 'idl' | 'openapi';
   private: boolean;
   allowedDirectories: ReadonlyArray<string>;
   moduleRoots?: ReadonlyArray<string>;
@@ -45,6 +46,12 @@ type FixturePackage = {
 };
 type FixtureManifest = {
   packages: ReadonlyArray<FixturePackage>;
+  bindings: ReadonlyArray<{
+    name: string;
+    product: string;
+    protocol: string;
+    platforms: ReadonlyArray<string>;
+  }>;
   requiredCommands: ReadonlyArray<string>;
   testProjects: ReadonlyArray<{ name: string; class: TestProjectClass; config: string }>;
   fingerprints: {
@@ -68,6 +75,7 @@ function manifestFixture(
         directory: 'sample-sdk',
         name: '@sample/sdk',
         role: 'product',
+        form: 'sdk',
         private: false,
         allowedDirectories: ['src'],
       },
@@ -75,6 +83,7 @@ function manifestFixture(
         directory: 'sample-protocol',
         name: '@sample/protocol',
         role: 'protocol',
+        protocolKind: 'idl',
         private: false,
         allowedDirectories: ['src', 'testing'],
       },
@@ -84,6 +93,14 @@ function manifestFixture(
         role: 'test',
         private: true,
         allowedDirectories: ['src', 'host', 'tests'],
+      },
+    ],
+    bindings: [
+      {
+        name: 'sdk-idl-weapp',
+        product: overrides.product?.directory ?? 'sample-sdk',
+        protocol: 'sample-protocol',
+        platforms: [],
       },
     ],
     requiredCommands: overrides.requiredCommands ?? ['check:fast'],
@@ -104,15 +121,6 @@ function manifestFixture(
   };
 }
 
-/** 按清单角色取出包目录名，供指南夹具与清单保持一致。 */
-function packageDirectories(manifest: FixtureManifest) {
-  return {
-    product: manifest.packages.find((item) => item.role === 'product')!.directory,
-    protocol: manifest.packages.find((item) => item.role === 'protocol')!.directory,
-    test: manifest.packages.find((item) => item.role === 'test')!.directory,
-  };
-}
-
 /** 最小架构门禁根：清单、根 package.json、AGENTS 链接与三个登记包。 */
 function architectureFixture(manifest: FixtureManifest) {
   const root = mkdtempSync(join(tmpdir(), 'template-architecture-cli-'));
@@ -130,16 +138,20 @@ function architectureFixture(manifest: FixtureManifest) {
   for (const pkg of manifest.packages) {
     mkdirSync(join(root, 'packages', pkg.directory), { recursive: true });
     writeFileSync(join(root, 'packages', pkg.directory, 'AGENTS.md'), '[root](../../AGENTS.md)\n');
+    const protocol = manifest.packages.find((candidate) => candidate.role === 'protocol');
     writeFileSync(
       join(root, 'packages', pkg.directory, 'package.json'),
       JSON.stringify({
         name: pkg.name,
         version: '0.0.0',
         ...(pkg.private ? { private: true } : {}),
+        ...(pkg.role === 'product' && protocol
+          ? { dependencies: { [protocol.name]: 'workspace:*' } }
+          : {}),
       }),
     );
   }
-  writeTemplateGuideFixture(root, packageDirectories(manifest));
+  writeTemplateGuideFixture(root);
   writeProjectMapFixture(root);
   return root;
 }
@@ -169,8 +181,7 @@ const scannedConfigs = ['.dependency-cruiser.cjs', 'eslint.config.js', 'vitest.c
  * 根 scripts 的键名不扫描；与 requiredCommands 同名的命令参数不算写死。
  */
 function scanHardcodedTopology(root: string, manifest: FixtureManifest): string[] {
-  const product = manifest.packages.find((item) => item.role === 'product')!;
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
+  const packages = manifest.packages.filter((item) => item.role !== 'test');
   const registry = manifest.release?.registry;
   const mismatchedProjects = manifest.testProjects
     .filter((project) => project.name !== project.class)
@@ -182,7 +193,7 @@ function scanHardcodedTopology(root: string, manifest: FixtureManifest): string[
   const problems: string[] = [];
   /** 文件内容按路径/引号字面量匹配；scripts 的值是 shell 文本，按独立词元匹配。 */
   const inspect = (text: string, label: string, tokenMode: boolean) => {
-    for (const pkg of [product, protocol]) {
+    for (const pkg of packages) {
       if (new RegExp(`packages/${escapeRegExp(pkg.directory)}(?=[/'"\x60])`).test(text))
         problems.push(`${label}: package directory ${pkg.directory}`);
       if (text.includes(pkg.name)) problems.push(`${label}: package name ${pkg.name}`);
@@ -223,6 +234,7 @@ cliEvidence(
       directory: 'renamed-sdk',
       name: '@sample/renamed-sdk',
       role: 'product' as const,
+      form: 'sdk' as const,
       private: false,
       allowedDirectories: ['src'],
     };
@@ -230,18 +242,24 @@ cliEvidence(
       renameSync(join(root, 'packages', 'sample-sdk'), join(root, 'packages', renamed.directory));
       writeFileSync(
         join(root, 'packages', renamed.directory, 'package.json'),
-        JSON.stringify({ name: renamed.name, version: '0.0.0' }),
+        JSON.stringify({
+          name: renamed.name,
+          version: '0.0.0',
+          dependencies: { '@sample/protocol': 'workspace:*' },
+        }),
       );
       const renamedManifest = manifestFixture({ product: renamed });
       writeFileSync(join(root, 'project.manifest.json'), JSON.stringify(renamedManifest, null, 2));
       writeProjectMapFixture(root);
-      writeTemplateGuideFixture(root, packageDirectories(renamedManifest));
+      writeTemplateGuideFixture(root);
       const result = runArchitecture(root);
       context.expect(result.output?.issues).toEqual([]);
       context.expect(result.status).toBe(0);
       // 未按清单同步时，门禁仍会拒绝：目录未登记。
       const stale = architectureFixture(manifestFixture());
-      renameSync(join(stale, 'packages', 'sample-sdk'), join(stale, 'packages', 'renamed-sdk'));
+      const stalePackage = readFileSync(join(stale, 'packages', 'sample-sdk', 'package.json'));
+      mkdirSync(join(stale, 'packages', 'renamed-sdk'));
+      writeFileSync(join(stale, 'packages', 'renamed-sdk', 'package.json'), stalePackage);
       context
         .expect(runArchitecture(stale).output?.issues.join('\n'))
         .toContain('unexpected package renamed-sdk');
@@ -249,13 +267,29 @@ cliEvidence(
     await check('scripts-by-manifest', () => {
       const renamedRoot = architectureFixture(manifestFixture({ product: renamed }));
       context.expect(planCommand(renamedRoot, 'build')).toEqual([
-        { command: 'pnpm', args: ['--filter', '@sample/protocol', 'build'] },
-        { command: 'pnpm', args: ['--filter', '@sample/renamed-sdk', 'build'] },
+        {
+          command: 'pnpm',
+          args: ['--filter', '@sample/protocol', 'build'],
+          env: { NODE_ENV: 'production' },
+        },
+        {
+          command: 'pnpm',
+          args: ['--filter', '@sample/renamed-sdk', 'build'],
+          env: { NODE_ENV: 'production' },
+        },
       ]);
       context.expect(planCommand(renamedRoot, 'test:unit')).toEqual([
         {
           command: 'vitest',
-          args: ['run', '--project', 'sample-unit', '--coverage'],
+          args: [
+            'run',
+            '--project',
+            'sample-unit',
+            '--coverage',
+            ...(process.env.TEMPLATE_UNIT_MAX_WORKERS
+              ? [`--maxWorkers=${process.env.TEMPLATE_UNIT_MAX_WORKERS}`]
+              : []),
+          ],
           env: {
             // 报告路径跟随运行入口的 run id（pnpm verify 会设置 VERIFY_RUN_ID），不写死 local。
             VERIFY_REPORT_FILE: join(
@@ -286,7 +320,11 @@ cliEvidence(
       const mismatched = architectureFixture(manifestFixture());
       writeFileSync(
         join(mismatched, 'packages', 'sample-sdk', 'package.json'),
-        JSON.stringify({ name: '@sample/other', version: '0.0.0' }),
+        JSON.stringify({
+          name: '@sample/other',
+          version: '0.0.0',
+          dependencies: { '@sample/protocol': 'workspace:*' },
+        }),
       );
       context
         .expect(runArchitecture(mismatched).output?.issues.join('\n'))
@@ -340,9 +378,36 @@ cliEvidence(
       const manifest = loadProjectManifest(repositoryRoot);
       context.expect(scanHardcodedTopology(repositoryRoot, manifest)).toEqual([]);
 
-      // 正例控制：在受控临时根中写入写死包名与项目名的脚本、配置与根 scripts，必须被逐项命中。
-      const product = packageByRole(manifest, 'product');
-      const protocol = packageByRole(manifest, 'protocol');
+      // 反例覆盖每种角色的全部包：第二个产品/协议包同样不能写死。
+      const probeManifest = structuredClone(manifest) as FixtureManifest & {
+        packages: Array<FixtureManifest['packages'][number]>;
+        bindings: Array<FixtureManifest['bindings'][number]>;
+      };
+      const secondProduct = {
+        directory: 'second-product',
+        name: '@sample/second-product',
+        role: 'product' as const,
+        form: 'web-app' as const,
+        private: true,
+        allowedDirectories: ['src'],
+      };
+      const secondProtocol = {
+        directory: 'second-protocol',
+        name: '@sample/second-protocol',
+        role: 'protocol' as const,
+        protocolKind: 'openapi' as const,
+        private: false,
+        allowedDirectories: ['src', 'testing'],
+      };
+      probeManifest.packages.push(secondProduct, secondProtocol);
+      probeManifest.bindings.push({
+        name: 'second-product-protocol',
+        product: secondProduct.directory,
+        protocol: secondProtocol.directory,
+        platforms: [],
+      });
+      const product = secondProduct;
+      const protocol = secondProtocol;
       const platform = manifest.testProjects.find((project) => project.class === 'platform')!;
       const probe = mkdtempSync(join(tmpdir(), 'template-hardcoded-probe-'));
       roots.push(probe);
@@ -361,7 +426,7 @@ cliEvidence(
           },
         }),
       );
-      const found = scanHardcodedTopology(probe, manifest);
+      const found = scanHardcodedTopology(probe, probeManifest);
       context
         .expect(found)
         .toEqual(
@@ -386,9 +451,13 @@ cliEvidence(
     const repositoryManifest = JSON.parse(
       readFileSync(join(repositoryRoot, 'project.manifest.json'), 'utf8'),
     ) as FixtureManifest;
+    const protocolInput = repositoryManifest.fingerprints.protocolInputs[0]!;
     const root = createControlledRoot({
       manifest: repositoryManifest,
-      files: { 'scripts/marker.ts': 'export const marker = 1;' },
+      files: {
+        'scripts/marker.ts': 'export const marker = 1;',
+        [protocolInput]: 'initial protocol input',
+      },
       prefix: 'template-digest-cli-',
     });
     try {
@@ -398,17 +467,27 @@ cliEvidence(
 
       await check('source-roots-by-manifest', () => {
         context.expect(beforeDigests?.sourceDigest, before.stderr).toMatch(/^[a-f0-9]{64}$/);
-        const plain = mkdtempSync(join(tmpdir(), 'template-digest-nongit-'));
+        const plain = createControlledRoot({
+          manifest: repositoryManifest,
+          files: {
+            'scenario-gate.config.json': JSON.stringify({
+              scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],
+              flowIdPatterns: ['^FLOW-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],
+              ownerIdPattern: '^(?:FLOW|SCN)-[A-Z0-9-]+$',
+            }),
+          },
+          prefix: 'template-digest-nongit-',
+        });
         try {
-          mkdirSync(join(plain, 'openspec/specs'), { recursive: true });
-          mkdirSync(join(plain, 'openspec/changes'), { recursive: true });
-          writeFileSync(join(plain, 'project.manifest.json'), JSON.stringify(repositoryManifest));
-          enableInventory(plain);
-          const rejected = runGate(plain);
+          enableInventory(plain.root);
+          rmSync(join(plain.root, '.git'), { recursive: true, force: true });
+          const rejected = runGate(plain.root);
           context.expect(rejected.status).not.toBe(0);
-          context.expect(rejected.stderr).toContain('not a git work tree');
+          context
+            .expect(`${rejected.stdout}\n${rejected.stderr}`, rejected.stderr)
+            .toContain('not a git work tree');
         } finally {
-          rmSync(plain, { recursive: true, force: true });
+          plain.cleanup();
         }
       });
 
@@ -420,12 +499,19 @@ cliEvidence(
           { sourceDigest: string; protocolDigest: string } | undefined;
         context.expect(changedDigests?.sourceDigest).not.toBe(beforeDigests?.sourceDigest);
 
+        // 文档变更不进入源码摘要；协议输入可能同时位于某个源码目录内（例如契约文件），
+        // 因此协议输入的变更只断言协议摘要变化，不再断言源码摘要保持不变。
         writeFileSync(join(root.root, 'scripts/AGENTS.md'), 'changed docs');
-        writeFileSync(join(root.root, 'proto-gen.lock'), 'changed idl');
         const afterDocs = runGate(root.root);
-        const afterDigests = afterDocs.output?.digests as
+        const afterDocsDigests = afterDocs.output?.digests as
           { sourceDigest: string; protocolDigest: string } | undefined;
-        context.expect(afterDigests?.sourceDigest).toBe(changedDigests?.sourceDigest);
+        context.expect(afterDocsDigests?.sourceDigest).toBe(changedDigests?.sourceDigest);
+        context.expect(afterDocsDigests?.protocolDigest).toBe(changedDigests?.protocolDigest);
+
+        writeFileSync(join(root.root, protocolInput), 'changed protocol input');
+        const afterProtocol = runGate(root.root);
+        const afterDigests = afterProtocol.output?.digests as
+          { sourceDigest: string; protocolDigest: string } | undefined;
         context.expect(afterDigests?.protocolDigest).not.toBe(changedDigests?.protocolDigest);
       });
     } finally {

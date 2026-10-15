@@ -2,11 +2,8 @@
 import automator from 'miniprogram-automator';
 import { afterEach } from 'vitest';
 import { CreateTrade } from '@daqian/template-protocol/generated/idl/infra/trade/v1/trade';
-import {
-  createShadowServer,
-  discoverDeclaredRoutes,
-  type RunningShadowServer,
-} from '@template-test/protocol';
+import { discoverDeclaredRoutes } from '@template-test/protocol';
+import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../src/drivers/weapp.ts';
 
@@ -37,6 +34,7 @@ defineCase(
     caseId: 'request-id-wire',
     fixtureCase: 'request-id-wire',
     environment: 'weapp',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-PROTOCOL-CONTRACT-008',
@@ -64,6 +62,7 @@ defineCase(
       { disconnect: true },
     ];
     const server = await createShadowServer({
+      environmentClass: 'platform',
       routes,
       scenarios: [
         {
@@ -145,4 +144,5 @@ defineCase(
       expect(new Set(headerIds).size).toBe(records.length);
     });
   },
+  { timeoutMs: 30_000 },
 );

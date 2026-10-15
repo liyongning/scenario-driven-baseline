@@ -4,7 +4,13 @@ import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { inspectPackageConsumer } from '../packages/e2e/src/package-consumer.ts';
-import { loadProjectManifest, packageByRole } from './lib/project-manifest.ts';
+import {
+  bindingForProduct,
+  loadProjectManifest,
+  packageByDirectory,
+  packagesByRole,
+  testPackage,
+} from './lib/project-manifest.ts';
 
 type Manifest = Readonly<{
   name?: string;
@@ -60,9 +66,20 @@ export async function runPackageCli(
   let input: PackageInput;
   const commands: Array<Readonly<{ command: string; exitCode: number }>> = [];
   const manifest = loadProjectManifest(root);
-  const product = packageByRole(manifest, 'product');
-  const protocol = packageByRole(manifest, 'protocol');
-  const test = packageByRole(manifest, 'test');
+  const product = packagesByRole(manifest, 'product').find((item) => item.form === 'sdk');
+  if (!product)
+    return {
+      commands: [],
+      sdkVersion: undefined,
+      protocolVersion: undefined,
+      issues: [],
+      exitCode: 0,
+    };
+  const protocol = packageByDirectory(
+    manifest,
+    bindingForProduct(manifest, product.directory).protocol,
+  );
+  const test = testPackage(manifest);
   if (inputIndex >= 0 && argv[inputIndex + 1]) {
     input = JSON.parse(await readFile(resolve(argv[inputIndex + 1]!), 'utf8')) as PackageInput;
   } else {

@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-WEB-EXAMPLE-002",
+  "protocol": "openapi",
+  "sources": {
+    "spec": {
+      "requirementDigest": "2926f1ac61fa61c5a71813245119d4756ef5a975eaae57d02b2fbf9accea3ab4"
+    }
+  },
+  "cases": {
+    "poll-in-browser": "poll-in-browser.json"
+  },
+  "sha256": {
+    "poll-in-browser.json": "57cccf58b244088b5deb91b02ca93adba1448ee0754331140a77c5789bbaadbe"
+  }
+}

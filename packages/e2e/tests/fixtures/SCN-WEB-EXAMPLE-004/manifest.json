@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "ownerId": "SCN-WEB-EXAMPLE-004",
+  "protocol": "openapi",
+  "envelopes": {
+    "$.responses[0]": "createTrade",
+    "$.responses[1]": "createTrade",
+    "$.responses[2]": "createTrade"
+  },
+  "sources": {
+    "spec": {
+      "requirementDigest": "2926f1ac61fa61c5a71813245119d4756ef5a975eaae57d02b2fbf9accea3ab4"
+    }
+  },
+  "cases": {
+    "business-failure-in-browser": "business-failure-in-browser.json"
+  },
+  "sha256": {
+    "business-failure-in-browser.json": "55c14c060f3a8f90eb2c4556f292e41c7ce1695ac3edb65ab84bc869af0f4b02"
+  }
+}

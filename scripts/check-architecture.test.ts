@@ -1,43 +1,20 @@
 import { afterEach, expect, test, type TestContext } from 'vitest';
 import type {} from '../packages/e2e/src/vitest.d.ts';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import {
-  writeProjectMapFixture,
-  writeTemplateGuideFixture,
-} from '../packages/e2e/tests/tooling/helpers.ts';
+  cleanupArchitectureFixtures,
+  createArchitectureFixture as fixture,
+  expectedCruiseTargets,
+  firstProductDirectory,
+  writeRemovalFixture,
+} from '../packages/e2e/tests/tooling/check-architecture-fixture.ts';
 import { checkArchitecture, cruiseArguments, runArchitectureCli } from './check-architecture';
-import { loadProjectManifest } from './lib/project-manifest.ts';
+import { testPackage, loadProjectManifest } from './lib/project-manifest.ts';
 
-const roots: string[] = [];
-afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-});
-function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'template-architecture-'));
-  roots.push(root);
-  mkdirSync(join(root, 'packages'));
-  writeFileSync(join(root, 'README.md'), '# facts');
-  writeFileSync(join(root, 'AGENTS.md'), '[facts](README.md) [external](https://example.invalid)');
-  writeFileSync(join(root, 'package.json'), readFileSync('package.json'));
-  writeFileSync(join(root, 'project.manifest.json'), readFileSync('project.manifest.json'));
-  for (const name of ['sdk', 'protocol', 'e2e']) {
-    const dir = join(root, 'packages', name);
-    mkdirSync(dir);
-    writeFileSync(join(dir, 'AGENTS.md'), '[root](../../AGENTS.md#rules)');
-    writeFileSync(join(dir, 'package.json'), readFileSync(`packages/${name}/package.json`));
-  }
-  writeTemplateGuideFixture(root);
-  writeProjectMapFixture(root);
-  // 默认 CLI 分支调用真实 depcruise：放一个可执行替身，验证参数组装与退出码传递，不依赖真实解析。
-  mkdirSync(join(root, 'node_modules/.bin'), { recursive: true });
-  writeFileSync(join(root, 'node_modules/.bin/depcruise'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
-  return root;
-}
+afterEach(cleanupArchitectureFixtures);
 
-test('完整三包和可解析规则链接通过；依赖工具失败传递', async () => {
+test('完整多包和可解析规则链接通过；依赖工具失败传递', async () => {
   const root = fixture();
   expect(await checkArchitecture(root, 0)).toEqual([]);
   expect(await checkArchitecture(root, 1)).toContain('dependency-cruiser failed');
@@ -45,14 +22,13 @@ test('完整三包和可解析规则链接通过；依赖工具失败传递', as
     await runArchitectureCli(['node', 'script', '--root', root, '--dependency-exit-code', '0']),
   ).toMatchObject({ issues: [], exitCode: 0 });
   expect(await runArchitectureCli([], root)).toMatchObject({ issues: [], exitCode: 0 });
-  expect(cruiseArguments(root, loadProjectManifest(root))).toEqual([
+  const manifest = loadProjectManifest(root);
+  expect(cruiseArguments(root, manifest)).toEqual([
     '--config',
     resolve(root, '.dependency-cruiser.cjs'),
     '--output-type',
     'err-long',
-    'packages/sdk/src',
-    'packages/protocol/src',
-    'packages/protocol/testing',
+    ...expectedCruiseTargets(manifest),
   ]);
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', '-1'], root),
@@ -60,6 +36,19 @@ test('完整三包和可解析规则链接通过；依赖工具失败传递', as
   await expect(
     runArchitectureCli(['node', 'script', '--dependency-exit-code', 'bad'], root),
   ).rejects.toThrow(/non-negative integer/);
+});
+
+test('新增 web-app 包与绑定后，架构检查和 cruise 参数继续按清单派生', async () => {
+  const root = fixture({ additionalWebApp: true });
+  const manifest = loadProjectManifest(root);
+  expect(await checkArchitecture(root, 0)).toEqual([]);
+  expect(cruiseArguments(root, manifest)).toEqual([
+    '--config',
+    resolve(root, '.dependency-cruiser.cjs'),
+    '--output-type',
+    'err-long',
+    ...expectedCruiseTargets(manifest),
+  ]);
 });
 
 test('依赖工具不可执行时按失败处理', async () => {
@@ -72,11 +61,12 @@ test('依赖工具不可执行时按失败处理', async () => {
 
 test('缺失 AGENTS 和断链被拒绝', async () => {
   const root = fixture();
-  rmSync(join(root, 'packages/e2e/AGENTS.md'));
+  const test = testPackage(loadProjectManifest(root));
+  rmSync(join(root, 'packages', test.directory, 'AGENTS.md'));
   writeFileSync(join(root, 'AGENTS.md'), '[missing](missing.md)');
   expect(await checkArchitecture(root, 0)).toEqual(
     expect.arrayContaining([
-      'missing packages/e2e/AGENTS.md',
+      `missing packages/${test.directory}/AGENTS.md`,
       'broken link AGENTS.md -> missing.md',
     ]),
   );
@@ -92,44 +82,53 @@ test('缺少项目清单时直接报告清单错误', async () => {
 
 test('清单登记但缺失的包目录被报告', async () => {
   const root = fixture();
-  rmSync(join(root, 'packages/e2e'), { recursive: true });
-  expect(await checkArchitecture(root, 0)).toContain('missing package directory packages/e2e');
+  const test = testPackage(loadProjectManifest(root));
+  rmSync(join(root, 'packages', test.directory), { recursive: true });
+  expect(await checkArchitecture(root, 0)).toContain(
+    `missing package directory packages/${test.directory}`,
+  );
 });
 
 test('第四个包、未知职责目录及产品测试导出被拒绝', async () => {
   const root = fixture();
+  const manifest = loadProjectManifest(root);
+  const product = manifest.packages.find((pkg) => pkg.role === 'product')!;
   mkdirSync(join(root, 'packages/fourth'));
-  mkdirSync(join(root, 'packages/sdk/ui'));
-  const p = join(root, 'packages/sdk/package.json');
-  const manifest = JSON.parse(readFileSync(p, 'utf8'));
-  manifest.exports['./testing'] = './testing/index.ts';
-  writeFileSync(p, JSON.stringify(manifest));
+  mkdirSync(join(root, 'packages', product.directory, 'ui'));
+  const p = join(root, 'packages', product.directory, 'package.json');
+  const packageManifest = JSON.parse(readFileSync(p, 'utf8'));
+  packageManifest.exports = { './testing': './testing/index.ts' };
+  writeFileSync(p, JSON.stringify(packageManifest));
   expect(await checkArchitecture(root, 0)).toEqual(
     expect.arrayContaining([
       'unexpected package fourth',
-      'unexpected directory packages/sdk/ui',
-      'private entry exported by sdk',
+      `unexpected directory packages/${product.directory}/ui`,
+      `private entry exported by ${product.directory}`,
     ]),
   );
 });
 
 test('包名、private 标识、反向依赖与必需命令错误被拒绝', async () => {
   const root = fixture();
-  const p = join(root, 'packages/protocol/package.json');
-  const manifest = JSON.parse(readFileSync(p, 'utf8'));
-  manifest.name = 'wrong';
-  manifest.dependencies = { '@daqian/template-sdk': 'workspace:*' };
-  writeFileSync(p, JSON.stringify(manifest));
+  const projectManifest = loadProjectManifest(root);
+  const protocol = projectManifest.packages.find((pkg) => pkg.role === 'protocol')!;
+  const product = projectManifest.packages.find((pkg) => pkg.role === 'product')!;
+  const testPackage = projectManifest.packages.find((pkg) => pkg.role === 'test')!;
+  const p = join(root, 'packages', protocol.directory, 'package.json');
+  const packageManifest = JSON.parse(readFileSync(p, 'utf8'));
+  packageManifest.name = 'wrong';
+  packageManifest.dependencies = { [product.name]: 'workspace:*' };
+  writeFileSync(p, JSON.stringify(packageManifest));
   writeFileSync(
-    join(root, 'packages/e2e/package.json'),
-    JSON.stringify({ name: '@daqian/template-e2e', private: false }),
+    join(root, 'packages', testPackage.directory, 'package.json'),
+    JSON.stringify({ name: testPackage.name, private: false }),
   );
   writeFileSync(join(root, 'package.json'), JSON.stringify({}));
   const errors = await checkArchitecture(root, 0);
-  expect(errors).toContain('wrong package name protocol');
-  expect(errors).toContain('protocol cannot depend on SDK/E2E');
-  expect(errors).toContain('e2e must be private');
-  expect(errors).toContain('missing command typecheck');
+  expect(errors).toContain(`wrong package name ${protocol.directory}`);
+  expect(errors).toContain(`${protocol.directory} cannot depend on products or E2E`);
+  expect(errors).toContain(`${testPackage.directory} must be private`);
+  expect(errors).toContain(`missing command ${projectManifest.requiredCommands[0]}`);
 });
 
 function evidence(
@@ -180,40 +179,51 @@ evidence(
   async (context, check) => {
     await check('example-markers-paired', async () => {
       const paired = fixture();
-      mkdirSync(join(paired, 'packages/sdk/src'), { recursive: true });
-      writeFileSync(join(paired, 'packages/sdk/src/data.json'), '{}\n');
+      const pairedProduct = firstProductDirectory(paired);
+      mkdirSync(join(paired, 'packages', pairedProduct, 'src'), { recursive: true });
+      writeFileSync(join(paired, 'packages', pairedProduct, 'src/data.json'), '{}\n');
       writeFileSync(
-        join(paired, 'packages/sdk/src/marked.ts'),
+        join(paired, 'packages', pairedProduct, 'src/marked.ts'),
         '// template-example:begin\n// 普通注释不算标记\nconst example = 1;\n// template-example:end\n',
       );
       context.expect(await checkArchitecture(paired, 0)).toEqual([]);
 
       const unclosed = fixture();
-      mkdirSync(join(unclosed, 'packages/sdk/src'), { recursive: true });
+      const unclosedProduct = firstProductDirectory(unclosed);
+      mkdirSync(join(unclosed, 'packages', unclosedProduct, 'src'), { recursive: true });
       writeFileSync(
-        join(unclosed, 'packages/sdk/src/marked.ts'),
+        join(unclosed, 'packages', unclosedProduct, 'src/marked.ts'),
         'const before = 1;\n// template-example:begin\nconst example = 1;\n',
       );
       context
         .expect(await checkArchitecture(unclosed, 0))
-        .toContain('packages/sdk/src/marked.ts:2: template-example:begin 没有对应的 end');
+        .toContain(
+          `packages/${unclosedProduct}/src/marked.ts:2: template-example:begin 没有对应的 end`,
+        );
 
       const extra = fixture();
-      mkdirSync(join(extra, 'packages/sdk/src'), { recursive: true });
-      writeFileSync(join(extra, 'packages/sdk/src/marked.ts'), '// template-example:end\n');
+      const extraProduct = firstProductDirectory(extra);
+      mkdirSync(join(extra, 'packages', extraProduct, 'src'), { recursive: true });
+      writeFileSync(
+        join(extra, 'packages', extraProduct, 'src/marked.ts'),
+        '// template-example:end\n',
+      );
       context
         .expect(await checkArchitecture(extra, 0))
-        .toContain('packages/sdk/src/marked.ts:1: template-example:end 没有对应的 begin');
+        .toContain(
+          `packages/${extraProduct}/src/marked.ts:1: template-example:end 没有对应的 begin`,
+        );
 
       const nested = fixture();
-      mkdirSync(join(nested, 'packages/sdk/src'), { recursive: true });
+      const nestedProduct = firstProductDirectory(nested);
+      mkdirSync(join(nested, 'packages', nestedProduct, 'src'), { recursive: true });
       writeFileSync(
-        join(nested, 'packages/sdk/src/marked.ts'),
+        join(nested, 'packages', nestedProduct, 'src/marked.ts'),
         '// template-example:begin\n// template-example:begin\n// template-example:end\n// template-example:end\n',
       );
       context
         .expect(await checkArchitecture(nested, 0))
-        .toContain('packages/sdk/src/marked.ts:2: template-example 标记不允许嵌套');
+        .toContain(`packages/${nestedProduct}/src/marked.ts:2: template-example 标记不允许嵌套`);
 
       const markdown = fixture();
       writeFileSync(
@@ -226,7 +236,10 @@ evidence(
 
       // 模块根之外的文件不属于示例裁剪范围，不参与标记校验。
       const outside = fixture();
-      writeFileSync(join(outside, 'packages/sdk/notes.ts'), '// template-example:begin\n');
+      writeFileSync(
+        join(outside, 'packages', firstProductDirectory(outside), 'notes.ts'),
+        '// template-example:begin\n',
+      );
       context.expect(await checkArchitecture(outside, 0)).toEqual([]);
     });
   },
@@ -265,8 +278,15 @@ evidence(
       context.expect(errors).toContain('missing guide section ## 版本对齐');
       context.expect(errors).toContain('missing guide section ## 使用方约定');
       context.expect(errors).toContain('missing guide section ## 复刻验收');
+      context.expect(errors).toContain('missing guide section ## 移除一条绑定');
+      context.expect(errors).toContain('missing guide section ## 跨源部署');
+      context.expect(errors).toContain('missing guide section ### 产品形态');
+      context.expect(errors).toContain('missing guide section ### 本地预览');
       context.expect(errors).toContain('missing guide section ### 包发布');
       const partial = fixture();
+      writeRemovalFixture(partial, {
+        directories: ['openspec/specs/template-example'],
+      });
       const guide = readFileSync(join(partial, 'docs/template-guide.md'), 'utf8');
       writeFileSync(
         join(partial, 'docs/template-guide.md'),
@@ -275,6 +295,62 @@ evidence(
       context
         .expect(await checkArchitecture(partial, 0))
         .toContain('missing removal whitelist entry openspec/specs/template-example/');
+
+      const missingWebExample = fixture();
+      writeRemovalFixture(missingWebExample, {
+        directories: ['openspec/specs/web-example'],
+      });
+      writeFileSync(
+        join(missingWebExample, 'docs/template-guide.md'),
+        readFileSync(join(missingWebExample, 'docs/template-guide.md'), 'utf8').replace(
+          'openspec/specs/web-example/',
+          '',
+        ),
+      );
+      context
+        .expect(await checkArchitecture(missingWebExample, 0))
+        .toContain('missing removal whitelist entry openspec/specs/web-example/');
+
+      const fixtureDriven = fixture();
+      const fixtureManifest = loadProjectManifest(fixtureDriven);
+      const fixtureProduct = fixtureManifest.packages.find((pkg) => pkg.role === 'product')!;
+      const fixtureTest = testPackage(fixtureManifest);
+      const fixtureGeneratedPath = `packages/${fixtureTest.directory}/tests/fixtures/SCN-OPENAPI-CONTRACT-021/fixture-matrix.json`;
+      writeRemovalFixture(fixtureDriven, {
+        directories: [`packages/${fixtureProduct.directory}/src/fixture-directory`],
+        files: ['packages/web/src/fixture-only.ts'],
+        globs: [
+          { directory: `packages/${fixtureProduct.directory}/src`, prefixes: ['fixture-glob-'] },
+        ],
+        matrices: [
+          {
+            fixture: fixtureGeneratedPath,
+            declaration: 'packages/web/src/app/consumed-operations.ts',
+          },
+        ],
+      });
+      context
+        .expect(await checkArchitecture(fixtureDriven, 0))
+        .toContain('missing removal whitelist entry packages/web/src/fixture-only.ts');
+      context
+        .expect(await checkArchitecture(fixtureDriven, 0))
+        .toEqual(
+          expect.arrayContaining([
+            `missing removal whitelist entry packages/${fixtureProduct.directory}/src/fixture-directory/`,
+            `missing removal whitelist entry packages/${fixtureProduct.directory}/src/fixture-glob-*`,
+            `missing removal whitelist entry ${fixtureGeneratedPath}`,
+          ]),
+        );
+      rmSync(
+        join(
+          fixtureDriven,
+          'packages',
+          fixtureTest.directory,
+          'tests/fixtures/SCN-TEMPLATE-ENGINEERING-008',
+        ),
+        { recursive: true, force: true },
+      );
+      context.expect(await checkArchitecture(fixtureDriven, 0)).toEqual([]);
     });
 
     await check('guide-links-resolve', async () => {
@@ -315,7 +391,7 @@ evidence(
           '',
           '`pnpm check:fast`、`pnpm install`、`pnpm --filter x build`、`pnpm nope`',
           '',
-          '`VERIFY_RUN_ID=<run-id> pnpm check:fast`、`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`',
+          '`VERIFY_RUN_ID=<run-id> pnpm check:fast`、`SCN-SCENARIO_GATE_CHANGES=... pnpm check:fast`、`TEMPLATE_UNIT_MAX_WORKERS=<n> pnpm check:fast`',
           '',
           '## 初始化方式',
           '',
@@ -345,6 +421,9 @@ evidence(
           ]),
         );
       context.expect(errors).not.toContain('unknown environment variable VERIFY_RUN_ID');
+      context
+        .expect(errors)
+        .not.toContain('unknown environment variable TEMPLATE_UNIT_MAX_WORKERS');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-001');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-998');
       context.expect(errors).not.toContain('unregistered Scenario ID SCN-SAMPLE-997');
@@ -378,115 +457,3 @@ evidence(
     });
   },
 );
-
-evidence(
-  'SCN-TEMPLATE-ENGINEERING-012',
-  'architecture-doc-rules',
-  ['architecture-present-and-linked', 'capability-sections', 'architecture-links-resolve'],
-  async (context, check) => {
-    await check('architecture-present-and-linked', async () => {
-      const missing = fixture();
-      rmSync(join(missing, 'docs/architecture.md'));
-      context.expect(await checkArchitecture(missing, 0)).toContain('missing docs/architecture.md');
-
-      const unlinked = fixture();
-      writeFileSync(join(unlinked, 'AGENTS.md'), '# facts\n');
-      writeFileSync(join(unlinked, 'README.md'), '# facts\n');
-      const errors = await checkArchitecture(unlinked, 0);
-      context.expect(errors).toContain('AGENTS.md does not link docs/architecture.md');
-      context.expect(errors).toContain('README.md does not link docs/architecture.md');
-    });
-
-    await check('capability-sections', async () => {
-      const root = fixture();
-      const guide = readFileSync(join(root, 'docs/template-guide.md'), 'utf8');
-      writeFileSync(
-        join(root, 'docs/template-guide.md'),
-        guide.replace(
-          '| 临时能力 | 临时根占位 | 无 |',
-          '| 临时能力 | 临时根占位 | 无 |\n| 未登记能力 | 临时根占位 | 无 |',
-        ),
-      );
-      context
-        .expect(await checkArchitecture(root, 0))
-        .toContain('docs/architecture.md: missing capability section 未登记能力');
-
-      const noTable = fixture();
-      writeFileSync(
-        join(noTable, 'docs/template-guide.md'),
-        '# 指南\n\n## 能力地图\n\n（缺表格）\n',
-      );
-      context
-        .expect(await checkArchitecture(noTable, 0))
-        .toContain('docs/template-guide.md: capability map table not found');
-    });
-
-    await check('architecture-links-resolve', async () => {
-      const root = fixture();
-      writeFileSync(
-        join(root, 'docs/architecture.md'),
-        `${readFileSync(join(root, 'docs/architecture.md'), 'utf8')}\n[存在](template-guide.md)、[缺失](missing.md)\n`,
-      );
-      const errors = await checkArchitecture(root, 0);
-      context
-        .expect(errors.filter((error) => error.startsWith('broken link')))
-        .toEqual(['broken link docs/architecture.md -> missing.md']);
-    });
-  },
-);
-
-// 运行真实 dependency-cruiser CLI；不以手造依赖图代替解析/退出码验证。
-function importFixture(source: string) {
-  const root = fixture();
-  writeFileSync(join(root, '.dependency-cruiser.cjs'), readFileSync('.dependency-cruiser.cjs'));
-  mkdirSync(join(root, 'scripts/lib'), { recursive: true });
-  writeFileSync(
-    join(root, 'scripts/lib/dependency-rules.cjs'),
-    readFileSync('scripts/lib/dependency-rules.cjs'),
-  );
-  writeFileSync(join(root, 'tsconfig.base.json'), readFileSync('tsconfig.base.json'));
-  for (const name of ['sdk', 'protocol'])
-    mkdirSync(join(root, 'packages', name, 'src'), { recursive: true });
-  const protocol = join(root, 'packages/protocol');
-  mkdirSync(join(protocol, 'src/generated'));
-  writeFileSync(join(protocol, 'src/index.ts'), 'export type PublicType = string;');
-  writeFileSync(join(protocol, 'src/generated/std.ts'), 'export const config = 1;');
-  // 保留真实 package exports，模拟构建后的公开文件，覆盖源码别名与 dist 两条解析路径。
-  mkdirSync(join(protocol, 'dist/generated'), { recursive: true });
-  writeFileSync(join(protocol, 'dist/index.d.ts'), 'export type PublicType = string;');
-  writeFileSync(join(protocol, 'dist/generated/std.d.ts'), 'export declare const config: number;');
-  const modules = join(root, 'packages/sdk/node_modules/@daqian');
-  mkdirSync(modules, { recursive: true });
-  symlinkSync(protocol, join(modules, 'template-protocol'), 'dir');
-  writeFileSync(join(root, 'packages/sdk/src/export-bypass.ts'), source);
-  return spawnSync(
-    resolve('node_modules/.bin/depcruise'),
-    [
-      '--config',
-      '.dependency-cruiser.cjs',
-      '--output-type',
-      'err-long',
-      'packages/sdk/src/export-bypass.ts',
-    ],
-    { cwd: root, encoding: 'utf8' },
-  );
-}
-
-test.each([
-  "export { config } from '../../protocol/src/generated/std';",
-  "export type { PublicType } from '../../protocol/src/index';",
-  "export const load = () => import('../../protocol/src/generated/std');",
-  "export { config } from '../../protocol/dist/generated/std.d.ts';",
-  "export { config } from 'packages/protocol/src/generated/std';",
-])('真实 CLI 拒绝绕过 exports 的跨包源文件导入：%s', (source) => {
-  const result = importFixture(source);
-  expect(result.status).toBe(1);
-  expect(result.stdout + result.stderr).toContain('cross-workspace-no-direct-files');
-});
-
-test('真实 CLI 接受完整 npm 名称的 root 和 generated 公开子入口', () => {
-  const result = importFixture(
-    "export type { PublicType } from '@daqian/template-protocol';\nexport { config } from '@daqian/template-protocol/generated/std';",
-  );
-  expect(result.status, result.stdout + result.stderr).toBe(0);
-});

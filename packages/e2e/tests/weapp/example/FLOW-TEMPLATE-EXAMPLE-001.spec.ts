@@ -1,10 +1,7 @@
 import automator from 'miniprogram-automator';
 import { afterEach } from 'vitest';
-import {
-  createShadowServer,
-  discoverExampleRoutes,
-  type RunningShadowServer,
-} from '@template-test/protocol';
+import { discoverExampleRoutes } from '@template-test/protocol';
+import { createShadowServer, type RunningShadowServer } from '@template-test/shadow';
 import { defineCase } from '../../../src/cases/define-case.ts';
 import { runWeappFunction } from '../../../src/drivers/weapp.ts';
 
@@ -24,6 +21,7 @@ defineCase(
     caseId: 'weapp-normal',
     fixtureCase: 'normal',
     environment: 'weapp',
+    binding: 'sdk-idl-weapp',
     flowId: 'FLOW-TEMPLATE-EXAMPLE-001',
     flowCase: 'normal',
     covers: [
@@ -113,5 +111,5 @@ defineCase(
       '一次最终结果；资源引用贯通各阶段，调用顺序和次数一致，初始化时不发请求',
     ]);
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 30_000 },
 );

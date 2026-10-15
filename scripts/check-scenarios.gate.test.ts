@@ -5,6 +5,7 @@ import { createControlledRoot } from '../packages/e2e/tests/tooling/controlled-r
 import { enableInventory } from '../packages/e2e/tests/tooling/scenario-gate-helpers.ts';
 import { describe, expect, it } from 'vitest';
 import { base, writeProjectManifest } from '../packages/e2e/tests/tooling/helpers.ts';
+import { baseManifest } from '../packages/e2e/tests/tooling/project-manifest-fixture.ts';
 import {
   runScenarioPrechecks,
   runScenariosCli,
@@ -44,9 +45,7 @@ describe('evaluateCoverage', () => {
     // live-inventory 路径在受控临时根上运行：Spec、FLOW 与协议义务全部来自测试输入，
     // 结论不随仓库里新增/删除 Change 或 FLOW 变化。
     const controlled = createControlledRoot({
-      manifest: JSON.parse(
-        await readFile(new URL('../project.manifest.json', import.meta.url), 'utf8'),
-      ),
+      manifest: baseManifest(),
       files: {
         'scenario-gate.config.json': JSON.stringify({
           scenarioIdPatterns: ['^SCN-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{3}$'],

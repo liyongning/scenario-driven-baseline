@@ -26,6 +26,7 @@ defineCase(
     caseId: 'observe-completed',
     fixtureCase: 'observe-completed',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-004',
@@ -60,6 +61,7 @@ defineCase(
     caseId: 'observe-closed',
     fixtureCase: 'observe-closed',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-004',

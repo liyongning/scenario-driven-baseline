@@ -212,6 +212,7 @@ function fixtureManifest(): Record<string, unknown> {
   const manifest = JSON.parse(
     readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
   ) as {
+    bindings: Array<Record<string, unknown>>;
     requiredCommands: string[];
     testProjects: Array<Record<string, unknown>>;
   };
@@ -239,6 +240,10 @@ function fixtureManifest(): Record<string, unknown> {
       'test:e2e:device-platform',
     ]),
   ];
+  manifest.bindings = manifest.bindings.map((binding) => ({
+    ...binding,
+    platforms: ['sample-platform', 'device-platform'],
+  }));
   return manifest;
 }
 

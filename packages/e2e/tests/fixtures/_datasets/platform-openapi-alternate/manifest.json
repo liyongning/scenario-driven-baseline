@@ -1,0 +1,27 @@
+{
+  "formatVersion": 1,
+  "protocol": "openapi",
+  "contractCarrier": "engine",
+  "description": "浏览器平台预览证据：同一交易直接成功。",
+  "entries": [
+    {
+      "operationId": "getTrade",
+      "pathParams": { "trade_no": "P-1" },
+      "responses": [
+        {
+          "body": {
+            "code": 0,
+            "message": "ok",
+            "data": {
+              "trade_no": "P-1",
+              "status": "SUCCEEDED",
+              "amount": 10,
+              "merchant_id": 1001,
+              "failure_reason": null
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,9 +1,74 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createControlledRoot, type ControlledRoot } from './controlled-root.ts';
 
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
+
+/** 声明派生用例的受控清单；不读取真实仓库包，新增或删除绑定均不影响夹具。 */
+export function declarationManifest(): Record<string, unknown> {
+  return {
+    packages: [
+      {
+        directory: 'sdk',
+        name: '@daqian/template-sdk',
+        role: 'product',
+        form: 'sdk',
+        private: false,
+        allowedDirectories: ['src'],
+        moduleRoots: ['src'],
+        consumedOperations: ['packages/sdk/src/consumed-operations.ts'],
+      },
+      {
+        directory: 'protocol',
+        name: '@daqian/template-protocol',
+        role: 'protocol',
+        protocolKind: 'idl',
+        private: false,
+        allowedDirectories: ['src', 'testing'],
+        moduleRoots: ['src', 'testing'],
+      },
+      {
+        directory: 'e2e',
+        name: '@daqian/template-e2e',
+        role: 'test',
+        private: true,
+        allowedDirectories: ['src', 'host', 'tests'],
+        moduleRoots: ['src', 'host', 'tests'],
+      },
+    ],
+    bindings: [
+      {
+        name: 'sdk-idl-weapp',
+        product: 'sdk',
+        protocol: 'protocol',
+        platforms: ['weapp'],
+      },
+    ],
+    requiredCommands: ['check:fast'],
+    testProjects: [
+      { name: 'sdk-unit', class: 'unit', config: 'packages/sdk/vitest.config.ts' },
+      {
+        name: 'test-tools-unit',
+        class: 'unit',
+        config: 'packages/e2e/vitest.config.unit.ts',
+      },
+      { name: 'integration', class: 'integration', config: 'packages/e2e/vitest.config.ts' },
+      {
+        name: 'weapp',
+        class: 'platform',
+        config: 'packages/e2e/vitest.config.weapp.ts',
+        prepare: 'weapp:prepare',
+      },
+    ],
+    fingerprints: {
+      sourceRoots: ['packages/sdk/src', 'packages/protocol/src', 'scripts'],
+      buildInputs: [],
+      protocolInputs: ['proto-gen.lock'],
+    },
+    quality: { coverageExclusions: [], maxLinesExemptions: [] },
+  };
+}
 
 /**
  * 合成 generated 运行时：只提供 `createMethod` 与 `defineMethodSpec`，
@@ -244,16 +309,18 @@ export type DeclarationFixtureOptions = Readonly<{
 }>;
 
 /** 仓库协议包 `src/` 下某个文件的内容：错误码表等随 generated 一同保留在白名单之外。 */
-export function repositoryProtocolSource(relative: string): string {
-  const manifest = JSON.parse(
-    readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
-  ) as { packages: Array<Record<string, unknown>> };
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
-  return readFileSync(
-    join(repositoryRoot, `packages/${protocol.directory as string}/src`, relative),
-    'utf8',
-  );
-}
+export const syntheticBusinessErrorSource = [
+  'export const businessErrors = {',
+  '  ErrGatewayProxyInvalidParameter: "invalid parameter",',
+  '  ErrGatewayProxyUnauthorized: "unauthorized",',
+  '  ErrGatewayProxyNotFound: "not found",',
+  '  ErrInfraTradeQueryTradeUnauthorized: "trade unauthorized",',
+  '  ErrInfraTradeQueryTradeInvalidParameter: "trade invalid parameter",',
+  '  ErrInfraTradeQueryTradeNotFound: "trade not found",',
+  '  ErrInfraTradeQueryTradeUnavailable: "trade unavailable",',
+  '};',
+  '',
+].join('\n');
 
 /** 递归列出目录下全部文件，键为相对该目录的路径。 */
 function relativeFiles(directory: string, prefix = ''): string[] {
@@ -271,11 +338,24 @@ function relativeFiles(directory: string, prefix = ''): string[] {
  * 清单沿用真实仓库的包目录与包名，只改 product 的 `consumedOperations`。
  */
 export function declarationRoot(options: DeclarationFixtureOptions = {}): ControlledRoot {
-  const manifest = JSON.parse(
-    readFileSync(resolve(repositoryRoot, 'project.manifest.json'), 'utf8'),
-  ) as { packages: Array<Record<string, unknown>> };
-  const product = manifest.packages.find((item) => item.role === 'product')!;
-  const protocol = manifest.packages.find((item) => item.role === 'protocol')!;
+  const manifest = declarationManifest() as {
+    packages: Array<Record<string, unknown>>;
+    bindings: Array<Record<string, unknown>>;
+  };
+  const product = manifest.packages.find((item) => item.role === 'product' && item.form === 'sdk')!;
+  const protocol = manifest.packages.find(
+    (item) => item.role === 'protocol' && item.protocolKind === 'idl',
+  )!;
+  const test = manifest.packages.find((item) => item.role === 'test')!;
+  manifest.packages = [product, protocol, test];
+  manifest.bindings = [
+    {
+      name: 'sdk-idl-weapp',
+      product: product.directory,
+      protocol: protocol.directory,
+      platforms: ['weapp'],
+    },
+  ];
   if (options.consumedOperations === null) delete product.consumedOperations;
   else
     product.consumedOperations = [

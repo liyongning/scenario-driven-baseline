@@ -43,10 +43,15 @@ function git(root: string, args: ReadonlyArray<string>) {
 }
 
 /** 在副本中运行命令：副本自带 node_modules 与固定版本工具链，不读调用方环境。 */
-function run(copy: RepositoryCopy, command: string, args: ReadonlyArray<string>) {
+function run(
+  copy: RepositoryCopy,
+  command: string,
+  args: ReadonlyArray<string>,
+  extraEnv: Readonly<Record<string, string>> = {},
+) {
   const result = spawnSync(command, [...args], {
     cwd: copy.root,
-    env: copy.env,
+    env: { ...copy.env, ...extraEnv },
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
   });
@@ -82,6 +87,10 @@ function removeFlowRegistrations(copy: RepositoryCopy): void {
     removedFixtures.push(`${fixturesRelative}/${entry}`);
   }
   if (removedFixtures.length > 0) git(copy.root, ['rm', '-r', '-q', '--', ...removedFixtures]);
+  // Requirement 块含 FLOW 表；删表后必须同步摘要，否则 Fixture 会按旧输入被判过期。
+  const owners = readdirSync(fixtureDirectory).filter((entry) => entry.startsWith('SCN-'));
+  const refresh = run(copy, 'pnpm', ['fixtures:refresh', ...owners]);
+  if (refresh.status !== 0) throw new Error(`fixtures refresh failed: ${refresh.output}`);
 }
 
 /** 新增一个与任何事实核验无关、含缺陷 Scenario 的 active Change。 */
@@ -144,7 +153,7 @@ defineCase(
       removeFlowRegistrations(copy);
       addDefectChange(copy, probe.defectChange);
       const build = run(copy, 'pnpm', ['build']);
-      const unit = run(copy, 'pnpm', ['test:unit']);
+      const unit = run(copy, 'pnpm', ['test:unit'], { TEMPLATE_UNIT_MAX_WORKERS: '1' });
       const gate = run(copy, 'pnpm', [
         'exec',
         'vitest',
@@ -229,5 +238,5 @@ defineCase(
       rmSync(copy.root, { recursive: true, force: true });
     }
   },
-  { fixtureRoot },
+  { fixtureRoot, timeoutMs: 300_000 },
 );

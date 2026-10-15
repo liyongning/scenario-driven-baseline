@@ -59,6 +59,7 @@ defineCase(
     caseId: 'package-consumer',
     fixtureCase: 'package-consumer',
     environment: 'integration',
+    binding: 'sdk-idl-weapp',
     covers: [
       {
         id: 'SCN-TEMPLATE-EXAMPLE-001',

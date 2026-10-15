@@ -100,6 +100,7 @@ function contractTest(caseKey: keyof typeof scenarioChecks, body: () => void | P
           ownerId: 'SCN-PROTOCOL-CONTRACT-003',
           caseId: caseKey,
           environment: 'integration',
+          binding: 'sdk-idl-weapp',
           fixtureCase: caseKey,
           covers: [{ id: 'SCN-PROTOCOL-CONTRACT-003', caseKey, checks: [...checks] }, ...idlCovers],
         },

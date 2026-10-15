@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +18,24 @@ const manifestWith = (sourceRoots: ReadonlyArray<string>) => ({
   ...minimalManifest(),
   fingerprints: { sourceRoots, buildInputs: [], protocolInputs: ['proto-gen.lock'] },
 });
+
+function writeMinimalPackages(root: string) {
+  for (const [directory, name, role] of [
+    ['sample-product', '@sample/product', 'product'],
+    ['sample-protocol', '@sample/protocol', 'protocol'],
+    ['sample-test', '@sample/test', 'test'],
+  ] as const) {
+    mkdirSync(join(root, 'packages', directory), { recursive: true });
+    writeFileSync(
+      join(root, 'packages', directory, 'package.json'),
+      JSON.stringify({
+        name,
+        private: role === 'test',
+        ...(role === 'product' ? { dependencies: { '@sample/protocol': 'workspace:*' } } : {}),
+      }),
+    );
+  }
+}
 
 describe('source inventory', () => {
   it('classifies tracked and new files, excluding generated code and AGENTS/CLAUDE files', () => {
@@ -83,6 +101,7 @@ describe('source inventory', () => {
         join(plain, 'project.manifest.json'),
         JSON.stringify(manifestWith(['scripts'])),
       );
+      writeMinimalPackages(plain);
       expect(() => readSourceInventory(plain)).toThrow(/not a git work tree/);
     } finally {
       rmSync(plain, { recursive: true, force: true });
@@ -93,6 +112,7 @@ describe('source inventory', () => {
     try {
       execFileSync('git', ['init', '-q', '--bare'], { cwd: bare });
       writeFileSync(join(bare, 'project.manifest.json'), JSON.stringify(manifestWith(['scripts'])));
+      writeMinimalPackages(bare);
       expect(() => readSourceInventory(bare)).toThrow(/not a git work tree/);
     } finally {
       rmSync(bare, { recursive: true, force: true });
@@ -125,6 +145,7 @@ describe('source inventory', () => {
     );
     expect(classifySourceFile('scripts/check.spec.mts', 'packages/sample-test')).toBe('test');
     expect(classifySourceFile('scripts/check.mjs', 'packages/sample-test')).toBe('code');
+    expect(classifySourceFile('src/Widget.vue', 'packages/sample-test')).toBe('code');
     expect(classifySourceFile('scripts/data.json', 'packages/sample-test')).toBe('asset');
   });
 });

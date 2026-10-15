@@ -1,7 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach } from 'vitest';
+import { afterEach, expect } from 'vitest';
+import {
+  capabilityMapNames,
+  checkArchitectureDoc,
+} from '../../../../scripts/lib/architecture-doc.ts';
+import { headingsOf } from '../../../../scripts/lib/markdown-docs.ts';
 import {
   cliEvidence,
   runArchitecture,
@@ -82,6 +87,52 @@ cliEvidence(
       const result = runArchitecture(root);
       context.expect(result.output?.issues).toEqual([]);
       context.expect(result.status).toBe(0);
+    });
+  },
+);
+
+cliEvidence(
+  'SCN-TEMPLATE-ENGINEERING-012',
+  'web-capability-sections-fact',
+  ['web-capability-sections'],
+  async (context, check) => {
+    await check('web-capability-sections', () => {
+      const required = [
+        '组合绑定',
+        '协议适配器',
+        'Web 应用包（含前端架构规范）',
+        '产物边界',
+        'OpenAPI 协议包',
+        '浏览器平台点位',
+        '本地预览',
+      ];
+      const guide = readFileSync(join(repositoryRoot, 'docs/template-guide.md'), 'utf8');
+      const architecture = readFileSync(join(repositoryRoot, 'docs/architecture.md'), 'utf8');
+      context.expect(capabilityMapNames(guide)).toEqual(expect.arrayContaining(required));
+      const headings = headingsOf(architecture)
+        .filter((heading) => heading.depth === 2 || heading.depth === 3)
+        .map((heading) => heading.text);
+      for (const capability of required) context.expect(headings).toContain(capability);
+      if (existsSync(join(repositoryRoot, 'packages/web/src/trade-create'))) {
+        context.expect(capabilityMapNames(guide)).toContain('Web 示例');
+        context.expect(headings).toContain('Web 示例');
+      } else {
+        context.expect(capabilityMapNames(guide)).not.toContain('Web 示例');
+        context.expect(headings).not.toContain('Web 示例');
+      }
+
+      const root = architectureRoot();
+      const fixtureGuide = readFileSync(join(root, 'docs/template-guide.md'), 'utf8');
+      writeFileSync(
+        join(root, 'docs/template-guide.md'),
+        fixtureGuide.replace(
+          '| Web 示例 | 临时根占位 | 无 |',
+          '| Web 示例 | 临时根占位 | 无 |\n| 未登记能力 | 临时根占位 | 无 |',
+        ),
+      );
+      context
+        .expect(checkArchitectureDoc(root))
+        .toContain('docs/architecture.md: missing capability section 未登记能力');
     });
   },
 );

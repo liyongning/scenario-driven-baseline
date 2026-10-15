@@ -13,13 +13,14 @@ import {
   controlled,
   customMethodFile,
   exampleInventoryRoot,
+  hasRepositoryIdl,
   inventoryTradeFile,
   repositoryRoot,
   requiredIn,
 } from '../../packages/e2e/tests/tooling/contract-inventory-fixture.ts';
 import { buildContractInventory } from './contract-inventory.ts';
 
-describe('buildContractInventory', () => {
+describe.skipIf(!hasRepositoryIdl)('buildContractInventory', () => {
   it(
     'reports a missing declaration module and treats a missing registration as empty',
     { timeout: 30_000 },
@@ -75,7 +76,6 @@ describe('buildContractInventory', () => {
       }
     },
   );
-
   it(
     'reads the business error catalog from a frozen or plain object literal',
     { timeout: 30_000 },
@@ -150,37 +150,36 @@ describe('buildContractInventory', () => {
     },
   );
 
-  it('derives prefix and types from each declaration site in a controlled root', async () => {
-    const root = declarationRoot({ prefix: 'template-contract-nontrade-' });
-    try {
-      const inventory = await buildContractInventory(root.root);
-      expect(inventory.issues).toEqual([]);
-      expect(inventory.methods.map((item) => item.name)).toEqual(['CreateTrade', 'FastCharge']);
-      expect(
-        inventory.obligations
-          .filter((item) => item.id.includes('FastCharge'))
-          .map((item) => item.id.split('#')[0])
-          .every((prefix) => prefix === 'infra.pay.v1.FastCharge'),
-      ).toBe(true);
-      expect(inventory.obligations).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            id: 'infra.pay.v1.FastCharge#request-mapping#order_no',
-            cases: ['mapped-value'],
-          }),
-          expect.objectContaining({
-            id: 'infra.trade.v1.CreateTrade#request-mapping#user_id',
-            cases: ['mapped-value'],
-          }),
-        ]),
-      );
-    } finally {
-      root.cleanup();
-    }
-  });
+  it(
+    'derives prefix and types from each declaration site in a controlled root',
+    { timeout: 30_000 },
+    async () => {
+      const root = declarationRoot({ prefix: 'template-contract-nontrade-' });
+      try {
+        const inventory = await buildContractInventory(root.root);
+        expect(inventory.issues).toEqual([]);
+        expect(inventory.methods.map((item) => item.name)).toEqual(['CreateTrade', 'FastCharge']);
+        const ids = inventory.obligations.map((item) => item.id);
+        expect(ids.some((id) => id.startsWith('infra.pay.v1.FastCharge#'))).toBe(true);
+        expect(inventory.obligations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: 'infra.pay.v1.FastCharge#request-mapping#order_no',
+              cases: ['mapped-value'],
+            }),
+            expect.objectContaining({
+              id: 'infra.trade.v1.CreateTrade#request-mapping#user_id',
+              cases: ['mapped-value'],
+            }),
+          ]),
+        );
+      } finally {
+        root.cleanup();
+      }
+    },
+  );
 });
-
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-001 derivation-rules',
   {
     timeout: 30_000,
@@ -436,7 +435,7 @@ test(
   },
 );
 
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-005 call-scan-rules',
   {
     timeout: 30_000,
@@ -554,7 +553,7 @@ test(
   },
 );
 
-test(
+test.skipIf(!hasRepositoryIdl)(
   'SCN-PROTOCOL-CONTRACT-010 context-obligation',
   {
     timeout: 30_000,

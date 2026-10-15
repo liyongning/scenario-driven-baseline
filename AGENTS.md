@@ -13,10 +13,12 @@
 
 ### 项目地图
 
-仓库是清单驱动的三包模板，规则按层级渐进展开：本文件写全局规则，包级文件写包级规则，模块文件只写本模块的边界。包、模块与 AGENTS 配对由 `pnpm check:project-map` 机械核对。
+仓库是清单驱动的多包模板，规则按层级渐进展开：本文件写全局规则，包级文件写包级规则，模块文件只写本模块的边界。包、模块与 AGENTS 配对由 `pnpm check:project-map` 机械核对。
 
 - `packages/sdk`（产品包）：SDK 公共入口与业务分层，规则见 [packages/sdk/AGENTS.md](packages/sdk/AGENTS.md)。
-- `packages/protocol`（协议包）：协议引擎、平台适配与测试用 Shadow，规则见 [packages/protocol/AGENTS.md](packages/protocol/AGENTS.md)。
+- `packages/protocol`（协议包）：IDL 契约、ProtoGen 生成、平台适配与测试用路由构造器，规则见 [packages/protocol/AGENTS.md](packages/protocol/AGENTS.md)。
+- `packages/openapi`（协议包）：OpenAPI 契约、生成物与 OpenAPI 证据适配，规则见 [packages/openapi/AGENTS.md](packages/openapi/AGENTS.md)。
+- `packages/web`（产品包）：Vue Web 应用、前端分层与浏览器组合，规则见 [packages/web/AGENTS.md](packages/web/AGENTS.md)。
 - `packages/e2e`（测试包）：行为与工程用例、驱动与报告，规则见 [packages/e2e/AGENTS.md](packages/e2e/AGENTS.md)。
 
 ### 项目清单
@@ -73,7 +75,7 @@
 8. 密钥、Token 与会话凭据不写入规划、日志或代码。
 9. 发布由用户显式触发的统一入口完成，可在本地或其他受控执行器运行，不依赖或交付 Pipeline/Runner。
 10. ProtoGen Consumer 按产品实际依赖在 IDL 仓库登记；项目内使用根 devDependency，通过 `pnpm proto:*` 或 `pnpm exec` 调用，安装/升级时核对私有 registry 的最新正式版本并保存精确版本与锁文件。
-11. 小程序自动化复用本机微信开发者工具与 miniprogram-automator，不开发 UI 自动化框架或工具控制器，不以 CI 环境缺失阻断本地运行。
+11. 小程序自动化复用本机微信开发者工具与 miniprogram-automator，浏览器自动化复用本机浏览器与 Playwright，不开发 UI 自动化框架或工具控制器，不以 CI 环境缺失阻断本地运行。
 12. 优先采用现成方案：遇到问题先查官方文档与业界或社区的成熟方案，查不到再做实验，最后才考虑自研；引入框架生态时优先使用官方脚手架。确需自研通用能力时，在 Design 中写明已查过哪些方案、为何不采用。
 13. 能力变化同步架构文档：新增或改变能力的 Change 在 Design 阶段同步更新 [技术架构文档](docs/architecture.md)（回答“解决什么问题、为什么这样设计”，与指南“怎么用、怎么换”分工）；文档细节层按指南「能力地图」逐项成节。
 
@@ -81,7 +83,8 @@
 
 凡 SDK 需要与外部交互的地方，测试都在仓库内用替身闭环：
 
-- 服务端接口由 Shadow 网关承载：路由来自协议来源（当前由 IDL 生成描述转换），按 Fixture 编排响应与故障。Shadow 只服务测试，不进入生产产物。
+- 服务端接口由 Shadow 网关承载：路由来自协议来源（当前由 IDL 生成描述转换），按 Fixture 编排响应与故障。Shadow 服务测试与本地预览，均不进入生产产物。
+- 测试、本地预览与开发代理是三种独立模式：测试使用 Shadow 并严格计数，本地预览使用 Shadow 序列数据集查看指定状态，开发代理连接真实服务端；不提供按接口混合 Shadow 与真实服务端的模式。
 - 平台或第三方能力（例如小程序收银台、系统能力）由平台能力替身承载：在产品包中定义端口，适配器调用真实平台 API，替身放在 `packages/e2e/src/drivers/`，经用例注入。
 - 不提供“真实服务端 + 替身”或“替身服务端 + 真实平台能力”的混合模式；真实外部验收由真实消费方项目承担，不在本仓库进行。
 - weapp 用例仍通过真实 `wx.request` 访问 Shadow，证明平台网络适配的真实性。

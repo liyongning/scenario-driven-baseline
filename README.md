@@ -1,16 +1,18 @@
 # SDK 领域项目模板
 
-通用 TypeScript Headless SDK 工作区模板：三个包（产品包、协议包、private 测试工程）加一个可复制的示例能力，按“按示例扩展新业务”的分层扩展新业务。工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，改包、命令、测试项目或发布设置时先改清单。
+通用 TypeScript 多包工作区模板：并列提供“Headless SDK + IDL + 小程序”和“Web 应用 + OpenAPI + 浏览器”两套具体实现，并以组合绑定把它们接到同一套清单、证据和门禁上。工程形态由根目录 [project.manifest.json](project.manifest.json) 登记，改包、命令、测试项目或发布设置时先改清单。
 
 使用入口见 [模板使用指南](docs/template-guide.md)，设计理由见 [技术架构文档](docs/architecture.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
-| Workspace 目录    | 包名                      | 职责                                                                                                              |
-| ----------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| packages/sdk      | @daqian/template-sdk      | 公共入口与业务能力：工厂校验装配，核心编排端口，适配器负责外部协议映射，业务模块按工厂 → 核心 → 端口 → 适配器分层 |
-| packages/protocol | @daqian/template-protocol | ProtoGen 契约与生成入口、通信执行器、网络适配及测试专用 Shadow                                                    |
-| packages/e2e      | @daqian/template-e2e      | private 测试工程，不发布                                                                                          |
+| Workspace 目录    | 包名                      | 职责                                                                                        |
+| ----------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
+| packages/sdk      | @daqian/template-sdk      | Headless SDK：公共入口与业务能力，工厂校验装配，核心编排端口，适配器负责外部协议映射        |
+| packages/protocol | @daqian/template-protocol | IDL + ProtoGen 协议包：契约与生成入口、通信执行器、小程序与浏览器网络适配及测试用路由构造器 |
+| packages/openapi  | @daqian/template-openapi  | OpenAPI 协议包：契约、生成物、REST 执行器、浏览器网络适配与测试用路由构造器                 |
+| packages/web      | @daqian/template-web      | Vue Web 应用产品包：前端分层、组件树、状态分层与产物边界；private，不发布                   |
+| packages/e2e      | @daqian/template-e2e      | private 测试工程：用例、驱动、宿主、报告与本地预览，不发布                                  |
 
-消费方只安装产品包。产品包采用独立版本，协议依赖固定到精确版本，发布统一由 SDK 发布入口处理；不需要发布能力时可按指南“包发布”替换点整块删除。
+消费方只安装 `sdk` 形态的产品包。它与绑定的 IDL 协议包采用独立版本，协议依赖固定到精确版本，发布统一由 SDK 发布入口处理；Web 应用包与只被它绑定的 OpenAPI 协议包参与构建和证据，但不发布。不需要发布能力时可按指南“包发布”替换点整块删除。
 
 ## 常用命令
 
@@ -18,6 +20,9 @@
 pnpm install --frozen-lockfile
 pnpm check:fast          # proto 校验、lint、build、typecheck、架构、单测、fixture、集成与包检查
 pnpm test:e2e:weapp      # 小程序项目；按 packages/e2e/AGENTS.md 的约定逐文件运行
+pnpm test:e2e:browser    # Chromium 浏览器项目；首次运行前安装 Playwright Chromium
+pnpm preview:local       # 用序列数据集查看指定状态的 Web 示例
+pnpm dev:remote          # 开发代理；目标服务端只从环境变量读取
 pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 ```
 
@@ -33,11 +38,11 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 
 ## 外部交互替身
 
-协议包在 `testing/` 下提供测试专用 Shadow：路由来自协议来源（当前由 IDL 生成描述转换），只服务测试，不进入生产产物。E2E 包保存来源化 Fixture、Node/WeApp 薄驱动、用例绑定与 reporter。平台自动化直接使用本机微信开发者工具，通过 miniprogram-automator 连接，并以真实 `wx.request` 请求 Shadow；真实外部验收由消费方项目承担，不在本仓库进行。
+协议包的 `testing/` 保存各自的路由构造器、适配器与浏览器步骤执行器；协议无关的 Shadow 引擎在 `packages/e2e/src/shadow/`，只服务测试与本地预览，不进入生产产物。E2E 包保存来源化 Fixture、Node/API/小程序/浏览器驱动、宿主、用例绑定与 reporter。小程序经真实 `wx.request` 访问 Shadow，浏览器经 Chromium 与同源代理执行真实 `fetch`；真实外部验收由消费方项目承担，不在本仓库进行。
 
 ## 版本与发布
 
-产品包与协议包按依赖顺序发布，目标是使用方自己的 registry：清单 `manifest.release` 是 registry 与 tag 前缀的唯一来源，模板占位值含 `<PROJECT_ID>`，预检会拒绝占位值，避免复制模板后误发。
+`sdk` 形态的产品包与其绑定的协议包按依赖顺序发布，目标是使用方自己的 registry：清单 `manifest.release` 是 registry 与 tag 前缀的唯一来源，模板占位值含 `<PROJECT_ID>`，预检会拒绝占位值，避免复制模板后误发。`web-app` 产品包与 OpenAPI 协议包默认 private。
 
 ## 项目初始化（给 Agent 的内容）
 

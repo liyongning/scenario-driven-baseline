@@ -1,0 +1,28 @@
+{
+  "token": "fixture-token",
+  "merchantId": 1001,
+  "amount": 25,
+  "trade": {
+    "trade_no": "T-LIST-1",
+    "status": "SUCCEEDED",
+    "amount": 25,
+    "merchant_id": 1001,
+    "failure_reason": null
+  },
+  "list": [
+    {
+      "trade_no": "T-LIST-1",
+      "status": "SUCCEEDED",
+      "amount": 25,
+      "merchant_id": 1001,
+      "failure_reason": null
+    },
+    {
+      "trade_no": "T-LIST-2",
+      "status": "FAILED",
+      "amount": 40,
+      "merchant_id": 1001,
+      "failure_reason": "declined"
+    }
+  ]
+}
