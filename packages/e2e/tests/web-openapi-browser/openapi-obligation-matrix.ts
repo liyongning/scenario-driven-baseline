@@ -4,6 +4,14 @@ import type { buildContractInventory } from '../../../../scripts/lib/contract-in
 import type { RunningShadowServer } from '../../src/shadow/index.ts';
 import type { OpenApiContract } from '../../../openapi/testing/contract.ts';
 import { matrixIdentity, matrixInput } from '../../src/preview/openapi-obligation-matrix.ts';
+import {
+  matrixRecordCount,
+  matrixRecordIndexes,
+  matrixResultCount,
+  matrixResultIndexes,
+  type OpenApiMatrixRecordStep,
+  type OpenApiMatrixResultStep,
+} from '../../src/preview/openapi-obligation-matrix-layout.ts';
 
 type Inventory = Awaited<ReturnType<typeof buildContractInventory>>;
 type Obligation = Inventory['obligations'][number];
@@ -57,24 +65,18 @@ export function matrixObligationKeys(
   );
 }
 
-type ResultStep = 'normal' | 'nullable' | 'network' | 'timeout' | 'cancelled';
-
 function resultAt(
   results: ReadonlyArray<Result>,
+  contract: OpenApiContract,
   operation: RestOperation,
-  step: ResultStep,
-  codeNames: ReadonlyArray<string>,
+  step: OpenApiMatrixResultStep,
 ) {
-  const offset =
-    step === 'normal'
-      ? 0
-      : step === 'nullable'
-        ? codeNames.length + 2
-        : step === 'network'
-          ? codeNames.length + 3
-          : step === 'timeout'
-            ? codeNames.length + 4
-            : codeNames.length + 5;
+  const offset = matrixResultIndexes(
+    contract,
+    operation.meta.id,
+    operation.meta.codes?.length ?? 0,
+  )[step];
+  if (offset === undefined) throw new Error(`${operation.meta.id} 义务矩阵不包含 ${step} 步骤`);
   const value = results[offset];
   if (!value) throw new Error(`${operation.meta.id} 义务矩阵缺少 ${step} 结果`);
   return value;
@@ -82,12 +84,15 @@ function resultAt(
 
 function recordAt(
   records: ReadonlyArray<ShadowRequestRecord>,
+  contract: OpenApiContract,
   operation: RestOperation,
-  step: 'normal' | 'network' | 'timeout',
-  codeNames: ReadonlyArray<string>,
+  step: OpenApiMatrixRecordStep,
 ) {
-  const offset =
-    step === 'normal' ? 0 : step === 'network' ? codeNames.length + 3 : codeNames.length + 4;
+  const offset = matrixRecordIndexes(
+    contract,
+    operation.meta.id,
+    operation.meta.codes?.length ?? 0,
+  )[step];
   const value = records[offset];
   if (!value) throw new Error(`${operation.meta.id} 义务矩阵缺少 ${step} 记录`);
   return value;
@@ -184,7 +189,7 @@ async function checkpointObligation(
   const codeNames = operation.meta.codes ?? [];
   await checkpoint(`${obligation.id}/${caseKey}`, () => {
     if (category === 'route') {
-      const record = recordAt(records, operation, 'normal', codeNames);
+      const record = recordAt(records, contract, operation, 'normal');
       if (key === '$' && caseKey === 'method') {
         expect(record.methodName).toBe(operation.meta.id);
         expect(operation.meta.method).toMatch(/^(get|post|put|patch|delete)$/);
@@ -199,7 +204,7 @@ async function checkpointObligation(
       return;
     }
     if (category === 'identity') {
-      const record = recordAt(records, operation, 'normal', codeNames);
+      const record = recordAt(records, contract, operation, 'normal');
       if (caseKey === 'anonymous') {
         for (const scheme of Object.values(contract.securitySchemes))
           if (typeof scheme.name === 'string')
@@ -213,7 +218,7 @@ async function checkpointObligation(
       return;
     }
     if (category === 'request-headers') {
-      const record = recordAt(records, operation, 'normal', codeNames);
+      const record = recordAt(records, contract, operation, 'normal');
       if (caseKey === 'content-type') {
         if (input.body === undefined) expect(record.headers['content-type']).toBeUndefined();
         else expect(record.headers['content-type']).toBe('application/json');
@@ -231,7 +236,7 @@ async function checkpointObligation(
       return;
     }
     if (category === 'envelope') {
-      const normal = resultAt(results, operation, 'normal', codeNames);
+      const normal = resultAt(results, contract, operation, 'normal');
       if (caseKey === 'code') {
         expect(
           normal.kind,
@@ -248,8 +253,15 @@ async function checkpointObligation(
           normal.kind,
           `${operation.meta.id} ${obligation.id}: ${JSON.stringify(normal)}`,
         ).toBe('success');
-        const nullable = resultAt(results, operation, 'nullable', codeNames);
-        expect(nullable).toEqual({ kind: 'success', data: null });
+        if (
+          matrixResultIndexes(contract, operation.meta.id, codeNames.length).nullable === undefined
+        ) {
+          expect(Object.prototype.hasOwnProperty.call(normal, 'data')).toBe(true);
+          expect(normal.data).not.toBeNull();
+        } else {
+          const nullable = resultAt(results, contract, operation, 'nullable');
+          expect(nullable).toEqual({ kind: 'success', data: null });
+        }
       }
       return;
     }
@@ -264,7 +276,7 @@ async function checkpointObligation(
     if (category === 'transport-failure') {
       const step =
         caseKey === 'network-error' ? 'network' : caseKey === 'timeout' ? 'timeout' : 'cancelled';
-      const result = resultAt(results, operation, step, codeNames);
+      const result = resultAt(results, contract, operation, step);
       const reason =
         caseKey === 'network-error'
           ? 'NETWORK_ERROR'
@@ -275,7 +287,7 @@ async function checkpointObligation(
       return;
     }
     if (category === 'request-fields') {
-      const record = recordAt(records, operation, 'normal', codeNames);
+      const record = recordAt(records, contract, operation, 'normal');
       const actual = actualWireValue(record, operation.meta.path, key);
       const expected = expectedWireValue(input, key);
       if (caseKey === 'generated-value') {
@@ -293,7 +305,7 @@ async function checkpointObligation(
     if (category === 'presence') {
       const objects = dataObjects(results);
       if (key === 'data') {
-        expect(resultAt(results, operation, 'normal', codeNames).data).not.toBeNull();
+        expect(resultAt(results, contract, operation, 'normal').data).not.toBeNull();
       } else {
         const property = propertyName(key);
         const present = objects.some((item) =>
@@ -337,13 +349,17 @@ export async function assertMatrixObligations(
   for (const operation of Object.values(operations)) {
     const method = operation.meta.id;
     const codeNames = operation.meta.codes ?? [];
-    const resultCount = codeNames.length + 6;
+    const resultCount = matrixResultCount(contract, method, codeNames.length);
     const methodIndex = methodOrder.indexOf(method);
     const resultStart = methodOrder
       .slice(0, methodIndex)
-      .reduce((count, id) => count + (operations[id]!.meta.codes?.length ?? 0) + 6, 0);
+      .reduce(
+        (count, id) =>
+          count + matrixResultCount(contract, id, operations[id]!.meta.codes?.length ?? 0),
+        0,
+      );
     const methodResults = results.slice(resultStart, resultStart + resultCount);
-    const recordCount = codeNames.length + 5;
+    const recordCount = matrixRecordCount(contract, method, codeNames.length);
     const methodRecords = records
       .filter((record) => record.methodName === method)
       .slice(0, recordCount);

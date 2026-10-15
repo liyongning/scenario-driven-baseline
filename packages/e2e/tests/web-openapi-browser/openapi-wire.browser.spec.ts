@@ -30,6 +30,7 @@ import {
   matrixScenario,
   matrixSecuritySchemes,
 } from '../../src/preview/openapi-obligation-matrix.ts';
+import { matrixRecordCount } from '../../src/preview/openapi-obligation-matrix-layout.ts';
 
 const root = process.cwd();
 const driver = useBrowserDriver();
@@ -507,7 +508,9 @@ defineCase(
         await checkpoint('real-client-path', () => {
           expect(server.records()).toHaveLength(
             Object.values(matrixOperations).reduce(
-              (count, operation) => count + (operation.meta.codes?.length ?? 0) + 5,
+              (count, operation) =>
+                count +
+                matrixRecordCount(contract, operation.meta.id, operation.meta.codes?.length ?? 0),
               0,
             ),
           );

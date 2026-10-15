@@ -49,20 +49,26 @@ export function normalizeSchema(value: unknown, hooks: ReadonlyArray<NormalizeHo
   return hooks.reduce((schema, hook) => hook(schema), normalizeSchemaDefaults(value));
 }
 
-const validators = new Map<string, (value: unknown) => string[]>();
+type ResponseValidator = (value: unknown) => string[];
+
+const validators = new WeakMap<OpenApiOperationContract, Map<number, ResponseValidator>>();
 
 function validatorFor(
   operation: OpenApiOperationContract,
   status: number,
   hooks: ReadonlyArray<NormalizeHook>,
 ) {
-  const key = `${operation.id}:${status}`;
-  const cached = hooks.length === 0 ? validators.get(key) : undefined;
+  const cache = hooks.length === 0 ? validators.get(operation) : undefined;
+  const cached = cache?.get(status);
   if (cached) return cached;
   const schema = responseSchema(operation, status);
   if (!schema) {
     const missing = () => [`${operation.id}: HTTP ${status} 未声明响应 schema`];
-    if (hooks.length === 0) validators.set(key, missing);
+    if (hooks.length === 0) {
+      const next = cache ?? new Map<number, ResponseValidator>();
+      next.set(status, missing);
+      validators.set(operation, next);
+    }
     return missing;
   }
   const ajv = new Ajv2020({
@@ -95,7 +101,11 @@ function validatorFor(
     );
     return issues;
   };
-  if (hooks.length === 0) validators.set(key, check);
+  if (hooks.length === 0) {
+    const next = cache ?? new Map<number, ResponseValidator>();
+    next.set(status, check);
+    validators.set(operation, next);
+  }
   return check;
 }
 

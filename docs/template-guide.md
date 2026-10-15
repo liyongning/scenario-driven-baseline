@@ -251,13 +251,34 @@ OpenSpec 归档在两种情况下会被拒绝，需要手工处理（以下行�
 - **OpenAPI 的清单**：`manifest.packages[].protocolKind: 'openapi'`、`packages[].contract` 与 `manifest.fingerprints.protocolInputs`；协议包以 workspace 依赖绑定 Web 产品包，API 命令由 `packages[].checks` 登记为 `api:validate`、`api:status`。
 - **OpenAPI 的门禁**：`SCN-OPENAPI-CONTRACT-001`、`SCN-OPENAPI-CONTRACT-006`、`SCN-OPENAPI-CONTRACT-007`、`SCN-OPENAPI-CONTRACT-021`、`SCN-OPENAPI-CONTRACT-028`，以及 `pnpm api:validate`、`pnpm api:sync`、`pnpm api:status` 与 `pnpm check:fast`。
 - **协议约定**：产品侧替换点是 [packages/openapi/contracts/conventions.ts](../packages/openapi/contracts/conventions.ts)，它把产品契约的码表、通用码与接口码规范化为生成器、`api:validate` 和适配器共用的输出。引擎侧 [packages/openapi/testing/engine/conventions.ts](../packages/openapi/testing/engine/conventions.ts) 与引擎测试契约绑定，不属于产品替换面；产品侧改契约或约定时同步改同目录测试、运行 `pnpm api:sync <契约来源>` 与 `pnpm api:validate`，不要修改引擎侧的用例、约定、生成物或 `scripts/` 门禁。
-- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。新契约放入 [packages/openapi/contracts](../packages/openapi/contracts) 前先运行 Prettier，避免 `format:check` 失败；OAS 3.0.3 中与 `allOf` 并列但没有同级 `type` 的 `nullable: true` 不作为引擎默认支持，先修正契约，确有理由时再在根 `redocly.yaml` 写明规则调整原因并在产品侧约定模块登记钩子。需要修正已知 schema 写法时，在产品侧约定模块具名导出 `schemaNormalizers`（`(schema) => schema` 函数数组），它只作用于响应校验，对响应 schema 根与每个 `$defs` 组件分别执行，引擎侧约定模块不要登记额外钩子。**钩子收到的是内置规范化之后的 schema，OAS 3.0 的 `nullable` 已转换或移除，不能据此把某个 `allOf` 一刀切改成可空。** 应按 schema 名与字段名精确登记，只处理确认有合同缺陷的成员；下面是最小骨架，`normalizeTradeMemo` 应替换为针对目标组件的实际规则：
+- **替换协议来源**：换协议时同时换协议包、适配器、路由构造器、产品消费接口声明、Fixture 的 `protocol` 字段和绑定；门禁按 `protocolKind` 加载适配器，不在门禁中按接口名或协议种类写分支。新契约放入 [packages/openapi/contracts](../packages/openapi/contracts) 前先运行 Prettier，避免 `format:check` 失败；OAS 3.0.3 中与 `allOf` 并列但没有同级 `type` 的 `nullable: true` 不作为引擎默认支持，先修正契约，确有理由时再在根 `redocly.yaml` 写明规则调整原因并在产品侧约定模块登记钩子。需要修正已知 schema 写法时，在产品侧约定模块具名导出 `schemaNormalizers`（`(schema) => schema` 函数数组），它只作用于响应校验，对响应 schema 根与每个 `$defs` 组件分别执行，引擎侧约定模块不要登记额外钩子。**钩子收到的是内置规范化之后的 schema，OAS 3.0 的 `nullable` 已转换或移除，不能据此把某个 `allOf` 一刀切改成可空。** `contract.bundle.json` 由 `api-contract.ts` 以 `--dereferenced` 生成，响应根中的组件通常已经内联，不能依赖组件名或 `title`；钩子在响应根上还要递归处理内联子 schema，并按稳定字段或 `x-` 标记精确定位，只处理确认有合同缺陷的成员。下面骨架只把 Trade 风格对象的 `amount` 从整数修为字符串，实际规则必须替换为对应字段：
 
 ```ts
-export const schemaNormalizers = [
-  (schema) =>
-    schema.title === 'Trade' && schema.properties?.memo ? normalizeTradeMemo(schema) : schema,
-];
+function object(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function normalizeTradeAmount(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(normalizeTradeAmount);
+  const source = object(schema);
+  if (!source) return schema;
+  const properties = object(source.properties);
+  const amount = object(properties?.amount);
+  const normalized =
+    properties?.trade_no && amount
+      ? {
+          ...source,
+          properties: { ...properties, amount: { ...amount, type: 'string' } },
+        }
+      : source;
+  return Object.fromEntries(
+    Object.entries(normalized).map(([key, value]) => [key, normalizeTradeAmount(value)]),
+  );
+}
+
+export const schemaNormalizers = [normalizeTradeAmount];
 ```
 
 除 `nullable-type-sibling` 外，`info-license`、`no-required-schema-properties-undefined`、`no-invalid-media-type-examples` 等其他 redocly 规则也按同一流程处理：先修契约；契约无法改动且理由成立时，才在根配置登记局部规则调整，并在产品侧约定模块用精确的 schema/字段规则登记钩子。浏览器用例使用产品契约路由时直接按清单契约发现，不需要额外传契约对象；发布契约前确保 `api:validate` 通过。Web 侧第一个业务可以直接替换 [packages/openapi/contracts](../packages/openapi/contracts) 中清单登记的产品契约并在同一次提交中删除 Web 示例，顺序按“移除模板示例”的例外执行；替换完成后以新业务 Scenario 的完整门禁为准。原协议包整体删除；[packages/e2e/src/shadow](../packages/e2e/src/shadow) 的 Shadow 引擎、请求记录、Fixture 装载、报告器与预览启动器属于测试基础设施，不属于任何协议选项，必须保留。

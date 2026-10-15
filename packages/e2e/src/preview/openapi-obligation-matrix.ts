@@ -4,6 +4,7 @@ import {
   type OpenApiContract,
   type OpenApiOperationContract,
 } from '../../../openapi/testing/contract.ts';
+import { matrixResultIndexes, resolveSchema } from './openapi-obligation-matrix-layout.ts';
 
 export type OpenApiMatrixStep = Readonly<{
   method: string;
@@ -18,58 +19,6 @@ function object(value: unknown): JsonObject | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as JsonObject)
     : undefined;
-}
-
-function resolveSchema(
-  value: unknown,
-  schemas: Readonly<Record<string, unknown>>,
-  seen = new Set<string>(),
-): JsonObject | undefined {
-  const source = object(value);
-  if (!source) return undefined;
-  if (typeof source.$ref === 'string' && source.$ref.startsWith('#/components/schemas/')) {
-    const name = source.$ref.slice('#/components/schemas/'.length);
-    if (seen.has(name)) return undefined;
-    return resolveSchema(schemas[name], schemas, new Set([...seen, name]));
-  }
-  const allOf = Array.isArray(source.allOf) ? source.allOf : [];
-  if (allOf.length > 0) {
-    const required = new Set<string>();
-    const properties: JsonObject = {};
-    const merged: JsonObject = {};
-    for (const part of allOf) {
-      const resolved = resolveSchema(part, schemas, seen);
-      if (!resolved) continue;
-      for (const [key, value] of Object.entries(resolved)) {
-        if (key === 'properties') {
-          Object.assign(properties, object(value) ?? {});
-          continue;
-        }
-        if (key === 'required') {
-          for (const name of Array.isArray(value) ? value : [])
-            if (typeof name === 'string') required.add(name);
-          continue;
-        }
-        if (key === 'enum' && Array.isArray(merged.enum) && Array.isArray(value)) {
-          merged.enum = merged.enum.filter((item) => value.includes(item));
-          continue;
-        }
-        if (merged[key] === undefined) merged[key] = value;
-      }
-    }
-    return {
-      ...merged,
-      ...source,
-      ...(required.size > 0 ? { required: [...required] } : {}),
-      properties,
-    };
-  }
-  const alternatives = Array.isArray(source.oneOf)
-    ? source.oneOf
-    : Array.isArray(source.anyOf)
-      ? source.anyOf
-      : [];
-  return alternatives.length > 0 ? resolveSchema(alternatives[0], schemas, seen) : source;
 }
 
 function sampleValue(
@@ -221,12 +170,14 @@ export function matrixPlan(
 ): OpenApiMatrixStep[] {
   return Object.values(operations).flatMap((operation) => {
     const method = operation.meta.id;
+    const codes = operation.meta.codes ?? [];
     const input = matrixInput(contract, operation);
+    const nullable = matrixResultIndexes(contract, method, codes.length).nullable !== undefined;
     return [
       { method, input },
-      ...(operation.meta.codes ?? []).map(() => ({ method, input })),
+      ...codes.map(() => ({ method, input })),
       { method, input },
-      { method, input },
+      ...(nullable ? [{ method, input }] : []),
       { method, input },
       { method, input, timeoutMs: 100 },
       { method, input, cancel: 'before-send' as const },
@@ -242,13 +193,15 @@ export function matrixScenario(
   return Object.fromEntries(
     Object.values(operations).map((operation) => {
       const method = operation.meta.id;
+      const codes = operation.meta.codes ?? [];
       const definition = operationContract(contract, operation);
       const dataVariants = responseDataVariants(contract, definition);
       const success = dataVariants[0];
       const minimal = minimalResponseData(contract, definition);
+      const nullable = matrixResultIndexes(contract, method, codes.length).nullable !== undefined;
       const responses = [
         { body: { code: 0, message: 'ok', data: success } },
-        ...(operation.meta.codes ?? []).map((code, index) => ({
+        ...codes.map((code, index) => ({
           body: {
             code: contract.businessCodeTable[code],
             message: code,
@@ -256,7 +209,7 @@ export function matrixScenario(
           },
         })),
         { body: { code: 0, message: 'ok', data: minimal } },
-        { body: { code: 0, message: 'ok', data: null } },
+        ...(nullable ? [{ body: { code: 0, message: 'ok', data: null } }] : []),
         { partialThenDisconnect: true },
         { delayMs: 250, body: { code: 0, message: 'late', data: success } },
       ];

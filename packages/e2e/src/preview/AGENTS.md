@@ -22,3 +22,4 @@
 - `preview-launcher.ts`：数据集加载、占位资源替换、预览 Shadow 与 Vite 宿主接线。
 - `dev-remote.ts`：真实服务端开发代理的目标校验与代理接线。
 - `openapi-obligation-matrix.ts`：OpenAPI 义务矩阵的契约派生、样例生成、请求身份与 Shadow 编排。
+- `openapi-obligation-matrix-layout.ts`：按响应 schema 的 null 能力派生矩阵结果步骤与记录索引。

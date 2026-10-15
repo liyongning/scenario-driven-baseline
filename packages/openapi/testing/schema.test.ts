@@ -204,6 +204,98 @@ evidence(
       context
         .expect(engineValidator({ code: 0, message: 'ok', data: { value: null } }, 200).join('\n'))
         .toContain('value');
+
+      const dereferencedBundle = {
+        info: { title: 'dereferenced' },
+        paths: {
+          '/trades': {
+            post: {
+              operationId: 'createTradeFromDereferencedBundle',
+              security: [],
+              responses: {
+                '200': {
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['code', 'message', 'data'],
+                        properties: {
+                          code: { type: 'integer', enum: [0] },
+                          message: { type: 'string' },
+                          data: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: ['trade_no', 'status', 'amount', 'merchant_id'],
+                            properties: {
+                              trade_no: { type: 'string' },
+                              status: { type: 'string' },
+                              amount: { type: 'integer' },
+                              merchant_id: { type: 'integer' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        components: { schemas: {}, securitySchemes: {} },
+      } as unknown as OpenApiBundle;
+      const normalizeDereferencedTradeAmount: NormalizeHook = (schema) => {
+        if (Array.isArray(schema)) return schema.map(normalizeDereferencedTradeAmount);
+        if (schema === null || typeof schema !== 'object') return schema;
+        const value = schema as Record<string, unknown>;
+        const properties = value.properties as Record<string, unknown> | undefined;
+        const amount = properties?.amount as Record<string, unknown> | undefined;
+        const normalized =
+          properties?.trade_no && amount
+            ? {
+                ...value,
+                properties: { ...properties, amount: { ...amount, type: 'string' } },
+              }
+            : value;
+        return Object.fromEntries(
+          Object.entries(normalized).map(([key, item]) => [
+            key,
+            normalizeDereferencedTradeAmount(item),
+          ]),
+        );
+      };
+      const realProduct = createOpenApiContract(
+        dereferencedBundle,
+        normalizeStandardContractConventions,
+        [normalizeDereferencedTradeAmount],
+      );
+      const realEngine = createOpenApiContract(
+        dereferencedBundle,
+        normalizeStandardContractConventions,
+      );
+      const realAdapter = createOpenApiAdapter({
+        productContract: () => realProduct,
+        engineContract: realEngine,
+      });
+      const realValidator = realAdapter.responseValidator('createTradeFromDereferencedBundle', {
+        manifest: { contractCarrier: 'product' },
+      })!;
+      const realEngineValidator = realAdapter.responseValidator(
+        'createTradeFromDereferencedBundle',
+        {
+          manifest: { contractCarrier: 'engine' },
+        },
+      )!;
+      const tradeWithStringAmount = {
+        code: 0,
+        message: 'ok',
+        data: { trade_no: 'T', status: 'CREATED', amount: 'x', merchant_id: 1 },
+      };
+      context.expect(realValidator(tradeWithStringAmount, 200)).toEqual([]);
+      context
+        .expect(realEngineValidator(tradeWithStringAmount, 200).join('\n'))
+        .toContain('amount');
     });
     await checkpoint('example-needs-no-hook', () =>
       context
@@ -285,6 +377,53 @@ evidence(
     });
   },
 );
+
+test('response validators are isolated by runtime contract', () => {
+  const bundle = (type: string): OpenApiBundle =>
+    ({
+      info: { title: type },
+      paths: {
+        '/shared': {
+          post: {
+            operationId: 'sharedOperation',
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      required: ['code', 'message', 'data'],
+                      properties: {
+                        code: { type: 'integer' },
+                        message: { type: 'string' },
+                        data: { $ref: '#/components/schemas/Payload' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: { Payload: { type } } },
+    }) as unknown as OpenApiBundle;
+  const stringOperation = createOpenApiContract(
+    bundle('string'),
+    normalizeStandardContractConventions,
+  ).operations[0]!;
+  const integerOperation = createOpenApiContract(
+    bundle('integer'),
+    normalizeStandardContractConventions,
+  ).operations[0]!;
+
+  expect(validateResponse(stringOperation, { code: 0, message: 'ok', data: 'value' }, 200)).toEqual(
+    [],
+  );
+  expect(
+    validateResponse(integerOperation, { code: 0, message: 'ok', data: 'value' }, 200).join('\n'),
+  ).toContain('data');
+});
 
 test('normalization covers OAS 3.0 schema shapes', () => {
   expect(normalizeSchema([{ nullable: true, type: 'string' }])).toEqual([

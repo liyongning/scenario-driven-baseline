@@ -13,6 +13,12 @@ import {
   matrixScenario,
   matrixSecuritySchemes,
 } from './openapi-obligation-matrix.ts';
+import {
+  matrixRecordCount,
+  matrixRecordIndexes,
+  matrixResultCount,
+  matrixResultIndexes,
+} from './openapi-obligation-matrix-layout.ts';
 
 test(
   'SCN-OPENAPI-CONTRACT-017 matrix-samples',
@@ -42,6 +48,8 @@ test(
     await checkpoint('matrix-samples-normalized', () => {
       const stringOperation = operation('readCode', '/codes/{id}');
       const objectOperation = operation('readObject', '/objects/{id}');
+      const nullableObjectOperation = operation('readNullableObject', '/nullable-objects/{id}');
+      const requiredObjectOperation = operation('readRequiredObject', '/required-objects/{id}');
       const contract = matrixContract({
         readCode: {
           nullable: true,
@@ -57,19 +65,75 @@ test(
             },
           ],
         },
+        readNullableObject: {
+          type: 'object',
+          nullable: true,
+          required: ['kind'],
+          properties: { kind: { type: 'string', pattern: '^[A-Z]+$' } },
+        },
+        readRequiredObject: {
+          type: 'object',
+          required: ['kind'],
+          properties: { kind: { type: 'string', pattern: '^[A-Z]+$' } },
+        },
       });
 
       const scenarios = matrixScenario(
-        { readCode: stringOperation, readObject: objectOperation },
+        {
+          readCode: stringOperation,
+          readObject: objectOperation,
+          readNullableObject: nullableObjectOperation,
+          readRequiredObject: requiredObjectOperation,
+        },
         contract,
       );
       const stringData = bodyData(scenarios.readCode);
       const objectData = bodyData(scenarios.readObject);
+      const requiredObjectSteps = (
+        scenarios.readRequiredObject as {
+          steps: ReadonlyArray<{ body?: { data?: unknown } }>;
+        }
+      ).steps;
+      const nullableObjectSteps = (
+        scenarios.readNullableObject as {
+          steps: ReadonlyArray<{ body?: { data?: unknown } }>;
+        }
+      ).steps;
       context.expect(stringData).toMatch(/^[A-Z]{3}$/);
       context.expect(objectData).toMatchObject({
         kind: context.expect.stringMatching(/^[A-Z]+$/),
       });
       context.expect(objectData).not.toBeNull();
+      context.expect(requiredObjectSteps).toHaveLength(4);
+      context.expect(requiredObjectSteps.some((step) => step.body?.data === null)).toBe(false);
+      context.expect(nullableObjectSteps).toHaveLength(5);
+      context.expect(nullableObjectSteps.some((step) => step.body?.data === null)).toBe(true);
+      context
+        .expect(matrixPlan({ readRequiredObject: requiredObjectOperation }, contract))
+        .toHaveLength(5);
+      context
+        .expect(matrixPlan({ readNullableObject: nullableObjectOperation }, contract))
+        .toHaveLength(6);
+      context.expect(matrixResultIndexes(contract, 'readRequiredObject', 0)).toEqual({
+        normal: 0,
+        network: 2,
+        timeout: 3,
+        cancelled: 4,
+      });
+      context.expect(matrixResultIndexes(contract, 'readNullableObject', 0)).toEqual({
+        normal: 0,
+        nullable: 2,
+        network: 3,
+        timeout: 4,
+        cancelled: 5,
+      });
+      context.expect(matrixResultCount(contract, 'readRequiredObject', 0)).toBe(5);
+      context.expect(matrixRecordIndexes(contract, 'readRequiredObject', 0)).toEqual({
+        normal: 0,
+        network: 2,
+        timeout: 3,
+      });
+      context.expect(matrixRecordCount(contract, 'readRequiredObject', 0)).toBe(4);
     });
     await context.annotate(
       JSON.stringify({
@@ -80,6 +144,57 @@ test(
     );
   },
 );
+
+test('matrix null layout follows explicit schema nullability', () => {
+  const cases: Readonly<Record<string, Record<string, unknown>>> = {
+    nullableType: { type: 'string', nullable: true },
+    nullableTypeArray: { type: ['string', 'null'] },
+    nullableEnum: { enum: ['value', null] },
+    nullableOneOf: { oneOf: [{ type: 'null' }] },
+    nullableAnyOf: { anyOf: [{ type: 'null' }] },
+    nullType: { type: 'null' },
+    nullableAllOf: { allOf: [{ type: 'null' }, { type: 'null' }] },
+    nonNullableTypeArray: { type: ['string'] },
+    nonNullableEnum: { enum: ['value'] },
+    nonNullableOneOf: { oneOf: [{ type: 'object' }] },
+    nonNullableAnyOf: { anyOf: [{ type: 'object' }] },
+    nonNullableAllOf: { allOf: [{ type: 'null' }, { type: 'object' }] },
+    reference: { $ref: '#/components/schemas/NullableReference' },
+    missingReference: { $ref: '#/components/schemas/Missing' },
+    cycle: { $ref: '#/components/schemas/Cycle' },
+  };
+  const operations = Object.entries(cases).map(([id, data]) => definition(id, data));
+  const contract = contractFrom(operations, {
+    NullableReference: { type: ['object', 'null'] },
+    Missing: undefined,
+    Cycle: { $ref: '#/components/schemas/Cycle' },
+  });
+
+  for (const id of [
+    'nullableType',
+    'nullableTypeArray',
+    'nullableEnum',
+    'nullableOneOf',
+    'nullableAnyOf',
+    'nullType',
+    'nullableAllOf',
+    'reference',
+  ])
+    expect(matrixResultIndexes(contract, id, 0).nullable).toBe(2);
+  for (const id of [
+    'nonNullableTypeArray',
+    'nonNullableEnum',
+    'nonNullableOneOf',
+    'nonNullableAnyOf',
+    'nonNullableAllOf',
+    'missingReference',
+    'cycle',
+  ])
+    expect(matrixResultIndexes(contract, id, 0).nullable).toBeUndefined();
+  expect(() => matrixResultIndexes(contract, 'missing', 0)).toThrow(
+    'OpenAPI 契约中不存在接口 missing',
+  );
+});
 
 test('matrix helpers derive nested samples, plans, and responses from the contract', () => {
   const nested: Record<string, unknown> = { type: 'string' };

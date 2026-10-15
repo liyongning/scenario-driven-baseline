@@ -980,3 +980,44 @@
 - 各步结果：`check:fast` 通过（989244ms）、`test:e2e:weapp` 通过（372361ms）、`test:e2e:browser` 通过（36659ms）、`check:scenarios` 通过（2091ms）。
 - 使用同一 run id 独立执行 `VERIFY_RUN_ID=template-web-absorption-apply-task16-20261015T114035Z pnpm check:scenarios --change template-web-absorption`：退出码 0，`issues` 为 0。
 - 该轮 `SCN-TEMPLATE-EXAMPLE-002` 的首次失败与 per-file retry 已在上节登记；最终没有步骤非零退出，不新增 OI。
+
+## Final Code Review 第 2 轮（增量）
+
+Task 14 的 checkbox 已按评审结论重新取消勾选；本轮只修复已准入 blocker 与指南事实，不改 proposal、specs、design、tasks 的语义。初始 HEAD 为 `2ecf5b9`。
+
+**四轴准入**
+
+| Finding | Severity | Technical Validity | Attribution | Scope | Blocking | Disposition |
+|---|---|---|---|---|---|---|
+| FCR2-1 校验器缓存串用契约 | Critical | confirmed：模块级 `Map` 仅以 `operation.id:status` 为键，两份同 operationId 契约复用先编译 validator | introduced | in_scope：OAS-04 要求按契约来源接收运行时契约，OAS-06 要求严格同形 | blocking | admitted_blocker |
+| FCR2-2 解引用 bundle 的组件钩子无效 | Important | confirmed：真实 `contract.bundle.json` 为 `--dereferenced`，响应根内联，原指南按 `title === 'Trade'` 无法命中；钩子只改 `$defs` 也不会影响已内联响应 | introduced | in_scope：OAS-06 要求产品侧钩子修正组件 schema 且无需改引擎代码 | blocking | admitted_blocker |
+| FCR2-3 矩阵无条件编排 `data:null` | Important | confirmed：`matrixScenario`/`matrixPlan` 与浏览器断言按固定偏移编排 nullable 步骤 | introduced | in_scope：OAS-05 禁止对象 data 生成 null，WEX-09 要求替换契约无需改测试设施 | blocking | admitted_blocker |
+
+**RED 证据**
+
+- FCR2-1：在 `packages/openapi/testing/schema.test.ts` 加入同 operationId、响应 `data` 分别为 string/integer 的两份运行时契约。修复前 `pnpm exec vitest run --config packages/openapi/vitest.config.ts packages/openapi/testing/schema.test.ts -t "response validators are isolated"` 失败：`expected '' to contain 'data'`，证明第二份契约复用了第一份 validator。
+- FCR2-2：在同一用例中用真实 `productContract().bundle` 和旧指南的 `title === 'Trade'` 骨架构造产品载体校验器。修复前 `SCN-OPENAPI-CONTRACT-022` 失败：`createTrade: $/data/amount must be integer`，证明解引用响应根上的组件修正未生效。
+- FCR2-3：在 `SCN-OPENAPI-CONTRACT-017/matrix-samples` 加入 `data` 为不可空对象的受控契约，修复前期望 4 个 Shadow 响应但实得 5 个，证明无条件追加了 `data:null`。
+
+**GREEN 修复与证据**
+
+- FCR2-1：`validatorFor` 的无 hooks 缓存改为以实际 `OpenApiOperationContract` 对象为键的 `WeakMap`，同进程内不同契约不再串用；hooks 路径继续每次编译，避免钩子或契约漂移复用旧 validator。定向 `openapi-unit` 全量为 16/16 文件、56/56 用例通过，`schema.ts` 覆盖率 statements/branches/functions/lines 均 100%。
+- FCR2-2：指南“协议来源”改为说明产品 bundle 由 `api-contract.ts --dereferenced` 生成，不应依赖组件名或 `title`；钩子在响应根上递归处理内联子 schema，并按稳定字段或 `x-` 标记精确定位。`SCN-OPENAPI-CONTRACT-022/hook-extensible` 使用真实产品 bundle 证明：无钩子时 `amount: 'x'` 被拒，产品钩子递归修正后通过，引擎载体仍被拒；原 `$ref` 根/组件调用与引擎侧无钩子的断言继续保留。
+- FCR2-3：矩阵结果布局提取到 `openapi-obligation-matrix-layout.ts`，由成功响应 data schema 解析 `nullable`、`type: null`、`enum: null`、`oneOf`/`anyOf` 与 `allOf`；不可空时从客户端计划、Shadow 响应序列、浏览器结果切片和请求记录切片中同步移除 nullable 步骤，避免固定偏移错位。受控契约新增可空对象与不可空对象反例；现有产品契约仍保留 nullable 步骤。定向 `test-tools-unit` 全量为 94/94 文件、380/380 用例通过，新布局模块四项覆盖率均 100%；矩阵 integration 为 1/1 文件、3/3 用例通过；浏览器 `openapi-wire.browser.spec.ts` 为 1/1 文件、8/8 用例通过。
+- `pnpm typecheck` 退出码 0；`pnpm lint` 退出码 0（仅保留仓库既有 Vue 格式 warning，无 error）。
+
+**只登记、不修（Minor）**
+
+- M4：`packages/openapi/testing/contract.ts` 的 `engineContract` 直接调用共享 `normalizeStandardContractConventions`，没有经 `testing/engine/conventions.ts` 的 `normalizeContractConventions` 包装；当前两实现等价，保留为一致性风险。
+- M5：`packages/openapi/testing/adapter.ts` 的 `responseValidator(directOperation)` 路径未传 `schemaNormalizers`；当前仅测试内部路径使用，产品/引擎 manifest 路径已传。
+- M6：`adapter.ts` 对仅含 `id` 的 meta 先查引擎契约；`ast.ts resolveOpenApiDeclaration` 与 `fixture-check.ts checkOpenApiFixture` 的缺省载体仍为 engine，当前生产调用方均显式传入。
+- M7：规范化钩子对全部组件调用，而非只调用响应实际引用的组件；当前契约规模下无错误，仅存在额外计算与副作用面。
+- M8：`hook-extensible` 未覆盖真实“约定模块导出 → 适配器模块加载”链；本轮只覆盖真实解引用 bundle 与注入钩子，模块加载仍由 `contract-branches.test.ts` 的 mock 覆盖。
+
+**全量验证（FCR2 修复）**
+
+- 在 DevTools 空闲后执行 `pnpm verify --change template-web-absorption --run-id template-web-absorption-apply-task14-fcr2-20261015T1235Z`：整体退出码 0。
+- 各步结果：`check:fast` 退出码 0（814634ms），其中 unit 149/149 文件、608/608 用例通过，`check:fixtures` 检查 73 个 manifest 且 issues 为空，integration 92/92 文件、152/152 用例通过，integration-heavy 14/14 文件、40/40 用例通过；`test:e2e:weapp` 退出码 0（313468ms，5/5 用例通过）；`test:e2e:browser` 退出码 0（35301ms，4/4 文件、20/20 用例通过）；`check:scenarios` 退出码 0（1999ms，问题数 0）。
+- 使用同一 run id 独立执行 `SCENARIO_GATE_CHANGES=template-web-absorption VERIFY_RUN_ID=template-web-absorption-apply-task14-fcr2-20261015T1235Z pnpm check:scenarios --change template-web-absorption`：退出码 0，问题数 0。
+- 全量完成后使用正式版 CLI `quit` 正常退出 DevTools；除既有僵死 PID `40334` 外，`pgrep -fl wechatwebdevtools` 无其他进程。
+- Task 14 已重新勾选并创建本轮修复提交。
