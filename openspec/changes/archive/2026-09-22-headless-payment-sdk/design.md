@@ -585,7 +585,7 @@ Monorepo 采用 pnpm workspace，包含支付 SDK、通信协议、E2E 三个 wo
 
 仓库名、账号、域名、精确补丁版本等登记值不构成重新选择工程架构的 TODO。缺输入时明确阻塞对应初始化/验收步骤，不能用猜测值安装、生成、发布或宣称联调成功。
 
-项目与执行资源的只读核对见 [GitLab 登记记录](notes/gitlab-registry-ci-20260907.md)。两个产品包的发布地址使用 GitLab 官方项目级 npm endpoint；ProtoGen 工具仍从自身来源获取，现有锁文件中的工具产物位于项目 216，不将所有 @daqian 开发依赖统一改指项目 245。发布凭据由执行环境提供，文档和仓库只保存配置引用。[GitLab npm registry 官方说明](https://docs.gitlab.com/user/packages/npm_registry/)
+项目与执行资源已做只读核对（原核对记录已从仓库移除）。两个产品包的发布地址使用 GitLab 官方项目级 npm endpoint；ProtoGen 工具仍从自身来源获取，现有锁文件中的工具产物位于项目 216，不将所有 @daqian 开发依赖统一改指项目 245。发布凭据由执行环境提供，文档和仓库只保存配置引用。[GitLab npm registry 官方说明](https://docs.gitlab.com/user/packages/npm_registry/)
 
 | 工程能力 | 技术与状态 | 实施约束 |
 | --- | --- | --- |

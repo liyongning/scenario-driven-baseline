@@ -1437,7 +1437,7 @@ Request ID 的传输位置与链路真源来自 [IDL base.proto:10](https://gitl
 
 网关有两种 JSON 出口：支付 handler 经 newGatewayMux 的 grpc-gateway 默认 marshaler，EmitUnpopulated=true，成功 statusCode="0"、失败 payParams=null 和标量默认值都会输出；网关自行拒绝经 common-sdk 的 JSONProtoField，EmitUnpopulated=false，只包 baseResp，未赋值字段可省略，非零 statusCode 仍输出。两者均 UseProtoNames=false，采用 lowerCamelCase/int64 字符串。SDK 错误分支不要求出现 tradeNo/payParams 等成功字段。SDK 只发送标准 lane，不同时发送 X-Lane。
 
-来源：[网关响应与路由实现](https://gitlab.daqian369.com/esm/narnia/infra-gateway/-/blob/a7619530784c4042fa109218764b9ad2335cd1de/internal/infra/gateway/http.go)、[网关 marshaler 测试](https://gitlab.daqian369.com/esm/narnia/infra-gateway/-/blob/a7619530784c4042fa109218764b9ad2335cd1de/internal/infra/gateway/marshaler_test.go)、[common-sdk JSONProtoField](https://gitlab.daqian369.com/esm/narnia/common-sdk/-/blob/4dcc8e8b401b/httputil/protojson.go)。核验过程与命令见 [本轮核验记录](../../notes/contract-alignment-20260907.md)，不代表部署验收。
+来源：[网关响应与路由实现](https://gitlab.daqian369.com/esm/narnia/infra-gateway/-/blob/a7619530784c4042fa109218764b9ad2335cd1de/internal/infra/gateway/http.go)、[网关 marshaler 测试](https://gitlab.daqian369.com/esm/narnia/infra-gateway/-/blob/a7619530784c4042fa109218764b9ad2335cd1de/internal/infra/gateway/marshaler_test.go)、[common-sdk JSONProtoField](https://gitlab.daqian369.com/esm/narnia/common-sdk/-/blob/4dcc8e8b401b/httputil/protojson.go)。核验过程记录已从仓库移除；该核验不代表部署验收。
 
 deploy `ad304eb2`、common-sdk `c5df216a` 的静态机制按目标服务匹配 lane，未匹配走 stable 默认路由；不会把原业务 lane 改成 baseline，也不是实例故障自动回退。缺省 Header 可能取进程 RuntimeLane。gatewayBaseUrl 与 lane 分别配置，业务可在初始化覆盖；SDK 不强制 baseline，不自动切换测试/生产。产品接入的部署与 Product ID/JWT 值由业务接入方和服务端维护方配置；SDK Live 验收则由本仓库测试宿主维护对应非敏感配置并与服务端核对，无需业务应用参与。
 
