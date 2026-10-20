@@ -57,3 +57,12 @@ pnpm check:scenarios     # 用报告对账 Spec、绑定与证据
 ## 维护者说明
 
 工作流 schema（`openspec/schemas/`）不随本模板提交：`.gitignore` 不忽略它，使用方按 Change Skill 安装后应正常提交。模板仓库自己维护时，如果不希望跟踪 schema，在 `.git/info/exclude` 中本地排除，而不是修改 `.gitignore`。
+
+## 作者与交流
+
+- 作者：李永宁，更多文章见 [github 仓库 liyongning/blog](https://github.com/liyongning/blog)，新文章会第一时间在微信公众号发送：[李永宁lyn](https://gitee.com/liyongning/typora-image-bed/raw/master/202202171742614.jpg)
+- 接入中遇到问题，欢迎提 issue；也可以关注公众号，加入交流群一起讨论
+
+## 许可证
+
+[MIT](LICENSE)
