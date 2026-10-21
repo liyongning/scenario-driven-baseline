@@ -10,7 +10,7 @@
 
 使用入口见 [模板使用指南](docs/template-guide.md)，设计理由见 [技术架构文档](docs/architecture.md)，Agent 入口见 [AGENTS.md](AGENTS.md)。
 
-**相关文章**：[AI 写的代码，怎么证明它写对了](https://github.com/liyongning/blog/issues/56) 讲了这套方案要解决的问题和整体架构，建议先读文章再看代码。
+**相关文章**：[AI 写的代码，怎么证明它写对了](https://github.com/liyongning/blog/issues/56)（[公众号版](https://mp.weixin.qq.com/s/EShtpnED50V74au0h6-9gw)）讲了这套方案要解决的问题和整体架构，建议先读文章再看代码。
 
 | Workspace 目录    | 包名                      | 职责                                                                                        |
 | ----------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
